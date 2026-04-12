@@ -351,8 +351,8 @@ input[type=file]{display:none;}
                 <input type="text" class="form-input" id="sav-client" placeholder="Nom du client">
               </div>
               <div class="form-group">
-                <div class="form-label">Téléphone</div>
-                <input type="text" class="form-input" id="sav-tel" placeholder="06 XX XX XX XX">
+                <div class="form-label">Commercial</div>
+                <input type="text" class="form-input" id="sav-commercial" placeholder="Nom du commercial">
               </div>
             </div>
             <div class="form-row">
@@ -361,10 +361,10 @@ input[type=file]{display:none;}
                 <input type="text" class="form-input" id="sav-pb" placeholder="Ex: Volet roulant bloqué, pièce manquante...">
               </div>
               <div class="form-group">
-                <div class="form-label">Commercial</div>
-                <select class="form-input" id="sav-commercial">
-                  <option value="Aurélie">Aurélie (Nemausus)</option>
-                  <option value="Claudine">Claudine (Lambert)</option>
+                <div class="form-label">Société</div>
+                <select class="form-input" id="sav-soc">
+                  <option value="nemausus">Nemausus Fermetures</option>
+                  <option value="lambert">Lambert SAS</option>
                 </select>
               </div>
             </div>
@@ -810,15 +810,14 @@ function filterSAV(filter, btn) {
 
 function addSAV() {
   const client = document.getElementById('sav-client').value.trim();
-  const tel = document.getElementById('sav-tel').value.trim();
   const pb = document.getElementById('sav-pb').value.trim();
   const soc = document.getElementById('sav-soc').value;
-  const commercial = document.getElementById('sav-commercial').value;
+  const commercial = document.getElementById('sav-commercial').value.trim();
   const fourn = document.getElementById('sav-fourn').value.trim();
   if (!client || !pb) { alert('Remplissez le client et le problème'); return; }
   const mem = getMem();
   mem.sav.unshift({
-    id: Date.now(), client, tel, probleme: pb, societe: soc,
+    id: Date.now(), client, probleme: pb, societe: soc,
     commercial, fournisseur: fourn,
     statut: 'nouveau',
     date_creation: new Date().toLocaleDateString('fr-FR'),
@@ -826,7 +825,7 @@ function addSAV() {
     actions: []
   });
   saveMem(mem);
-  ['sav-client','sav-tel','sav-pb','sav-fourn'].forEach(id => document.getElementById(id).value = '');
+  ['sav-client','sav-pb','sav-commercial','sav-fourn'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
   const ok = document.getElementById('sav-ok');
   ok.textContent = '✅ SAV enregistré !';
   setTimeout(() => { ok.textContent = ''; toggleSavForm(); }, 1500);
@@ -839,12 +838,17 @@ function renderSAV() {
   const mem = getMem();
   const list = document.getElementById('sav-list');
   let savs = mem.sav || [];
+  const isAdmin = currentUser.role === 'admin';
 
-  // Filtre
+  // Filtrage par société selon utilisateur
+  if (currentUser.id === 'aurelie') savs = savs.filter(s => s.societe === 'nemausus');
+  else if (currentUser.id === 'claudine') savs = savs.filter(s => s.societe === 'lambert');
+
+  // Filtre état
   if (currentFilter === 'nouveau') savs = savs.filter(s => s.statut === 'nouveau');
   else if (currentFilter === 'en_cours') savs = savs.filter(s => s.statut === 'en_cours');
   else if (currentFilter === 'regle') savs = savs.filter(s => s.statut === 'regle');
-  else savs = savs.filter(s => s.statut !== 'regle'); // "tous" = actifs seulement
+  else savs = savs.filter(s => s.statut !== 'regle');
 
   if (!savs.length) {
     list.innerHTML = `<div style="color:var(--t3);font-size:13px;padding:24px;text-align:center">${currentFilter === 'regle' ? 'Aucun SAV réglé' : 'Aucun SAV en cours 🎉'}</div>`;
@@ -858,35 +862,45 @@ function renderSAV() {
   };
 
   list.innerHTML = savs.map(s => {
-    const isAdmin = currentUser.role === 'admin';
     const derniereAction = s.actions && s.actions.length > 0 ? s.actions[s.actions.length-1] : null;
     return `
     <div class="sav-card" id="sav-${s.id}">
       <div class="sav-info" style="flex:1">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
           ${stateLabel[s.statut] || ''}
           <span class="badge ${s.societe==='nemausus'?'badge-nem':'badge-lam'}">${s.societe==='nemausus'?'Nemausus':'Lambert'}</span>
           <span style="font-size:10px;color:var(--t3);margin-left:auto">${s.date_creation||''}</span>
+          ${isAdmin ? `<button onclick="deleteSAV(${s.id})" title="Supprimer" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:14px;padding:2px 4px">🗑️</button>` : ''}
         </div>
-        <div class="sav-client">${esc(s.client)} ${s.tel?'· '+esc(s.tel):''}</div>
+        <div class="sav-client">${esc(s.client)}</div>
         <div class="sav-pb">${esc(s.probleme)}</div>
         <div class="sav-meta">
-          Commercial : ${esc(s.commercial||'?')} 
-          ${s.fournisseur?' · Fournisseur : '+esc(s.fournisseur):''}
-          · Créé par ${esc(s.by||'?')}
+          ${s.commercial?'Commercial : '+esc(s.commercial)+' · ':''}
+          ${s.fournisseur?'Fournisseur : '+esc(s.fournisseur)+' · ':''}
+          Créé par ${esc(s.by||'?')}
         </div>
         ${derniereAction ? `<div style="margin-top:6px;padding:6px 10px;background:var(--s3);border-radius:6px;font-size:11px;color:var(--t2)">
-          ✅ <strong>${esc(derniereAction.action)}</strong> — ${esc(derniereAction.date)} ${derniereAction.by?' par '+esc(derniereAction.by):''}
+          ✅ <strong>${esc(derniereAction.action)}</strong> — ${esc(derniereAction.date)}${derniereAction.by?' par '+esc(derniereAction.by):''}
         </div>` : ''}
         ${isAdmin && s.statut !== 'regle' ? `
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-          <input type="text" class="sav-action-input" id="action-${s.id}" placeholder="Ce que vous avez fait (ex: Commandé chez Somfy le 12/04)">
-          <button onclick="savAction(${s.id})" style="padding:7px 12px;background:var(--a);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">Enregistrer</button>
-          <button onclick="changeStatut(${s.id},'regle')" class="btn-resolve">✓ Réglé</button>
+          <input type="text" class="sav-action-input" id="action-${s.id}" placeholder="Ce que tu as fait (ex: Commandé chez Somfy le 12/04, Email envoyé fournisseur...)">
+          <button onclick="savAction(${s.id})" style="padding:7px 12px;background:var(--a);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">✓ Enregistrer</button>
+          <button onclick="changeStatut(${s.id},'regle')" class="btn-resolve">🟢 Réglé</button>
         </div>` : ''}
       </div>
     </div>`;
   }).join('');
+}
+
+function deleteSAV(id) {
+  if (!confirm('Supprimer ce SAV définitivement ?')) return;
+  const mem = getMem();
+  mem.sav = mem.sav.filter(s => s.id !== id);
+  saveMem(mem);
+  renderSAV();
+  refreshSAVBadge();
+  logActivity(`${currentUser.name} a supprimé un SAV`);
 }
 
 function savAction(id) {
