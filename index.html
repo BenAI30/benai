@@ -205,6 +205,15 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .badge-lam{background:var(--bl2);color:var(--lam);}
 .btn-resolve{background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
 .btn-resolve:hover{background:var(--g);color:#fff;}
+.sav-filter{background:var(--s3);border:1px solid var(--b1);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
+.sav-filter:hover{border-color:var(--a);color:var(--a);}
+.sav-filter.active{background:var(--a3);border-color:var(--a);color:var(--a);}
+.sav-action-input{flex:1;padding:7px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;outline:none;}
+.sav-action-input:focus{border-color:var(--a);}
+.sav-action-input::placeholder{color:var(--t3);}
+.state-new{background:rgba(248,113,113,.15);color:var(--r);display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+.state-progress{background:rgba(251,191,36,.15);color:#FBBF24;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+.state-done{background:var(--g2);color:var(--g);display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;}
 
 /* PAGE HEADER */
 .page-header{padding:16px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
@@ -328,9 +337,12 @@ input[type=file]{display:none;}
       <!-- PAGE SAV -->
       <div id="page-sav" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
-          <div><div class="page-title">SAV</div><div class="page-sub">Suivi des interventions</div></div>
+          <div><div class="page-title">📋 Suivi SAV</div><div class="page-sub">Tâches en cours — Nemausus & Lambert SAS</div></div>
+          <button class="btn-primary" onclick="toggleSavForm()" id="btn-new-sav">+ Nouveau SAV</button>
         </div>
-        <div class="sav-area">
+
+        <!-- FORMULAIRE NOUVEAU SAV -->
+        <div class="sav-area" style="flex-shrink:0;display:none" id="sav-form-wrap">
           <div class="sav-form">
             <div style="font-size:13px;font-weight:600;margin-bottom:12px;">➕ Nouveau SAV</div>
             <div class="form-row">
@@ -346,8 +358,17 @@ input[type=file]{display:none;}
             <div class="form-row">
               <div class="form-group">
                 <div class="form-label">Problème</div>
-                <input type="text" class="form-input" id="sav-pb" placeholder="Ex: Volet roulant bloqué">
+                <input type="text" class="form-input" id="sav-pb" placeholder="Ex: Volet roulant bloqué, pièce manquante...">
               </div>
+              <div class="form-group">
+                <div class="form-label">Commercial</div>
+                <select class="form-input" id="sav-commercial">
+                  <option value="Aurélie">Aurélie (Nemausus)</option>
+                  <option value="Claudine">Claudine (Lambert)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
               <div class="form-group">
                 <div class="form-label">Société</div>
                 <select class="form-input" id="sav-soc">
@@ -355,11 +376,29 @@ input[type=file]{display:none;}
                   <option value="lambert">Lambert SAS</option>
                 </select>
               </div>
+              <div class="form-group">
+                <div class="form-label">Fournisseur concerné</div>
+                <input type="text" class="form-input" id="sav-fourn" placeholder="Ex: Somfy, Bubendorff...">
+              </div>
             </div>
-            <button class="btn-primary" onclick="addSAV()">Enregistrer le SAV</button>
-            <span id="sav-ok" style="font-size:12px;color:var(--g);margin-left:10px;"></span>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="btn-primary" onclick="addSAV()">Enregistrer</button>
+              <button onclick="toggleSavForm()" style="background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px;">Annuler</button>
+              <span id="sav-ok" style="font-size:12px;color:var(--g);margin-left:6px;"></span>
+            </div>
           </div>
-          <div style="font-size:13px;font-weight:600;margin-bottom:10px;">SAV en cours</div>
+        </div>
+
+        <!-- FILTRES -->
+        <div style="padding:0 16px 10px;display:flex;gap:6px;flex-shrink:0">
+          <button class="sav-filter active" onclick="filterSAV('tous',this)">Tous</button>
+          <button class="sav-filter" onclick="filterSAV('nouveau',this)">🔴 Nouveaux</button>
+          <button class="sav-filter" onclick="filterSAV('en_cours',this)">🟡 En cours</button>
+          <button class="sav-filter" onclick="filterSAV('regle',this)">🟢 Réglés</button>
+        </div>
+
+        <!-- LISTE SAV -->
+        <div class="sav-area" style="padding-top:0">
           <div class="sav-list" id="sav-list"></div>
         </div>
       </div>
@@ -755,21 +794,42 @@ function sendMsg() {
 // ══════════════════════════════════════════
 // SAV
 // ══════════════════════════════════════════
+let currentFilter = 'tous';
+
+function toggleSavForm() {
+  const wrap = document.getElementById('sav-form-wrap');
+  wrap.style.display = wrap.style.display === 'none' ? 'block' : 'none';
+}
+
+function filterSAV(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.sav-filter').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSAV();
+}
+
 function addSAV() {
   const client = document.getElementById('sav-client').value.trim();
   const tel = document.getElementById('sav-tel').value.trim();
   const pb = document.getElementById('sav-pb').value.trim();
   const soc = document.getElementById('sav-soc').value;
+  const commercial = document.getElementById('sav-commercial').value;
+  const fourn = document.getElementById('sav-fourn').value.trim();
   if (!client || !pb) { alert('Remplissez le client et le problème'); return; }
   const mem = getMem();
-  mem.sav.unshift({ id: Date.now(), client, tel, probleme: pb, societe: soc, statut: 'ouvert', date: new Date().toLocaleDateString('fr-FR'), by: currentUser.name });
+  mem.sav.unshift({
+    id: Date.now(), client, tel, probleme: pb, societe: soc,
+    commercial, fournisseur: fourn,
+    statut: 'nouveau',
+    date_creation: new Date().toLocaleDateString('fr-FR'),
+    by: currentUser.name,
+    actions: []
+  });
   saveMem(mem);
-  document.getElementById('sav-client').value = '';
-  document.getElementById('sav-tel').value = '';
-  document.getElementById('sav-pb').value = '';
+  ['sav-client','sav-tel','sav-pb','sav-fourn'].forEach(id => document.getElementById(id).value = '');
   const ok = document.getElementById('sav-ok');
   ok.textContent = '✅ SAV enregistré !';
-  setTimeout(() => ok.textContent = '', 2000);
+  setTimeout(() => { ok.textContent = ''; toggleSavForm(); }, 1500);
   renderSAV();
   refreshSAVBadge();
   logActivity(`${currentUser.name} a ouvert un SAV : ${client}`);
@@ -778,31 +838,91 @@ function addSAV() {
 function renderSAV() {
   const mem = getMem();
   const list = document.getElementById('sav-list');
-  const savs = mem.sav.filter(s => s.statut === 'ouvert');
-  if (!savs.length) { list.innerHTML = '<div style="color:var(--t3);font-size:13px;padding:16px;text-align:center">Aucun SAV en cours 🎉</div>'; return; }
-  list.innerHTML = savs.map(s => `
-    <div class="sav-card">
-      <div class="sav-info">
-        <div class="sav-client">${esc(s.client)}</div>
+  let savs = mem.sav || [];
+
+  // Filtre
+  if (currentFilter === 'nouveau') savs = savs.filter(s => s.statut === 'nouveau');
+  else if (currentFilter === 'en_cours') savs = savs.filter(s => s.statut === 'en_cours');
+  else if (currentFilter === 'regle') savs = savs.filter(s => s.statut === 'regle');
+  else savs = savs.filter(s => s.statut !== 'regle'); // "tous" = actifs seulement
+
+  if (!savs.length) {
+    list.innerHTML = `<div style="color:var(--t3);font-size:13px;padding:24px;text-align:center">${currentFilter === 'regle' ? 'Aucun SAV réglé' : 'Aucun SAV en cours 🎉'}</div>`;
+    return;
+  }
+
+  const stateLabel = {
+    nouveau: '<span class="state-new">🔴 Nouveau</span>',
+    en_cours: '<span class="state-progress">🟡 En cours</span>',
+    regle: '<span class="state-done">🟢 Réglé</span>'
+  };
+
+  list.innerHTML = savs.map(s => {
+    const isAdmin = currentUser.role === 'admin';
+    const derniereAction = s.actions && s.actions.length > 0 ? s.actions[s.actions.length-1] : null;
+    return `
+    <div class="sav-card" id="sav-${s.id}">
+      <div class="sav-info" style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          ${stateLabel[s.statut] || ''}
+          <span class="badge ${s.societe==='nemausus'?'badge-nem':'badge-lam'}">${s.societe==='nemausus'?'Nemausus':'Lambert'}</span>
+          <span style="font-size:10px;color:var(--t3);margin-left:auto">${s.date_creation||''}</span>
+        </div>
+        <div class="sav-client">${esc(s.client)} ${s.tel?'· '+esc(s.tel):''}</div>
         <div class="sav-pb">${esc(s.probleme)}</div>
-        <div class="sav-meta">${s.date} · ${s.tel || ''} · Par ${s.by || '?'}</div>
+        <div class="sav-meta">
+          Commercial : ${esc(s.commercial||'?')} 
+          ${s.fournisseur?' · Fournisseur : '+esc(s.fournisseur):''}
+          · Créé par ${esc(s.by||'?')}
+        </div>
+        ${derniereAction ? `<div style="margin-top:6px;padding:6px 10px;background:var(--s3);border-radius:6px;font-size:11px;color:var(--t2)">
+          ✅ <strong>${esc(derniereAction.action)}</strong> — ${esc(derniereAction.date)} ${derniereAction.by?' par '+esc(derniereAction.by):''}
+        </div>` : ''}
+        ${isAdmin && s.statut !== 'regle' ? `
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          <input type="text" class="sav-action-input" id="action-${s.id}" placeholder="Ce que vous avez fait (ex: Commandé chez Somfy le 12/04)">
+          <button onclick="savAction(${s.id})" style="padding:7px 12px;background:var(--a);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">Enregistrer</button>
+          <button onclick="changeStatut(${s.id},'regle')" class="btn-resolve">✓ Réglé</button>
+        </div>` : ''}
       </div>
-      <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
-        <span class="badge ${s.societe==='nemausus'?'badge-nem':'badge-lam'}">${s.societe==='nemausus'?'Nemausus':'Lambert'}</span>
-        <button class="btn-resolve" onclick="closeSAV(${s.id})">✓ Résolu</button>
-      </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
-function closeSAV(id) {
+function savAction(id) {
+  const input = document.getElementById('action-' + id);
+  const txt = input?.value.trim();
+  if (!txt) return;
   const mem = getMem();
   const sav = mem.sav.find(s => s.id === id);
-  if (sav) { sav.statut = 'resolu'; saveMem(mem); renderSAV(); refreshSAVBadge(); logActivity(`${currentUser.name} a résolu le SAV : ${sav.client}`); }
+  if (!sav) return;
+  if (!sav.actions) sav.actions = [];
+  sav.actions.push({ action: txt, date: new Date().toLocaleDateString('fr-FR'), by: currentUser.name });
+  sav.statut = 'en_cours';
+  saveMem(mem);
+  renderSAV();
+  refreshSAVBadge();
+  logActivity(`${currentUser.name} a traité le SAV : ${sav.client} — ${txt}`);
 }
+
+function changeStatut(id, statut) {
+  const mem = getMem();
+  const sav = mem.sav.find(s => s.id === id);
+  if (sav) {
+    sav.statut = statut;
+    if (statut === 'regle') sav.date_reglement = new Date().toLocaleDateString('fr-FR');
+    saveMem(mem);
+    renderSAV();
+    refreshSAVBadge();
+    logActivity(`${currentUser.name} a réglé le SAV : ${sav.client}`);
+  }
+}
+
+function closeSAV(id) { changeStatut(id, 'regle'); }
 
 function refreshSAVBadge() {
   const mem = getMem();
-  const nb = mem.sav.filter(s => s.statut === 'ouvert').length;
+  const nb = (mem.sav || []).filter(s => s.statut === 'nouveau' || s.statut === 'en_cours').length;
   const badge = document.getElementById('sav-badge');
   if (nb > 0) { badge.style.display = 'flex'; badge.textContent = nb; } else { badge.style.display = 'none'; }
   const adminEl = document.getElementById('admin-sav');
