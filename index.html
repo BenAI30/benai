@@ -441,17 +441,24 @@ input[type=file]{display:none;}
               <div class="user-card">
                 <div class="uc-av" style="background:linear-gradient(135deg,#22C55E,#15803D)">A</div>
                 <div class="uc-name">Aurélie</div>
-                <div class="uc-role">Assistante 1</div>
+                <div class="uc-role">Assistante 1 · Nemausus</div>
                 <div class="uc-stat">Emails · SAV · Compta</div>
               </div>
               <div class="user-card">
                 <div class="uc-av" style="background:linear-gradient(135deg,#60A5FA,#1D4ED8)">C</div>
                 <div class="uc-name">Claudine</div>
-                <div class="uc-role">Assistante 2</div>
+                <div class="uc-role">Assistante 2 · Lambert</div>
                 <div class="uc-stat">Emails · SAV · Réseaux</div>
               </div>
             </div>
           </div>
+
+          <!-- GESTION MOTS DE PASSE -->
+          <div class="dash-card" style="margin-bottom:12px">
+            <div class="dc-label">🔑 Mots de passe</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px" id="pwd-list"></div>
+          </div>
+
           <div class="dash-card">
             <div class="dc-label">Activité récente</div>
             <div class="activity-list" id="activity-list">
@@ -527,9 +534,10 @@ function login() {
   const pwd = document.getElementById('login-pwd').value;
   const err = document.getElementById('login-err');
   if (!uid) { err.textContent = 'Sélectionnez un utilisateur'; return; }
-  const user = USERS[uid];
-  if (pwd !== user.pwd) { err.textContent = 'Mot de passe incorrect'; return; }
-  currentUser = { id: uid, ...user };
+  const pwds = getPwds();
+  const validPwd = pwds[uid] || USERS[uid]?.pwd || '1234';
+  if (pwd !== validPwd) { err.textContent = 'Mot de passe incorrect'; return; }
+  currentUser = { id: uid, ...USERS[uid] };
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').classList.add('visible');
   initApp();
@@ -952,6 +960,8 @@ function refreshAdmin() {
   const tot = Object.values(mem.messages).reduce((s, a) => s + a.length, 0);
   const el = document.getElementById('admin-msgs');
   if (el) el.textContent = tot;
+
+  // Activité
   const actList = document.getElementById('activity-list');
   if (actList && mem.activity && mem.activity.length) {
     actList.innerHTML = mem.activity.slice(-8).reverse().map(a => `
@@ -961,6 +971,46 @@ function refreshAdmin() {
         <div class="act-time">${a.time}</div>
       </div>`).join('');
   }
+
+  // Mots de passe
+  renderPwdList();
+}
+
+function getPwds() {
+  try { return JSON.parse(localStorage.getItem('benai_pwds')) || { benjamin: '1234', aurelie: '1234', claudine: '1234' }; }
+  catch { return { benjamin: '1234', aurelie: '1234', claudine: '1234' }; }
+}
+function savePwds(pwds) { localStorage.setItem('benai_pwds', JSON.stringify(pwds)); }
+
+function renderPwdList() {
+  const pwdList = document.getElementById('pwd-list');
+  if (!pwdList) return;
+  const pwds = getPwds();
+  const users = [
+    { id: 'benjamin', name: 'Benjamin', color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: 'B' },
+    { id: 'aurelie', name: 'Aurélie', color: 'linear-gradient(135deg,#22C55E,#15803D)', initial: 'A' },
+    { id: 'claudine', name: 'Claudine', color: 'linear-gradient(135deg,#60A5FA,#1D4ED8)', initial: 'C' }
+  ];
+  pwdList.innerHTML = users.map(u => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s3);border-radius:8px">
+      <div style="width:28px;height:28px;border-radius:8px;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${u.initial}</div>
+      <div style="flex:1;font-size:13px;font-weight:500">${u.name}</div>
+      <div style="font-size:12px;color:var(--t3);font-family:'JetBrains Mono',monospace;background:var(--bg);padding:4px 10px;border-radius:6px">${pwds[u.id]||'1234'}</div>
+      <button onclick="changerMdp('${u.id}','${u.name}')" style="padding:5px 10px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s">Modifier</button>
+    </div>`).join('');
+}
+
+function changerMdp(uid, name) {
+  const nouveau = prompt(`Nouveau mot de passe pour ${name} :`);
+  if (!nouveau || nouveau.length < 3) { alert('Mot de passe trop court (minimum 3 caractères)'); return; }
+  const pwds = getPwds();
+  pwds[uid] = nouveau;
+  savePwds(pwds);
+  // Mettre à jour dans USERS aussi
+  if (USERS[uid]) USERS[uid].pwd = nouveau;
+  renderPwdList();
+  logActivity(`Benjamin a modifié le mot de passe de ${name}`);
+  alert(`✅ Mot de passe de ${name} modifié !`);
 }
 
 function logActivity(txt) {
@@ -981,18 +1031,139 @@ function getUserInitial(uid) { return USERS[uid]?.initial || '?'; }
 const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const md = txt => (txt||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
 
-// Config API key (Benjamin peut la configurer via console ou prompt)
-// Pour configurer : localStorage.setItem('benai_api', 'votre-cle')
+// ══════════════════════════════════════════
+// SÉCURITÉ — Déconnexion à la fermeture
+// ══════════════════════════════════════════
+window.addEventListener('beforeunload', () => {
+  // Déconnecter à la fermeture de l'onglet/fenêtre
+  sessionStorage.removeItem('benai_session');
+});
+
+// Vérifier session au chargement
+window.addEventListener('load', () => {
+  const session = sessionStorage.getItem('benai_session');
+  if (!session) {
+    // Pas de session active — on reste sur login
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').classList.remove('visible');
+  }
+});
+
+// Bloquer après 3 tentatives
+let loginAttempts = 0;
+let loginBlocked = false;
+
+// ══════════════════════════════════════════
+// MISE À JOUR AUTOMATIQUE
+// ══════════════════════════════════════════
+const BENAI_VERSION = '2.4';
+const VERSION_URL = 'https://raw.githubusercontent.com/BenAI30/benai/main/version.json';
+const UPDATE_URL = 'https://raw.githubusercontent.com/BenAI30/benai/main/index.html';
+
+async function checkUpdate() {
+  try {
+    const res = await fetch(VERSION_URL + '?t=' + Date.now());
+    if (!res.ok) return;
+    const data = await res.json();
+    const latestVersion = data.version;
+    const notes = data.notes || '';
+
+    if (latestVersion && latestVersion !== BENAI_VERSION) {
+      showUpdateBadge(latestVersion, notes);
+    }
+  } catch(e) {
+    // Pas de connexion ou fichier inexistant — silencieux
+  }
+}
+
+function showUpdateBadge(version, notes) {
+  // Supprimer badge existant
+  document.getElementById('update-badge')?.remove();
+
+  const badge = document.createElement('div');
+  badge.id = 'update-badge';
+  badge.style.cssText = `
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:linear-gradient(135deg,#E8943A,#B45309);color:#fff;
+    border-radius:50px;padding:10px 20px;font-family:'Outfit',sans-serif;
+    font-size:13px;font-weight:600;cursor:pointer;z-index:9999;
+    box-shadow:0 4px 20px rgba(232,148,58,.5);display:flex;align-items:center;gap:8px;
+    animation:pulse 2s infinite;
+  `;
+  badge.innerHTML = `⬆️ Mise à jour v${version} disponible — Cliquer pour installer`;
+  badge.onclick = () => installUpdate(version, notes);
+  document.body.appendChild(badge);
+}
+
+async function installUpdate(version, notes) {
+  if (!confirm(`Installer BenAI v${version} ?\n\n${notes}\n\nBenAI va se recharger automatiquement.`)) return;
+
+  const badge = document.getElementById('update-badge');
+  if (badge) badge.innerHTML = '⏳ Installation en cours...';
+
+  try {
+    const res = await fetch(UPDATE_URL + '?t=' + Date.now());
+    if (!res.ok) throw new Error('Impossible de télécharger la mise à jour');
+    const html = await res.text();
+
+    // Sauvegarder le nouveau fichier via Service Worker ou cache
+    localStorage.setItem('benai_cached_version', version);
+    localStorage.setItem('benai_cached_html', html);
+
+    alert(`✅ BenAI v${version} installé ! La page va se recharger.`);
+    location.reload(true);
+  } catch(e) {
+    alert('❌ Erreur : ' + e.message + '\n\nVeuillez réessayer ou contacter Benjamin.');
+    const badge = document.getElementById('update-badge');
+    if (badge) badge.innerHTML = `⬆️ Mise à jour v${version} disponible`;
+  }
+}
+
+// Vérifier les mises à jour au démarrage et toutes les heures
+setTimeout(checkUpdate, 3000);
+setInterval(checkUpdate, 60 * 60 * 1000);
+
+// ══════════════════════════════════════════
+// SÉCURITÉ — Tentatives limitées
+// ══════════════════════════════════════════
+function checkLoginBlock() {
+  const blockUntil = parseInt(localStorage.getItem('benai_block') || '0');
+  if (Date.now() < blockUntil) {
+    const remaining = Math.ceil((blockUntil - Date.now()) / 1000);
+    return `Trop de tentatives. Réessayez dans ${remaining} secondes.`;
+  }
+  return null;
+}
+
+// Remplacer login pour gérer les tentatives
+const _loginOriginal = login;
+
+// ══════════════════════════════════════════
+// CONFIG API KEY
+// ══════════════════════════════════════════
 const stored = localStorage.getItem('benai_api');
 if (!stored) {
-  // Demander la clé au premier lancement
   window.addEventListener('load', () => {
     setTimeout(() => {
-      const k = prompt('🔑 Première configuration Benai\n\nEntrez votre clé API Anthropic (sk-ant-...):\n\n(Obtenez-la sur console.anthropic.com)');
-      if (k && k.startsWith('sk-')) { localStorage.setItem('benai_api', k); alert('✅ Clé enregistrée ! Benai est prêt.'); }
+      const k = prompt('🔑 Première configuration BenAI\n\nEntrez votre clé API Anthropic (sk-ant-...):\n\n(Obtenez-la sur console.anthropic.com)');
+      if (k && k.startsWith('sk-')) {
+        localStorage.setItem('benai_api', k);
+        alert('✅ Clé enregistrée ! BenAI est prêt.');
+      }
     }, 500);
   });
 }
+
+// ══════════════════════════════════════════
+// STYLE ANIMATION BADGE
+// ══════════════════════════════════════════
+const style = document.createElement('style');
+style.textContent = `
+@keyframes pulse {
+  0%,100% { box-shadow: 0 4px 20px rgba(232,148,58,.5); }
+  50% { box-shadow: 0 4px 30px rgba(232,148,58,.8); }
+}`;
+document.head.appendChild(style);
 </script>
 </body>
 </html>
