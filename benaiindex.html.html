@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Benai — Nemausus Fermetures</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+:root{
+  --bg:#080808;--s1:#101010;--s2:#161616;--s3:#1E1E1E;--b1:#242424;--b2:#2E2E2E;
+  --t1:#F2EFE8;--t2:#A8A49C;--t3:#5A5650;
+  --a:#E8943A;--a2:#C4711A;--a3:rgba(232,148,58,.12);
+  --g:#22C55E;--g2:rgba(34,197,94,.12);
+  --r:#F87171;--r2:rgba(248,113,113,.12);
+  --bl:#60A5FA;--bl2:rgba(96,165,250,.12);
+  --nem:#E8943A;--lam:#60A5FA;
+}
+
+html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);}
+
+/* ══════════════════════════════════════════
+   LOGIN
+══════════════════════════════════════════ */
+#login-screen{
+  position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;
+  background-image:radial-gradient(ellipse at 30% 20%, rgba(232,148,58,.06) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(96,165,250,.04) 0%, transparent 60%);
+}
+.login-box{width:380px;padding:40px 36px;background:var(--s1);border:1px solid var(--b1);border-radius:20px;box-shadow:0 40px 80px rgba(0,0,0,.6);}
+.login-logo{text-align:center;margin-bottom:28px;}
+.login-logo .logo-mark{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#fff;margin:0 auto 12px;box-shadow:0 8px 24px rgba(232,148,58,.4);}
+.login-logo h1{font-size:22px;font-weight:700;letter-spacing:-.02em;}
+.login-logo p{font-size:12px;color:var(--t3);margin-top:3px;}
+.login-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:6px;}
+.login-select{width:100%;padding:11px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:14px;outline:none;cursor:pointer;margin-bottom:14px;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
+.login-select:focus{border-color:var(--a);}
+.login-select option{background:var(--s2);}
+.login-input{width:100%;padding:11px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:14px;outline:none;margin-bottom:14px;transition:.15s;}
+.login-input:focus{border-color:var(--a);}
+.login-input::placeholder{color:var(--t3);}
+.login-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:.15s;letter-spacing:.02em;}
+.login-btn:hover{opacity:.9;transform:translateY(-1px);}
+.login-err{font-size:12px;color:var(--r);text-align:center;margin-top:8px;min-height:16px;}
+
+/* ══════════════════════════════════════════
+   APP LAYOUT
+══════════════════════════════════════════ */
+#app{display:none;height:100%;flex-direction:column;}
+#app.visible{display:flex;}
+
+/* TOPBAR */
+.topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;}
+.tb-logo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;}
+.tb-name{font-size:15px;font-weight:700;letter-spacing:-.01em;}
+.tb-user{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.tb-avatar{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;}
+.tb-username{font-size:13px;font-weight:500;color:var(--t2);}
+.tb-logout{background:none;border:1px solid var(--b1);border-radius:6px;padding:4px 9px;color:var(--t3);font-size:11px;cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
+.tb-logout:hover{border-color:var(--r);color:var(--r);}
+
+/* MAIN LAYOUT */
+.main{display:flex;flex:1;overflow:hidden;}
+
+/* SIDEBAR */
+.sidebar{width:220px;background:var(--s1);border-right:1px solid var(--b1);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
+.sb-section{padding:10px 8px 4px;}
+.sb-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);padding:0 8px;margin-bottom:4px;}
+.sb-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:.12s;margin-bottom:2px;position:relative;}
+.sb-item:hover{background:var(--s3);}
+.sb-item.active{background:var(--a3);color:var(--a);}
+.sb-item.active .sb-icon{color:var(--a);}
+.sb-icon{font-size:16px;flex-shrink:0;}
+.sb-txt{font-size:13px;font-weight:500;}
+.sb-badge{margin-left:auto;background:var(--a);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;}
+.sb-unread{margin-left:auto;width:8px;height:8px;border-radius:50%;background:var(--a);}
+
+/* CONTENT */
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+
+/* ══════════════════════════════════════════
+   CHAT BENAI (IA)
+══════════════════════════════════════════ */
+.chat-area{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;}
+.chat-area::-webkit-scrollbar{width:3px;}
+.chat-area::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px;}
+
+.msg{display:flex;gap:10px;}
+.msg.user{flex-direction:row-reverse;align-self:flex-end;max-width:72%;}
+.msg.ai{align-self:flex-start;max-width:85%;}
+.msg-avatar{width:30px;height:30px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;}
+.msg.ai .msg-avatar{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;}
+.msg.user .msg-avatar{color:#fff;}
+.bubble{padding:11px 14px;border-radius:14px;font-size:13.5px;line-height:1.65;}
+.msg.ai .bubble{background:var(--s2);border:1px solid var(--b1);border-radius:14px 14px 14px 3px;}
+.msg.user .bubble{border-radius:14px 14px 3px 14px;color:#fff;}
+.typing{display:flex;gap:4px;padding:3px 0;}
+.typing span{width:6px;height:6px;border-radius:50%;background:var(--t3);animation:bounce .8s infinite;}
+.typing span:nth-child(2){animation-delay:.15s;}
+.typing span:nth-child(3){animation-delay:.3s;}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+
+/* INPUT BENAI */
+.chat-input-area{padding:14px 16px;border-top:1px solid var(--b1);background:var(--s1);flex-shrink:0;}
+.chat-input-row{display:flex;gap:8px;align-items:flex-end;}
+.chat-textarea{flex:1;background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:10px 13px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;resize:none;outline:none;min-height:42px;max-height:100px;line-height:1.5;transition:border-color .15s;}
+.chat-textarea:focus{border-color:var(--a);}
+.chat-textarea::placeholder{color:var(--t3);}
+.btn-attach{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:9px 11px;cursor:pointer;color:var(--t3);transition:.15s;font-size:16px;display:flex;align-items:center;flex-shrink:0;}
+.btn-attach:hover{border-color:var(--a);color:var(--a);}
+.btn-send{background:linear-gradient(135deg,var(--a),var(--a2));border:none;border-radius:10px;padding:9px 16px;cursor:pointer;color:#fff;font-weight:700;font-family:'Outfit',sans-serif;font-size:13px;flex-shrink:0;transition:.15s;}
+.btn-send:hover{opacity:.88;}
+.btn-send:disabled{opacity:.3;cursor:not-allowed;}
+
+/* ══════════════════════════════════════════
+   MESSAGERIE INTERNE
+══════════════════════════════════════════ */
+.msg-layout{display:flex;flex:1;overflow:hidden;}
+.conv-list{width:200px;border-right:1px solid var(--b1);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;}
+.conv-header{padding:14px 14px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);}
+.conv-item{padding:11px 14px;cursor:pointer;transition:.12s;border-bottom:1px solid var(--b1);position:relative;}
+.conv-item:hover{background:var(--s2);}
+.conv-item.active{background:var(--a3);}
+.conv-name{font-size:13px;font-weight:600;color:var(--t1);}
+.conv-preview{font-size:11px;color:var(--t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.conv-unread{position:absolute;top:11px;right:12px;width:8px;height:8px;border-radius:50%;background:var(--a);}
+.conv-group{background:var(--a3);}
+.conv-group .conv-name{color:var(--a);}
+
+.msg-thread{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.thread-header{padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:10px;background:var(--s1);}
+.thread-avatar{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;}
+.thread-name{font-size:14px;font-weight:600;}
+.thread-status{font-size:11px;color:var(--t3);}
+.thread-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;}
+.thread-msgs::-webkit-scrollbar{width:3px;}
+.thread-msgs::-webkit-scrollbar-thumb{background:var(--b2);}
+.tmsg{display:flex;gap:8px;max-width:75%;}
+.tmsg.mine{align-self:flex-end;flex-direction:row-reverse;}
+.tmsg.theirs{align-self:flex-start;}
+.tmsg-av{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+.tmsg-bubble{padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.5;}
+.tmsg.mine .tmsg-bubble{border-radius:12px 12px 3px 12px;color:#fff;}
+.tmsg.theirs .tmsg-bubble{background:var(--s3);border:1px solid var(--b1);border-radius:12px 12px 12px 3px;}
+.tmsg-time{font-size:10px;color:var(--t3);margin-top:3px;text-align:right;}
+.tmsg.theirs .tmsg-time{text-align:left;}
+.thread-input{padding:12px 14px;border-top:1px solid var(--b1);display:flex;gap:8px;background:var(--s1);}
+.thread-input input{flex:1;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:9px 12px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;outline:none;transition:.15s;}
+.thread-input input:focus{border-color:var(--a);}
+.thread-input input::placeholder{color:var(--t3);}
+.thread-send{background:var(--a);border:none;border-radius:9px;padding:9px 14px;color:#fff;cursor:pointer;font-size:16px;transition:.15s;}
+.thread-send:hover{background:var(--a2);}
+
+/* ══════════════════════════════════════════
+   DASHBOARD ADMIN
+══════════════════════════════════════════ */
+.dashboard{flex:1;overflow-y:auto;padding:20px;}
+.dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+.dash-card{background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:16px;}
+.dash-card.wide{grid-column:span 2;}
+.dash-card.full{grid-column:1/-1;}
+.dc-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px;}
+.dc-val{font-size:28px;font-weight:800;color:var(--t1);font-family:'Outfit',sans-serif;}
+.dc-sub{font-size:11px;color:var(--t3);margin-top:3px;}
+.dc-icon{font-size:24px;margin-bottom:8px;}
+
+.activity-list{display:flex;flex-direction:column;gap:6px;}
+.act-item{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--s3);border-radius:8px;}
+.act-av{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+.act-txt{flex:1;font-size:12px;color:var(--t2);}
+.act-time{font-size:10px;color:var(--t3);}
+
+.user-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.user-card{background:var(--s3);border:1px solid var(--b1);border-radius:12px;padding:14px;text-align:center;}
+.uc-av{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;margin:0 auto 8px;}
+.uc-name{font-size:13px;font-weight:600;}
+.uc-role{font-size:10px;color:var(--t3);margin-top:2px;}
+.uc-stat{font-size:11px;color:var(--t2);margin-top:6px;}
+.online-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--g);margin-right:4px;}
+
+/* ══════════════════════════════════════════
+   SAV
+══════════════════════════════════════════ */
+.sav-area{flex:1;overflow-y:auto;padding:16px;}
+.sav-form{background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:16px;margin-bottom:16px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+.form-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);}
+.form-input{padding:9px 11px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;outline:none;transition:.15s;}
+.form-input:focus{border-color:var(--a);}
+.form-input::placeholder{color:var(--t3);}
+.btn-primary{padding:10px 20px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:8px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;}
+.btn-primary:hover{opacity:.88;}
+
+.sav-list{display:flex;flex-direction:column;gap:8px;}
+.sav-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:13px 15px;display:flex;align-items:center;gap:12px;}
+.sav-info{flex:1;}
+.sav-client{font-size:13px;font-weight:600;}
+.sav-pb{font-size:12px;color:var(--t2);margin-top:2px;}
+.sav-meta{font-size:10px;color:var(--t3);margin-top:3px;}
+.badge{display:inline-block;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;}
+.badge-open{background:var(--r2);color:var(--r);}
+.badge-done{background:var(--g2);color:var(--g);}
+.badge-nem{background:rgba(232,148,58,.15);color:var(--nem);}
+.badge-lam{background:var(--bl2);color:var(--lam);}
+.btn-resolve{background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
+.btn-resolve:hover{background:var(--g);color:#fff;}
+
+/* PAGE HEADER */
+.page-header{padding:16px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.page-title{font-size:17px;font-weight:700;letter-spacing:-.02em;}
+.page-sub{font-size:12px;color:var(--t3);margin-top:2px;}
+
+input[type=file]{display:none;}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="logo-mark">B</div>
+      <h1>Benai</h1>
+      <p>Nemausus Fermetures · Lambert SAS</p>
+    </div>
+    <div class="login-label">Qui êtes-vous ?</div>
+    <select class="login-select" id="login-user">
+      <option value="">Sélectionner...</option>
+      <option value="benjamin">Benjamin</option>
+      <option value="aurelie">Aurélie</option>
+      <option value="claudine">Claudine</option>
+    </select>
+    <div class="login-label">Mot de passe</div>
+    <input type="password" class="login-input" id="login-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
+    <button class="login-btn" onclick="login()">Se connecter →</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="tb-logo">B</div>
+    <div class="tb-name">Benai</div>
+    <div id="tb-societe" style="font-size:11px;color:var(--t3);margin-left:4px;"></div>
+    <div class="tb-user">
+      <div class="tb-avatar" id="tb-avatar"></div>
+      <span class="tb-username" id="tb-username"></span>
+      <button class="tb-logout" onclick="logout()">Déconnexion</button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div class="sb-section">
+        <div class="sb-label">Assistant</div>
+        <div class="sb-item active" onclick="showPage('benai')" id="nav-benai">
+          <span class="sb-icon">🤖</span>
+          <span class="sb-txt">Benai IA</span>
+        </div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-label">Messages</div>
+        <div id="nav-messages"></div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-label">Gestion</div>
+        <div class="sb-item" onclick="showPage('sav')" id="nav-sav">
+          <span class="sb-icon">🔧</span>
+          <span class="sb-txt">SAV</span>
+          <span class="sb-badge" id="sav-badge" style="display:none"></span>
+        </div>
+        <div class="sb-item" id="nav-admin" style="display:none" onclick="showPage('admin')">
+          <span class="sb-icon">📊</span>
+          <span class="sb-txt">Dashboard</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- PAGE BENAI -->
+      <div id="page-benai" style="display:flex;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;">
+          <div>
+            <div class="page-title">Benai IA</div>
+            <div class="page-sub">Règle absolue : Benai suggère — vous décidez toujours</div>
+          </div>
+          <button class="btn-attach" onclick="document.getElementById('pdf-file').click()" title="Analyser un devis PDF" style="border-radius:10px;padding:8px 12px;font-size:13px;gap:6px;display:flex;align-items:center;color:var(--t2);">📎 <span style="font-size:12px">Devis PDF</span></button>
+        </div>
+        <div class="chat-area" id="chat-area"></div>
+        <div class="chat-input-area">
+          <div class="chat-input-row">
+            <textarea class="chat-textarea" id="chat-input" placeholder="Parlez à Benai..." rows="1"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"
+              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+            <button class="btn-send" id="btn-send" onclick="sendChat()">Envoyer ↑</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE MESSAGERIE -->
+      <div id="page-messages" style="display:none;flex:1;overflow:hidden;flex-direction:column;">
+        <div class="page-header" style="padding-bottom:10px;flex-shrink:0">
+          <div><div class="page-title">Messages internes</div><div class="page-sub">Communication privée entre l'équipe</div></div>
+        </div>
+        <div class="msg-layout">
+          <div class="conv-list" id="conv-list"></div>
+          <div class="msg-thread">
+            <div class="thread-header" id="thread-header">
+              <div style="color:var(--t3);font-size:13px;margin:auto">Sélectionnez une conversation</div>
+            </div>
+            <div class="thread-msgs" id="thread-msgs"></div>
+            <div class="thread-input" id="thread-input" style="display:none">
+              <input type="text" id="msg-input" placeholder="Écrire un message..." onkeydown="if(event.key==='Enter')sendMsg()">
+              <button class="thread-send" onclick="sendMsg()">↑</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE SAV -->
+      <div id="page-sav" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+          <div><div class="page-title">SAV</div><div class="page-sub">Suivi des interventions</div></div>
+        </div>
+        <div class="sav-area">
+          <div class="sav-form">
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px;">➕ Nouveau SAV</div>
+            <div class="form-row">
+              <div class="form-group">
+                <div class="form-label">Client</div>
+                <input type="text" class="form-input" id="sav-client" placeholder="Nom du client">
+              </div>
+              <div class="form-group">
+                <div class="form-label">Téléphone</div>
+                <input type="text" class="form-input" id="sav-tel" placeholder="06 XX XX XX XX">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <div class="form-label">Problème</div>
+                <input type="text" class="form-input" id="sav-pb" placeholder="Ex: Volet roulant bloqué">
+              </div>
+              <div class="form-group">
+                <div class="form-label">Société</div>
+                <select class="form-input" id="sav-soc">
+                  <option value="nemausus">Nemausus Fermetures</option>
+                  <option value="lambert">Lambert SAS</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn-primary" onclick="addSAV()">Enregistrer le SAV</button>
+            <span id="sav-ok" style="font-size:12px;color:var(--g);margin-left:10px;"></span>
+          </div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px;">SAV en cours</div>
+          <div class="sav-list" id="sav-list"></div>
+        </div>
+      </div>
+
+      <!-- PAGE ADMIN -->
+      <div id="page-admin" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+          <div><div class="page-title">Dashboard Admin</div><div class="page-sub">Vue d'ensemble — Benai</div></div>
+        </div>
+        <div class="dashboard">
+          <div class="dash-grid">
+            <div class="dash-card">
+              <div class="dc-icon">👥</div>
+              <div class="dc-label">Utilisateurs actifs</div>
+              <div class="dc-val">3</div>
+              <div class="dc-sub">Benjamin, Aurélie, Claudine</div>
+            </div>
+            <div class="dash-card">
+              <div class="dc-icon">🔧</div>
+              <div class="dc-label">SAV ouverts</div>
+              <div class="dc-val" id="admin-sav">0</div>
+              <div class="dc-sub">À traiter</div>
+            </div>
+            <div class="dash-card">
+              <div class="dc-icon">💬</div>
+              <div class="dc-label">Messages aujourd'hui</div>
+              <div class="dc-val" id="admin-msgs">0</div>
+              <div class="dc-sub">Messages internes</div>
+            </div>
+          </div>
+          <div class="dash-card" style="margin-bottom:12px">
+            <div class="dc-label">Équipe</div>
+            <div class="user-cards">
+              <div class="user-card">
+                <div class="uc-av" style="background:linear-gradient(135deg,#E8943A,#B45309)">B</div>
+                <div class="uc-name">Benjamin</div>
+                <div class="uc-role">Admin · Gérant</div>
+                <div class="uc-stat"><span class="online-dot"></span>En ligne</div>
+              </div>
+              <div class="user-card">
+                <div class="uc-av" style="background:linear-gradient(135deg,#22C55E,#15803D)">A</div>
+                <div class="uc-name">Aurélie</div>
+                <div class="uc-role">Assistante 1</div>
+                <div class="uc-stat">Emails · SAV · Compta</div>
+              </div>
+              <div class="user-card">
+                <div class="uc-av" style="background:linear-gradient(135deg,#60A5FA,#1D4ED8)">C</div>
+                <div class="uc-name">Claudine</div>
+                <div class="uc-role">Assistante 2</div>
+                <div class="uc-stat">Emails · SAV · Réseaux</div>
+              </div>
+            </div>
+          </div>
+          <div class="dash-card">
+            <div class="dc-label">Activité récente</div>
+            <div class="activity-list" id="activity-list">
+              <div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<input type="file" id="pdf-file" accept=".pdf">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ══════════════════════════════════════════
+// CONFIGURATION UTILISATEURS
+// ══════════════════════════════════════════
+const USERS = {
+  benjamin: {
+    name: 'Benjamin', pwd: '1234', role: 'admin',
+    color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: 'B',
+    pages: ['benai','messages','sav','admin'],
+    system: `Tu es Benai, l'assistant personnel de Benjamin, gérant de Nemausus Fermetures et Lambert SAS. Benjamin gère le back-office : commandes fournisseurs, SAV, All Manager, emails, réseaux sociaux, comptabilité. Tu lui proposes toujours — il décide toujours. Tutoie-le.`
+  },
+  aurelie: {
+    name: 'Aurélie', pwd: '1234', role: 'assistante',
+    color: 'linear-gradient(135deg,#22C55E,#15803D)', initial: 'A',
+    pages: ['benai','messages','sav'],
+    system: `Tu es Benai, l'assistant d'Aurélie, assistante chez Nemausus Fermetures et Lambert SAS. Elle gère : emails clients, SAV, All Manager, accueil téléphone, comptabilité. Tu lui proposes toujours — elle décide toujours. Tutoie-la.`
+  },
+  claudine: {
+    name: 'Claudine', pwd: '1234', role: 'assistante',
+    color: 'linear-gradient(135deg,#60A5FA,#1D4ED8)', initial: 'C',
+    pages: ['benai','messages','sav'],
+    system: `Tu es Benai, l'assistant de Claudine, assistante chez Nemausus Fermetures et Lambert SAS. Elle gère : emails clients, SAV, All Manager, accueil téléphone, réseaux sociaux, comptabilité. Tu lui proposes toujours — elle décide toujours. Tutoie-la.`
+  }
+};
+
+const BENAI_BASE = `
+Contexte entreprises :
+- Nemausus Fermetures (franchise Monsieur Store, Nîmes)
+- Lambert SAS (même activité, fermeture/menuiserie)
+Produits : menuiserie alu, volets roulants/battants, portes d'entrée, fenêtres, coulissants, pergolas, stores, portails, protections solaires.
+Logiciels : Hercule Pro (devis), All Manager (ERP).
+Clientèle : particuliers uniquement.
+RÈGLE ABSOLUE : Tu proposes → l'utilisateur décide. Jamais d'action automatique.`;
+
+// ══════════════════════════════════════════
+// ÉTAT
+// ══════════════════════════════════════════
+let currentUser = null;
+let chatHistory = [];
+let currentConv = null;
+let busy = false;
+
+// ══════════════════════════════════════════
+// MÉMOIRE
+// ══════════════════════════════════════════
+function getMem() { try { return JSON.parse(localStorage.getItem('benai_v2')) || { sav: [], messages: {}, activity: [] }; } catch { return { sav: [], messages: {}, activity: [] }; } }
+function saveMem(m) { localStorage.setItem('benai_v2', JSON.stringify(m)); }
+function getApiKey() { return localStorage.getItem('benai_api') || ''; }
+
+// ══════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════
+function login() {
+  const uid = document.getElementById('login-user').value;
+  const pwd = document.getElementById('login-pwd').value;
+  const err = document.getElementById('login-err');
+  if (!uid) { err.textContent = 'Sélectionnez un utilisateur'; return; }
+  const user = USERS[uid];
+  if (pwd !== user.pwd) { err.textContent = 'Mot de passe incorrect'; return; }
+  currentUser = { id: uid, ...user };
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  initApp();
+}
+
+function logout() {
+  currentUser = null; chatHistory = [];
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('login-pwd').value = '';
+  document.getElementById('login-err').textContent = '';
+}
+
+// ══════════════════════════════════════════
+// INIT APP
+// ══════════════════════════════════════════
+function initApp() {
+  const u = currentUser;
+  // Topbar
+  document.getElementById('tb-avatar').style.background = u.color;
+  document.getElementById('tb-avatar').textContent = u.initial;
+  document.getElementById('tb-username').textContent = u.name;
+
+  // Sidebar navigation messages
+  buildNavMessages();
+
+  // Admin uniquement pour Benjamin
+  if (u.role === 'admin') {
+    document.getElementById('nav-admin').style.display = 'flex';
+    refreshAdmin();
+  }
+
+  // SAV badge
+  refreshSAVBadge();
+
+  // Message d'accueil Benai
+  const h = new Date().getHours();
+  const sal = h < 12 ? 'Bonjour' : h < 18 ? 'Bonjour' : 'Bonsoir';
+  addAIMsg(`${sal} **${u.name}** ! Je suis Benai, votre assistant.\n\nJe suis là pour vous aider avec vos emails, le SAV, All Manager et plus encore.\n\n⚠️ Je propose toujours — vous décidez toujours.\n\nComment puis-je vous aider ?`);
+
+  showPage('benai');
+}
+
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+function showPage(page) {
+  ['benai','messages','sav','admin'].forEach(p => {
+    const el = document.getElementById('page-' + p);
+    if (el) el.style.display = 'none';
+    const nav = document.getElementById('nav-' + p);
+    if (nav) nav.classList.remove('active');
+  });
+  const el = document.getElementById('page-' + page);
+  if (el) el.style.display = page === 'messages' ? 'flex' : 'flex';
+  const nav = document.getElementById('nav-' + page);
+  if (nav) nav.classList.add('active');
+
+  if (page === 'sav') renderSAV();
+  if (page === 'admin') refreshAdmin();
+  if (page === 'messages') renderConvList();
+}
+
+// ══════════════════════════════════════════
+// BENAI IA CHAT
+// ══════════════════════════════════════════
+function addAIMsg(txt) {
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+  div.innerHTML = `<div class="msg-avatar">B</div><div class="bubble">${md(txt)}</div>`;
+  document.getElementById('chat-area').appendChild(div);
+  scrollChat();
+  return div;
+}
+function addUserMsg(txt) {
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.innerHTML = `<div class="msg-avatar" style="background:${currentUser.color}">${currentUser.initial}</div><div class="bubble" style="background:${currentUser.color}">${esc(txt)}</div>`;
+  document.getElementById('chat-area').appendChild(div);
+  scrollChat();
+}
+function addTyping() {
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+  div.innerHTML = '<div class="msg-avatar">B</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>';
+  document.getElementById('chat-area').appendChild(div);
+  scrollChat();
+  return div;
+}
+function scrollChat() { const c = document.getElementById('chat-area'); c.scrollTop = c.scrollHeight; }
+
+async function sendChat(txtOverride) {
+  const input = document.getElementById('chat-input');
+  const txt = txtOverride || input.value.trim();
+  if (!txt || busy) return;
+  if (!txtOverride) { input.value = ''; input.style.height = 'auto'; }
+  busy = true;
+  document.getElementById('btn-send').disabled = true;
+  addUserMsg(txt);
+  const typing = addTyping();
+  chatHistory.push({ role: 'user', content: txt });
+  if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
+
+  try {
+    const apiKey = getApiKey();
+    if (!apiKey) throw new Error('Clé API manquante — demandez à Benjamin de la configurer');
+    const mem = getMem();
+    const ctx = `\nSAV ouverts: ${mem.sav.filter(s=>s.statut==='ouvert').length}`;
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, system: currentUser.system + BENAI_BASE + ctx, messages: chatHistory })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || 'Erreur API');
+    const reply = data.content[0].text;
+    chatHistory.push({ role: 'assistant', content: reply });
+    typing.remove();
+    addAIMsg(reply);
+    logActivity(`${currentUser.name} a consulté Benai IA`);
+  } catch (e) {
+    typing.remove();
+    addAIMsg('❌ ' + e.message);
+  }
+  busy = false;
+  document.getElementById('btn-send').disabled = false;
+}
+
+// PDF
+document.getElementById('pdf-file').addEventListener('change', async e => {
+  const file = e.target.files[0]; if (!file) return; e.target.value = '';
+  busy = true; document.getElementById('btn-send').disabled = true;
+  addUserMsg('📄 ' + file.name);
+  const typing = addTyping();
+  try {
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    let imgs = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const p = await pdf.getPage(i);
+      const vp = p.getViewport({ scale: 1.8 });
+      const c = document.createElement('canvas');
+      c.width = vp.width; c.height = vp.height;
+      await p.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+      imgs.push(c.toDataURL('image/jpeg', 0.82).split(',')[1]);
+    }
+    const apiKey = getApiKey();
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514', max_tokens: 3000,
+        system: 'Tu es Benai. Analyse ce devis Hercule Pro et résume les informations clés : client, produits avec dimensions et prix, totaux HT/TVA/TTC, remise. Sois clair et structuré. Rappelle que tu proposes — l\'utilisateur valide.',
+        messages: [{ role: 'user', content: [...imgs.map(img => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img } })), { type: 'text', text: 'Analyse ce devis et présente toutes les informations.' }] }]
+      })
+    });
+    const data = await res.json();
+    typing.remove();
+    addAIMsg(data.content[0].text);
+    logActivity(`${currentUser.name} a analysé un devis PDF`);
+  } catch (e) {
+    typing.remove();
+    addAIMsg('❌ Erreur PDF : ' + e.message);
+  }
+  busy = false; document.getElementById('btn-send').disabled = false;
+});
+
+// ══════════════════════════════════════════
+// MESSAGERIE INTERNE
+// ══════════════════════════════════════════
+const CONVS = {
+  benjamin: { benjamin_aurelie: { name: 'Aurélie', other: 'aurelie', color: 'linear-gradient(135deg,#22C55E,#15803D)', initial: 'A' }, benjamin_claudine: { name: 'Claudine', other: 'claudine', color: 'linear-gradient(135deg,#60A5FA,#1D4ED8)', initial: 'C' }, groupe: { name: 'Groupe équipe', group: true, color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: '👥' } },
+  aurelie: { benjamin_aurelie: { name: 'Benjamin', other: 'benjamin', color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: 'B' }, aurelie_claudine: { name: 'Claudine', other: 'claudine', color: 'linear-gradient(135deg,#60A5FA,#1D4ED8)', initial: 'C' }, groupe: { name: 'Groupe équipe', group: true, color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: '👥' } },
+  claudine: { benjamin_claudine: { name: 'Benjamin', other: 'benjamin', color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: 'B' }, aurelie_claudine: { name: 'Aurélie', other: 'aurelie', color: 'linear-gradient(135deg,#22C55E,#15803D)', initial: 'A' }, groupe: { name: 'Groupe équipe', group: true, color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: '👥' } }
+};
+
+function buildNavMessages() {
+  const nav = document.getElementById('nav-messages');
+  nav.innerHTML = '';
+  const convs = CONVS[currentUser.id] || {};
+  Object.entries(convs).forEach(([cid, conv]) => {
+    const item = document.createElement('div');
+    item.className = 'sb-item';
+    item.id = 'nav-conv-' + cid;
+    item.innerHTML = `<span class="sb-icon">${conv.group ? '👥' : '💬'}</span><span class="sb-txt">${conv.name}</span>`;
+    item.onclick = () => { showPage('messages'); openConv(cid, conv); };
+    nav.appendChild(item);
+  });
+  // Ajouter nav-messages dans sidebar
+  const sbnav = document.createElement('div');
+  sbnav.className = 'sb-item';
+  sbnav.id = 'nav-messages';
+  sbnav.innerHTML = '<span class="sb-icon">💬</span><span class="sb-txt">Messages</span>';
+  sbnav.onclick = () => showPage('messages');
+}
+
+function renderConvList() {
+  const list = document.getElementById('conv-list');
+  list.innerHTML = '<div class="conv-header">Conversations</div>';
+  const convs = CONVS[currentUser.id] || {};
+  const mem = getMem();
+  Object.entries(convs).forEach(([cid, conv]) => {
+    const msgs = (mem.messages[cid] || []);
+    const last = msgs[msgs.length - 1];
+    const item = document.createElement('div');
+    item.className = 'conv-item' + (conv.group ? ' conv-group' : '') + (currentConv === cid ? ' active' : '');
+    item.innerHTML = `<div class="conv-name">${conv.name}</div><div class="conv-preview">${last ? esc(last.text.substring(0, 30)) : 'Aucun message'}</div>`;
+    item.onclick = () => openConv(cid, conv);
+    list.appendChild(item);
+  });
+}
+
+function openConv(cid, conv) {
+  currentConv = cid;
+  renderConvList();
+  const header = document.getElementById('thread-header');
+  header.innerHTML = `<div class="thread-avatar" style="background:${conv.color}">${conv.initial}</div><div><div class="thread-name">${conv.name}</div><div class="thread-status">${conv.group ? 'Benjamin, Aurélie, Claudine' : 'Conversation privée'}</div></div>`;
+  document.getElementById('thread-input').style.display = 'flex';
+  renderThread(cid);
+}
+
+function renderThread(cid) {
+  const mem = getMem();
+  const msgs = mem.messages[cid] || [];
+  const area = document.getElementById('thread-msgs');
+  area.innerHTML = '';
+  if (!msgs.length) { area.innerHTML = '<div style="color:var(--t3);font-size:12px;text-align:center;padding:20px">Aucun message — démarrez la conversation !</div>'; return; }
+  msgs.forEach(m => {
+    const mine = m.from === currentUser.id;
+    const sender = USERS[m.from] || {};
+    const div = document.createElement('div');
+    div.className = 'tmsg ' + (mine ? 'mine' : 'theirs');
+    div.innerHTML = `
+      ${!mine ? `<div class="tmsg-av" style="background:${sender.color}">${sender.initial}</div>` : ''}
+      <div>
+        <div class="tmsg-bubble" style="${mine ? 'background:' + currentUser.color : ''}">${esc(m.text)}</div>
+        <div class="tmsg-time">${m.time}</div>
+      </div>
+      ${mine ? `<div class="tmsg-av" style="background:${currentUser.color}">${currentUser.initial}</div>` : ''}`;
+    area.appendChild(div);
+  });
+  area.scrollTop = area.scrollHeight;
+}
+
+function sendMsg() {
+  const input = document.getElementById('msg-input');
+  const txt = input.value.trim();
+  if (!txt || !currentConv) return;
+  input.value = '';
+  const mem = getMem();
+  if (!mem.messages[currentConv]) mem.messages[currentConv] = [];
+  const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  mem.messages[currentConv].push({ from: currentUser.id, text: txt, time: now });
+  saveMem(mem);
+  renderThread(currentConv);
+  renderConvList();
+  logActivity(`${currentUser.name} a envoyé un message`);
+  // Refresh admin
+  if (currentUser.role === 'admin') { const el = document.getElementById('admin-msgs'); if (el) { const tot = Object.values(mem.messages).reduce((s,a)=>s+a.length,0); el.textContent = tot; } }
+}
+
+// ══════════════════════════════════════════
+// SAV
+// ══════════════════════════════════════════
+function addSAV() {
+  const client = document.getElementById('sav-client').value.trim();
+  const tel = document.getElementById('sav-tel').value.trim();
+  const pb = document.getElementById('sav-pb').value.trim();
+  const soc = document.getElementById('sav-soc').value;
+  if (!client || !pb) { alert('Remplissez le client et le problème'); return; }
+  const mem = getMem();
+  mem.sav.unshift({ id: Date.now(), client, tel, probleme: pb, societe: soc, statut: 'ouvert', date: new Date().toLocaleDateString('fr-FR'), by: currentUser.name });
+  saveMem(mem);
+  document.getElementById('sav-client').value = '';
+  document.getElementById('sav-tel').value = '';
+  document.getElementById('sav-pb').value = '';
+  const ok = document.getElementById('sav-ok');
+  ok.textContent = '✅ SAV enregistré !';
+  setTimeout(() => ok.textContent = '', 2000);
+  renderSAV();
+  refreshSAVBadge();
+  logActivity(`${currentUser.name} a ouvert un SAV : ${client}`);
+}
+
+function renderSAV() {
+  const mem = getMem();
+  const list = document.getElementById('sav-list');
+  const savs = mem.sav.filter(s => s.statut === 'ouvert');
+  if (!savs.length) { list.innerHTML = '<div style="color:var(--t3);font-size:13px;padding:16px;text-align:center">Aucun SAV en cours 🎉</div>'; return; }
+  list.innerHTML = savs.map(s => `
+    <div class="sav-card">
+      <div class="sav-info">
+        <div class="sav-client">${esc(s.client)}</div>
+        <div class="sav-pb">${esc(s.probleme)}</div>
+        <div class="sav-meta">${s.date} · ${s.tel || ''} · Par ${s.by || '?'}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+        <span class="badge ${s.societe==='nemausus'?'badge-nem':'badge-lam'}">${s.societe==='nemausus'?'Nemausus':'Lambert'}</span>
+        <button class="btn-resolve" onclick="closeSAV(${s.id})">✓ Résolu</button>
+      </div>
+    </div>`).join('');
+}
+
+function closeSAV(id) {
+  const mem = getMem();
+  const sav = mem.sav.find(s => s.id === id);
+  if (sav) { sav.statut = 'resolu'; saveMem(mem); renderSAV(); refreshSAVBadge(); logActivity(`${currentUser.name} a résolu le SAV : ${sav.client}`); }
+}
+
+function refreshSAVBadge() {
+  const mem = getMem();
+  const nb = mem.sav.filter(s => s.statut === 'ouvert').length;
+  const badge = document.getElementById('sav-badge');
+  if (nb > 0) { badge.style.display = 'flex'; badge.textContent = nb; } else { badge.style.display = 'none'; }
+  const adminEl = document.getElementById('admin-sav');
+  if (adminEl) adminEl.textContent = nb;
+}
+
+// ══════════════════════════════════════════
+// ADMIN
+// ══════════════════════════════════════════
+function refreshAdmin() {
+  refreshSAVBadge();
+  const mem = getMem();
+  const tot = Object.values(mem.messages).reduce((s, a) => s + a.length, 0);
+  const el = document.getElementById('admin-msgs');
+  if (el) el.textContent = tot;
+  const actList = document.getElementById('activity-list');
+  if (actList && mem.activity && mem.activity.length) {
+    actList.innerHTML = mem.activity.slice(-8).reverse().map(a => `
+      <div class="act-item">
+        <div class="act-av" style="background:${getUserColor(a.user)}">${getUserInitial(a.user)}</div>
+        <div class="act-txt">${esc(a.txt)}</div>
+        <div class="act-time">${a.time}</div>
+      </div>`).join('');
+  }
+}
+
+function logActivity(txt) {
+  const mem = getMem();
+  if (!mem.activity) mem.activity = [];
+  const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  mem.activity.push({ user: currentUser.id, txt, time: now });
+  if (mem.activity.length > 50) mem.activity = mem.activity.slice(-50);
+  saveMem(mem);
+}
+
+function getUserColor(uid) { return USERS[uid]?.color || '#333'; }
+function getUserInitial(uid) { return USERS[uid]?.initial || '?'; }
+
+// ══════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════
+const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const md = txt => (txt||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+
+// Config API key (Benjamin peut la configurer via console ou prompt)
+// Pour configurer : localStorage.setItem('benai_api', 'votre-cle')
+const stored = localStorage.getItem('benai_api');
+if (!stored) {
+  // Demander la clé au premier lancement
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const k = prompt('🔑 Première configuration Benai\n\nEntrez votre clé API Anthropic (sk-ant-...):\n\n(Obtenez-la sur console.anthropic.com)');
+      if (k && k.startsWith('sk-')) { localStorage.setItem('benai_api', k); alert('✅ Clé enregistrée ! Benai est prêt.'); }
+    }, 500);
+  });
+}
+</script>
+</body>
+</html>
