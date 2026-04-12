@@ -220,6 +220,18 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .page-title{font-size:17px;font-weight:700;letter-spacing:-.02em;}
 .page-sub{font-size:12px;color:var(--t3);margin-top:2px;}
 
+.tb-settings{background:none;border:1px solid var(--b1);border-radius:7px;padding:4px 8px;cursor:pointer;font-size:15px;transition:.15s;margin-right:4px;}
+.tb-settings:hover{border-color:var(--a);}
+
+/* THÈME CLAIR */
+body.light{
+  --bg:#F5F5F0;--s1:#FFFFFF;--s2:#F0EFE9;--s3:#E8E7E0;--b1:#D8D6CE;--b2:#C8C6BE;
+  --t1:#1A1917;--t2:#4A4845;--t3:#8A8880;--ai-bg:#FFFFFF;
+}
+body.light .login-box{background:#fff;border-color:#E0DDD5;}
+body.light .bubble{color:var(--t1);}
+body.light .msg.ai .bubble{background:#fff;border-color:#E0DDD5;}
+
 input[type=file]{display:none;}
 </style>
 </head>
@@ -253,12 +265,56 @@ input[type=file]{display:none;}
   <!-- TOPBAR -->
   <div class="topbar">
     <div class="tb-logo">B</div>
-    <div class="tb-name">Benai</div>
+    <div class="tb-name">BenAI</div>
     <div id="tb-societe" style="font-size:11px;color:var(--t3);margin-left:4px;"></div>
     <div class="tb-user">
       <div class="tb-avatar" id="tb-avatar"></div>
       <span class="tb-username" id="tb-username"></span>
+      <button class="tb-settings" onclick="toggleSettings()" title="Paramètres">⚙️</button>
       <button class="tb-logout" onclick="logout()">Déconnexion</button>
+    </div>
+  </div>
+
+  <!-- PANEL PARAMÈTRES -->
+  <div id="settings-panel" style="display:none;position:fixed;top:52px;right:12px;width:300px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.6);z-index:999;padding:16px;font-family:'Outfit',sans-serif;">
+    <div style="font-family:'Syne',sans-serif;font-size:.9rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
+      ⚙️ Paramètres
+      <button onclick="toggleSettings()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;">✕</button>
+    </div>
+
+    <!-- MODE CLAIR/SOMBRE -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px;">Affichage</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="setTheme('dark')" id="btn-dark" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer;transition:.15s">🌙 Sombre</button>
+        <button onclick="setTheme('light')" id="btn-light" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer;transition:.15s">☀️ Clair</button>
+      </div>
+    </div>
+
+    <!-- MON MOT DE PASSE -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px;">Mon mot de passe</div>
+      <div style="display:flex;gap:6px">
+        <input type="password" id="new-pwd" placeholder="Nouveau mot de passe" style="flex:1;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:inherit;font-size:12px;outline:none;">
+        <button onclick="changerMonMdp()" style="padding:8px 12px;background:var(--a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;">OK</button>
+      </div>
+      <div id="pwd-msg" style="font-size:11px;margin-top:5px;min-height:14px;"></div>
+    </div>
+
+    <!-- CLÉ API (BENJAMIN UNIQUEMENT) -->
+    <div id="api-settings" style="display:none;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px;">Clé API Anthropic</div>
+      <div style="display:flex;gap:6px">
+        <input type="password" id="api-key-settings" placeholder="sk-ant-..." style="flex:1;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:inherit;font-size:12px;outline:none;">
+        <button onclick="saveApiKeySettings()" style="padding:8px 12px;background:var(--a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;">OK</button>
+      </div>
+      <div id="api-msg" style="font-size:11px;margin-top:5px;color:var(--g);min-height:14px;"></div>
+    </div>
+
+    <!-- MOTS DE PASSE ÉQUIPE (BENJAMIN UNIQUEMENT) -->
+    <div id="team-pwd-settings" style="display:none">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px;">Mots de passe équipe</div>
+      <div id="team-pwd-list"></div>
     </div>
   </div>
 
@@ -689,14 +745,29 @@ document.getElementById('pdf-file').addEventListener('change', async e => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514', max_tokens: 3000,
-        system: 'Tu es Benai. Analyse ce devis Hercule Pro et résume les informations clés : client, produits avec dimensions et prix, totaux HT/TVA/TTC, remise. Sois clair et structuré. Rappelle que tu proposes — l\'utilisateur valide.',
-        messages: [{ role: 'user', content: [...imgs.map(img => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img } })), { type: 'text', text: 'Analyse ce devis et présente toutes les informations.' }] }]
+        model: 'claude-sonnet-4-20250514', max_tokens: 4000,
+        system: `Tu es Benai, assistant de Nemausus Fermetures et Lambert SAS. Analyse ce devis Hercule Pro et réponds UNIQUEMENT en JSON valide sans texte autour :
+{
+  "devis": {"numero":"","date":"","validite":"","type_prestation":"","contact_nom":"","contact_tel":"","contact_email":""},
+  "client": {"nom_prenom":"","telephone":"","email":"","adresse_facturation":"","adresse_chantier":""},
+  "produits": [{"designation":"","dimensions":"","quantite":1,"pu_ht":0.00,"total_ht":0.00,"tva_taux":""}],
+  "totaux": {"montant_brut_ht":0.00,"remise_pct":"","remise_montant":0.00,"total_ht_net":0.00,"tva_montant":0.00,"total_ttc":0.00}
+}
+RÈGLES: Pas d'éco-participation ni SOUS-TOTAUX comme produits séparés.`,
+        messages: [{ role: 'user', content: [...imgs.map(img => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img } })), { type: 'text', text: 'Extrais toutes les données de ce devis.' }] }]
       })
     });
     const data = await res.json();
     typing.remove();
-    addAIMsg(data.content[0].text);
+
+    // Parser le JSON et afficher proprement
+    try {
+      const devis = JSON.parse(data.content[0].text.replace(/```json|```/g,'').trim());
+      afficherDevisDansChat(devis, file.name);
+    } catch {
+      // Fallback texte si JSON échoue
+      addAIMsg(data.content[0].text);
+    }
     logActivity(`${currentUser.name} a analysé un devis PDF`);
   } catch (e) {
     typing.remove();
@@ -704,6 +775,156 @@ document.getElementById('pdf-file').addEventListener('change', async e => {
   }
   busy = false; document.getElementById('btn-send').disabled = false;
 });
+
+function afficherDevisDansChat(data, filename) {
+  const d = data.devis||{}, c = data.client||{}, t = data.totaux||{}, prods = data.produits||[];
+  const fmt = n => n ? Number(n).toFixed(2).replace('.',',') : '—';
+  const fmtE = n => fmt(n) !== '—' ? fmt(n)+' €' : '—';
+  const brutHT = t.montant_brut_ht||0;
+  const remMt = t.remise_montant||0;
+  const totalHT = t.total_ht_net||0;
+  const totalTVA = t.tva_montant||0;
+  const totalTTC = t.total_ttc||0;
+  const tvaTaux = totalHT>0 ? totalTVA/totalHT : 0;
+
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+  div.style.maxWidth = '95%';
+  div.innerHTML = `<div class="msg-avatar">B</div><div class="bubble" style="width:100%;padding:12px"></div>`;
+  const bubble = div.querySelector('.bubble');
+
+  bubble.innerHTML = `<div style="font-size:13px;margin-bottom:12px">✅ <strong>${esc(filename)}</strong> analysé — ${prods.length} produit(s) · <strong>${fmtE(totalTTC)}</strong> TTC<br><span style="font-size:11px;color:var(--t3)">Cliquez sur n'importe quelle valeur pour la copier</span></div>`;
+
+  // DEVIS + CLIENT
+  const infoGrid = document.createElement('div');
+  infoGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--b1);border-radius:10px;overflow:hidden;margin-bottom:8px;';
+
+  const fields = [
+    { l: 'N° Devis', v: d.numero },
+    { l: 'Date', v: d.date },
+    { l: 'Client', v: c.nom_prenom },
+    { l: 'Téléphone', v: c.telephone },
+    { l: 'Email', v: c.email, full: true },
+    { l: 'Adresse', v: c.adresse_facturation, full: true },
+    { l: 'Contact', v: d.contact_nom },
+    { l: 'Prestation', v: d.type_prestation },
+  ];
+
+  fields.forEach(f => {
+    if (!f.v) return;
+    const cell = document.createElement('div');
+    cell.style.cssText = `background:var(--s3);padding:9px 11px;${f.full?'grid-column:1/-1':''}`;
+    cell.innerHTML = `<div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:2px">${f.l}</div>
+      <div style="font-size:12px;font-weight:500;padding:4px 7px;border-radius:5px;cursor:pointer;border:1px solid transparent;transition:.12s" 
+        onmouseover="this.style.borderColor='var(--a)';this.style.background='var(--a3)'"
+        onmouseout="this.style.borderColor='transparent';this.style.background='transparent'"
+        onclick="cpClick(this,'${esc(f.v)}')">${esc(f.v)}</div>`;
+    if (f.full) cell.style.gridColumn = '1/-1';
+    infoGrid.appendChild(cell);
+  });
+  bubble.appendChild(infoGrid);
+
+  // PRODUITS
+  if (prods.length > 0) {
+    const tbl = document.createElement('div');
+    tbl.style.cssText = 'background:var(--s3);border-radius:10px;overflow:hidden;margin-bottom:8px;';
+    tbl.innerHTML = `<div style="padding:8px 11px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);border-bottom:1px solid var(--b1)">📦 Produits</div>`;
+
+    const table = document.createElement('table');
+    table.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px;';
+    table.innerHTML = `<thead><tr style="background:var(--s2)">
+      <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Désignation</th>
+      <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Dimensions</th>
+      <th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Qté</th>
+      <th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">PU HT</th>
+      <th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Total HT</th>
+      <th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Remise</th>
+      <th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">TVA</th>
+      <th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">TTC</th>
+    </tr></thead>`;
+
+    const tbody = document.createElement('tbody');
+    prods.forEach((p, idx) => {
+      const remiseMt = (p.total_ht||0) * ((remMt&&brutHT) ? remMt/brutHT : 0);
+      const totHTnet = (p.total_ht||0) - remiseMt;
+      const totTTC = totHTnet * (1 + tvaTaux);
+      const tr = document.createElement('tr');
+      tr.style.cssText = `border-top:1px solid var(--b1);cursor:pointer;transition:.1s`;
+      tr.onmouseover = () => tr.style.background = 'var(--a3)';
+      tr.onmouseout = () => tr.style.background = '';
+      const mkTd = (val, right=false) => `<td style="padding:8px 10px;${right?'text-align:right':''}" onclick="cpClick(this,'${esc(String(val||''))}')">${esc(String(val||'—'))}</td>`;
+      tr.innerHTML = `
+        ${mkTd(p.designation)}
+        ${mkTd(p.dimensions)}
+        ${mkTd(p.quantite, true)}
+        ${mkTd(fmtE(p.pu_ht), true)}
+        ${mkTd(fmtE(p.total_ht), true)}
+        <td style="padding:8px 10px;text-align:right;color:var(--r)" onclick="cpClick(this,'${fmt(remiseMt)}')">${remiseMt>0?'-'+fmtE(remiseMt):'—'}</td>
+        ${mkTd(p.tva_taux, true)}
+        <td style="padding:8px 10px;text-align:right;font-weight:600;color:var(--a)" onclick="cpClick(this,'${fmt(totTTC)}')">${fmtE(totTTC)}</td>`;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    tbl.appendChild(table);
+
+    // Bouton copier tableau
+    const copyBtn = document.createElement('button');
+    copyBtn.style.cssText = 'width:100%;padding:8px;background:transparent;border:none;border-top:1px solid var(--b1);color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit;transition:.15s';
+    copyBtn.textContent = '📋 Copier tout le tableau';
+    copyBtn.onmouseover = () => copyBtn.style.color = 'var(--a)';
+    copyBtn.onmouseout = () => copyBtn.style.color = 'var(--t3)';
+    copyBtn.onclick = () => {
+      let txt = 'Désignation\tDimensions\tQté\tPU HT\tTotal HT\tRemise\tTVA\tTTC\n';
+      prods.forEach(p => {
+        const rm = (p.total_ht||0)*((remMt&&brutHT)?remMt/brutHT:0);
+        const hn = (p.total_ht||0)-rm;
+        const ttc = hn*(1+tvaTaux);
+        txt += `${p.designation||''}\t${p.dimensions||''}\t${p.quantite||1}\t${fmt(p.pu_ht)}\t${fmt(p.total_ht)}\t${rm>0?'-'+fmt(rm):''}\t${p.tva_taux||''}\t${fmt(ttc)}\n`;
+      });
+      navigator.clipboard.writeText(txt).then(() => { copyBtn.textContent = '✅ Copié !'; setTimeout(()=>copyBtn.textContent='📋 Copier tout le tableau',1500); });
+    };
+    tbl.appendChild(copyBtn);
+    bubble.appendChild(tbl);
+  }
+
+  // TOTAUX
+  const totDiv = document.createElement('div');
+  totDiv.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr) 1fr;gap:1px;background:var(--b1);border-radius:10px;overflow:hidden;';
+  [
+    { l: 'Brut HT', v: fmtE(brutHT), raw: fmt(brutHT) },
+    { l: 'Remise', v: t.remise_pct ? t.remise_pct+' = -'+fmtE(remMt) : '—', raw: t.remise_pct||'' },
+    { l: 'Total HT net', v: fmtE(totalHT), raw: fmt(totalHT) },
+    { l: 'TVA', v: fmtE(totalTVA), raw: fmt(totalTVA) },
+  ].forEach(tot => {
+    const cell = document.createElement('div');
+    cell.style.cssText = 'background:var(--s3);padding:10px;text-align:center;cursor:pointer;transition:.12s';
+    cell.innerHTML = `<div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:600">${tot.l}</div><div style="font-size:13px;font-weight:700;margin-top:3px">${tot.v}</div>`;
+    cell.onmouseover = () => cell.style.background = 'var(--a3)';
+    cell.onmouseout = () => cell.style.background = 'var(--s3)';
+    cell.onclick = () => { navigator.clipboard.writeText(tot.raw); cell.style.background='var(--g2)'; setTimeout(()=>cell.style.background='var(--s3)',1200); };
+    totDiv.appendChild(cell);
+  });
+  // TTC
+  const ttcCell = document.createElement('div');
+  ttcCell.style.cssText = 'background:var(--a3);padding:10px;text-align:center;cursor:pointer;grid-column:1/-1;transition:.12s';
+  ttcCell.innerHTML = `<div style="font-size:10px;color:var(--a);text-transform:uppercase;font-weight:600">Total TTC</div><div style="font-size:1.3rem;font-weight:800;color:var(--a);margin-top:3px">${fmtE(totalTTC)}</div>`;
+  ttcCell.onclick = () => { navigator.clipboard.writeText(fmt(totalTTC)); ttcCell.style.background='var(--g2)'; setTimeout(()=>ttcCell.style.background='var(--a3)',1200); };
+  totDiv.appendChild(ttcCell);
+  bubble.appendChild(totDiv);
+
+  document.getElementById('chat-area').appendChild(div);
+  scrollChat();
+}
+
+function cpClick(el, val) {
+  if (!val || val === '—') return;
+  navigator.clipboard.writeText(val).then(() => {
+    const orig = el.style.background;
+    el.style.background = 'var(--g2)';
+    el.style.color = 'var(--g)';
+    setTimeout(() => { el.style.background = orig; el.style.color = ''; }, 1200);
+  });
+}
 
 // ══════════════════════════════════════════
 // MESSAGERIE INTERNE
@@ -1056,65 +1277,38 @@ let loginBlocked = false;
 // ══════════════════════════════════════════
 // MISE À JOUR AUTOMATIQUE
 // ══════════════════════════════════════════
-const BENAI_VERSION = '2.4';
-const VERSION_URL = 'https://raw.githubusercontent.com/BenAI30/benai/main/version.json';
-const UPDATE_URL = 'https://raw.githubusercontent.com/BenAI30/benai/main/index.html';
+const BENAI_VERSION = '2.5';
+const GITHUB_TOKEN = ''; // Colle ton token ici entre les guillemets
+const GITHUB_REPO = 'BenAI30/benai';
+const GITHUB_FILE = 'index.html';
 
 async function checkUpdate() {
   try {
+    const VERSION_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/version.json`;
     const res = await fetch(VERSION_URL + '?t=' + Date.now());
     if (!res.ok) return;
     const data = await res.json();
-    const latestVersion = data.version;
-    const notes = data.notes || '';
-
-    if (latestVersion && latestVersion !== BENAI_VERSION) {
-      showUpdateBadge(latestVersion, notes);
+    if (data.version && data.version !== BENAI_VERSION) {
+      showUpdateBadge(data.version, data.notes || '');
     }
-  } catch(e) {
-    // Pas de connexion ou fichier inexistant — silencieux
-  }
-}
-
-function showUpdateBadge(version, notes) {
-  // Supprimer badge existant
-  document.getElementById('update-badge')?.remove();
-
-  const badge = document.createElement('div');
-  badge.id = 'update-badge';
-  badge.style.cssText = `
-    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
-    background:linear-gradient(135deg,#E8943A,#B45309);color:#fff;
-    border-radius:50px;padding:10px 20px;font-family:'Outfit',sans-serif;
-    font-size:13px;font-weight:600;cursor:pointer;z-index:9999;
-    box-shadow:0 4px 20px rgba(232,148,58,.5);display:flex;align-items:center;gap:8px;
-    animation:pulse 2s infinite;
-  `;
-  badge.innerHTML = `⬆️ Mise à jour v${version} disponible — Cliquer pour installer`;
-  badge.onclick = () => installUpdate(version, notes);
-  document.body.appendChild(badge);
+  } catch(e) {}
 }
 
 async function installUpdate(version, notes) {
-  if (!confirm(`Installer BenAI v${version} ?\n\n${notes}\n\nBenAI va se recharger automatiquement.`)) return;
-
+  if (!confirm(`Installer BenAI v${version} ?\n\n${notes}\n\nBenAI va se recharger.`)) return;
   const badge = document.getElementById('update-badge');
-  if (badge) badge.innerHTML = '⏳ Installation en cours...';
-
+  if (badge) badge.innerHTML = '⏳ Installation...';
   try {
+    const UPDATE_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/index.html`;
     const res = await fetch(UPDATE_URL + '?t=' + Date.now());
-    if (!res.ok) throw new Error('Impossible de télécharger la mise à jour');
+    if (!res.ok) throw new Error('Impossible de télécharger');
     const html = await res.text();
-
-    // Sauvegarder le nouveau fichier via Service Worker ou cache
-    localStorage.setItem('benai_cached_version', version);
-    localStorage.setItem('benai_cached_html', html);
-
-    alert(`✅ BenAI v${version} installé ! La page va se recharger.`);
-    location.reload(true);
+    // Remplacer la page courante
+    document.open();
+    document.write(html);
+    document.close();
   } catch(e) {
-    alert('❌ Erreur : ' + e.message + '\n\nVeuillez réessayer ou contacter Benjamin.');
-    const badge = document.getElementById('update-badge');
+    alert('❌ Erreur : ' + e.message);
     if (badge) badge.innerHTML = `⬆️ Mise à jour v${version} disponible`;
   }
 }
@@ -1141,6 +1335,20 @@ const _loginOriginal = login;
 // ══════════════════════════════════════════
 // CONFIG API KEY
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// STYLE ANIMATION BADGE
+// ══════════════════════════════════════════
+const style = document.createElement('style');
+style.textContent = `
+@keyframes pulse {
+  0%,100% { box-shadow: 0 4px 20px rgba(232,148,58,.5); }
+  50% { box-shadow: 0 4px 30px rgba(232,148,58,.8); }
+}`;
+document.head.appendChild(style);
+
+// ══════════════════════════════════════════
+// CONFIG API KEY
+// ══════════════════════════════════════════
 const stored = localStorage.getItem('benai_api');
 if (!stored) {
   window.addEventListener('load', () => {
@@ -1155,15 +1363,96 @@ if (!stored) {
 }
 
 // ══════════════════════════════════════════
-// STYLE ANIMATION BADGE
+// PARAMÈTRES
 // ══════════════════════════════════════════
-const style = document.createElement('style');
-style.textContent = `
-@keyframes pulse {
-  0%,100% { box-shadow: 0 4px 20px rgba(232,148,58,.5); }
-  50% { box-shadow: 0 4px 30px rgba(232,148,58,.8); }
-}`;
-document.head.appendChild(style);
+function toggleSettings() {
+  const panel = document.getElementById('settings-panel');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) initSettings();
+}
+
+function initSettings() {
+  // Afficher sections selon rôle
+  const isAdmin = currentUser?.role === 'admin';
+  document.getElementById('api-settings').style.display = isAdmin ? 'block' : 'none';
+  document.getElementById('team-pwd-settings').style.display = isAdmin ? 'block' : 'none';
+  if (isAdmin) renderTeamPwdSettings();
+
+  // Thème actif
+  const theme = localStorage.getItem('benai_theme') || 'dark';
+  document.getElementById('btn-dark').style.borderColor = theme === 'dark' ? 'var(--a)' : 'var(--b1)';
+  document.getElementById('btn-light').style.borderColor = theme === 'light' ? 'var(--a)' : 'var(--b1)';
+}
+
+function setTheme(theme) {
+  localStorage.setItem('benai_theme', theme);
+  document.body.classList.toggle('light', theme === 'light');
+  document.getElementById('btn-dark').style.borderColor = theme === 'dark' ? 'var(--a)' : 'var(--b1)';
+  document.getElementById('btn-light').style.borderColor = theme === 'light' ? 'var(--a)' : 'var(--b1)';
+}
+
+// Appliquer thème au chargement
+window.addEventListener('load', () => {
+  const theme = localStorage.getItem('benai_theme') || 'dark';
+  if (theme === 'light') document.body.classList.add('light');
+});
+
+function changerMonMdp() {
+  const pwd = document.getElementById('new-pwd').value.trim();
+  const msg = document.getElementById('pwd-msg');
+  if (!pwd || pwd.length < 3) { msg.style.color = 'var(--r)'; msg.textContent = '⚠️ Minimum 3 caractères'; return; }
+  const pwds = getPwds();
+  pwds[currentUser.id] = pwd;
+  savePwds(pwds);
+  document.getElementById('new-pwd').value = '';
+  msg.style.color = 'var(--g)';
+  msg.textContent = '✅ Mot de passe modifié !';
+  setTimeout(() => msg.textContent = '', 2000);
+  logActivity(`${currentUser.name} a changé son mot de passe`);
+}
+
+function renderTeamPwdSettings() {
+  const list = document.getElementById('team-pwd-list');
+  if (!list) return;
+  const pwds = getPwds();
+  const users = [
+    { id: 'benjamin', name: 'Benjamin', color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: 'B' },
+    { id: 'aurelie', name: 'Aurélie', color: 'linear-gradient(135deg,#22C55E,#15803D)', initial: 'A' },
+    { id: 'claudine', name: 'Claudine', color: 'linear-gradient(135deg,#60A5FA,#1D4ED8)', initial: 'C' }
+  ];
+  list.innerHTML = users.map(u => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s3);border-radius:8px;margin-bottom:5px">
+      <div style="width:24px;height:24px;border-radius:7px;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">${u.initial}</div>
+      <div style="flex:1;font-size:12px;font-weight:500">${u.name}</div>
+      <div style="font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;background:var(--bg);padding:3px 8px;border-radius:5px;cursor:pointer" onclick="togglePwdVisibility(this,'${pwds[u.id]||'1234'}')">••••</div>
+      <button onclick="changerMdp('${u.id}','${u.name}')" style="padding:4px 8px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">✏️</button>
+    </div>`).join('');
+}
+
+function togglePwdVisibility(el, pwd) {
+  el.textContent = el.textContent === '••••' ? pwd : '••••';
+}
+
+function saveApiKeySettings() {
+  const key = document.getElementById('api-key-settings').value.trim();
+  const msg = document.getElementById('api-msg');
+  if (!key || !key.startsWith('sk-')) { msg.style.color = 'var(--r)'; msg.textContent = '⚠️ Clé invalide'; return; }
+  localStorage.setItem('benai_api', key);
+  document.getElementById('api-key-settings').value = '';
+  msg.style.color = 'var(--g)';
+  msg.textContent = '✅ Clé enregistrée !';
+  setTimeout(() => msg.textContent = '', 2000);
+}
+
+// Fermer paramètres si clic ailleurs
+document.addEventListener('click', e => {
+  const panel = document.getElementById('settings-panel');
+  const btn = document.querySelector('.tb-settings');
+  if (panel && !panel.contains(e.target) && btn && !btn.contains(e.target)) {
+    panel.style.display = 'none';
+  }
+});
 </script>
 </body>
 </html>
