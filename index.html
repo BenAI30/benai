@@ -282,6 +282,29 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 /* SAV VU */
 .sav-vu{font-size:10px;color:var(--g);display:inline-flex;align-items:center;gap:3px;}
 /* LIGHT */
+/* TUTO */
+#tuto-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.tuto-box{width:480px;background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:36px;box-shadow:0 40px 80px rgba(0,0,0,.6);position:relative;}
+.tuto-progress{display:flex;gap:6px;margin-bottom:24px;justify-content:center;}
+.tuto-dot{width:8px;height:8px;border-radius:50%;background:var(--b2);transition:.2s;}
+.tuto-dot.active{background:var(--a);width:20px;border-radius:4px;}
+.tuto-icon{font-size:48px;text-align:center;margin-bottom:16px;}
+.tuto-title{font-size:18px;font-weight:700;text-align:center;margin-bottom:10px;}
+.tuto-desc{font-size:13px;color:var(--t2);text-align:center;line-height:1.7;margin-bottom:24px;}
+.tuto-highlight{background:var(--a3);border:1px solid rgba(232,148,58,.3);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--a);text-align:center;margin-bottom:20px;}
+.tuto-actions{display:flex;gap:10px;justify-content:center;}
+.tuto-btn{padding:10px 24px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;}
+.tuto-btn-primary{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;}
+.tuto-btn-primary:hover{opacity:.88;}
+.tuto-btn-skip{background:transparent;color:var(--t3);border:1px solid var(--b1);}
+.tuto-btn-skip:hover{color:var(--t2);border-color:var(--b2);}
+/* UPDATE POPUP */
+#update-popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2001;align-items:center;justify-content:center;}
+.update-box{width:420px;background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.update-badge{display:inline-block;background:var(--a3);color:var(--a);border-radius:20px;padding:3px 12px;font-size:11px;font-weight:700;margin-bottom:12px;}
+.update-version{font-size:20px;font-weight:800;margin-bottom:6px;}
+.update-notes{font-size:12px;color:var(--t2);line-height:1.8;margin-bottom:20px;max-height:200px;overflow-y:auto;}
+.update-notes li{margin-bottom:4px;}
 /* OFFLINE */
 #offline-banner{display:none;position:fixed;top:0;left:0;right:0;background:#1a1a1a;color:#fff;text-align:center;padding:8px;font-size:12px;font-weight:600;z-index:9999;align-items:center;justify-content:center;gap:8px;}
 .shortcut{font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace;background:var(--s3);padding:1px 5px;border-radius:4px;border:1px solid var(--b1);}
@@ -337,6 +360,35 @@ input[type=file]{display:none;}
 <!-- OFFLINE BANNER -->
 <div id="offline-banner">📵 Mode hors-ligne — BenAI IA indisponible, les autres fonctionnalités restent actives</div>
 
+<!-- TUTO PREMIÈRE UTILISATION -->
+<div id="tuto-overlay">
+  <div class="tuto-box">
+    <div class="tuto-progress" id="tuto-progress"></div>
+    <div class="tuto-icon" id="tuto-icon"></div>
+    <div class="tuto-title" id="tuto-title"></div>
+    <div class="tuto-desc" id="tuto-desc"></div>
+    <div class="tuto-highlight" id="tuto-highlight" style="display:none"></div>
+    <div class="tuto-actions">
+      <button class="tuto-btn tuto-btn-skip" id="tuto-skip" onclick="closeTuto()">Passer</button>
+      <button class="tuto-btn tuto-btn-primary" id="tuto-next" onclick="nextTutoSlide()">Suivant →</button>
+    </div>
+  </div>
+</div>
+
+<!-- POPUP MISE À JOUR -->
+<div id="update-popup">
+  <div class="update-box">
+    <div class="update-badge">⬆️ Nouvelle version disponible</div>
+    <div class="update-version" id="update-version"></div>
+    <div style="font-size:12px;color:var(--t3);margin-bottom:12px">Améliorations :</div>
+    <ul class="update-notes" id="update-notes"></ul>
+    <div style="display:flex;gap:10px">
+      <button onclick="confirmInstallUpdate()" style="flex:1;padding:11px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚀 Installer maintenant</button>
+      <button onclick="document.getElementById('update-popup').style.display='none'" style="padding:11px 16px;background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:10px;font-family:inherit;font-size:13px;cursor:pointer">Plus tard</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ APP ══ -->
 <div id="app">
 
@@ -362,6 +414,10 @@ input[type=file]{display:none;}
         <button onclick="setTheme('dark')" id="btn-dark" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">🌙 Sombre</button>
         <button onclick="setTheme('light')" id="btn-light" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">☀️ Clair</button>
       </div>
+    </div>
+    <div class="sp-section" id="tuto-settings-section" style="display:none">
+      <div class="sp-label">Aide</div>
+      <button onclick="startTuto();toggleSettings();" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer;text-align:left">🎓 Relancer le tutoriel</button>
     </div>
     <div class="sp-section">
       <div class="sp-label">Mon mot de passe</div>
@@ -769,7 +825,7 @@ input[type=file]{display:none;}
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const BENAI_VERSION = '3.3';
+const BENAI_VERSION = '3.4';
 
 // ══════════════════════════════════════════
 // UTILISATEURS
@@ -999,6 +1055,11 @@ function initApp(silent=false){
   startPolling();
   // Briefing quotidien intelligent (une seule fois par jour)
   if(!silent)setTimeout(()=>generateDailyBriefing(),600);
+  // Tuto première utilisation
+  if(shouldShowTuto())setTimeout(()=>startTuto(),1200);
+  // Bouton tuto dans paramètres
+  const tutoSection=document.getElementById('tuto-settings-section');
+  if(tutoSection)tutoSection.style.display=currentUser.id==='benjamin'?'none':'block';
 }
 
 // ══════════════════════════════════════════
@@ -1793,27 +1854,45 @@ function renderAbsences(){
   const absences=(mem.absences||[]).sort((a,b)=>new Date(a.debut)-new Date(b.debut));
   if(!absences.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune absence enregistrée</div>';return;}
   const today=new Date();today.setHours(0,0,0,0);
-  list.innerHTML=absences.map(a=>{
+  // Grouper par employé
+  const byEmp={};
+  absences.forEach(a=>{
+    if(!byEmp[a.employe])byEmp[a.employe]=[];
+    byEmp[a.employe].push(a);
+  });
+  const getStatus=(a)=>{
     const debut=new Date(a.debut);debut.setHours(0,0,0,0);
     const fin=new Date(a.fin);fin.setHours(0,0,0,0);
-    let status,statusClass;
-    if(today>fin){status='Passée';statusClass='abs-past';}
-    else if(today>=debut){status='En cours';statusClass='abs-today';}
-    else{const diff=Math.ceil((debut-today)/(1000*60*60*24));status=diff===1?'Demain':`Dans ${diff} jour(s)`;statusClass='abs-future';}
-    const notifIcons=(a.notifs||['benjamin']).map(n=>n==='benjamin'?'👨':'👩').join('');
-    const heures=a.heureDebut&&a.heureFin?` · ${a.heureDebut} → ${a.heureFin}`:a.heureDebut?` · à partir de ${a.heureDebut}`:'';
-    return `<div class="absence-card">
-      <div class="absence-icon">${a.type==='Congé'?'🏖️':a.type==='Maladie'?'🤒':a.type==='Formation'?'📚':'🗓️'}</div>
-      <div class="absence-info">
-        <div class="absence-name">${esc(a.employe)} — ${a.type} <span style="font-size:10px;color:var(--t3)">${notifIcons}</span></div>
-        <div class="absence-dates">Du ${formatDate(a.debut)} au ${formatDate(a.fin)}${heures}</div>
-        ${a.note?`<div class="absence-type">${esc(a.note)}</div>`:''}
+    if(today>fin)return{status:'Passée',statusClass:'abs-past'};
+    if(today>=debut)return{status:'En cours',statusClass:'abs-today'};
+    const diff=Math.ceil((debut-today)/(1000*60*60*24));
+    return{status:diff===1?'Demain':`Dans ${diff} jour(s)`,statusClass:'abs-future'};
+  };
+  list.innerHTML=Object.entries(byEmp).sort((a,b)=>a[0].localeCompare(b[0],'fr')).map(([emp,abs])=>`
+    <div style="margin-bottom:18px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;overflow:hidden">
+      <div style="padding:10px 14px;background:var(--s3);border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">👤</span>
+        <span style="font-size:13px;font-weight:700;flex:1">${esc(emp)}</span>
+        <span style="background:var(--a3);color:var(--a);border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700">${abs.length} absence(s)</span>
       </div>
-      <span class="absence-status ${statusClass}">${status}</span>
-      <button onclick="editAbsence(${a.id})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:18px;padding:4px" title="Modifier">✏️</button>
-      <button onclick="deleteAbsence(${a.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:18px;padding:4px" title="Supprimer">🗑️</button>
-    </div>`;
-  }).join('');
+      ${abs.map(a=>{
+        const {status,statusClass}=getStatus(a);
+        const notifIcons=(a.notifs||['benjamin']).map(n=>n==='benjamin'?'👨':'👩').join('');
+        const heures=a.heureDebut&&a.heureFin?` · ${a.heureDebut}→${a.heureFin}`:a.heureDebut?` · dès ${a.heureDebut}`:'';
+        const icon=a.type==='Congé'?'🏖️':a.type==='Maladie'?'🤒':a.type==='Formation'?'📚':'🗓️';
+        return `<div style="padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--b1);last-child:border:none">
+          <span style="font-size:18px">${icon}</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:600">${a.type} <span style="font-size:10px;color:var(--t3)">${notifIcons}</span></div>
+            <div style="font-size:11px;color:var(--t2)">Du ${formatDate(a.debut)} au ${formatDate(a.fin)}${heures}</div>
+            ${a.note?`<div style="font-size:10px;color:var(--t3)">${esc(a.note)}</div>`:''}
+          </div>
+          <span class="absence-status ${statusClass}" style="font-size:10px">${status}</span>
+          <button onclick="editAbsence(${a.id})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:16px;padding:2px" title="Modifier">✏️</button>
+          <button onclick="deleteAbsence(${a.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:16px;padding:2px" title="Supprimer">🗑️</button>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
 }
 
 function checkAbsenceReminders(){_checkRemindersFor('benjamin');}
@@ -1956,10 +2035,14 @@ function renderAnnuaire(search){
 
 function fillAbsEmpList(){
   const sel=document.getElementById('abs-emp-select');if(!sel)return;
-  const emps=getAnnuaire();
-  const fixed=['Aurélie','Claudine'];
-  const from_annuaire=emps.map(e=>`${e.prenom} ${e.nom}`);
-  const all=[...new Set([...fixed,...from_annuaire])].sort();
+  const ann=getAnnuaire();
+  const annNoms=ann.map(e=>`${e.prenom} ${e.nom}`);
+  // Ajouter utilisateurs BenAI non-admin si pas déjà dans l'annuaire
+  const users=getAllUsers().filter(u=>u.id!=='benjamin');
+  const extraUsers=users
+    .filter(u=>!annNoms.some(n=>normalizeId(n).includes(normalizeId(u.name))||normalizeId(n.split(' ')[0]||'').includes(normalizeId(u.name))))
+    .map(u=>u.name);
+  const all=[...new Set([...annNoms,...extraUsers])].sort((a,b)=>a.localeCompare(b,'fr'));
   sel.innerHTML='<option value="">Sélectionner...</option>'+all.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
 }
 
@@ -2736,13 +2819,20 @@ async function checkUpdate(){
     if(!res.ok)return;
     const data=await res.json();
     if(data.version&&isNewerVersion(data.version,BENAI_VERSION)){
-      const badge=document.createElement('div');
-      badge.style.cssText='position:fixed;bottom:16px;right:16px;background:var(--a);color:#fff;border-radius:10px;padding:10px 16px;font-size:12px;font-weight:600;cursor:pointer;z-index:9999;box-shadow:0 4px 20px rgba(232,148,58,.5)';
-      badge.textContent=`⬆️ Mise à jour v${data.version} disponible`;
-      badge.onclick=()=>installUpdate(data.version,data.notes||'');
-      document.body.appendChild(badge);
+      // Afficher popup avec notes de version
+      document.getElementById('update-version').textContent=`BenAI v${data.version}`;
+      const notesList=document.getElementById('update-notes');
+      const notes=Array.isArray(data.notes)?data.notes:[data.notes||'Améliorations et corrections'];
+      notesList.innerHTML=notes.map(n=>`<li>✅ ${esc(n)}</li>`).join('');
+      window._pendingUpdate={version:data.version,notes:data.notes};
+      document.getElementById('update-popup').style.display='flex';
     }
   }catch(e){}
+}
+
+function confirmInstallUpdate(){
+  document.getElementById('update-popup').style.display='none';
+  if(window._pendingUpdate)installUpdate(window._pendingUpdate.version,window._pendingUpdate.notes||'');
 }
 
 function isNewerVersion(remote,current){
@@ -2756,7 +2846,67 @@ function isNewerVersion(remote,current){
   return false;
 }
 
-async function installUpdate(version,notes){
+// ══════════════════════════════════════════
+// 🎓 TUTORIEL PREMIÈRE UTILISATION
+// ══════════════════════════════════════════
+const TUTO_SLIDES=[
+  {icon:'👋',title:'Bienvenue sur BenAI !',desc:'Votre assistant de travail pour Nemausus Fermetures et Lambert SAS. BenAI est là pour vous aider au quotidien — emails, SAV, questions métier.',highlight:null},
+  {icon:'🤖',title:'BenAI IA — Votre assistant',desc:'Posez toutes vos questions professionnelles : rédiger un email client, aide sur le SAV, questions sur All Manager ou Hercule Pro. BenAI répond en quelques secondes.',highlight:'💡 Utilisez le bouton + en bas pour joindre des images ou des PDF'},
+  {icon:'🔧',title:'Le SAV — Suivi des problèmes',desc:'Quand un technicien remonte un problème de chantier, créez un SAV ici. Benjamin le verra immédiatement et prendra en charge la commande ou la réclamation fournisseur.',highlight:'📋 Remplissez : client, problème, fournisseur concerné'},
+  {icon:'💬',title:'Messages — Communiquez avec l\'équipe',desc:'Envoyez des messages privés à Benjamin ou à l\'équipe. Plus rapide qu\'un email pour les petites questions du quotidien.',highlight:'🔔 Vous recevrez un son quand un nouveau message arrive'},
+  {icon:'✅',title:'C\'est parti !',desc:'Vous êtes prêt(e) à utiliser BenAI. En cas de doute, n\'hésitez pas à demander directement à BenAI IA — il est là pour vous aider.',highlight:null},
+];
+
+let tutoStep=0;
+
+function startTuto(){
+  if(!currentUser||currentUser.id==='benjamin')return;
+  tutoStep=0;
+  renderTutoSlide();
+  document.getElementById('tuto-overlay').style.display='flex';
+}
+
+function renderTutoSlide(){
+  const slide=TUTO_SLIDES[tutoStep];
+  document.getElementById('tuto-icon').textContent=slide.icon;
+  document.getElementById('tuto-title').textContent=slide.title;
+  document.getElementById('tuto-desc').textContent=slide.desc;
+  const hl=document.getElementById('tuto-highlight');
+  if(slide.highlight){hl.style.display='block';hl.textContent=slide.highlight;}
+  else hl.style.display='none';
+  // Progress dots
+  const prog=document.getElementById('tuto-progress');
+  prog.innerHTML=TUTO_SLIDES.map((_,i)=>`<div class="tuto-dot ${i===tutoStep?'active':''}"></div>`).join('');
+  // Bouton suivant / terminer
+  const btn=document.getElementById('tuto-next');
+  const skip=document.getElementById('tuto-skip');
+  if(tutoStep===TUTO_SLIDES.length-1){
+    btn.textContent='Commencer 🚀';
+    skip.style.display='none';
+  } else {
+    btn.textContent='Suivant →';
+    skip.style.display='inline-block';
+  }
+}
+
+function nextTutoSlide(){
+  if(tutoStep<TUTO_SLIDES.length-1){
+    tutoStep++;renderTutoSlide();
+  } else {
+    closeTuto();
+  }
+}
+
+function closeTuto(){
+  document.getElementById('tuto-overlay').style.display='none';
+  if(currentUser)localStorage.setItem('benai_tuto_done_'+currentUser.id,'1');
+}
+
+function shouldShowTuto(){
+  if(!currentUser||currentUser.id==='benjamin')return false;
+  return !localStorage.getItem('benai_tuto_done_'+currentUser.id);
+}
+
   if(!confirm(`Installer BenAI v${version} ?\n\n${notes}\n\nBenAI va se recharger.`))return;
   try{
     const res=await fetch(`https://raw.githubusercontent.com/BenAI30/benai/main/index.html?t=${Date.now()}`);
