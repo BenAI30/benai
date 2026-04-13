@@ -889,6 +889,10 @@ function login(){
   const now=Date.now();
   const attempts=uid!=='benjamin'?getLoginAttempts():{count:0,blockedUntil:0};
 
+  // Vérif utilisateur existe
+  const userFound=findUserById(uid);
+  const resolvedUid=userFound?normalizeId(userFound.id):uid;
+
   if(!userFound){
     if(uid!=='benjamin'){
       attempts.count++;
