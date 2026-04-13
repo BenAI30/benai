@@ -873,16 +873,20 @@ function login(){
   // Succès
   resetLoginAttempts();
   currentUser={id:resolvedUid,...(USERS[resolvedUid]||getExtraUserById(resolvedUid))};
-  document.getElementById('login-screen').style.display='none';
   // Vérif si mot de passe par défaut
   if(pwd==='1234'){
+    document.getElementById('login-screen').style.display='none';
     document.getElementById('force-pwd-screen').style.display='flex';
     return;
   }
+  // Sauvegarder la session
+  sessionStorage.setItem('benai_session',resolvedUid);
+  document.getElementById('login-screen').style.display='none';
   document.getElementById('app').classList.add('visible');
   initApp();
 }
 function logout(){
+  sessionStorage.removeItem('benai_session');
   currentUser=null;chatHistory=[];currentConv=null;
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app').classList.remove('visible');
@@ -1856,6 +1860,7 @@ function forcePwdChange(){
   savePwds(pwds);
   if(USERS[currentUser.id])USERS[currentUser.id].pwd=pwd;
   // Masquer l'écran et lancer l'app
+  sessionStorage.setItem('benai_session',currentUser.id);
   document.getElementById('force-pwd-screen').style.display='none';
   document.getElementById('app').classList.add('visible');
   logActivity(`${currentUser.name} a défini son mot de passe à la première connexion`);
@@ -1982,12 +1987,25 @@ window.addEventListener('load',()=>{
       if(k&&k.startsWith('sk-'))localStorage.setItem('benai_api',k);
     },500);
   }
-  // Charger utilisateurs extra au démarrage
+  // Charger utilisateurs extra
   getExtraUsers().forEach(u=>{
     if(!USERS[u.id]){
       USERS[u.id]={name:u.name,pwd:getPwds()[u.id]||'1234',role:'assistante',color:u.color,initial:u.initial,pages:['benai','messages','sav'],system:`Tu es BenAI, l'assistant de ${u.name}. Tu proposes toujours — ${u.name} décide toujours.`};
     }
   });
+  // Restaurer session si rechargement de page
+  const savedSession=sessionStorage.getItem('benai_session');
+  if(savedSession){
+    const uid=savedSession;
+    const userObj=USERS[uid]||getExtraUserById(uid);
+    if(userObj){
+      currentUser={id:uid,...userObj};
+      document.getElementById('login-screen').style.display='none';
+      document.getElementById('app').classList.add('visible');
+      initApp();
+      return;
+    }
+  }
   // Vérif mise à jour
   checkUpdate();
 });
