@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BenAI — Nemausus Fermetures</title>
+<title>BenAI</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
@@ -273,6 +273,29 @@ input[type=file]{display:none;}
     <input type="password" class="login-input" id="login-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
     <button class="login-btn" onclick="login()">Se connecter →</button>
     <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- ══ CHANGEMENT MOT DE PASSE OBLIGATOIRE ══ -->
+<div id="force-pwd-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:999;display:none;align-items:center;justify-content:center;background-image:radial-gradient(ellipse at 30% 20%,rgba(232,148,58,.06) 0%,transparent 60%)">
+  <div style="width:400px;padding:40px 36px;background:var(--s1);border:1px solid var(--b1);border-radius:20px;box-shadow:0 40px 80px rgba(0,0,0,.6)">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--r),#DC2626);display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px;box-shadow:0 8px 24px rgba(248,113,113,.4)">🔑</div>
+      <h2 style="font-size:20px;font-weight:700;margin-bottom:6px">Changement de mot de passe</h2>
+      <p style="font-size:12px;color:var(--t3)">Première connexion — vous devez choisir un mot de passe sécurisé</p>
+    </div>
+    <div style="background:var(--r2);border:1px solid rgba(248,113,113,.3);border-radius:10px;padding:12px 14px;margin-bottom:20px;font-size:12px;color:var(--r)">
+      ⚠️ Le mot de passe par défaut <strong>1234</strong> doit être remplacé avant de continuer.
+    </div>
+    <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:6px">Nouveau mot de passe</div>
+    <input type="password" id="force-pwd-input" class="login-input" placeholder="••••••••" style="margin-bottom:8px">
+    <div style="font-size:11px;color:var(--t3);margin-bottom:14px;line-height:1.6">
+      ✅ Minimum 6 caractères &nbsp;·&nbsp; ✅ 1 majuscule &nbsp;·&nbsp; ✅ 1 caractère spécial
+    </div>
+    <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:6px">Confirmer le mot de passe</div>
+    <input type="password" id="force-pwd-confirm" class="login-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')forcePwdChange()">
+    <button onclick="forcePwdChange()" class="login-btn" style="margin-top:4px">Enregistrer et continuer →</button>
+    <div id="force-pwd-err" style="font-size:12px;color:var(--r);text-align:center;margin-top:8px;min-height:16px"></div>
   </div>
 </div>
 
@@ -688,8 +711,23 @@ function getLoginAttempts(){try{return JSON.parse(localStorage.getItem('benai_at
 function saveLoginAttempts(a){localStorage.setItem('benai_attempts',JSON.stringify(a));}
 function resetLoginAttempts(){saveLoginAttempts({count:0,blockedUntil:0});}
 
+// Normalise identifiant : minuscules + supprime accents (Aurélie = aurelie = AURELIE)
+function normalizeId(s){
+  return (s||'').toLowerCase().trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\s+/g,'_');
+}
+
+// Validation mot de passe fort
+function validatePassword(pwd){
+  if(pwd.length<6)return 'Minimum 6 caractères';
+  if(!/[A-Z]/.test(pwd))return 'Au moins 1 majuscule requise';
+  if(!/[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]/.test(pwd))return 'Au moins 1 caractère spécial requis (!@#$%...)';
+  return null;
+}
+
 function login(){
-  const uid=document.getElementById('login-user').value.trim().toLowerCase();
+  const uid=normalizeId(document.getElementById('login-user').value);
   const pwd=document.getElementById('login-pwd').value;
   const err=document.getElementById('login-err');
   if(!uid){err.textContent='Entrez votre identifiant';return;}
@@ -704,9 +742,9 @@ function login(){
   }
 
   // Vérif utilisateur existe
-  const allUsers=getAllUsers();
-  const userExists=allUsers.find(u=>u.id===uid)||USERS[uid];
-  if(!userExists){
+  const userFound=findUserById(uid);
+  const resolvedUid=userFound?normalizeId(userFound.id):uid;
+  if(!userFound){
     attempts.count++;
     if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;}
     saveLoginAttempts(attempts);
@@ -715,7 +753,7 @@ function login(){
   }
 
   const pwds=getPwds();
-  const validPwd=pwds[uid]||USERS[uid]?.pwd||'1234';
+  const validPwd=pwds[resolvedUid]||USERS[resolvedUid]?.pwd||'1234';
   if(pwd!==validPwd){
     attempts.count++;
     if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;err.textContent='Accès bloqué 5 minutes.';saveLoginAttempts(attempts);return;}
@@ -723,15 +761,18 @@ function login(){
     err.textContent=`Mot de passe incorrect — tentative ${attempts.count}/3`;
     return;
   }
-
   // Vérif accès bloqué par admin
   const access=getAccess();
-  if(access[uid]===false&&uid!=='benjamin'){err.textContent='Accès bloqué par l\'administrateur';return;}
-
+  if(access[resolvedUid]===false&&resolvedUid!=='benjamin'){err.textContent='Accès bloqué par l\'administrateur';return;}
   // Succès
   resetLoginAttempts();
-  currentUser={id:uid,...(USERS[uid]||getExtraUserById(uid))};
+  currentUser={id:resolvedUid,...(USERS[resolvedUid]||getExtraUserById(resolvedUid))};
   document.getElementById('login-screen').style.display='none';
+  // Vérif si mot de passe par défaut
+  if(pwd==='1234'){
+    document.getElementById('force-pwd-screen').style.display='flex';
+    return;
+  }
   document.getElementById('app').classList.add('visible');
   initApp();
 }
@@ -1420,7 +1461,18 @@ function getExtraUsers(){try{return JSON.parse(localStorage.getItem('benai_extra
 function saveExtraUsers(u){localStorage.setItem('benai_extra_users',JSON.stringify(u));}
 function getExtraUserById(id){return getExtraUsers().find(u=>u.id===id)||null;}
 function getAllUsers(){
-  return[{id:'benjamin',name:'Benjamin',role:'admin',societe:'les-deux',color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B',builtin:true},{id:'aurelie',name:'Aurélie',role:'assistante',societe:'nemausus',color:'linear-gradient(135deg,#22C55E,#15803D)',initial:'A',builtin:true},{id:'claudine',name:'Claudine',role:'assistante',societe:'lambert',color:'linear-gradient(135deg,#60A5FA,#1D4ED8)',initial:'C',builtin:true},...getExtraUsers()];
+  return[
+    {id:'benjamin',name:'Benjamin',role:'admin',societe:'les-deux',color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B',builtin:true},
+    {id:'aurelie',name:'Aurélie',role:'assistante',societe:'nemausus',color:'linear-gradient(135deg,#22C55E,#15803D)',initial:'A',builtin:true},
+    {id:'claudine',name:'Claudine',role:'assistante',societe:'lambert',color:'linear-gradient(135deg,#60A5FA,#1D4ED8)',initial:'C',builtin:true},
+    ...getExtraUsers()
+  ];
+}
+
+// Trouver un utilisateur par identifiant normalisé
+function findUserById(uid){
+  const normalized=normalizeId(uid);
+  return getAllUsers().find(u=>normalizeId(u.id)===normalized)||null;
 }
 
 function showAddUser(){const f=document.getElementById('add-user-form');f.style.display=f.style.display==='none'?'block':'none';}
@@ -1490,15 +1542,34 @@ function renderPwdList(){
 }
 
 function changerMdp(uid,name){
-  const nouveau=prompt(`Nouveau mot de passe pour ${name} :\n\n(Minimum 6 caractères, évitez 1234 ou prenom)`);
-  if(!nouveau||nouveau.length<6){alert('Mot de passe trop court (minimum 6 caractères)');return;}
-  if(['1234','12345','azerty','password',name.toLowerCase()].includes(nouveau.toLowerCase())){alert('⚠️ Mot de passe trop facile à deviner. Choisissez quelque chose de plus solide.');return;}
+  const nouveau=prompt(`Nouveau mot de passe pour ${name} :\n\n✅ Minimum 6 caractères\n✅ Au moins 1 majuscule\n✅ Au moins 1 caractère spécial (!@#$%...)`);
+  if(!nouveau)return;
+  const err=validatePassword(nouveau);
+  if(err){alert('⚠️ '+err);return;}
   const pwds=getPwds();pwds[uid]=nouveau;savePwds(pwds);if(USERS[uid])USERS[uid].pwd=nouveau;
   renderPwdList();logActivity(`Benjamin a modifié le mot de passe de ${name}`);alert(`✅ Mot de passe de ${name} modifié !`);
 }
 
 // PARAMÈTRES
-function toggleSettings(){
+function forcePwdChange(){
+  const pwd=document.getElementById('force-pwd-input').value;
+  const confirm=document.getElementById('force-pwd-confirm').value;
+  const err=document.getElementById('force-pwd-err');
+  // Validation
+  const validErr=validatePassword(pwd);
+  if(validErr){err.textContent='⚠️ '+validErr;return;}
+  if(pwd!==confirm){err.textContent='⚠️ Les mots de passe ne correspondent pas';return;}
+  // Sauvegarder
+  const pwds=getPwds();
+  pwds[currentUser.id]=pwd;
+  savePwds(pwds);
+  if(USERS[currentUser.id])USERS[currentUser.id].pwd=pwd;
+  // Masquer l'écran et lancer l'app
+  document.getElementById('force-pwd-screen').style.display='none';
+  document.getElementById('app').classList.add('visible');
+  logActivity(`${currentUser.name} a défini son mot de passe à la première connexion`);
+  initApp();
+}
   const panel=document.getElementById('settings-panel');
   const isOpen=panel.style.display!=='none';
   panel.style.display=isOpen?'none':'block';
@@ -1522,8 +1593,8 @@ function setTheme(theme){
 
 function changerMonMdp(){
   const pwd=document.getElementById('new-pwd').value.trim();const msg=document.getElementById('pwd-msg');
-  if(!pwd||pwd.length<6){msg.style.color='var(--r)';msg.textContent='⚠️ Minimum 6 caractères';return;}
-  if(['1234','12345','azerty','password'].includes(pwd.toLowerCase())){msg.style.color='var(--r)';msg.textContent='⚠️ Mot de passe trop simple';return;}
+  const err=validatePassword(pwd);
+  if(err){msg.style.color='var(--r)';msg.textContent='⚠️ '+err;return;}
   const pwds=getPwds();pwds[currentUser.id]=pwd;savePwds(pwds);
   document.getElementById('new-pwd').value='';msg.style.color='var(--g)';msg.textContent='✅ Modifié !';
   setTimeout(()=>msg.textContent='',2000);logActivity(`${currentUser.name} a changé son mot de passe`);
