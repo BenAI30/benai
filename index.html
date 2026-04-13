@@ -401,7 +401,7 @@ input[type=file]{display:none;}
       <div class="tb-avatar" id="tb-avatar"></div>
       <span class="tb-username" id="tb-username"></span>
       <button class="tb-icon-btn" onclick="toggleSettings()" title="Paramètres">⚙️</button>
-      <button class="tb-logout" onclick="switchSession()" title="Changer d'utilisateur" style="margin-right:4px">🔄 Changer</button>
+      <button class="tb-logout" id="btn-switch-session" onclick="switchSession()" title="Changer d'utilisateur" style="display:none;margin-right:4px">🔄 Changer</button>
       <button class="tb-logout" onclick="logout()">Déconnexion</button>
     </div>
   </div>
@@ -1018,6 +1018,9 @@ function initApp(silent=false){
   document.getElementById('tb-avatar').style.background=u.color;
   document.getElementById('tb-avatar').textContent=u.initial;
   document.getElementById('tb-username').textContent=u.name;
+  // Bouton changer de session — Benjamin uniquement
+  const btnSwitch=document.getElementById('btn-switch-session');
+  if(btnSwitch)btnSwitch.style.display=u.id==='benjamin'?'inline-block':'none';
 
   // Réinitialiser TOUS les éléments admin avant d'appliquer les droits
   ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
@@ -2151,7 +2154,6 @@ function downloadPlanningAbsences(societe){
     <span style="display:flex;align-items:center;gap:5px;font-size:11px"><span style="display:inline-block;width:14px;height:14px;background:#DDD6FE;border-radius:3px"></span>📅 Autre</span>
   </div>`;
 
-  function companyPage(societe,label,color,borderColor){
   const cal=buildCalendar(societe);
   const pageContent=cal||`<div style="padding:20px;color:#9CA3AF;text-align:center">Aucune absence enregistrée pour ${label}</div>`;
 
