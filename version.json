@@ -1,13 +1,12 @@
 {
-  "version": "3.5",
+  "version": "3.6",
   "notes": [
-    "Planning absences : Formation supprimé comme type",
-    "Planning absences : cases plus grandes et plus lisibles",
-    "Planning absences : séparé par société (Nemausus / Lambert)",
-    "Planning absences : seuls les employés absents s'affichent",
-    "Tuto première utilisation pour les nouveaux utilisateurs",
-    "Popup détaillé des améliorations à chaque mise à jour",
-    "Absences regroupées par employé",
-    "Correction Assistante / Technicien dans la création d'utilisateur"
+    "Planning absences : format A4 paysage, tient sur une feuille",
+    "Planning absences : trié par date la plus proche en premier",
+    "Absences : partage avec tous les utilisateurs (dynamique)",
+    "Correction orthographique activée partout dans l'appli",
+    "Bouton 🔄 Changer pour switcher de session rapidement",
+    "Aurélie et Claudine sont maintenant supprimables",
+    "Formation supprimé des types d'absence"
   ]
 }
