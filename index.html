@@ -1489,9 +1489,8 @@ function creerUtilisateur(){
   const newUser={id:uid,name,role:'assistante',societe:soc,color:COLORS[extras.length%COLORS.length],initial:name[0].toUpperCase(),builtin:false,pages:['benai','messages','sav']};
   extras.push(newUser);saveExtraUsers(extras);
   const pwds=getPwds();pwds[uid]=pwd;savePwds(pwds);
+  // Mettre à jour USERS en mémoire
   USERS[uid]={name,pwd,role:'assistante',color:newUser.color,initial:newUser.initial,pages:['benai','messages','sav'],system:`Tu es BenAI, l'assistant de ${name}. Tu proposes toujours — ${name} décide toujours.`};
-  const select=document.getElementById('login-user');
-  if(select&&!select.querySelector(`option[value="${uid}"]`)){const opt=document.createElement('option');opt.value=uid;opt.textContent=name;select.appendChild(opt);}
   status.style.color='var(--g)';status.textContent=`✅ ${name} créé(e) !`;
   ['new-user-name','new-user-id','new-user-pwd'].forEach(id=>document.getElementById(id).value='');
   setTimeout(()=>{document.getElementById('add-user-form').style.display='none';status.textContent='';},1500);
@@ -1502,7 +1501,6 @@ function supprimerUtilisateur(uid){
   if(!confirm(`Supprimer ${uid} définitivement ?`))return;
   const extras=getExtraUsers().filter(u=>u.id!==uid);saveExtraUsers(extras);
   delete USERS[uid];const pwds=getPwds();delete pwds[uid];savePwds(pwds);
-  const opt=document.querySelector(`#login-user option[value="${uid}"]`);if(opt)opt.remove();
   renderUsersList();renderPwdList();logActivity(`Benjamin a supprimé l'utilisateur ${uid}`);
 }
 
@@ -1689,11 +1687,11 @@ window.addEventListener('load',()=>{
       if(k&&k.startsWith('sk-'))localStorage.setItem('benai_api',k);
     },500);
   }
-  // Charger utilisateurs extra
+  // Charger utilisateurs extra au démarrage
   getExtraUsers().forEach(u=>{
-    USERS[u.id]={name:u.name,pwd:getPwds()[u.id]||'1234',role:'assistante',color:u.color,initial:u.initial,pages:['benai','messages','sav'],system:`Tu es BenAI, l'assistant de ${u.name}. Tu proposes toujours — ${u.name} décide toujours.`};
-    const select=document.getElementById('login-user');
-    if(select&&!select.querySelector(`option[value="${u.id}"]`)){const opt=document.createElement('option');opt.value=u.id;opt.textContent=u.name;select.appendChild(opt);}
+    if(!USERS[u.id]){
+      USERS[u.id]={name:u.name,pwd:getPwds()[u.id]||'1234',role:'assistante',color:u.color,initial:u.initial,pages:['benai','messages','sav'],system:`Tu es BenAI, l'assistant de ${u.name}. Tu proposes toujours — ${u.name} décide toujours.`};
+    }
   });
   // Vérif mise à jour
   checkUpdate();
