@@ -1517,6 +1517,49 @@ function deleteEmploye(id){
   saveAnnuaire(getAnnuaire().filter(e=>e.id!==id));renderAnnuaire();
 }
 
+function editEmploye(id){
+  const ann=getAnnuaire();
+  const e=ann.find(x=>x.id===id);if(!e)return;
+  // Pré-remplir le formulaire
+  document.getElementById('emp-prenom').value=e.prenom||'';
+  document.getElementById('emp-nom').value=e.nom||'';
+  document.getElementById('emp-email').value=e.email||'';
+  document.getElementById('emp-tel').value=e.tel||'';
+  document.getElementById('emp-fonction').value=e.fonction||'Autre';
+  document.getElementById('emp-soc').value=e.societe||'nemausus';
+  // Changer le bouton Enregistrer en mode édition
+  const btn=document.querySelector('#emp-form-wrap .btn-primary');
+  if(btn){btn.textContent='💾 Modifier';btn.onclick=()=>saveEditEmploye(id);}
+  // Ouvrir le formulaire
+  document.getElementById('emp-form-wrap').style.display='block';
+  document.getElementById('emp-form-wrap').scrollIntoView({behavior:'smooth'});
+}
+
+function saveEditEmploye(id){
+  const prenom=document.getElementById('emp-prenom').value.trim();
+  const nom=document.getElementById('emp-nom').value.trim();
+  if(!prenom||!nom){alert('Prénom et Nom sont obligatoires');return;}
+  const ann=getAnnuaire();
+  const idx=ann.findIndex(e=>e.id===id);if(idx===-1)return;
+  ann[idx]={
+    ...ann[idx],
+    prenom,nom,
+    email:document.getElementById('emp-email').value.trim(),
+    tel:document.getElementById('emp-tel').value.trim(),
+    fonction:document.getElementById('emp-fonction').value,
+    societe:document.getElementById('emp-soc').value
+  };
+  saveAnnuaire(ann);
+  // Remettre le bouton en mode ajout
+  const btn=document.querySelector('#emp-form-wrap .btn-primary');
+  if(btn){btn.textContent='Enregistrer';btn.onclick=addEmploye;}
+  ['emp-prenom','emp-nom','emp-email','emp-tel'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('emp-form-wrap').style.display='none';
+  const ok=document.getElementById('emp-ok');ok.textContent='✅ Modifié !';
+  setTimeout(()=>ok.textContent='',1500);
+  renderAnnuaire();logActivity(`Benjamin a modifié ${prenom} ${nom}`);
+}
+
 function renderAnnuaire(search=''){
   const list=document.getElementById('annuaire-list');if(!list)return;
   let emps=getAnnuaire();
@@ -1531,7 +1574,8 @@ function renderAnnuaire(search=''){
         <div class="emp-detail">${e.societe==='nemausus'?'Nemausus':e.societe==='lambert'?'Lambert':'Nemausus & Lambert'}${e.tel?' · '+esc(e.tel):''}</div>
         ${e.email?`<div class="emp-email" onclick="navigator.clipboard.writeText('${esc(e.email)}')" title="Cliquer pour copier">✉️ ${esc(e.email)}</div>`:'<div class="emp-detail" style="color:var(--r)">⚠️ Pas d\'email</div>'}
       </div>
-      <button onclick="deleteEmploye(${e.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:18px;padding:4px">🗑️</button>
+      <button onclick="editEmploye(${e.id})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:18px;padding:4px" title="Modifier">✏️</button>
+      <button onclick="deleteEmploye(${e.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:18px;padding:4px" title="Supprimer">🗑️</button>
     </div>`).join('');
 }
 
