@@ -2101,18 +2101,19 @@ function downloadPlanningAbsences(){
     return months.map(mk=>{
       const [yr,mo]=mk.split('-').map(Number);
       const daysInMonth=new Date(yr,mo,0).getDate();
-      const hasData=emps.some(emp=>{
+      // Uniquement les employés avec une absence ce mois
+      const empsThisMonth=emps.filter(emp=>{
         for(let d=1;d<=daysInMonth;d++){
           if(absMap[emp]?.[`${yr}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`])return true;
         }return false;
       });
-      if(!hasData)return'';
+      if(!empsThisMonth.length)return'';
       const dayHeaders=Array.from({length:daysInMonth},(_,i)=>{
         const d=i+1;const date=new Date(yr,mo-1,d);
         const isWE=date.getDay()===0||date.getDay()===6;
         return`<th style="min-width:24px;width:24px;padding:4px 2px;text-align:center;background:${isWE?'#F3F4F6':'#F9FAFB'};color:${isWE?'#9CA3AF':'#374151'};border:1px solid #E5E7EB;font-size:10px"><div style="font-weight:700">${d}</div><div style="font-size:8px;opacity:.7">${DAY_NAMES[date.getDay()]}</div></th>`;
       }).join('');
-      const rows=emps.map(emp=>{
+      const rows=empsThisMonth.map(emp=>{
         const cells=Array.from({length:daysInMonth},(_,i)=>{
           const d=i+1;const key=`${yr}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
           const type=absMap[emp]?.[key];
