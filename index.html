@@ -708,10 +708,10 @@ input[type=file]{display:none;}
                 </div>
                 <div><div class="form-label">Fonction</div>
                   <select class="form-input" id="new-user-fonction">
-                    <option value="Secrétaire">Secrétaire</option>
+                    <option value="Assistante">Assistante</option>
                     <option value="Commercial">Commercial</option>
-                    <option value="Poseur">Poseur</option>
                     <option value="Technicien">Technicien</option>
+                    <option value="Métreur">Métreur</option>
                     <option value="Comptable">Comptable</option>
                     <option value="Autre">Autre</option>
                   </select>
@@ -2051,143 +2051,125 @@ function downloadPlanningAbsences(){
   const mem=getMem();
   const absences=(mem.absences||[]).sort((a,b)=>new Date(a.debut)-new Date(b.debut));
   if(!absences.length){alert('Aucune absence enregistrée');return;}
-  const today=new Date();today.setHours(0,0,0,0);
-  // Couleurs par type
-  const typeColors={
-    'Congé':    {bg:'#EFF6FF',border:'#3B82F6',text:'#1D4ED8',icon:'🏖️'},
-    'Maladie':  {bg:'#FFF7ED',border:'#F97316',text:'#C2410C',icon:'🤒'},
-    'Formation':{bg:'#F0FDF4',border:'#22C55E',text:'#15803D',icon:'📚'},
-    'Autre':    {bg:'#F5F3FF',border:'#8B5CF6',text:'#6D28D9',icon:'🗓️'}
-  };
-  // Grouper par mois
-  const byMonth={};
+  const ann=getAnnuaire();
+  const users=getAllUsers().filter(u=>u.id!=='benjamin');
+  const DAY_NAMES=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  const MONTH_NAMES=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const TYPE_COLORS={'Congé':{bg:'#BFDBFE',icon:'🏖️',label:'Congé'},'Maladie':{bg:'#FED7AA',icon:'🤒',label:'Maladie'},'Formation':{bg:'#BBF7D0',icon:'📚',label:'Formation'},'Autre':{bg:'#DDD6FE',icon:'📅',label:'Autre'}};
+
+  function getEmpSociete(name){
+    const a=ann.find(e=>`${e.prenom} ${e.nom}`===name);
+    if(a)return a.societe;
+    const u=users.find(x=>x.name===name);
+    return u?.societe||'les-deux';
+  }
+
+  function expandDays(a){
+    const days={};
+    const s=new Date(a.debut);const e=new Date(a.fin);
+    s.setHours(0,0,0,0);e.setHours(0,0,0,0);
+    for(const d=new Date(s);d<=e;d.setDate(d.getDate()+1)){
+      days[d.toISOString().split('T')[0]]=a.type;
+    }
+    return days;
+  }
+
+  // Construire la map absences par employé
+  const absMap={};
   absences.forEach(a=>{
-    const d=new Date(a.debut);
-    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    if(!byMonth[key])byMonth[key]=[];
-    byMonth[key].push(a);
+    if(!absMap[a.employe])absMap[a.employe]={};
+    Object.assign(absMap[a.employe],expandDays(a));
   });
-  const months=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  const getStatut=(a)=>{
-    const fin=new Date(a.fin);fin.setHours(23,59,59,0);
-    if(today>fin)return{label:'Passée',color:'#9CA3AF'};
-    if(today>=new Date(a.debut))return{label:'En cours',color:'#EF4444'};
-    return{label:'À venir',color:'#10B981'};
-  };
-  const monthsHTML=Object.entries(byMonth).map(([key,abs])=>{
-    const [year,month]=key.split('-');
-    const monthName=months[parseInt(month)-1]+' '+year;
-    // Grouper par employé dans ce mois
-    const byEmp={};
-    abs.forEach(a=>{if(!byEmp[a.employe])byEmp[a.employe]=[];byEmp[a.employe].push(a);});
-    const rowsHTML=Object.entries(byEmp).map(([emp,list])=>
-      list.map((a,i)=>{
-        const c=typeColors[a.type]||typeColors['Autre'];
-        const st=getStatut(a);
-        const heures=a.heureDebut&&a.heureFin?`${a.heureDebut} → ${a.heureFin}`:a.heureDebut||'Journée entière';
-        return `<tr style="border-bottom:1px solid #F3F4F6">
-          ${i===0?`<td rowspan="${list.length}" style="padding:12px 16px;font-weight:600;color:#111827;vertical-align:middle;border-right:1px solid #F3F4F6;background:#FAFAFA;white-space:nowrap">👤 ${a.employe}</td>`:''}
-          <td style="padding:10px 16px">
-            <span style="background:${c.bg};color:${c.text};border:1px solid ${c.border};border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600">${c.icon} ${a.type}</span>
-          </td>
-          <td style="padding:10px 16px;color:#374151;font-size:13px">${formatDate(a.debut)}${a.debut!==a.fin?' → '+formatDate(a.fin):''}</td>
-          <td style="padding:10px 16px;color:#6B7280;font-size:12px">${heures}</td>
-          <td style="padding:10px 16px;color:#6B7280;font-size:12px">${a.note||''}</td>
-          <td style="padding:10px 16px"><span style="color:${st.color};font-size:12px;font-weight:600">● ${st.label}</span></td>
-        </tr>`;
-      }).join('')
-    ).join('');
-    return `<div style="margin-bottom:32px">
-      <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:12px;overflow:hidden">
-        <div style="background:linear-gradient(135deg,#E8943A,#C4711A);padding:12px 20px;display:flex;align-items:center;justify-content:space-between">
-          <span style="color:#fff;font-size:15px;font-weight:700">📅 ${monthName}</span>
-          <span style="background:rgba(255,255,255,.2);color:#fff;border-radius:20px;padding:2px 10px;font-size:12px">${abs.length} absence(s)</span>
+
+  // Mois concernés
+  const monthsSet=new Set();
+  absences.forEach(a=>{
+    const s=new Date(a.debut);const e=new Date(a.fin);
+    for(const d=new Date(s);d<=e;d.setMonth(d.getMonth()+1)){
+      monthsSet.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+      d.setDate(1);
+    }
+    monthsSet.add(`${s.getFullYear()}-${String(s.getMonth()+1).padStart(2,'0')}`);
+    monthsSet.add(`${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,'0')}`);
+  });
+  const months=[...monthsSet].sort();
+
+  function buildCalendar(societe){
+    const compAbs=absences.filter(a=>{const s=getEmpSociete(a.employe);return s===societe||s==='les-deux';});
+    if(!compAbs.length)return'<p style="color:#9CA3AF;padding:20px;text-align:center">Aucune absence enregistrée</p>';
+    const emps=[...new Set(compAbs.map(a=>a.employe))].sort();
+    return months.map(mk=>{
+      const [yr,mo]=mk.split('-').map(Number);
+      const daysInMonth=new Date(yr,mo,0).getDate();
+      const hasData=emps.some(emp=>{
+        for(let d=1;d<=daysInMonth;d++){
+          if(absMap[emp]?.[`${yr}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`])return true;
+        }return false;
+      });
+      if(!hasData)return'';
+      const dayHeaders=Array.from({length:daysInMonth},(_,i)=>{
+        const d=i+1;const date=new Date(yr,mo-1,d);
+        const isWE=date.getDay()===0||date.getDay()===6;
+        return`<th style="min-width:24px;width:24px;padding:4px 2px;text-align:center;background:${isWE?'#F3F4F6':'#F9FAFB'};color:${isWE?'#9CA3AF':'#374151'};border:1px solid #E5E7EB;font-size:10px"><div style="font-weight:700">${d}</div><div style="font-size:8px;opacity:.7">${DAY_NAMES[date.getDay()]}</div></th>`;
+      }).join('');
+      const rows=emps.map(emp=>{
+        const cells=Array.from({length:daysInMonth},(_,i)=>{
+          const d=i+1;const key=`${yr}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+          const type=absMap[emp]?.[key];
+          const date=new Date(yr,mo-1,d);
+          const isWE=date.getDay()===0||date.getDay()===6;
+          const tc=type?TYPE_COLORS[type]||TYPE_COLORS['Autre']:null;
+          return`<td style="border:1px solid #E5E7EB;background:${tc?tc.bg:isWE?'#F9FAFB':'#fff'};text-align:center;padding:2px;font-size:11px">${tc?tc.icon:''}</td>`;
+        }).join('');
+        return`<tr><td style="padding:6px 12px;font-weight:600;white-space:nowrap;border:1px solid #E5E7EB;font-size:11px;background:#FAFAFA;min-width:130px">👤 ${emp}</td>${cells}</tr>`;
+      }).join('');
+      return`<div style="margin-bottom:20px">
+        <div style="padding:8px 14px;font-weight:700;font-size:12px;color:#fff;background:inherit;border-radius:6px 6px 0 0;margin-bottom:0" class="month-header">📅 ${MONTH_NAMES[mo-1]} ${yr}</div>
+        <div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:11px;width:100%">
+          <thead><tr><th style="padding:6px 12px;text-align:left;background:#F9FAFB;border:1px solid #E5E7EB;font-size:10px;min-width:130px">Employé</th>${dayHeaders}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div></div>`;
+    }).filter(Boolean).join('');
+  }
+
+  const legend=`<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:16px;padding:10px 14px;background:#F9FAFB;border-radius:8px;border:1px solid #E5E7EB">
+    <span style="font-size:11px;font-weight:600;color:#6B7280">Légende :</span>
+    ${Object.values(TYPE_COLORS).map(c=>`<span style="display:flex;align-items:center;gap:5px;font-size:11px"><span style="display:inline-block;width:14px;height:14px;background:${c.bg};border-radius:3px;border:1px solid rgba(0,0,0,.1)"></span>${c.icon} ${c.label}</span>`).join('')}
+  </div>`;
+
+  function companyPage(societe,label,color,borderColor){
+    return`<div class="company-page">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:12px;border-bottom:3px solid ${borderColor}">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:40px;height:40px;border-radius:10px;background:${color};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff">B</div>
+          <div><div style="font-size:18px;font-weight:800">Planning des Absences</div><div style="font-size:13px;color:${borderColor};font-weight:700">${label}</div></div>
         </div>
-        <table style="width:100%;border-collapse:collapse">
-          <thead>
-            <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
-              <th style="padding:10px 16px;text-align:left;font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Employé</th>
-              <th style="padding:10px 16px;text-align:left;font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Type</th>
-              <th style="padding:10px 16px;text-align:left;font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Période</th>
-              <th style="padding:10px 16px;text-align:left;font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Horaires</th>
-              <th style="padding:10px 16px;text-align:left;font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Note</th>
-              <th style="padding:10px 16px;text-align:left;font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Statut</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHTML}</tbody>
-        </table>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:#9CA3AF">Généré le ${new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
+          <button onclick="window.print()" class="no-print" style="margin-top:6px;padding:6px 14px;background:${borderColor};color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">🖨️ Imprimer / PDF</button>
+        </div>
       </div>
+      <style>.month-header{background:${color}!important}</style>
+      ${buildCalendar(societe)}
+      ${legend}
     </div>`;
-  }).join('');
+  }
 
-  const stats={
-    total:absences.length,
-    conge:absences.filter(a=>a.type==='Congé').length,
-    maladie:absences.filter(a=>a.type==='Maladie').length,
-    formation:absences.filter(a=>a.type==='Formation').length,
-  };
+  const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Planning Absences</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F9FAFB;color:#111827;padding:24px}
+    @media print{body{padding:8mm;background:#fff}.no-print{display:none}.page-break{page-break-before:always}}
+    @page{size:A4 landscape;margin:8mm}
+  </style></head><body>
+  ${companyPage('nemausus','Nemausus Fermetures','linear-gradient(135deg,#E8943A,#C4711A)','#E8943A')}
+  <div class="page-break" style="margin:40px 0 0"></div>
+  ${companyPage('lambert','Lambert SAS','linear-gradient(135deg,#3B82F6,#1D4ED8)','#3B82F6')}
+  </body></html>`;
 
-  const html=`<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Planning Absences — Nemausus Fermetures & Lambert SAS</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F9FAFB;color:#111827;padding:32px}
-  @media print{body{padding:0;background:#fff}.no-print{display:none}}
-</style>
-</head>
-<body>
-  <!-- HEADER -->
-  <div style="background:#fff;border:1px solid #E5E7EB;border-radius:16px;padding:28px 32px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between">
-    <div>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
-        <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#E8943A,#C4711A);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff">B</div>
-        <div>
-          <div style="font-size:20px;font-weight:800;color:#111827">Planning des Absences</div>
-          <div style="font-size:13px;color:#6B7280">Nemausus Fermetures & Lambert SAS</div>
-        </div>
-      </div>
-    </div>
-    <div style="text-align:right">
-      <div style="font-size:12px;color:#9CA3AF">Généré le</div>
-      <div style="font-size:14px;font-weight:600;color:#374151">${new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
-      <button onclick="window.print()" class="no-print" style="margin-top:8px;padding:6px 14px;background:#E8943A;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">🖨️ Imprimer</button>
-    </div>
-  </div>
-  <!-- STATS -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px">
-    <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;text-align:center">
-      <div style="font-size:28px;font-weight:800;color:#111827">${stats.total}</div>
-      <div style="font-size:12px;color:#6B7280;margin-top:2px">Total absences</div>
-    </div>
-    <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px;padding:16px;text-align:center">
-      <div style="font-size:28px;font-weight:800;color:#1D4ED8">${stats.conge}</div>
-      <div style="font-size:12px;color:#3B82F6;margin-top:2px">🏖️ Congés</div>
-    </div>
-    <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:16px;text-align:center">
-      <div style="font-size:28px;font-weight:800;color:#C2410C">${stats.maladie}</div>
-      <div style="font-size:12px;color:#F97316;margin-top:2px">🤒 Maladies</div>
-    </div>
-    <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:12px;padding:16px;text-align:center">
-      <div style="font-size:28px;font-weight:800;color:#15803D">${stats.formation}</div>
-      <div style="font-size:12px;color:#22C55E;margin-top:2px">📚 Formations</div>
-    </div>
-  </div>
-  <!-- PLANNING PAR MOIS -->
-  ${monthsHTML}
-  <div style="text-align:center;margin-top:24px;color:#9CA3AF;font-size:11px">BenAI v${BENAI_VERSION} — Nemausus Fermetures & Lambert SAS</div>
-</body>
-</html>`;
-
-  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  window.open(url,'_blank');
+  window.open(URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})),'_blank');
   logActivity('Benjamin a ouvert le planning des absences');
 }
-
 // ══════════════════════════════════════════
 // 🔊 NOTIFICATIONS SONORES
 // ══════════════════════════════════════════
