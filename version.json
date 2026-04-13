@@ -1,12 +1,10 @@
 {
-  "version": "3.6",
+  "version": "3.7",
   "notes": [
-    "Planning absences : format A4 paysage, tient sur une feuille",
-    "Planning absences : trié par date la plus proche en premier",
-    "Absences : partage avec tous les utilisateurs (dynamique)",
-    "Correction orthographique activée partout dans l'appli",
-    "Bouton 🔄 Changer pour switcher de session rapidement",
-    "Aurélie et Claudine sont maintenant supprimables",
-    "Formation supprimé des types d'absence"
+    "Planning : bouton séparé Nemausus et Lambert — une page par société",
+    "Créer un utilisateur BenAI depuis l'annuaire uniquement",
+    "Aurélie et Claudine supprimables depuis le dashboard",
+    "Correction orthographique active partout",
+    "Bouton Changer pour switcher de session rapidement"
   ]
 }
