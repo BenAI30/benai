@@ -1,5 +1,14 @@
-{
-  "version": "2.4",
-  "date": "2026-04-12",
-  "notes": "SAV amélioré, gestion mots de passe, mise à jour automatique, sécurité renforcée"
+  "version": "3.4",
+  "notes": [
+    "Tuto première utilisation pour les nouveaux utilisateurs",
+    "Popup détaillé des améliorations à chaque mise à jour",
+    "Absences regroupées par employé",
+    "Doublons supprimés dans le menu employés",
+    "Absences avec heures précises",
+    "Planning absences téléchargeable",
+    "Notifications sonores messagerie",
+    "Raccourcis clavier (Alt+B/S/M/N/A/D)",
+    "Résumé hebdomadaire automatique le vendredi",
+    "Mode hors-ligne avec bannière"
+  ]
 }
