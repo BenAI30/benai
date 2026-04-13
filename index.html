@@ -855,33 +855,43 @@ function login(){
   const err=document.getElementById('login-err');
   if(!uid){err.textContent='Entrez votre identifiant';return;}
 
-  // Vérif blocage
-  const attempts=getLoginAttempts();
-  const now=Date.now();
-  if(attempts.blockedUntil>now){
-    const remaining=Math.ceil((attempts.blockedUntil-now)/1000);
-    err.textContent=`Trop de tentatives. Réessayez dans ${remaining}s.`;
-    return;
+  // Benjamin ne peut jamais être bloqué
+  if(uid!=='benjamin'){
+    const attempts=getLoginAttempts();
+    const now=Date.now();
+    if(attempts.blockedUntil>now){
+      const remaining=Math.ceil((attempts.blockedUntil-now)/1000);
+      err.textContent=`Trop de tentatives. Réessayez dans ${remaining}s.`;
+      return;
+    }
   }
 
-  // Vérif utilisateur existe
-  const userFound=findUserById(uid);
-  const resolvedUid=userFound?normalizeId(userFound.id):uid;
+  const now=Date.now();
+  const attempts=uid!=='benjamin'?getLoginAttempts():{count:0,blockedUntil:0};
+
   if(!userFound){
-    attempts.count++;
-    if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;}
-    saveLoginAttempts(attempts);
-    err.textContent=`Identifiant ou mot de passe incorrect (${attempts.count}/3)`;
+    if(uid!=='benjamin'){
+      attempts.count++;
+      if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;}
+      saveLoginAttempts(attempts);
+      err.textContent=`Identifiant ou mot de passe incorrect (${Math.min(attempts.count,3)}/3)`;
+    } else {
+      err.textContent='Identifiant incorrect';
+    }
     return;
   }
 
   const pwds=getPwds();
   const validPwd=pwds[resolvedUid]||USERS[resolvedUid]?.pwd||'1234';
   if(pwd!==validPwd){
-    attempts.count++;
-    if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;err.textContent='Accès bloqué 5 minutes.';saveLoginAttempts(attempts);return;}
-    saveLoginAttempts(attempts);
-    err.textContent=`Mot de passe incorrect — tentative ${attempts.count}/3`;
+    if(uid!=='benjamin'){
+      attempts.count++;
+      if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;err.textContent='Accès bloqué 5 minutes.';saveLoginAttempts(attempts);return;}
+      saveLoginAttempts(attempts);
+      err.textContent=`Mot de passe incorrect — tentative ${attempts.count}/3`;
+    } else {
+      err.textContent='Mot de passe incorrect';
+    }
     return;
   }
   // Vérif accès bloqué par admin
