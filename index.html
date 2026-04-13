@@ -1546,7 +1546,7 @@ function renderSAV(){
         ${s.urgent?'<span class="badge badge-urgent">🚨 URGENT</span>':''}
         ${rappelBadge}
         <span style="font-size:10px;color:var(--t3);margin-left:auto">${s.date_creation||''}${daysSinceCreation>0?' · '+daysSinceCreation+'j':''}</span>
-        ${isAdmin?`<button onclick="deleteSAV(${s.id})" title="Supprimer" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:14px;padding:2px 4px">🗑️</button>`:''}
+        ${isAdmin?`<button onclick="editSAV(${s.id})" title="Modifier" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:14px;padding:2px 4px">✏️</button><button onclick="deleteSAV(${s.id})" title="Supprimer" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:14px;padding:2px 4px">🗑️</button>`:''}
       </div>
       <div class="sav-client">${esc(s.client)}</div>
       <div class="sav-pb">${esc(s.probleme)}</div>
@@ -1571,6 +1571,45 @@ function getClientHistory(client,excludeId,mem){
 function deleteSAV(id){
   if(!confirm('Supprimer ce SAV définitivement ?'))return;
   const mem=getMem();mem.sav=mem.sav.filter(s=>s.id!==id);saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a supprimé un SAV`);
+}
+
+function editSAV(id){
+  const mem=getMem();const s=mem.sav.find(x=>x.id===id);if(!s)return;
+  document.getElementById('sav-client').value=s.client||'';
+  document.getElementById('sav-commercial').value=s.commercial||'';
+  document.getElementById('sav-pb').value=s.probleme||'';
+  document.getElementById('sav-soc').value=s.societe||'nemausus';
+  document.getElementById('sav-soc').disabled=false;
+  document.getElementById('sav-fourn').value=s.fournisseur||'';
+  document.getElementById('sav-rappel').value=s.rappel||'';
+  document.getElementById('sav-urgent').checked=s.urgent||false;
+  const btn=document.querySelector('#sav-form-wrap .btn-primary');
+  if(btn){btn.textContent='💾 Modifier';btn.onclick=()=>saveEditSAV(id);}
+  document.getElementById('sav-form-wrap').style.display='block';
+  document.getElementById('sav-form-wrap').scrollIntoView({behavior:'smooth'});
+}
+
+function saveEditSAV(id){
+  const client=document.getElementById('sav-client').value.trim();
+  const pb=document.getElementById('sav-pb').value.trim();
+  if(!client||!pb){alert('Client et problème obligatoires');return;}
+  const mem=getMem();const idx=mem.sav.findIndex(s=>s.id===id);if(idx===-1)return;
+  mem.sav[idx]={
+    ...mem.sav[idx],
+    client,probleme:pb,
+    commercial:document.getElementById('sav-commercial').value.trim(),
+    societe:document.getElementById('sav-soc').value,
+    fournisseur:document.getElementById('sav-fourn').value.trim(),
+    rappel:document.getElementById('sav-rappel').value,
+    urgent:document.getElementById('sav-urgent').checked
+  };
+  saveMem(mem);
+  const btn=document.querySelector('#sav-form-wrap .btn-primary');
+  if(btn){btn.textContent='Enregistrer';btn.onclick=addSAV;}
+  document.getElementById('sav-form-wrap').style.display='none';
+  ['sav-client','sav-pb','sav-commercial','sav-fourn','sav-rappel'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('sav-urgent').checked=false;
+  renderSAV();logActivity(`Benjamin a modifié le SAV de ${client}`);
 }
 
 function savAction(id){
@@ -1666,6 +1705,41 @@ function deleteAbsence(id){
   const mem=getMem();mem.absences=(mem.absences||[]).filter(a=>a.id!==id);saveMem(mem);renderAbsences();
 }
 
+function editAbsence(id){
+  const mem=getMem();const a=(mem.absences||[]).find(x=>x.id===id);if(!a)return;
+  document.getElementById('abs-emp').value=a.employe||'';
+  document.getElementById('abs-debut').value=a.debut||'';
+  document.getElementById('abs-fin').value=a.fin||'';
+  document.getElementById('abs-type').value=a.type||'Congé';
+  document.getElementById('abs-note').value=a.note||'';
+  if(document.getElementById('abs-notif-benjamin'))document.getElementById('abs-notif-benjamin').checked=(a.notifs||['benjamin']).includes('benjamin');
+  if(document.getElementById('abs-notif-aurelie'))document.getElementById('abs-notif-aurelie').checked=(a.notifs||[]).includes('aurelie');
+  if(document.getElementById('abs-notif-claudine'))document.getElementById('abs-notif-claudine').checked=(a.notifs||[]).includes('claudine');
+  const btn=document.querySelector('#abs-form-wrap .btn-primary');
+  if(btn){btn.textContent='💾 Modifier';btn.onclick=()=>saveEditAbsence(id);}
+  document.getElementById('abs-form-wrap').style.display='block';
+  document.getElementById('abs-form-wrap').scrollIntoView({behavior:'smooth'});
+}
+
+function saveEditAbsence(id){
+  const emp=document.getElementById('abs-emp').value.trim();
+  const debut=document.getElementById('abs-debut').value;
+  const fin=document.getElementById('abs-fin').value;
+  if(!emp||!debut||!fin){alert('Remplissez tous les champs obligatoires');return;}
+  if(new Date(fin)<new Date(debut)){alert('⚠️ La date de fin doit être après le début');return;}
+  const notifs=[];
+  if(document.getElementById('abs-notif-benjamin')?.checked)notifs.push('benjamin');
+  if(document.getElementById('abs-notif-aurelie')?.checked)notifs.push('aurelie');
+  if(document.getElementById('abs-notif-claudine')?.checked)notifs.push('claudine');
+  const mem=getMem();const idx=(mem.absences||[]).findIndex(a=>a.id===id);if(idx===-1)return;
+  mem.absences[idx]={...mem.absences[idx],employe:emp,debut,fin,type:document.getElementById('abs-type').value,note:document.getElementById('abs-note').value.trim(),notifs};
+  saveMem(mem);
+  const btn=document.querySelector('#abs-form-wrap .btn-primary');
+  if(btn){btn.textContent='Enregistrer';btn.onclick=addAbsence;}
+  document.getElementById('abs-form-wrap').style.display='none';
+  renderAbsences();logActivity(`Benjamin a modifié l'absence de ${emp}`);
+}
+
 function renderAbsences(){
   const mem=getMem();const list=document.getElementById('abs-list');
   const absences=(mem.absences||[]).sort((a,b)=>new Date(a.debut)-new Date(b.debut));
@@ -1677,19 +1751,18 @@ function renderAbsences(){
     let status,statusClass;
     if(today>fin){status='Passée';statusClass='abs-past';}
     else if(today>=debut){status='En cours';statusClass='abs-today';}
-    else{
-      const diff=Math.ceil((debut-today)/(1000*60*60*24));
-      status=diff===1?'Demain':`Dans ${diff} jour(s)`;statusClass='abs-future';
-    }
+    else{const diff=Math.ceil((debut-today)/(1000*60*60*24));status=diff===1?'Demain':`Dans ${diff} jour(s)`;statusClass='abs-future';}
+    const notifIcons=(a.notifs||['benjamin']).map(n=>n==='benjamin'?'👨':'👩').join('');
     return `<div class="absence-card">
       <div class="absence-icon">${a.type==='Congé'?'🏖️':a.type==='Maladie'?'🤒':a.type==='Formation'?'📚':'🗓️'}</div>
       <div class="absence-info">
-        <div class="absence-name">${esc(a.employe)} — ${a.type}</div>
+        <div class="absence-name">${esc(a.employe)} — ${a.type} <span style="font-size:10px;color:var(--t3)">${notifIcons}</span></div>
         <div class="absence-dates">Du ${formatDate(a.debut)} au ${formatDate(a.fin)}</div>
         ${a.note?`<div class="absence-type">${esc(a.note)}</div>`:''}
       </div>
       <span class="absence-status ${statusClass}">${status}</span>
-      <button onclick="deleteAbsence(${a.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:18px;padding:4px">🗑️</button>
+      <button onclick="editAbsence(${a.id})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:18px;padding:4px" title="Modifier">✏️</button>
+      <button onclick="deleteAbsence(${a.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:18px;padding:4px" title="Supprimer">🗑️</button>
     </div>`;
   }).join('');
 }
@@ -2064,11 +2137,30 @@ function renderUsersList(){
     <div class="user-row">
       <div class="user-av" style="background:${u.color}">${u.initial}</div>
       <div class="user-info"><div class="user-name">${esc(u.name)}</div><div class="user-role">${u.role==='admin'?'Admin':u.fonction||'Assistante'} · ${u.societe==='les-deux'?'Nemausus & Lambert':u.societe==='nemausus'?'Nemausus':'Lambert'}</div></div>
-      ${u.builtin&&u.id==='benjamin'?'<span style="font-size:10px;color:var(--t3)">Admin</span>':`
+      ${u.id==='benjamin'?'<span style="font-size:10px;color:var(--t3)">Admin</span>':`
+        <button onclick="editUser('${u.id}')" style="padding:4px 8px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">✏️</button>
         <div onclick="toggleAccess('${u.id}')" class="toggle ${access[u.id]===false?'':'on'}" title="${access[u.id]===false?'Accès bloqué':'Accès actif'}"></div>
         ${!u.builtin?`<button onclick="supprimerUtilisateur('${u.id}')" style="padding:4px 8px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">🗑️</button>`:''}
       `}
     </div>`).join('');
+}
+
+function editUser(uid){
+  const users=getAllUsers();const u=users.find(x=>x.id===uid);if(!u)return;
+  const nouveau=prompt(`Modifier ${u.name}\n\nNom affiché (actuel: ${u.name}) :`);
+  if(!nouveau||!nouveau.trim())return;
+  // Mettre à jour dans USERS et extraUsers
+  if(USERS[uid])USERS[uid].name=nouveau.trim();
+  const extras=getExtraUsers();
+  const idx=extras.findIndex(e=>e.id===uid);
+  if(idx>-1){extras[idx].name=nouveau.trim();saveExtraUsers(extras);}
+  // Mettre à jour les builtin via localStorage override
+  const overrides=JSON.parse(localStorage.getItem('benai_name_overrides')||'{}');
+  overrides[uid]=nouveau.trim();
+  localStorage.setItem('benai_name_overrides',JSON.stringify(overrides));
+  renderUsersList();renderPwdList();
+  logActivity(`Benjamin a modifié le nom de ${uid} → ${nouveau.trim()}`);
+  alert(`✅ Nom modifié : ${nouveau.trim()}`);
 }
 
 function renderPwdList(){
