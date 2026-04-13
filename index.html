@@ -608,7 +608,8 @@ input[type=file]{display:none;}
         <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
           <div><div class="page-title">🗓️ Absences & Congés</div><div class="page-sub">Rappels J-7 et la veille</div></div>
           <div style="display:flex;gap:8px">
-            <button onclick="downloadPlanningAbsences()" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">📥 Planning</button>
+            <button onclick="downloadPlanningAbsences('nemausus')" style="background:var(--a3);border:1px solid var(--a);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--a);font-family:inherit;font-weight:600">📥 Nemausus</button>
+            <button onclick="downloadPlanningAbsences('lambert')" style="background:var(--bl2);border:1px solid var(--bl);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--bl);font-family:inherit;font-weight:600">📥 Lambert</button>
             <button class="btn-primary" onclick="toggleAbsForm()">+ Nouvelle absence</button>
           </div>
         </div>
@@ -690,31 +691,18 @@ input[type=file]{display:none;}
             <div class="dc-label">👥 Gestion des utilisateurs <button onclick="showAddUser()" style="padding:4px 10px;background:var(--a);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">+ Ajouter</button></div>
             <div id="users-list" style="margin-top:10px"></div>
             <div id="add-user-form" style="display:none;margin-top:12px;background:var(--s3);border-radius:10px;padding:12px">
-              <div style="font-size:12px;font-weight:600;margin-bottom:10px">➕ Nouvel utilisateur</div>
+              <div style="font-size:12px;font-weight:600;margin-bottom:10px">➕ Créer un accès BenAI</div>
+              <div style="font-size:11px;color:var(--t3);margin-bottom:10px">Sélectionnez un salarié de l'annuaire pour lui créer un accès BenAI.</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-                <div><div class="form-label">Prénom</div><input type="text" class="form-input" id="new-user-name" placeholder="Ex: Marie"></div>
-                <div><div class="form-label">Identifiant</div><input type="text" class="form-input" id="new-user-id" placeholder="Ex: marie"></div>
+                <div><div class="form-label">Salarié (annuaire)</div>
+                  <select class="form-input" id="new-user-ann-select">
+                    <option value="">Sélectionner...</option>
+                  </select>
+                </div>
                 <div><div class="form-label">Mot de passe</div><input type="text" class="form-input" id="new-user-pwd" placeholder="Mot de passe"></div>
-                <div><div class="form-label">Société</div>
-                  <select class="form-input" id="new-user-soc">
-                    <option value="nemausus">Nemausus Fermetures</option>
-                    <option value="lambert">Lambert SAS</option>
-                    <option value="les-deux">Les deux</option>
-                  </select>
-                </div>
-                <div><div class="form-label">Fonction</div>
-                  <select class="form-input" id="new-user-fonction">
-                    <option value="Assistante">Assistante</option>
-                    <option value="Commercial">Commercial</option>
-                    <option value="Technicien">Technicien</option>
-                    <option value="Métreur">Métreur</option>
-                    <option value="Comptable">Comptable</option>
-                    <option value="Autre">Autre</option>
-                  </select>
-                </div>
               </div>
               <div style="display:flex;gap:6px">
-                <button onclick="creerUtilisateur()" class="btn-primary" style="flex:1">Créer</button>
+                <button onclick="creerUtilisateur()" class="btn-primary" style="flex:1">Créer l'accès</button>
                 <button onclick="document.getElementById('add-user-form').style.display='none'" style="padding:9px 14px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
               </div>
               <div id="add-user-status" style="font-size:11px;margin-top:6px;min-height:14px"></div>
@@ -821,7 +809,7 @@ input[type=file]{display:none;}
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const BENAI_VERSION = '3.6';
+const BENAI_VERSION = '3.7';
 
 // ══════════════════════════════════════════
 // UTILISATEURS
@@ -2068,15 +2056,19 @@ function fillAbsEmpList(){
 }
 
 // PLANNING ABSENCES - téléchargement CSV
-function downloadPlanningAbsences(){
+function downloadPlanningAbsences(societe){
   const mem=getMem();
   const absences=(mem.absences||[]).sort((a,b)=>new Date(a.debut)-new Date(b.debut));
   if(!absences.length){alert('Aucune absence enregistrée');return;}
+  const isNem=societe==='nemausus';
+  const label=isNem?'Nemausus Fermetures':'Lambert SAS';
+  const color=isNem?'linear-gradient(135deg,#E8943A,#C4711A)':'linear-gradient(135deg,#3B82F6,#1D4ED8)';
+  const borderColor=isNem?'#E8943A':'#3B82F6';
   const ann=getAnnuaire();
   const users=getAllUsers().filter(u=>u.id!=='benjamin');
   const DAY_NAMES=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
   const MONTH_NAMES=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  const TYPE_COLORS={'Congé':{bg:'#BFDBFE',icon:'🏖️',label:'Congé'},'Maladie':{bg:'#FED7AA',icon:'🤒',label:'Maladie'},'Autre':{bg:'#DDD6FE',icon:'📅',label:'Autre'}};
+  const TYPE_COLORS={'Congé':{bg:'#BFDBFE',icon:'🏖️'},'Maladie':{bg:'#FED7AA',icon:'🤒'},'Autre':{bg:'#DDD6FE',icon:'📅'}};
 
   function getEmpSociete(name){
     const a=ann.find(e=>`${e.prenom} ${e.nom}`===name);
@@ -2089,7 +2081,7 @@ function downloadPlanningAbsences(){
     const days={};
     const s=new Date(a.debut);const e=new Date(a.fin);
     s.setHours(0,0,0,0);e.setHours(0,0,0,0);
-    for(const d=new Date(s);d<=e;d.setDate(d.getDate()+1)){
+    for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){
       days[d.toISOString().split('T')[0]]=a.type;
     }
     return days;
@@ -2106,7 +2098,7 @@ function downloadPlanningAbsences(){
   const monthsSet=new Set();
   absences.forEach(a=>{
     const s=new Date(a.debut);const e=new Date(a.fin);
-    for(const d=new Date(s);d<=e;d.setMonth(d.getMonth()+1)){
+    for(let d=new Date(s);d<=e;d.setMonth(d.getMonth()+1)){
       monthsSet.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
       d.setDate(1);
     }
@@ -2160,54 +2152,45 @@ function downloadPlanningAbsences(){
   </div>`;
 
   function companyPage(societe,label,color,borderColor){
-    const cal=buildCalendar(societe);
-    if(!cal)return`<div class="company-page"><div style="padding:20px;color:#9CA3AF;text-align:center">Aucune absence pour ${label}</div></div>`;
-    return`<div class="company-page">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:3px solid ${borderColor}">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="width:34px;height:34px;border-radius:8px;background:${color};display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#fff">B</div>
-          <div><div style="font-size:15px;font-weight:800">Planning des Absences</div><div style="font-size:12px;color:${borderColor};font-weight:700">${label}</div></div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:10px;color:#9CA3AF">Généré le ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>
-          <button onclick="window.print()" class="no-print" style="margin-top:4px;padding:5px 12px;background:${borderColor};color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">🖨️ Imprimer / PDF</button>
-        </div>
-      </div>
-      ${cal}
-      ${legend}
-    </div>`;
-  }
+  const cal=buildCalendar(societe);
+  const pageContent=cal||`<div style="padding:20px;color:#9CA3AF;text-align:center">Aucune absence enregistrée pour ${label}</div>`;
 
-  const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Planning Absences</title>
+  const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Planning ${label}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#111827;padding:6mm;font-size:10px}
-    .company-page{width:100%}
     .month-block{margin-bottom:14px}
-    .month-title{padding:6px 10px;font-weight:800;font-size:12px;color:#fff;border-radius:5px 5px 0 0}
+    .month-title{padding:6px 10px;font-weight:800;font-size:12px;color:#fff;border-radius:5px 5px 0 0;background:${borderColor}}
     table{border-collapse:collapse;width:100%;table-layout:fixed}
     td,th{border:1px solid #D1D5DB;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .emp-cell{width:110px;min-width:110px;max-width:110px;padding:5px 8px;font-weight:700;font-size:10px;background:#FAFAFA;color:#111}
     .day-header{width:22px;min-width:22px;max-width:22px;text-align:center;padding:3px 1px;font-size:8px;font-weight:700;background:#F3F4F6}
     .day-cell{width:22px;min-width:22px;max-width:22px;text-align:center;padding:0;height:28px;vertical-align:middle;font-size:11px}
     .we{background:#F3F4F6!important;color:#9CA3AF}
-    .page-break{page-break-before:always}
-    @media print{
-      body{padding:4mm;background:#fff}
-      .no-print{display:none!important}
-      .page-break{page-break-before:always;margin:0}
-      .company-page{page-break-inside:avoid}
-      .month-block{page-break-inside:avoid}
-    }
+    @media print{body{padding:4mm}.no-print{display:none!important}.month-block{page-break-inside:avoid}}
     @page{size:A4 landscape;margin:5mm}
   </style></head><body>
-  ${companyPage('nemausus','Nemausus Fermetures','linear-gradient(135deg,#E8943A,#C4711A)','#E8943A')}
-  <div class="page-break"></div>
-  ${companyPage('lambert','Lambert SAS','linear-gradient(135deg,#3B82F6,#1D4ED8)','#3B82F6')}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:3px solid ${borderColor}">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:8px;background:${color};display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#fff">B</div>
+      <div><div style="font-size:15px;font-weight:800">Planning des Absences</div><div style="font-size:12px;color:${borderColor};font-weight:700">${label}</div></div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:10px;color:#9CA3AF">Généré le ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>
+      <button onclick="window.print()" class="no-print" style="margin-top:4px;padding:5px 12px;background:${borderColor};color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">🖨️ Imprimer / PDF</button>
+    </div>
+  </div>
+  ${pageContent}
+  <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;padding:8px 12px;background:#F9FAFB;border-radius:6px;border:1px solid #E5E7EB">
+    <span style="font-size:11px;font-weight:700;color:#6B7280">Légende :</span>
+    <span style="display:flex;align-items:center;gap:5px;font-size:11px"><span style="display:inline-block;width:14px;height:14px;background:#BFDBFE;border-radius:3px"></span>🏖️ Congé</span>
+    <span style="display:flex;align-items:center;gap:5px;font-size:11px"><span style="display:inline-block;width:14px;height:14px;background:#FED7AA;border-radius:3px"></span>🤒 Maladie</span>
+    <span style="display:flex;align-items:center;gap:5px;font-size:11px"><span style="display:inline-block;width:14px;height:14px;background:#DDD6FE;border-radius:3px"></span>📅 Autre</span>
+  </div>
   </body></html>`;
 
   window.open(URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})),'_blank');
-  logActivity('Benjamin a ouvert le planning des absences');
+  logActivity(`Benjamin a ouvert le planning des absences ${label}`);
 }
 // ══════════════════════════════════════════
 // 🔊 NOTIFICATIONS SONORES
@@ -2485,27 +2468,52 @@ function findUserById(uid){
   return getAllUsers().find(u=>normalizeId(u.id)===normalized)||null;
 }
 
-function showAddUser(){const f=document.getElementById('add-user-form');f.style.display=f.style.display==='none'?'block':'none';}
+function showAddUser(){
+  const f=document.getElementById('add-user-form');
+  const isOpen=f.style.display!=='none';
+  f.style.display=isOpen?'none':'block';
+  if(!isOpen){
+    // Peupler le select avec les salariés de l'annuaire qui n'ont pas encore de compte BenAI
+    const ann=getAnnuaire();
+    const existingUsers=getAllUsers().map(u=>normalizeId(u.name));
+    const disponibles=ann.filter(e=>{
+      const fullName=`${e.prenom} ${e.nom}`;
+      return!existingUsers.some(uid=>uid===normalizeId(fullName)||uid===normalizeId(e.prenom));
+    });
+    const sel=document.getElementById('new-user-ann-select');
+    if(sel){
+      sel.innerHTML='<option value="">Sélectionner...</option>'+
+        disponibles.map(e=>`<option value="${esc(e.prenom+'|'+e.nom+'|'+(e.societe||'nemausus')+'|'+(e.fonction||'Autre'))}">${esc(e.prenom+' '+e.nom)} — ${e.fonction||'?'}</option>`).join('');
+    }
+  }
+}
 
 function creerUtilisateur(){
-  const name=document.getElementById('new-user-name').value.trim();
-  const uid=document.getElementById('new-user-id').value.trim().toLowerCase().replace(/\s+/g,'_');
+  const sel=document.getElementById('new-user-ann-select');
+  const val=sel?.value||'';
   const pwd=document.getElementById('new-user-pwd').value.trim();
-  const soc=document.getElementById('new-user-soc').value;
-  const fonction=document.getElementById('new-user-fonction')?.value||'Autre';
   const status=document.getElementById('add-user-status');
-  if(!name||!uid||!pwd){status.style.color='var(--r)';status.textContent='⚠️ Remplissez tous les champs';return;}
-  if(getAllUsers().find(u=>u.id===uid)){status.style.color='var(--r)';status.textContent='⚠️ Identifiant déjà utilisé';return;}
+  if(!val){status.style.color='var(--r)';status.textContent='⚠️ Sélectionnez un salarié';return;}
+  if(!pwd||pwd.length<3){status.style.color='var(--r)';status.textContent='⚠️ Mot de passe trop court (3 min)';return;}
+  const [prenom,nom,soc,fonction]=val.split('|');
+  const name=`${prenom} ${nom}`.trim();
+  const uid=normalizeId(prenom);
+  if(getAllUsers().find(u=>u.id===uid)){status.style.color='var(--r)';status.textContent='⚠️ Cet accès existe déjà';return;}
   const extras=getExtraUsers();
-  const newUser={id:uid,name,role:'assistante',societe:soc,fonction,color:COLORS[extras.length%COLORS.length],initial:name[0].toUpperCase(),builtin:false,pages:['benai','messages','sav']};
+  const newUser={id:uid,name,role:'assistante',societe:soc,fonction,color:COLORS[extras.length%COLORS.length],initial:prenom[0].toUpperCase(),builtin:false,pages:['benai','messages','sav']};
   extras.push(newUser);saveExtraUsers(extras);
   const pwds=getPwds();pwds[uid]=pwd;savePwds(pwds);
-  // Mettre à jour USERS en mémoire
-  USERS[uid]={name,pwd,role:'assistante',color:newUser.color,initial:newUser.initial,pages:['benai','messages','sav'],system:`Tu es BenAI, l'assistant de ${name}. Tu proposes toujours — ${name} décide toujours.`};
-  status.style.color='var(--g)';status.textContent=`✅ ${name} créé(e) !`;
-  ['new-user-name','new-user-id','new-user-pwd'].forEach(id=>document.getElementById(id).value='');
+  USERS[uid]={name,pwd,role:'assistante',color:newUser.color,initial:newUser.initial,pages:['benai','messages','sav'],
+    system:`Tu es BenAI, l'assistant de ${name} (${fonction}) chez Nemausus Fermetures / Lambert SAS. Tu proposes toujours — ${name} décide toujours.`};
+  // Ajouter au select login
+  const loginSel=document.getElementById('login-user');
+  if(loginSel&&!loginSel.querySelector(`option[value="${uid}"]`)){
+    const opt=document.createElement('option');opt.value=uid;opt.textContent=name;loginSel.appendChild(opt);
+  }
+  status.style.color='var(--g)';status.textContent=`✅ Accès créé pour ${name} !`;
+  document.getElementById('new-user-pwd').value='';
   setTimeout(()=>{document.getElementById('add-user-form').style.display='none';status.textContent='';},1500);
-  renderUsersList();renderPwdList();logActivity(`Benjamin a créé l'utilisateur ${name}`);
+  renderUsersList();renderPwdList();logActivity(`Benjamin a créé l'accès BenAI pour ${name}`);
 }
 
 function supprimerUtilisateur(uid){
