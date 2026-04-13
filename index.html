@@ -1154,18 +1154,21 @@ async function sendChat(txtOverride){
   if(!txtOverride){input.value='';input.style.height='auto';}
   busy=true;document.getElementById('btn-send').disabled=true;
 
-  // Correction auto avant envoi (tous utilisateurs, si >3 mots)
-  if(!txtOverride&&txt.split(' ').length>3){
+  // Correction auto avant envoi (tous utilisateurs)
+  if(!txtOverride){
     const apiKey=getApiKey();
     if(apiKey){
       try{
         const r=await fetch('https://api.anthropic.com/v1/messages',{
           method:'POST',
           headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-          body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:`Corrige uniquement les fautes d'orthographe et de grammaire, sans changer le sens ni le style. Réponds UNIQUEMENT avec le texte corrigé, rien d'autre :\n\n${txt}`}]})
+          body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:`Corrige uniquement les fautes d'orthographe et de grammaire françaises, sans changer le sens ni le style. Réponds UNIQUEMENT avec le texte corrigé, rien d'autre. Si pas de faute, réponds le texte exact tel quel :\n\n${txt}`}]})
         });
         const d=await r.json();
-        if(d.content?.[0]?.text)txt=d.content[0].text.trim();
+        if(d.content?.[0]?.text){
+          const corrected=d.content[0].text.trim();
+          if(corrected&&corrected!==txt)txt=corrected;
+        }
       }catch(e){}
     }
   }
@@ -1196,10 +1199,6 @@ async function sendChat(txtOverride){
     saveChatMem(currentUser.id,chatHistory);
     typing.remove();addAIMsg(reply);
     logActivity(`${currentUser.name} a consulté BenAI IA`);
-    // Auto-correction intelligente pour Benjamin
-    if(currentUser.id==='benjamin'&&txt.split(' ').length>2){
-      autoCorrectForBenjamin(txt,userMsgEl);
-    }
   }catch(e){typing.remove();addAIMsg('❌ '+e.message);}
   busy=false;document.getElementById('btn-send').disabled=false;
 }
