@@ -2907,7 +2907,8 @@ function shouldShowTuto(){
   return !localStorage.getItem('benai_tuto_done_'+currentUser.id);
 }
 
-  if(!confirm(`Installer BenAI v${version} ?\n\n${notes}\n\nBenAI va se recharger.`))return;
+async function installUpdate(version,notes){
+  if(!confirm(`Installer BenAI v${version} ?\n\nBenAI va se recharger.`))return;
   try{
     const res=await fetch(`https://raw.githubusercontent.com/BenAI30/benai/main/index.html?t=${Date.now()}`);
     if(!res.ok)throw new Error('Impossible de télécharger');
