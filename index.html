@@ -3,10 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Benai — Nemausus Fermetures</title>
+<title>BenAI — Nemausus Fermetures</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-
 *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
 :root{
   --bg:#080808;--s1:#101010;--s2:#161616;--s3:#1E1E1E;--b1:#242424;--b2:#2E2E2E;
@@ -15,40 +14,29 @@
   --g:#22C55E;--g2:rgba(34,197,94,.12);
   --r:#F87171;--r2:rgba(248,113,113,.12);
   --bl:#60A5FA;--bl2:rgba(96,165,250,.12);
+  --y:#FBBF24;--y2:rgba(251,191,36,.12);
   --nem:#E8943A;--lam:#60A5FA;
 }
-
 html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);}
-
-/* ══════════════════════════════════════════
-   LOGIN
-══════════════════════════════════════════ */
-#login-screen{
-  position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;
-  background-image:radial-gradient(ellipse at 30% 20%, rgba(232,148,58,.06) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(96,165,250,.04) 0%, transparent 60%);
-}
+/* LOGIN */
+#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;background-image:radial-gradient(ellipse at 30% 20%,rgba(232,148,58,.06) 0%,transparent 60%),radial-gradient(ellipse at 70% 80%,rgba(96,165,250,.04) 0%,transparent 60%);}
 .login-box{width:380px;padding:40px 36px;background:var(--s1);border:1px solid var(--b1);border-radius:20px;box-shadow:0 40px 80px rgba(0,0,0,.6);}
 .login-logo{text-align:center;margin-bottom:28px;}
 .login-logo .logo-mark{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#fff;margin:0 auto 12px;box-shadow:0 8px 24px rgba(232,148,58,.4);}
 .login-logo h1{font-size:22px;font-weight:700;letter-spacing:-.02em;}
 .login-logo p{font-size:12px;color:var(--t3);margin-top:3px;}
 .login-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:6px;}
-.login-select{width:100%;padding:11px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:14px;outline:none;cursor:pointer;margin-bottom:14px;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
-.login-select:focus{border-color:var(--a);}
+.login-select,.login-input{width:100%;padding:11px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:14px;outline:none;margin-bottom:14px;transition:.15s;}
+.login-select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
 .login-select option{background:var(--s2);}
-.login-input{width:100%;padding:11px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:14px;outline:none;margin-bottom:14px;transition:.15s;}
-.login-input:focus{border-color:var(--a);}
+.login-select:focus,.login-input:focus{border-color:var(--a);}
 .login-input::placeholder{color:var(--t3);}
 .login-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:.15s;letter-spacing:.02em;}
 .login-btn:hover{opacity:.9;transform:translateY(-1px);}
 .login-err{font-size:12px;color:var(--r);text-align:center;margin-top:8px;min-height:16px;}
-
-/* ══════════════════════════════════════════
-   APP LAYOUT
-══════════════════════════════════════════ */
+/* APP LAYOUT */
 #app{display:none;height:100%;flex-direction:column;}
 #app.visible{display:flex;}
-
 /* TOPBAR */
 .topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;}
 .tb-logo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;}
@@ -56,12 +44,13 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .tb-user{margin-left:auto;display:flex;align-items:center;gap:8px;}
 .tb-avatar{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;}
 .tb-username{font-size:13px;font-weight:500;color:var(--t2);}
+.tb-icon-btn{background:none;border:1px solid var(--b1);border-radius:7px;padding:4px 8px;cursor:pointer;font-size:15px;transition:.15s;position:relative;}
+.tb-icon-btn:hover{border-color:var(--a);}
 .tb-logout{background:none;border:1px solid var(--b1);border-radius:6px;padding:4px 9px;color:var(--t3);font-size:11px;cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
 .tb-logout:hover{border-color:var(--r);color:var(--r);}
-
-/* MAIN LAYOUT */
+.notif-dot{position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--r);border:2px solid var(--s1);display:none;}
+/* MAIN */
 .main{display:flex;flex:1;overflow:hidden;}
-
 /* SIDEBAR */
 .sidebar{width:220px;background:var(--s1);border-right:1px solid var(--b1);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
 .sb-section{padding:10px 8px 4px;}
@@ -73,24 +62,18 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .sb-icon{font-size:16px;flex-shrink:0;}
 .sb-txt{font-size:13px;font-weight:500;}
 .sb-badge{margin-left:auto;background:var(--a);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;}
-.sb-unread{margin-left:auto;width:8px;height:8px;border-radius:50%;background:var(--a);}
-
+.sb-badge-r{margin-left:auto;background:var(--r);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;}
 /* CONTENT */
 .content{flex:1;overflow:hidden;display:flex;flex-direction:column;}
-
-/* ══════════════════════════════════════════
-   CHAT BENAI (IA)
-══════════════════════════════════════════ */
+/* CHAT */
 .chat-area{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;}
 .chat-area::-webkit-scrollbar{width:3px;}
 .chat-area::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px;}
-
 .msg{display:flex;gap:10px;}
 .msg.user{flex-direction:row-reverse;align-self:flex-end;max-width:72%;}
 .msg.ai{align-self:flex-start;max-width:85%;}
 .msg-avatar{width:30px;height:30px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;}
 .msg.ai .msg-avatar{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;}
-.msg.user .msg-avatar{color:#fff;}
 .bubble{padding:11px 14px;border-radius:14px;font-size:13.5px;line-height:1.65;}
 .msg.ai .bubble{background:var(--s2);border:1px solid var(--b1);border-radius:14px 14px 14px 3px;}
 .msg.user .bubble{border-radius:14px 14px 3px 14px;color:#fff;}
@@ -99,34 +82,34 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .typing span:nth-child(2){animation-delay:.15s;}
 .typing span:nth-child(3){animation-delay:.3s;}
 @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
-
-/* INPUT BENAI */
-.chat-input-area{padding:14px 16px;border-top:1px solid var(--b1);background:var(--s1);flex-shrink:0;}
+/* CHAT INPUT */
+.chat-input-area{padding:12px 16px;border-top:1px solid var(--b1);background:var(--s1);flex-shrink:0;}
 .chat-input-row{display:flex;gap:8px;align-items:flex-end;}
 .chat-textarea{flex:1;background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:10px 13px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;resize:none;outline:none;min-height:42px;max-height:100px;line-height:1.5;transition:border-color .15s;}
 .chat-textarea:focus{border-color:var(--a);}
 .chat-textarea::placeholder{color:var(--t3);}
-.btn-attach{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:9px 11px;cursor:pointer;color:var(--t3);transition:.15s;font-size:16px;display:flex;align-items:center;flex-shrink:0;}
-.btn-attach:hover{border-color:var(--a);color:var(--a);}
+.chat-tools{display:flex;gap:6px;margin-bottom:8px;align-items:center;}
+.tool-btn{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:5px 9px;cursor:pointer;color:var(--t3);transition:.15s;font-size:13px;font-family:'Outfit',sans-serif;}
+.tool-btn:hover{border-color:var(--a);color:var(--a);}
 .btn-send{background:linear-gradient(135deg,var(--a),var(--a2));border:none;border-radius:10px;padding:9px 16px;cursor:pointer;color:#fff;font-weight:700;font-family:'Outfit',sans-serif;font-size:13px;flex-shrink:0;transition:.15s;}
 .btn-send:hover{opacity:.88;}
 .btn-send:disabled{opacity:.3;cursor:not-allowed;}
-
-/* ══════════════════════════════════════════
-   MESSAGERIE INTERNE
-══════════════════════════════════════════ */
+/* EMOJI PICKER */
+.emoji-picker{position:absolute;bottom:115px;left:16px;background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:10px;width:280px;display:none;z-index:100;box-shadow:0 8px 32px rgba(0,0,0,.5);}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;}
+.emoji-btn{background:none;border:none;font-size:18px;cursor:pointer;padding:4px;border-radius:6px;transition:.1s;text-align:center;}
+.emoji-btn:hover{background:var(--s3);}
+/* MESSAGERIE */
 .msg-layout{display:flex;flex:1;overflow:hidden;}
 .conv-list{width:200px;border-right:1px solid var(--b1);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;}
 .conv-header{padding:14px 14px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);}
 .conv-item{padding:11px 14px;cursor:pointer;transition:.12s;border-bottom:1px solid var(--b1);position:relative;}
 .conv-item:hover{background:var(--s2);}
 .conv-item.active{background:var(--a3);}
-.conv-name{font-size:13px;font-weight:600;color:var(--t1);}
+.conv-name{font-size:13px;font-weight:600;}
 .conv-preview{font-size:11px;color:var(--t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.conv-unread{position:absolute;top:11px;right:12px;width:8px;height:8px;border-radius:50%;background:var(--a);}
-.conv-group{background:var(--a3);}
+.conv-unread-badge{position:absolute;top:50%;right:12px;transform:translateY(-50%);background:var(--a);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;}
 .conv-group .conv-name{color:var(--a);}
-
 .msg-thread{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 .thread-header{padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:10px;background:var(--s1);}
 .thread-avatar{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;}
@@ -135,52 +118,39 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .thread-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;}
 .thread-msgs::-webkit-scrollbar{width:3px;}
 .thread-msgs::-webkit-scrollbar-thumb{background:var(--b2);}
-.tmsg{display:flex;gap:8px;max-width:75%;}
+.tmsg{display:flex;gap:8px;max-width:78%;}
 .tmsg.mine{align-self:flex-end;flex-direction:row-reverse;}
 .tmsg.theirs{align-self:flex-start;}
 .tmsg-av{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
-.tmsg-bubble{padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.5;}
+.tmsg-body{display:flex;flex-direction:column;}
+.tmsg-bubble{padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.5;cursor:pointer;position:relative;}
 .tmsg.mine .tmsg-bubble{border-radius:12px 12px 3px 12px;color:#fff;}
 .tmsg.theirs .tmsg-bubble{background:var(--s3);border:1px solid var(--b1);border-radius:12px 12px 12px 3px;}
-.tmsg-time{font-size:10px;color:var(--t3);margin-top:3px;text-align:right;}
-.tmsg.theirs .tmsg-time{text-align:left;}
+.tmsg-time{font-size:10px;color:var(--t3);margin-top:3px;}
+.tmsg.mine .tmsg-time{text-align:right;}
+.tmsg-actions{display:none;position:absolute;top:-28px;right:0;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:3px 6px;gap:4px;white-space:nowrap;z-index:10;}
+.tmsg-bubble:hover .tmsg-actions{display:flex;}
+.tmsg-act-btn{background:none;border:none;font-size:11px;cursor:pointer;color:var(--t2);padding:2px 4px;border-radius:4px;font-family:'Outfit',sans-serif;}
+.tmsg-act-btn:hover{color:var(--a);}
 .thread-input{padding:12px 14px;border-top:1px solid var(--b1);display:flex;gap:8px;background:var(--s1);}
 .thread-input input{flex:1;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:9px 12px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;outline:none;transition:.15s;}
 .thread-input input:focus{border-color:var(--a);}
 .thread-input input::placeholder{color:var(--t3);}
 .thread-send{background:var(--a);border:none;border-radius:9px;padding:9px 14px;color:#fff;cursor:pointer;font-size:16px;transition:.15s;}
 .thread-send:hover{background:var(--a2);}
-
-/* ══════════════════════════════════════════
-   DASHBOARD ADMIN
-══════════════════════════════════════════ */
+/* DASHBOARD */
 .dashboard{flex:1;overflow-y:auto;padding:20px;}
 .dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
 .dash-card{background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:16px;}
-.dash-card.wide{grid-column:span 2;}
-.dash-card.full{grid-column:1/-1;}
-.dc-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px;}
-.dc-val{font-size:28px;font-weight:800;color:var(--t1);font-family:'Outfit',sans-serif;}
+.dc-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
+.dc-val{font-size:28px;font-weight:800;color:var(--t1);}
 .dc-sub{font-size:11px;color:var(--t3);margin-top:3px;}
 .dc-icon{font-size:24px;margin-bottom:8px;}
-
-.activity-list{display:flex;flex-direction:column;gap:6px;}
-.act-item{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--s3);border-radius:8px;}
+.act-item{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--s3);border-radius:8px;margin-bottom:6px;}
 .act-av{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
 .act-txt{flex:1;font-size:12px;color:var(--t2);}
 .act-time{font-size:10px;color:var(--t3);}
-
-.user-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
-.user-card{background:var(--s3);border:1px solid var(--b1);border-radius:12px;padding:14px;text-align:center;}
-.uc-av{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;margin:0 auto 8px;}
-.uc-name{font-size:13px;font-weight:600;}
-.uc-role{font-size:10px;color:var(--t3);margin-top:2px;}
-.uc-stat{font-size:11px;color:var(--t2);margin-top:6px;}
-.online-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--g);margin-right:4px;}
-
-/* ══════════════════════════════════════════
-   SAV
-══════════════════════════════════════════ */
+/* SAV */
 .sav-area{flex:1;overflow-y:auto;padding:16px;}
 .sav-form{background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:16px;margin-bottom:16px;}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
@@ -191,47 +161,99 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .form-input::placeholder{color:var(--t3);}
 .btn-primary{padding:10px 20px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:8px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;}
 .btn-primary:hover{opacity:.88;}
-
 .sav-list{display:flex;flex-direction:column;gap:8px;}
-.sav-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:13px 15px;display:flex;align-items:center;gap:12px;}
-.sav-info{flex:1;}
+.sav-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:13px 15px;}
+.sav-card.urgent{border-color:var(--r);box-shadow:0 0 0 1px rgba(248,113,113,.2);}
 .sav-client{font-size:13px;font-weight:600;}
-.sav-pb{font-size:12px;color:var(--t2);margin-top:2px;}
+.sav-pb{font-size:12px;color:var(--t2);margin-top:3px;}
 .sav-meta{font-size:10px;color:var(--t3);margin-top:3px;}
 .badge{display:inline-block;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;}
-.badge-open{background:var(--r2);color:var(--r);}
-.badge-done{background:var(--g2);color:var(--g);}
 .badge-nem{background:rgba(232,148,58,.15);color:var(--nem);}
 .badge-lam{background:var(--bl2);color:var(--lam);}
-.btn-resolve{background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
-.btn-resolve:hover{background:var(--g);color:#fff;}
+.badge-urgent{background:var(--r2);color:var(--r);}
 .sav-filter{background:var(--s3);border:1px solid var(--b1);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
 .sav-filter:hover{border-color:var(--a);color:var(--a);}
 .sav-filter.active{background:var(--a3);border-color:var(--a);color:var(--a);}
+.sav-search{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 12px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;outline:none;width:200px;transition:.15s;}
+.sav-search:focus{border-color:var(--a);}
+.sav-search::placeholder{color:var(--t3);}
 .sav-action-input{flex:1;padding:7px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;outline:none;}
 .sav-action-input:focus{border-color:var(--a);}
-.sav-action-input::placeholder{color:var(--t3);}
 .state-new{background:rgba(248,113,113,.15);color:var(--r);display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;}
 .state-progress{background:rgba(251,191,36,.15);color:#FBBF24;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;}
 .state-done{background:var(--g2);color:var(--g);display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;}
-
+.btn-resolve{background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
+.btn-resolve:hover{background:var(--g);color:#fff;}
+.sav-reminder-badge{background:var(--y2);color:var(--y);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:600;display:inline-flex;align-items:center;gap:4px;}
 /* PAGE HEADER */
 .page-header{padding:16px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .page-title{font-size:17px;font-weight:700;letter-spacing:-.02em;}
 .page-sub{font-size:12px;color:var(--t3);margin-top:2px;}
-
-.tb-settings{background:none;border:1px solid var(--b1);border-radius:7px;padding:4px 8px;cursor:pointer;font-size:15px;transition:.15s;margin-right:4px;}
-.tb-settings:hover{border-color:var(--a);}
-
-/* THÈME CLAIR */
-body.light{
-  --bg:#F5F5F0;--s1:#FFFFFF;--s2:#F0EFE9;--s3:#E8E7E0;--b1:#D8D6CE;--b2:#C8C6BE;
-  --t1:#1A1917;--t2:#4A4845;--t3:#8A8880;--ai-bg:#FFFFFF;
-}
+/* NOTES */
+.notes-area{flex:1;overflow-y:auto;padding:16px;}
+.note-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:14px;margin-bottom:10px;position:relative;}
+.note-card textarea{width:100%;background:transparent;border:none;outline:none;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;line-height:1.6;resize:none;min-height:60px;}
+.note-meta{font-size:10px;color:var(--t3);margin-top:6px;display:flex;justify-content:space-between;}
+.note-del{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;transition:.15s;}
+.note-del:hover{color:var(--r);}
+.note-new{width:100%;padding:11px;background:var(--s2);border:1px dashed var(--b2);border-radius:12px;color:var(--t3);font-family:'Outfit',sans-serif;font-size:13px;cursor:pointer;text-align:left;transition:.15s;margin-bottom:10px;}
+.note-new:hover{border-color:var(--a);color:var(--a);}
+/* ABSENCES */
+.absence-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:13px 15px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.absence-icon{font-size:22px;flex-shrink:0;}
+.absence-info{flex:1;}
+.absence-name{font-size:13px;font-weight:600;}
+.absence-dates{font-size:12px;color:var(--t2);margin-top:2px;}
+.absence-type{font-size:11px;color:var(--t3);margin-top:2px;}
+.absence-status{font-size:11px;font-weight:600;padding:3px 8px;border-radius:12px;}
+.abs-future{background:var(--bl2);color:var(--bl);}
+.abs-today{background:var(--r2);color:var(--r);}
+.abs-past{background:var(--s3);color:var(--t3);}
+/* EVOLUTION */
+.evol-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:14px;margin-bottom:10px;}
+.evol-tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-bottom:8px;}
+.evol-title{font-size:13px;font-weight:600;margin-bottom:6px;}
+.evol-desc{font-size:12px;color:var(--t2);line-height:1.6;}
+.evol-actions{display:flex;gap:8px;margin-top:10px;}
+.evol-btn-ok{background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;}
+.evol-btn-later{background:var(--s3);color:var(--t3);border:1px solid var(--b1);border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;}
+/* STATS */
+.stat-bar-wrap{margin-bottom:8px;}
+.stat-bar-label{display:flex;justify-content:space-between;font-size:11px;color:var(--t2);margin-bottom:4px;}
+.stat-bar{height:6px;background:var(--s3);border-radius:3px;overflow:hidden;}
+.stat-bar-fill{height:100%;border-radius:3px;transition:width .5s ease;}
+/* TOKEN */
+.token-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--s3);border-radius:8px;margin-bottom:6px;}
+.token-name{flex:1;font-size:13px;font-weight:500;}
+.token-val{font-size:11px;color:var(--t2);font-family:'JetBrains Mono',monospace;}
+.token-cost{font-size:11px;color:var(--a);font-weight:600;}
+/* TOGGLE */
+.toggle{width:36px;height:20px;border-radius:10px;background:var(--s3);border:1px solid var(--b1);cursor:pointer;position:relative;transition:.15s;flex-shrink:0;}
+.toggle.on{background:var(--a);border-color:var(--a);}
+.toggle::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.15s;}
+.toggle.on::after{left:18px;}
+/* USER CARD */
+.user-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s3);border-radius:8px;margin-bottom:6px;}
+.user-av{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
+.user-info{flex:1;}
+.user-name{font-size:13px;font-weight:500;}
+.user-role{font-size:10px;color:var(--t3);}
+/* SETTINGS PANEL */
+#settings-panel{display:none;position:fixed;top:52px;right:12px;width:300px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.6);z-index:999;padding:16px;font-family:'Outfit',sans-serif;max-height:calc(100vh - 70px);overflow-y:auto;}
+.sp-title{font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
+.sp-section{margin-bottom:14px;}
+.sp-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px;}
+/* REMINDER ALERT */
+.reminder-alert{background:var(--y2);border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:var(--y);display:flex;align-items:center;gap:8px;}
+/* HISTOG CLIENT */
+.hist-item{padding:8px 10px;background:var(--s3);border-radius:8px;margin-bottom:5px;}
+.hist-date{font-size:10px;color:var(--t3);}
+.hist-pb{font-size:12px;color:var(--t2);margin-top:2px;}
+/* LIGHT THEME */
+body.light{--bg:#F5F5F0;--s1:#FFFFFF;--s2:#F0EFE9;--s3:#E8E7E0;--b1:#D8D6CE;--b2:#C8C6BE;--t1:#1A1917;--t2:#4A4845;--t3:#8A8880;}
 body.light .login-box{background:#fff;border-color:#E0DDD5;}
-body.light .bubble{color:var(--t1);}
 body.light .msg.ai .bubble{background:#fff;border-color:#E0DDD5;}
-
+body.light .bubble{color:var(--t1);}
 input[type=file]{display:none;}
 </style>
 </head>
@@ -242,16 +264,11 @@ input[type=file]{display:none;}
   <div class="login-box">
     <div class="login-logo">
       <div class="logo-mark">B</div>
-      <h1>Benai</h1>
+      <h1>BenAI</h1>
       <p>Nemausus Fermetures · Lambert SAS</p>
     </div>
-    <div class="login-label">Qui êtes-vous ?</div>
-    <select class="login-select" id="login-user">
-      <option value="">Sélectionner...</option>
-      <option value="benjamin">Benjamin</option>
-      <option value="aurelie">Aurélie</option>
-      <option value="claudine">Claudine</option>
-    </select>
+    <div class="login-label">Identifiant</div>
+    <input type="text" class="login-input" id="login-user" placeholder="Votre identifiant" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter')document.getElementById('login-pwd').focus()">
     <div class="login-label">Mot de passe</div>
     <input type="password" class="login-input" id="login-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
     <button class="login-btn" onclick="login()">Se connecter →</button>
@@ -266,103 +283,110 @@ input[type=file]{display:none;}
   <div class="topbar">
     <div class="tb-logo">B</div>
     <div class="tb-name">BenAI</div>
-    <div id="tb-societe" style="font-size:11px;color:var(--t3);margin-left:4px;"></div>
+    <span id="tb-version" style="font-size:10px;color:var(--t3);margin-left:4px;">v3.0</span>
     <div class="tb-user">
       <div class="tb-avatar" id="tb-avatar"></div>
       <span class="tb-username" id="tb-username"></span>
-      <button class="tb-settings" onclick="toggleSettings()" title="Paramètres">⚙️</button>
+      <button class="tb-icon-btn" onclick="toggleSettings()" title="Paramètres">⚙️</button>
       <button class="tb-logout" onclick="logout()">Déconnexion</button>
     </div>
   </div>
 
-  <!-- PANEL PARAMÈTRES -->
-  <div id="settings-panel" style="display:none;position:fixed;top:52px;right:12px;width:300px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.6);z-index:999;padding:16px;font-family:'Outfit',sans-serif;">
-    <div style="font-family:'Syne',sans-serif;font-size:.9rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
-      ⚙️ Paramètres
-      <button onclick="toggleSettings()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;">✕</button>
-    </div>
-
-    <!-- MODE CLAIR/SOMBRE -->
-    <div style="margin-bottom:14px">
-      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px;">Affichage</div>
+  <!-- SETTINGS PANEL -->
+  <div id="settings-panel">
+    <div class="sp-title">⚙️ Paramètres <button onclick="toggleSettings()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px">✕</button></div>
+    <div class="sp-section">
+      <div class="sp-label">Affichage</div>
       <div style="display:flex;gap:6px">
-        <button onclick="setTheme('dark')" id="btn-dark" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer;transition:.15s">🌙 Sombre</button>
-        <button onclick="setTheme('light')" id="btn-light" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer;transition:.15s">☀️ Clair</button>
+        <button onclick="setTheme('dark')" id="btn-dark" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">🌙 Sombre</button>
+        <button onclick="setTheme('light')" id="btn-light" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">☀️ Clair</button>
       </div>
     </div>
-
-    <!-- MON MOT DE PASSE -->
-    <div style="margin-bottom:14px">
-      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px;">Mon mot de passe</div>
+    <div class="sp-section">
+      <div class="sp-label">Mon mot de passe</div>
       <div style="display:flex;gap:6px">
         <input type="password" id="new-pwd" placeholder="Nouveau mot de passe" style="flex:1;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:inherit;font-size:12px;outline:none;">
-        <button onclick="changerMonMdp()" style="padding:8px 12px;background:var(--a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;">OK</button>
+        <button onclick="changerMonMdp()" style="padding:8px 12px;background:var(--a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">OK</button>
       </div>
-      <div id="pwd-msg" style="font-size:11px;margin-top:5px;min-height:14px;"></div>
+      <div id="pwd-msg" style="font-size:11px;margin-top:5px;min-height:14px"></div>
     </div>
-
-    <!-- CLÉ API (BENJAMIN UNIQUEMENT) -->
-    <div id="api-settings" style="display:none;margin-bottom:14px">
-      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px;">Clé API Anthropic</div>
-      <div style="display:flex;gap:6px">
-        <input type="password" id="api-key-settings" placeholder="sk-ant-..." style="flex:1;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:inherit;font-size:12px;outline:none;">
-        <button onclick="saveApiKeySettings()" style="padding:8px 12px;background:var(--a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;">OK</button>
+    <!-- BENJAMIN UNIQUEMENT -->
+    <div id="api-settings" style="display:none">
+      <div class="sp-section">
+        <div class="sp-label">Clé API Anthropic</div>
+        <div style="display:flex;gap:6px">
+          <input type="password" id="api-key-settings" placeholder="sk-ant-..." style="flex:1;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:inherit;font-size:12px;outline:none;">
+          <button onclick="saveApiKeySettings()" style="padding:8px 12px;background:var(--a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">OK</button>
+        </div>
+        <div id="api-msg" style="font-size:11px;margin-top:5px;color:var(--g);min-height:14px"></div>
       </div>
-      <div id="api-msg" style="font-size:11px;margin-top:5px;color:var(--g);min-height:14px;"></div>
-    </div>
-
-    <!-- MOTS DE PASSE ÉQUIPE (BENJAMIN UNIQUEMENT) -->
-    <div id="team-pwd-settings" style="display:none">
-      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px;">Mots de passe équipe</div>
-      <div id="team-pwd-list"></div>
+      <div class="sp-section">
+        <div class="sp-label">Mots de passe équipe</div>
+        <div id="team-pwd-list"></div>
+      </div>
+      <div class="sp-section">
+        <div class="sp-label">Sauvegarde données</div>
+        <div style="display:flex;gap:6px">
+          <button onclick="exportData()" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">💾 Sauvegarder</button>
+          <button onclick="document.getElementById('import-file').click()" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">📂 Restaurer</button>
+        </div>
+        <input type="file" id="import-file" accept=".json" onchange="importData(this)">
+        <div id="backup-msg" style="font-size:11px;margin-top:5px;min-height:14px"></div>
+      </div>
     </div>
   </div>
 
   <div class="main">
-
     <!-- SIDEBAR -->
-    <div class="sidebar" id="sidebar">
+    <div class="sidebar">
       <div class="sb-section">
         <div class="sb-label">Assistant</div>
-        <div class="sb-item active" onclick="showPage('benai')" id="nav-benai">
-          <span class="sb-icon">🤖</span>
-          <span class="sb-txt">Benai IA</span>
-        </div>
+        <div class="sb-item active" onclick="showPage('benai')" id="nav-benai"><span class="sb-icon">🤖</span><span class="sb-txt">BenAI IA</span></div>
+        <div class="sb-item" onclick="showPage('notes')" id="nav-notes"><span class="sb-icon">📝</span><span class="sb-txt">Notes rapides</span></div>
+        <div class="sb-item" onclick="showPage('evolution')" id="nav-evolution"><span class="sb-icon">🚀</span><span class="sb-txt">Évolution</span></div>
       </div>
       <div class="sb-section">
         <div class="sb-label">Messages</div>
-        <div id="nav-messages"></div>
+        <div class="sb-item" onclick="showPage('messages')" id="nav-messages">
+          <span class="sb-icon">💬</span><span class="sb-txt">Messages</span>
+          <span class="sb-badge" id="msg-badge" style="display:none"></span>
+        </div>
       </div>
       <div class="sb-section">
         <div class="sb-label">Gestion</div>
         <div class="sb-item" onclick="showPage('sav')" id="nav-sav">
-          <span class="sb-icon">🔧</span>
-          <span class="sb-txt">SAV</span>
+          <span class="sb-icon">🔧</span><span class="sb-txt">SAV</span>
           <span class="sb-badge" id="sav-badge" style="display:none"></span>
         </div>
-        <div class="sb-item" id="nav-admin" style="display:none" onclick="showPage('admin')">
-          <span class="sb-icon">📊</span>
-          <span class="sb-txt">Dashboard</span>
-        </div>
+        <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span></div>
+        <div class="sb-item" id="nav-admin" style="display:none" onclick="showPage('admin')"><span class="sb-icon">📊</span><span class="sb-txt">Dashboard</span></div>
       </div>
     </div>
 
     <!-- CONTENT -->
     <div class="content">
 
-      <!-- PAGE BENAI -->
-      <div id="page-benai" style="display:flex;flex-direction:column;height:100%">
-        <div class="page-header" style="padding-bottom:12px;">
+      <!-- PAGE BENAI IA -->
+      <div id="page-benai" style="display:flex;flex-direction:column;height:100%;position:relative">
+        <div class="page-header" style="padding-bottom:10px">
           <div>
-            <div class="page-title">Benai IA</div>
-            <div class="page-sub">Règle absolue : Benai suggère — vous décidez toujours</div>
+            <div class="page-title">🤖 BenAI IA</div>
+            <div class="page-sub">BenAI suggère — vous décidez toujours</div>
           </div>
-          <button class="btn-attach" onclick="document.getElementById('pdf-file').click()" title="Analyser un devis PDF" style="border-radius:10px;padding:8px 12px;font-size:13px;gap:6px;display:flex;align-items:center;color:var(--t2);">📎 <span style="font-size:12px">Devis PDF</span></button>
+          <button onclick="document.getElementById('pdf-file').click()" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 12px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit;display:flex;align-items:center;gap:6px">📎 Devis PDF</button>
         </div>
         <div class="chat-area" id="chat-area"></div>
+        <div id="emoji-picker" class="emoji-picker">
+          <div class="emoji-grid" id="emoji-grid"></div>
+        </div>
         <div class="chat-input-area">
+          <div class="chat-tools">
+            <button class="tool-btn" onclick="toggleEmojiPicker()" title="Emojis">😊</button>
+            <button class="tool-btn" onclick="correctSpelling()" title="Corriger l'orthographe">✏️ Corriger</button>
+            <span id="token-info" style="font-size:11px;color:var(--t3);margin-left:auto"></span>
+          </div>
           <div class="chat-input-row">
-            <textarea class="chat-textarea" id="chat-input" placeholder="Parlez à Benai..." rows="1"
+            <textarea class="chat-textarea" id="chat-input" placeholder="Parlez à BenAI..." rows="1"
               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"
               oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
             <button class="btn-send" id="btn-send" onclick="sendChat()">Envoyer ↑</button>
@@ -370,17 +394,24 @@ input[type=file]{display:none;}
         </div>
       </div>
 
-      <!-- PAGE MESSAGERIE -->
-      <div id="page-messages" style="display:none;flex:1;overflow:hidden;flex-direction:column;">
+      <!-- PAGE NOTES -->
+      <div id="page-notes" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px">
+          <div><div class="page-title">📝 Notes rapides</div><div class="page-sub">Vos notes personnelles</div></div>
+          <button class="btn-primary" onclick="addNote()">+ Nouvelle note</button>
+        </div>
+        <div class="notes-area" id="notes-area"></div>
+      </div>
+
+      <!-- PAGE MESSAGES -->
+      <div id="page-messages" style="display:none;flex:1;overflow:hidden;flex-direction:column">
         <div class="page-header" style="padding-bottom:10px;flex-shrink:0">
-          <div><div class="page-title">Messages internes</div><div class="page-sub">Communication privée entre l'équipe</div></div>
+          <div><div class="page-title">💬 Messages internes</div><div class="page-sub">Communication privée entre l'équipe</div></div>
         </div>
         <div class="msg-layout">
           <div class="conv-list" id="conv-list"></div>
           <div class="msg-thread">
-            <div class="thread-header" id="thread-header">
-              <div style="color:var(--t3);font-size:13px;margin:auto">Sélectionnez une conversation</div>
-            </div>
+            <div class="thread-header" id="thread-header"><div style="color:var(--t3);font-size:13px;margin:auto">Sélectionnez une conversation</div></div>
             <div class="thread-msgs" id="thread-msgs"></div>
             <div class="thread-input" id="thread-input" style="display:none">
               <input type="text" id="msg-input" placeholder="Écrire un message..." onkeydown="if(event.key==='Enter')sendMsg()">
@@ -393,31 +424,25 @@ input[type=file]{display:none;}
       <!-- PAGE SAV -->
       <div id="page-sav" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
-          <div><div class="page-title">📋 Suivi SAV</div><div class="page-sub">Tâches en cours — Nemausus & Lambert SAS</div></div>
-          <button class="btn-primary" onclick="toggleSavForm()" id="btn-new-sav">+ Nouveau SAV</button>
+          <div><div class="page-title">🔧 Suivi SAV</div><div class="page-sub">Nemausus Fermetures & Lambert SAS</div></div>
+          <div style="display:flex;gap:8px">
+            <button onclick="exportSAVCSV()" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">📥 Export CSV</button>
+            <button class="btn-primary" onclick="toggleSavForm()">+ Nouveau SAV</button>
+          </div>
         </div>
 
-        <!-- FORMULAIRE NOUVEAU SAV -->
-        <div class="sav-area" style="flex-shrink:0;display:none" id="sav-form-wrap">
+        <!-- FORM NOUVEAU SAV -->
+        <div style="padding:0 16px;flex-shrink:0;display:none" id="sav-form-wrap">
           <div class="sav-form">
-            <div style="font-size:13px;font-weight:600;margin-bottom:12px;">➕ Nouveau SAV</div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px">➕ Nouveau SAV</div>
+            <div id="sav-alerts"></div>
             <div class="form-row">
-              <div class="form-group">
-                <div class="form-label">Client</div>
-                <input type="text" class="form-input" id="sav-client" placeholder="Nom du client">
-              </div>
-              <div class="form-group">
-                <div class="form-label">Commercial</div>
-                <input type="text" class="form-input" id="sav-commercial" placeholder="Nom du commercial">
-              </div>
+              <div class="form-group"><div class="form-label">Client</div><input type="text" class="form-input" id="sav-client" placeholder="Nom du client"></div>
+              <div class="form-group"><div class="form-label">Commercial</div><input type="text" class="form-input" id="sav-commercial" placeholder="Nom du commercial"></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <div class="form-label">Problème</div>
-                <input type="text" class="form-input" id="sav-pb" placeholder="Ex: Volet roulant bloqué, pièce manquante...">
-              </div>
-              <div class="form-group">
-                <div class="form-label">Société</div>
+              <div class="form-group"><div class="form-label">Problème</div><input type="text" class="form-input" id="sav-pb" placeholder="Ex: Volet roulant bloqué..."></div>
+              <div class="form-group"><div class="form-label">Société</div>
                 <select class="form-input" id="sav-soc">
                   <option value="nemausus">Nemausus Fermetures</option>
                   <option value="lambert">Lambert SAS</option>
@@ -425,101 +450,144 @@ input[type=file]{display:none;}
               </div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <div class="form-label">Société</div>
-                <select class="form-input" id="sav-soc">
-                  <option value="nemausus">Nemausus Fermetures</option>
-                  <option value="lambert">Lambert SAS</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <div class="form-label">Fournisseur concerné</div>
-                <input type="text" class="form-input" id="sav-fourn" placeholder="Ex: Somfy, Bubendorff...">
-              </div>
+              <div class="form-group"><div class="form-label">Fournisseur</div><input type="text" class="form-input" id="sav-fourn" placeholder="Ex: Somfy, Bubendorff..."></div>
+              <div class="form-group"><div class="form-label">Date de rappel</div><input type="date" class="form-input" id="sav-rappel"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+                <input type="checkbox" id="sav-urgent" style="width:14px;height:14px;accent-color:var(--r)"> 🔴 SAV Urgent
+              </label>
             </div>
             <div style="display:flex;gap:8px;align-items:center">
               <button class="btn-primary" onclick="addSAV()">Enregistrer</button>
-              <button onclick="toggleSavForm()" style="background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px;">Annuler</button>
-              <span id="sav-ok" style="font-size:12px;color:var(--g);margin-left:6px;"></span>
+              <button onclick="toggleSavForm()" style="background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+              <span id="sav-ok" style="font-size:12px;color:var(--g);margin-left:6px"></span>
             </div>
           </div>
         </div>
 
-        <!-- FILTRES -->
-        <div style="padding:0 16px 10px;display:flex;gap:6px;flex-shrink:0">
+        <!-- BARRE RECHERCHE + FILTRES -->
+        <div style="padding:0 16px 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
+          <input type="text" class="sav-search" id="sav-search" placeholder="🔍 Rechercher un SAV..." oninput="renderSAV()">
           <button class="sav-filter active" onclick="filterSAV('tous',this)">Tous</button>
           <button class="sav-filter" onclick="filterSAV('nouveau',this)">🔴 Nouveaux</button>
           <button class="sav-filter" onclick="filterSAV('en_cours',this)">🟡 En cours</button>
           <button class="sav-filter" onclick="filterSAV('regle',this)">🟢 Réglés</button>
+          <button class="sav-filter" onclick="filterSAV('urgent',this)">🚨 Urgents</button>
         </div>
 
-        <!-- LISTE SAV -->
         <div class="sav-area" style="padding-top:0">
+          <div id="sav-reminders-area"></div>
+          <div id="sav-stats-area" style="margin-bottom:10px"></div>
           <div class="sav-list" id="sav-list"></div>
         </div>
+      </div>
+
+      <!-- PAGE ABSENCES (Benjamin only) -->
+      <div id="page-absences" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+          <div><div class="page-title">🗓️ Absences & Congés</div><div class="page-sub">Rappels J-7 et la veille</div></div>
+          <button class="btn-primary" onclick="toggleAbsForm()">+ Nouvelle absence</button>
+        </div>
+        <div style="padding:0 16px;flex-shrink:0;display:none" id="abs-form-wrap">
+          <div class="sav-form">
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px">📅 Nouvelle absence</div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Employé(e)</div>
+                <input type="text" class="form-input" id="abs-emp" placeholder="Ex: Aurélie, Claudine...">
+              </div>
+              <div class="form-group"><div class="form-label">Type</div>
+                <select class="form-input" id="abs-type">
+                  <option value="Congé">Congé</option>
+                  <option value="Maladie">Maladie</option>
+                  <option value="Formation">Formation</option>
+                  <option value="Autre">Autre</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Date de début</div><input type="date" class="form-input" id="abs-debut"></div>
+              <div class="form-group"><div class="form-label">Date de fin</div><input type="date" class="form-input" id="abs-fin"></div>
+            </div>
+            <div class="form-group" style="margin-bottom:12px"><div class="form-label">Note</div><input type="text" class="form-input" id="abs-note" placeholder="Optionnel..."></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-primary" onclick="addAbsence()">Enregistrer</button>
+              <button onclick="toggleAbsForm()" style="background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+            </div>
+          </div>
+        </div>
+        <div style="padding:16px;flex:1;overflow-y:auto" id="abs-list"></div>
+      </div>
+
+      <!-- PAGE EVOLUTION -->
+      <div id="page-evolution" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+          <div><div class="page-title">🚀 BenAI Évolution</div><div class="page-sub">Suggestions à valider — vous décidez toujours</div></div>
+        </div>
+        <div style="padding:16px;flex:1;overflow-y:auto" id="evolution-list"></div>
       </div>
 
       <!-- PAGE ADMIN -->
       <div id="page-admin" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
-          <div><div class="page-title">Dashboard Admin</div><div class="page-sub">Vue d'ensemble — Benai</div></div>
+          <div><div class="page-title">📊 Dashboard Admin</div><div class="page-sub">Vue d'ensemble BenAI</div></div>
         </div>
         <div class="dashboard">
+          <!-- STATS -->
           <div class="dash-grid">
-            <div class="dash-card">
-              <div class="dc-icon">👥</div>
-              <div class="dc-label">Utilisateurs actifs</div>
-              <div class="dc-val">3</div>
-              <div class="dc-sub">Benjamin, Aurélie, Claudine</div>
-            </div>
-            <div class="dash-card">
-              <div class="dc-icon">🔧</div>
-              <div class="dc-label">SAV ouverts</div>
-              <div class="dc-val" id="admin-sav">0</div>
-              <div class="dc-sub">À traiter</div>
-            </div>
-            <div class="dash-card">
-              <div class="dc-icon">💬</div>
-              <div class="dc-label">Messages aujourd'hui</div>
-              <div class="dc-val" id="admin-msgs">0</div>
-              <div class="dc-sub">Messages internes</div>
-            </div>
+            <div class="dash-card"><div class="dc-icon">🔧</div><div class="dc-label">SAV ouverts</div><div class="dc-val" id="admin-sav">0</div><div class="dc-sub">Nouveaux + En cours</div></div>
+            <div class="dash-card"><div class="dc-icon">💬</div><div class="dc-label">Messages</div><div class="dc-val" id="admin-msgs">0</div><div class="dc-sub">Messages échangés</div></div>
+            <div class="dash-card"><div class="dc-icon">📝</div><div class="dc-label">Notes</div><div class="dc-val" id="admin-notes">0</div><div class="dc-sub">Notes actives</div></div>
           </div>
+
+          <!-- TOKENS -->
           <div class="dash-card" style="margin-bottom:12px">
-            <div class="dc-label">Équipe</div>
-            <div class="user-cards">
-              <div class="user-card">
-                <div class="uc-av" style="background:linear-gradient(135deg,#E8943A,#B45309)">B</div>
-                <div class="uc-name">Benjamin</div>
-                <div class="uc-role">Admin · Gérant</div>
-                <div class="uc-stat"><span class="online-dot"></span>En ligne</div>
+            <div class="dc-label">🔢 Consommation API (tokens)</div>
+            <div id="token-stats" style="margin-top:8px"></div>
+          </div>
+
+          <!-- STATS SAV -->
+          <div class="dash-card" style="margin-bottom:12px">
+            <div class="dc-label">📊 Statistiques SAV</div>
+            <div id="sav-stats-admin" style="margin-top:8px"></div>
+          </div>
+
+          <!-- UTILISATEURS -->
+          <div class="dash-card" style="margin-bottom:12px">
+            <div class="dc-label">👥 Gestion des utilisateurs <button onclick="showAddUser()" style="padding:4px 10px;background:var(--a);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">+ Ajouter</button></div>
+            <div id="users-list" style="margin-top:10px"></div>
+            <div id="add-user-form" style="display:none;margin-top:12px;background:var(--s3);border-radius:10px;padding:12px">
+              <div style="font-size:12px;font-weight:600;margin-bottom:10px">➕ Nouvel utilisateur</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                <div><div class="form-label">Prénom</div><input type="text" class="form-input" id="new-user-name" placeholder="Ex: Marie"></div>
+                <div><div class="form-label">Identifiant</div><input type="text" class="form-input" id="new-user-id" placeholder="Ex: marie"></div>
+                <div><div class="form-label">Mot de passe</div><input type="text" class="form-input" id="new-user-pwd" placeholder="Mot de passe"></div>
+                <div><div class="form-label">Société</div>
+                  <select class="form-input" id="new-user-soc">
+                    <option value="nemausus">Nemausus Fermetures</option>
+                    <option value="lambert">Lambert SAS</option>
+                    <option value="les-deux">Les deux</option>
+                  </select>
+                </div>
               </div>
-              <div class="user-card">
-                <div class="uc-av" style="background:linear-gradient(135deg,#22C55E,#15803D)">A</div>
-                <div class="uc-name">Aurélie</div>
-                <div class="uc-role">Assistante 1 · Nemausus</div>
-                <div class="uc-stat">Emails · SAV · Compta</div>
+              <div style="display:flex;gap:6px">
+                <button onclick="creerUtilisateur()" class="btn-primary" style="flex:1">Créer</button>
+                <button onclick="document.getElementById('add-user-form').style.display='none'" style="padding:9px 14px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
               </div>
-              <div class="user-card">
-                <div class="uc-av" style="background:linear-gradient(135deg,#60A5FA,#1D4ED8)">C</div>
-                <div class="uc-name">Claudine</div>
-                <div class="uc-role">Assistante 2 · Lambert</div>
-                <div class="uc-stat">Emails · SAV · Réseaux</div>
-              </div>
+              <div id="add-user-status" style="font-size:11px;margin-top:6px;min-height:14px"></div>
             </div>
           </div>
 
-          <!-- GESTION MOTS DE PASSE -->
+          <!-- MOTS DE PASSE -->
           <div class="dash-card" style="margin-bottom:12px">
             <div class="dc-label">🔑 Mots de passe</div>
-            <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px" id="pwd-list"></div>
+            <div id="pwd-list" style="margin-top:8px"></div>
           </div>
 
+          <!-- ACTIVITÉ -->
           <div class="dash-card">
-            <div class="dc-label">Activité récente</div>
-            <div class="activity-list" id="activity-list">
-              <div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div>
-            </div>
+            <div class="dc-label">⚡ Activité récente</div>
+            <div id="activity-list" style="margin-top:8px"><div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div></div>
           </div>
         </div>
       </div>
@@ -534,925 +602,1057 @@ input[type=file]{display:none;}
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+const BENAI_VERSION = '3.0';
+
 // ══════════════════════════════════════════
-// CONFIGURATION UTILISATEURS
+// UTILISATEURS
 // ══════════════════════════════════════════
 const USERS = {
-  benjamin: {
-    name: 'Benjamin', pwd: '1234', role: 'admin',
-    color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: 'B',
-    pages: ['benai','messages','sav','admin'],
-    system: `Tu es Benai, l'assistant personnel de Benjamin, gérant de Nemausus Fermetures et Lambert SAS. Benjamin gère le back-office : commandes fournisseurs, SAV, All Manager, emails, réseaux sociaux, comptabilité. Tu lui proposes toujours — il décide toujours. Tutoie-le.`
-  },
-  aurelie: {
-    name: 'Aurélie', pwd: '1234', role: 'assistante',
-    color: 'linear-gradient(135deg,#22C55E,#15803D)', initial: 'A',
-    pages: ['benai','messages','sav'],
-    system: `Tu es Benai, l'assistant d'Aurélie, assistante chez Nemausus Fermetures et Lambert SAS. Elle gère : emails clients, SAV, All Manager, accueil téléphone, comptabilité. Tu lui proposes toujours — elle décide toujours. Tutoie-la.`
-  },
-  claudine: {
-    name: 'Claudine', pwd: '1234', role: 'assistante',
-    color: 'linear-gradient(135deg,#60A5FA,#1D4ED8)', initial: 'C',
-    pages: ['benai','messages','sav'],
-    system: `Tu es Benai, l'assistant de Claudine, assistante chez Nemausus Fermetures et Lambert SAS. Elle gère : emails clients, SAV, All Manager, accueil téléphone, réseaux sociaux, comptabilité. Tu lui proposes toujours — elle décide toujours. Tutoie-la.`
-  }
+  benjamin:{name:'Benjamin',pwd:'1234',role:'admin',color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B',
+    system:`Tu es BenAI, l'assistant personnel de Benjamin, gérant de Nemausus Fermetures et Lambert SAS. Benjamin gère tout : back-office, commandes fournisseurs, SAV, All Manager, emails, réseaux sociaux, comptabilité. Tu peux l'aider sur n'importe quel sujet, professionnel comme personnel. Tu lui proposes toujours — il décide toujours. Tutoie-le.`},
+  aurelie:{name:'Aurélie',pwd:'1234',role:'assistante',color:'linear-gradient(135deg,#22C55E,#15803D)',initial:'A',
+    system:`Tu es BenAI, l'assistant d'Aurélie chez Nemausus Fermetures. Tu réponds UNIQUEMENT aux questions professionnelles liées à : menuiserie, volets, fenêtres, portes, stores, pergolas, emails clients, SAV, All Manager, Hercule Pro, comptabilité. Pour toute question hors sujet, réponds poliment : "Je suis configuré pour les questions professionnelles de Nemausus Fermetures uniquement." Tu proposes toujours — elle décide toujours. Tutoie-la.`},
+  claudine:{name:'Claudine',pwd:'1234',role:'assistante',color:'linear-gradient(135deg,#60A5FA,#1D4ED8)',initial:'C',
+    system:`Tu es BenAI, l'assistant de Claudine chez Lambert SAS. Tu réponds UNIQUEMENT aux questions professionnelles liées à : menuiserie, volets, fenêtres, portes, stores, pergolas, emails clients, SAV, All Manager, Hercule Pro, comptabilité, réseaux sociaux professionnels. Pour toute question hors sujet, réponds poliment : "Je suis configuré pour les questions professionnelles de Lambert SAS uniquement." Tu proposes toujours — elle décide toujours. Tutoie-la.`}
 };
 
-const BENAI_BASE = `
-Contexte entreprises :
-- Nemausus Fermetures (franchise Monsieur Store, Nîmes)
-- Lambert SAS (même activité, fermeture/menuiserie)
-Produits : menuiserie alu, volets roulants/battants, portes d'entrée, fenêtres, coulissants, pergolas, stores, portails, protections solaires.
-Logiciels : Hercule Pro (devis), All Manager (ERP).
-Clientèle : particuliers uniquement.
-RÈGLE ABSOLUE : Tu proposes → l'utilisateur décide. Jamais d'action automatique.`;
+const BENAI_CTX=`
+Contexte : Nemausus Fermetures (franchise Monsieur Store, Nîmes) + Lambert SAS (fermeture/menuiserie).
+Produits : menuiserie alu, volets roulants/battants, portes, fenêtres, coulissants, pergolas, stores, portails, protections solaires.
+Logiciels : Hercule Pro (devis), All Manager (ERP). Clientèle : particuliers uniquement.
+RÈGLE ABSOLUE : Tu proposes — l'utilisateur décide toujours. Jamais d'action automatique.`;
 
 // ══════════════════════════════════════════
 // ÉTAT
 // ══════════════════════════════════════════
-let currentUser = null;
-let chatHistory = [];
-let currentConv = null;
-let busy = false;
+let currentUser=null, chatHistory=[], currentConv=null, busy=false, currentFilter='tous';
 
 // ══════════════════════════════════════════
 // MÉMOIRE
 // ══════════════════════════════════════════
-function getMem() { try { return JSON.parse(localStorage.getItem('benai_v2')) || { sav: [], messages: {}, activity: [] }; } catch { return { sav: [], messages: {}, activity: [] }; } }
-function saveMem(m) { localStorage.setItem('benai_v2', JSON.stringify(m)); }
-function getApiKey() { return localStorage.getItem('benai_api') || ''; }
+function getMem(){try{return JSON.parse(localStorage.getItem('benai_v3'))||{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}catch{return{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}}
+function saveMem(m){localStorage.setItem('benai_v3',JSON.stringify(m));}
+function getApiKey(){return localStorage.getItem('benai_api')||'';}
+function getPwds(){try{return JSON.parse(localStorage.getItem('benai_pwds'))||{benjamin:'1234',aurelie:'1234',claudine:'1234'};}catch{return{benjamin:'1234',aurelie:'1234',claudine:'1234'};}}
+function savePwds(p){localStorage.setItem('benai_pwds',JSON.stringify(p));}
+function getAccess(){try{return JSON.parse(localStorage.getItem('benai_access'))||{};}catch{return {};}}
+function saveAccess(a){localStorage.setItem('benai_access',JSON.stringify(a));}
+
+// CHAT MEMORY par utilisateur
+function saveChatMem(uid,msgs){
+  const now=Date.now();
+  const cutoff=now-30*24*60*60*1000;
+  const pinned=msgs.filter(m=>m.pinned);
+  const recent=msgs.filter(m=>!m.pinned&&(m.ts||0)>cutoff);
+  const trimmed=[...pinned,...recent].slice(-60);
+  localStorage.setItem('benai_chat_'+uid,JSON.stringify(trimmed));
+}
+function loadChatMem(uid){try{return JSON.parse(localStorage.getItem('benai_chat_'+uid))||[];}catch{return [];}}
+
+// TOKEN TRACKING
+function trackTokens(uid,inp,out){
+  const mem=getMem();
+  if(!mem.tokens)mem.tokens={};
+  if(!mem.tokens[uid])mem.tokens[uid]={input:0,output:0};
+  mem.tokens[uid].input+=inp||0;
+  mem.tokens[uid].output+=out||0;
+  saveMem(mem);
+}
+function estimateCost(inp,out){
+  // Claude Sonnet: ~$3/MTok input, ~$15/MTok output
+  return ((inp*0.000003)+(out*0.000015)).toFixed(4);
+}
+
+// MESSAGE UNREAD
+function getLastRead(uid){try{return JSON.parse(localStorage.getItem('benai_read_'+uid))||{};}catch{return {};}}
+function markRead(uid,cid){const r=getLastRead(uid);r[cid]=Date.now();localStorage.setItem('benai_read_'+uid,JSON.stringify(r));}
+function countUnread(uid,cid){
+  const mem=getMem();const msgs=mem.messages[cid]||[];
+  const lr=(getLastRead(uid)[cid]||0);
+  return msgs.filter(m=>m.from!==uid&&(m.ts||0)>lr).length;
+}
+function refreshMsgBadge(){
+  if(!currentUser)return;
+  const convs=CONVS[currentUser.id]||{};
+  let total=0;
+  Object.keys(convs).forEach(cid=>total+=countUnread(currentUser.id,cid));
+  const badge=document.getElementById('msg-badge');
+  badge.style.display=total>0?'flex':'none';
+  badge.textContent=total;
+}
 
 // ══════════════════════════════════════════
 // LOGIN
 // ══════════════════════════════════════════
-function login() {
-  const uid = document.getElementById('login-user').value;
-  const pwd = document.getElementById('login-pwd').value;
-  const err = document.getElementById('login-err');
-  if (!uid) { err.textContent = 'Sélectionnez un utilisateur'; return; }
-  const pwds = getPwds();
-  const validPwd = pwds[uid] || USERS[uid]?.pwd || '1234';
-  if (pwd !== validPwd) { err.textContent = 'Mot de passe incorrect'; return; }
-  currentUser = { id: uid, ...USERS[uid] };
-  document.getElementById('login-screen').style.display = 'none';
+function getLoginAttempts(){try{return JSON.parse(localStorage.getItem('benai_attempts'))||{count:0,blockedUntil:0};}catch{return{count:0,blockedUntil:0};}}
+function saveLoginAttempts(a){localStorage.setItem('benai_attempts',JSON.stringify(a));}
+function resetLoginAttempts(){saveLoginAttempts({count:0,blockedUntil:0});}
+
+function login(){
+  const uid=document.getElementById('login-user').value.trim().toLowerCase();
+  const pwd=document.getElementById('login-pwd').value;
+  const err=document.getElementById('login-err');
+  if(!uid){err.textContent='Entrez votre identifiant';return;}
+
+  // Vérif blocage
+  const attempts=getLoginAttempts();
+  const now=Date.now();
+  if(attempts.blockedUntil>now){
+    const remaining=Math.ceil((attempts.blockedUntil-now)/1000);
+    err.textContent=`Trop de tentatives. Réessayez dans ${remaining}s.`;
+    return;
+  }
+
+  // Vérif utilisateur existe
+  const allUsers=getAllUsers();
+  const userExists=allUsers.find(u=>u.id===uid)||USERS[uid];
+  if(!userExists){
+    attempts.count++;
+    if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;}
+    saveLoginAttempts(attempts);
+    err.textContent=`Identifiant ou mot de passe incorrect (${attempts.count}/3)`;
+    return;
+  }
+
+  const pwds=getPwds();
+  const validPwd=pwds[uid]||USERS[uid]?.pwd||'1234';
+  if(pwd!==validPwd){
+    attempts.count++;
+    if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;err.textContent='Accès bloqué 5 minutes.';saveLoginAttempts(attempts);return;}
+    saveLoginAttempts(attempts);
+    err.textContent=`Mot de passe incorrect — tentative ${attempts.count}/3`;
+    return;
+  }
+
+  // Vérif accès bloqué par admin
+  const access=getAccess();
+  if(access[uid]===false&&uid!=='benjamin'){err.textContent='Accès bloqué par l\'administrateur';return;}
+
+  // Succès
+  resetLoginAttempts();
+  currentUser={id:uid,...(USERS[uid]||getExtraUserById(uid))};
+  document.getElementById('login-screen').style.display='none';
   document.getElementById('app').classList.add('visible');
   initApp();
 }
-
-function logout() {
-  currentUser = null; chatHistory = [];
-  document.getElementById('login-screen').style.display = 'flex';
+function logout(){
+  currentUser=null;chatHistory=[];currentConv=null;
+  document.getElementById('login-screen').style.display='flex';
   document.getElementById('app').classList.remove('visible');
-  document.getElementById('login-pwd').value = '';
-  document.getElementById('login-err').textContent = '';
+  document.getElementById('login-user').value='';
+  document.getElementById('login-pwd').value='';
+  document.getElementById('login-err').textContent='';
+  document.getElementById('chat-area').innerHTML='';
 }
 
 // ══════════════════════════════════════════
 // INIT APP
 // ══════════════════════════════════════════
-function initApp() {
-  const u = currentUser;
-  // Topbar
-  document.getElementById('tb-avatar').style.background = u.color;
-  document.getElementById('tb-avatar').textContent = u.initial;
-  document.getElementById('tb-username').textContent = u.name;
-
-  // Sidebar navigation messages
-  buildNavMessages();
-
-  // Admin uniquement pour Benjamin
-  if (u.role === 'admin') {
-    document.getElementById('nav-admin').style.display = 'flex';
+function initApp(){
+  const u=currentUser;
+  document.getElementById('tb-avatar').style.background=u.color;
+  document.getElementById('tb-avatar').textContent=u.initial;
+  document.getElementById('tb-username').textContent=u.name;
+  if(u.role==='admin'){
+    document.getElementById('nav-admin').style.display='flex';
+    document.getElementById('nav-absences').style.display='flex';
+  }
+  // Charger historique chat
+  const mem=loadChatMem(u.id);
+  chatHistory=mem.map(m=>({role:m.role,content:m.content}));
+  // Message accueil
+  const h=new Date().getHours();
+  const sal=h<18?'Bonjour':'Bonsoir';
+  addAIMsg(`${sal} **${u.name}** 👋\n\nJe suis BenAI v${BENAI_VERSION}, votre assistant.\n\n⚠️ Je propose toujours — vous décidez toujours.\n\nComment puis-je vous aider ?`);
+  // Vérifier absences et rappels SAV (admin)
+  if(u.role==='admin'){
+    checkAbsenceReminders();
     refreshAdmin();
   }
-
-  // SAV badge
   refreshSAVBadge();
-
-  // Message d'accueil Benai
-  const h = new Date().getHours();
-  const sal = h < 12 ? 'Bonjour' : h < 18 ? 'Bonjour' : 'Bonsoir';
-  addAIMsg(`${sal} **${u.name}** ! Je suis Benai, votre assistant.\n\nJe suis là pour vous aider avec vos emails, le SAV, All Manager et plus encore.\n\n⚠️ Je propose toujours — vous décidez toujours.\n\nComment puis-je vous aider ?`);
-
+  refreshMsgBadge();
   showPage('benai');
+  buildEmojiPicker();
 }
 
 // ══════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════
-function showPage(page) {
-  ['benai','messages','sav','admin'].forEach(p => {
-    const el = document.getElementById('page-' + p);
-    if (el) el.style.display = 'none';
-    const nav = document.getElementById('nav-' + p);
-    if (nav) nav.classList.remove('active');
+function showPage(page){
+  ['benai','notes','messages','sav','absences','evolution','admin'].forEach(p=>{
+    const el=document.getElementById('page-'+p);
+    if(el)el.style.display='none';
+    const nav=document.getElementById('nav-'+p);
+    if(nav)nav.classList.remove('active');
   });
-  const el = document.getElementById('page-' + page);
-  if (el) el.style.display = page === 'messages' ? 'flex' : 'flex';
-  const nav = document.getElementById('nav-' + page);
-  if (nav) nav.classList.add('active');
-
-  if (page === 'sav') renderSAV();
-  if (page === 'admin') refreshAdmin();
-  if (page === 'messages') renderConvList();
+  const el=document.getElementById('page-'+page);
+  if(el)el.style.display='flex';
+  const nav=document.getElementById('nav-'+page);
+  if(nav)nav.classList.add('active');
+  if(page==='sav')renderSAV();
+  if(page==='admin')refreshAdmin();
+  if(page==='messages')renderConvList();
+  if(page==='notes')renderNotes();
+  if(page==='absences')renderAbsences();
+  if(page==='evolution')renderEvolution();
 }
 
 // ══════════════════════════════════════════
 // BENAI IA CHAT
 // ══════════════════════════════════════════
-function addAIMsg(txt) {
-  const div = document.createElement('div');
-  div.className = 'msg ai';
-  div.innerHTML = `<div class="msg-avatar">B</div><div class="bubble">${md(txt)}</div>`;
-  document.getElementById('chat-area').appendChild(div);
-  scrollChat();
-  return div;
+function addAIMsg(txt,pinnable=false){
+  const div=document.createElement('div');div.className='msg ai';
+  div.innerHTML=`<div class="msg-avatar">B</div><div class="bubble">${md(txt)}</div>`;
+  document.getElementById('chat-area').appendChild(div);scrollChat();return div;
 }
-function addUserMsg(txt) {
-  const div = document.createElement('div');
-  div.className = 'msg user';
-  div.innerHTML = `<div class="msg-avatar" style="background:${currentUser.color}">${currentUser.initial}</div><div class="bubble" style="background:${currentUser.color}">${esc(txt)}</div>`;
-  document.getElementById('chat-area').appendChild(div);
-  scrollChat();
+function addUserMsg(txt){
+  const div=document.createElement('div');div.className='msg user';
+  div.innerHTML=`<div class="msg-avatar" style="background:${currentUser.color}">${currentUser.initial}</div><div class="bubble" style="background:${currentUser.color}">${esc(txt)}</div>`;
+  document.getElementById('chat-area').appendChild(div);scrollChat();
 }
-function addTyping() {
-  const div = document.createElement('div');
-  div.className = 'msg ai';
-  div.innerHTML = '<div class="msg-avatar">B</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>';
-  document.getElementById('chat-area').appendChild(div);
-  scrollChat();
-  return div;
+function addTyping(){
+  const div=document.createElement('div');div.className='msg ai';
+  div.innerHTML='<div class="msg-avatar">B</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>';
+  document.getElementById('chat-area').appendChild(div);scrollChat();return div;
 }
-function scrollChat() { const c = document.getElementById('chat-area'); c.scrollTop = c.scrollHeight; }
+function scrollChat(){const c=document.getElementById('chat-area');c.scrollTop=c.scrollHeight;}
 
-async function sendChat(txtOverride) {
-  const input = document.getElementById('chat-input');
-  const txt = txtOverride || input.value.trim();
-  if (!txt || busy) return;
-  if (!txtOverride) { input.value = ''; input.style.height = 'auto'; }
-  busy = true;
-  document.getElementById('btn-send').disabled = true;
-  addUserMsg(txt);
-  const typing = addTyping();
-  chatHistory.push({ role: 'user', content: txt });
-  if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
-
-  try {
-    const apiKey = getApiKey();
-    if (!apiKey) throw new Error('Clé API manquante — demandez à Benjamin de la configurer');
-    const mem = getMem();
-    const ctx = `\nSAV ouverts: ${mem.sav.filter(s=>s.statut==='ouvert').length}`;
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, system: currentUser.system + BENAI_BASE + ctx, messages: chatHistory })
+async function sendChat(txtOverride){
+  const input=document.getElementById('chat-input');
+  const txt=txtOverride||input.value.trim();
+  if(!txt||busy)return;
+  if(!txtOverride){input.value='';input.style.height='auto';}
+  busy=true;document.getElementById('btn-send').disabled=true;
+  addUserMsg(txt);const typing=addTyping();
+  const now=Date.now();
+  chatHistory.push({role:'user',content:txt,ts:now});
+  if(chatHistory.length>60)chatHistory=chatHistory.slice(-60);
+  try{
+    const apiKey=getApiKey();
+    if(!apiKey)throw new Error('Clé API manquante — demandez à Benjamin de la configurer');
+    const mem=getMem();
+    const ctx=`\nSAV ouverts: ${mem.sav.filter(s=>s.statut!=='regle').length}`;
+    const msgs=chatHistory.filter(m=>m.role).map(m=>({role:m.role,content:m.content}));
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:currentUser.system+BENAI_CTX+ctx,messages:msgs})
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || 'Erreur API');
-    const reply = data.content[0].text;
-    chatHistory.push({ role: 'assistant', content: reply });
-    typing.remove();
-    addAIMsg(reply);
-    logActivity(`${currentUser.name} a consulté Benai IA`);
-  } catch (e) {
-    typing.remove();
-    addAIMsg('❌ ' + e.message);
-  }
-  busy = false;
-  document.getElementById('btn-send').disabled = false;
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error?.message||'Erreur API');
+    const reply=data.content[0].text;
+    const usage=data.usage||{};
+    trackTokens(currentUser.id,usage.input_tokens||0,usage.output_tokens||0);
+    updateTokenInfo(usage);
+    chatHistory.push({role:'assistant',content:reply,ts:Date.now()});
+    saveChatMem(currentUser.id,chatHistory);
+    typing.remove();addAIMsg(reply);
+    logActivity(`${currentUser.name} a consulté BenAI IA`);
+  }catch(e){typing.remove();addAIMsg('❌ '+e.message);}
+  busy=false;document.getElementById('btn-send').disabled=false;
 }
 
-// PDF
-document.getElementById('pdf-file').addEventListener('change', async e => {
-  const file = e.target.files[0]; if (!file) return; e.target.value = '';
-  busy = true; document.getElementById('btn-send').disabled = true;
-  addUserMsg('📄 ' + file.name);
-  const typing = addTyping();
-  try {
-    const ab = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
-    let imgs = [];
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const p = await pdf.getPage(i);
-      const vp = p.getViewport({ scale: 1.8 });
-      const c = document.createElement('canvas');
-      c.width = vp.width; c.height = vp.height;
-      await p.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
-      imgs.push(c.toDataURL('image/jpeg', 0.82).split(',')[1]);
-    }
-    const apiKey = getApiKey();
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514', max_tokens: 4000,
-        system: `Tu es Benai, assistant de Nemausus Fermetures et Lambert SAS. Analyse ce devis Hercule Pro et réponds UNIQUEMENT en JSON valide sans texte autour :
-{
-  "devis": {"numero":"","date":"","validite":"","type_prestation":"","contact_nom":"","contact_tel":"","contact_email":""},
-  "client": {"nom_prenom":"","telephone":"","email":"","adresse_facturation":"","adresse_chantier":""},
-  "produits": [{"designation":"","dimensions":"","quantite":1,"pu_ht":0.00,"total_ht":0.00,"tva_taux":""}],
-  "totaux": {"montant_brut_ht":0.00,"remise_pct":"","remise_montant":0.00,"total_ht_net":0.00,"tva_montant":0.00,"total_ttc":0.00}
+function updateTokenInfo(usage){
+  const info=document.getElementById('token-info');
+  if(info&&usage.input_tokens){
+    const cost=estimateCost(usage.input_tokens,usage.output_tokens);
+    info.textContent=`${(usage.input_tokens||0)+(usage.output_tokens||0)} tokens · ~${cost}€`;
+  }
 }
-RÈGLES: Pas d'éco-participation ni SOUS-TOTAUX comme produits séparés.`,
-        messages: [{ role: 'user', content: [...imgs.map(img => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img } })), { type: 'text', text: 'Extrais toutes les données de ce devis.' }] }]
-      })
+
+// CORRIGER ORTHOGRAPHE
+async function correctSpelling(){
+  const input=document.getElementById('chat-input');
+  const txt=input.value.trim();
+  if(!txt)return;
+  const apiKey=getApiKey();if(!apiKey)return;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:`Corrige uniquement les fautes d'orthographe et de grammaire du texte suivant, sans changer le sens ni le style. Réponds UNIQUEMENT avec le texte corrigé, rien d'autre :\n\n${txt}`}]})
     });
-    const data = await res.json();
-    typing.remove();
+    const data=await res.json();
+    if(data.content&&data.content[0])input.value=data.content[0].text.trim();
+  }catch(e){}
+}
 
-    // Parser le JSON et afficher proprement
-    try {
-      const devis = JSON.parse(data.content[0].text.replace(/```json|```/g,'').trim());
-      afficherDevisDansChat(devis, file.name);
-    } catch {
-      // Fallback texte si JSON échoue
-      addAIMsg(data.content[0].text);
-    }
-    logActivity(`${currentUser.name} a analysé un devis PDF`);
-  } catch (e) {
-    typing.remove();
-    addAIMsg('❌ Erreur PDF : ' + e.message);
-  }
-  busy = false; document.getElementById('btn-send').disabled = false;
+// EMOJI PICKER
+const EMOJIS=['😊','😄','😂','🙏','👍','👌','✅','❌','⚠️','📋','📎','📧','📞','🔧','🏠','🏢','📅','💰','🎯','✨','💡','🔑','📊','🚀','❤️','😅','🤔','👋','💪','🎉','📝','✏️','🗓️','⏰','📦','🚚','💬','🔔','⭐','🙂'];
+function buildEmojiPicker(){
+  const grid=document.getElementById('emoji-grid');
+  grid.innerHTML=EMOJIS.map(e=>`<button class="emoji-btn" onclick="insertEmoji('${e}')">${e}</button>`).join('');
+}
+function toggleEmojiPicker(){
+  const p=document.getElementById('emoji-picker');
+  p.style.display=p.style.display==='none'?'grid':'none';
+}
+function insertEmoji(e){
+  const input=document.getElementById('chat-input');
+  input.value+=e;input.focus();
+  document.getElementById('emoji-picker').style.display='none';
+}
+document.addEventListener('click',e=>{
+  const p=document.getElementById('emoji-picker');
+  if(p&&!p.contains(e.target)&&e.target.textContent!=='😊')p.style.display='none';
 });
 
-function afficherDevisDansChat(data, filename) {
-  const d = data.devis||{}, c = data.client||{}, t = data.totaux||{}, prods = data.produits||[];
-  const fmt = n => n ? Number(n).toFixed(2).replace('.',',') : '—';
-  const fmtE = n => fmt(n) !== '—' ? fmt(n)+' €' : '—';
-  const brutHT = t.montant_brut_ht||0;
-  const remMt = t.remise_montant||0;
-  const totalHT = t.total_ht_net||0;
-  const totalTVA = t.tva_montant||0;
-  const totalTTC = t.total_ttc||0;
-  const tvaTaux = totalHT>0 ? totalTVA/totalHT : 0;
+// PDF
+document.getElementById('pdf-file').addEventListener('change',async e=>{
+  const file=e.target.files[0];if(!file)return;e.target.value='';
+  busy=true;document.getElementById('btn-send').disabled=true;
+  addUserMsg('📄 '+file.name);const typing=addTyping();
+  try{
+    const ab=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:ab}).promise;
+    let imgs=[];
+    for(let i=1;i<=pdf.numPages;i++){
+      const p=await pdf.getPage(i);const vp=p.getViewport({scale:1.8});
+      const c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;
+      await p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+      imgs.push(c.toDataURL('image/jpeg',0.82).split(',')[1]);
+    }
+    const apiKey=getApiKey();
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:4000,
+        system:`Tu es BenAI. Analyse ce devis Hercule Pro et réponds UNIQUEMENT en JSON valide :
+{"devis":{"numero":"","date":"","validite":"","type_prestation":"","contact_nom":"","contact_tel":"","contact_email":""},"client":{"nom_prenom":"","telephone":"","email":"","adresse_facturation":"","adresse_chantier":""},"produits":[{"designation":"","dimensions":"","quantite":1,"pu_ht":0.00,"total_ht":0.00,"tva_taux":""}],"totaux":{"montant_brut_ht":0.00,"remise_pct":"","remise_montant":0.00,"total_ht_net":0.00,"tva_montant":0.00,"total_ttc":0.00}}
+RÈGLES: Pas d'éco-participation ni sous-totaux comme produits.`,
+        messages:[{role:'user',content:[...imgs.map(img=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}})),{type:'text',text:'Extrais toutes les données de ce devis.'}]}]
+      })
+    });
+    const data=await res.json();
+    typing.remove();
+    if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
+    try{const devis=JSON.parse(data.content[0].text.replace(/```json|```/g,'').trim());afficherDevis(devis,file.name);}
+    catch{addAIMsg(data.content[0].text);}
+    logActivity(`${currentUser.name} a analysé un devis PDF`);
+  }catch(e){typing.remove();addAIMsg('❌ Erreur PDF : '+e.message);}
+  busy=false;document.getElementById('btn-send').disabled=false;
+});
 
-  const div = document.createElement('div');
-  div.className = 'msg ai';
-  div.style.maxWidth = '95%';
-  div.innerHTML = `<div class="msg-avatar">B</div><div class="bubble" style="width:100%;padding:12px"></div>`;
-  const bubble = div.querySelector('.bubble');
-
-  bubble.innerHTML = `<div style="font-size:13px;margin-bottom:12px">✅ <strong>${esc(filename)}</strong> analysé — ${prods.length} produit(s) · <strong>${fmtE(totalTTC)}</strong> TTC<br><span style="font-size:11px;color:var(--t3)">Cliquez sur n'importe quelle valeur pour la copier</span></div>`;
-
-  // DEVIS + CLIENT
-  const infoGrid = document.createElement('div');
-  infoGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--b1);border-radius:10px;overflow:hidden;margin-bottom:8px;';
-
-  const fields = [
-    { l: 'N° Devis', v: d.numero },
-    { l: 'Date', v: d.date },
-    { l: 'Client', v: c.nom_prenom },
-    { l: 'Téléphone', v: c.telephone },
-    { l: 'Email', v: c.email, full: true },
-    { l: 'Adresse', v: c.adresse_facturation, full: true },
-    { l: 'Contact', v: d.contact_nom },
-    { l: 'Prestation', v: d.type_prestation },
-  ];
-
-  fields.forEach(f => {
-    if (!f.v) return;
-    const cell = document.createElement('div');
-    cell.style.cssText = `background:var(--s3);padding:9px 11px;${f.full?'grid-column:1/-1':''}`;
-    cell.innerHTML = `<div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:2px">${f.l}</div>
-      <div style="font-size:12px;font-weight:500;padding:4px 7px;border-radius:5px;cursor:pointer;border:1px solid transparent;transition:.12s" 
-        onmouseover="this.style.borderColor='var(--a)';this.style.background='var(--a3)'"
-        onmouseout="this.style.borderColor='transparent';this.style.background='transparent'"
-        onclick="cpClick(this,'${esc(f.v)}')">${esc(f.v)}</div>`;
-    if (f.full) cell.style.gridColumn = '1/-1';
+function afficherDevis(data,filename){
+  const d=data.devis||{},c=data.client||{},t=data.totaux||{},prods=data.produits||[];
+  const fmt=n=>n?Number(n).toFixed(2).replace('.',','):'—';
+  const fmtE=n=>fmt(n)!=='—'?fmt(n)+' €':'—';
+  const brutHT=t.montant_brut_ht||0,remMt=t.remise_montant||0,totalHT=t.total_ht_net||0,totalTVA=t.tva_montant||0,totalTTC=t.total_ttc||0;
+  const tvaTaux=totalHT>0?totalTVA/totalHT:0;
+  const div=document.createElement('div');div.className='msg ai';div.style.maxWidth='95%';
+  div.innerHTML='<div class="msg-avatar">B</div><div class="bubble" style="width:100%;padding:12px"></div>';
+  const bubble=div.querySelector('.bubble');
+  bubble.innerHTML=`<div style="font-size:13px;margin-bottom:12px">✅ <strong>${esc(filename)}</strong> — ${prods.length} produit(s) · <strong>${fmtE(totalTTC)}</strong> TTC<br><span style="font-size:11px;color:var(--t3)">Cliquez sur une valeur pour la copier</span></div>`;
+  const infoGrid=document.createElement('div');
+  infoGrid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--b1);border-radius:10px;overflow:hidden;margin-bottom:8px';
+  const fields=[{l:'N° Devis',v:d.numero},{l:'Date',v:d.date},{l:'Client',v:c.nom_prenom},{l:'Téléphone',v:c.telephone},{l:'Email',v:c.email,full:true},{l:'Adresse',v:c.adresse_facturation,full:true},{l:'Contact',v:d.contact_nom},{l:'Prestation',v:d.type_prestation}];
+  fields.forEach(f=>{
+    if(!f.v)return;
+    const cell=document.createElement('div');
+    cell.style.cssText=`background:var(--s3);padding:9px 11px${f.full?';grid-column:1/-1':''}`;
+    cell.innerHTML=`<div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:2px">${f.l}</div><div style="font-size:12px;font-weight:500;padding:4px 7px;border-radius:5px;cursor:pointer;border:1px solid transparent;transition:.12s" onmouseover="this.style.borderColor='var(--a)';this.style.background='var(--a3)'" onmouseout="this.style.borderColor='transparent';this.style.background='transparent'" onclick="cpClick(this,'${esc(f.v)}')">${esc(f.v)}</div>`;
     infoGrid.appendChild(cell);
   });
   bubble.appendChild(infoGrid);
-
-  // PRODUITS
-  if (prods.length > 0) {
-    const tbl = document.createElement('div');
-    tbl.style.cssText = 'background:var(--s3);border-radius:10px;overflow:hidden;margin-bottom:8px;';
-    tbl.innerHTML = `<div style="padding:8px 11px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);border-bottom:1px solid var(--b1)">📦 Produits</div>`;
-
-    const table = document.createElement('table');
-    table.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px;';
-    table.innerHTML = `<thead><tr style="background:var(--s2)">
-      <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Désignation</th>
-      <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Dimensions</th>
-      <th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Qté</th>
-      <th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">PU HT</th>
-      <th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Total HT</th>
-      <th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Remise</th>
-      <th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">TVA</th>
-      <th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">TTC</th>
-    </tr></thead>`;
-
-    const tbody = document.createElement('tbody');
-    prods.forEach((p, idx) => {
-      const remiseMt = (p.total_ht||0) * ((remMt&&brutHT) ? remMt/brutHT : 0);
-      const totHTnet = (p.total_ht||0) - remiseMt;
-      const totTTC = totHTnet * (1 + tvaTaux);
-      const tr = document.createElement('tr');
-      tr.style.cssText = `border-top:1px solid var(--b1);cursor:pointer;transition:.1s`;
-      tr.onmouseover = () => tr.style.background = 'var(--a3)';
-      tr.onmouseout = () => tr.style.background = '';
-      const mkTd = (val, right=false) => `<td style="padding:8px 10px;${right?'text-align:right':''}" onclick="cpClick(this,'${esc(String(val||''))}')">${esc(String(val||'—'))}</td>`;
-      tr.innerHTML = `
-        ${mkTd(p.designation)}
-        ${mkTd(p.dimensions)}
-        ${mkTd(p.quantite, true)}
-        ${mkTd(fmtE(p.pu_ht), true)}
-        ${mkTd(fmtE(p.total_ht), true)}
-        <td style="padding:8px 10px;text-align:right;color:var(--r)" onclick="cpClick(this,'${fmt(remiseMt)}')">${remiseMt>0?'-'+fmtE(remiseMt):'—'}</td>
-        ${mkTd(p.tva_taux, true)}
-        <td style="padding:8px 10px;text-align:right;font-weight:600;color:var(--a)" onclick="cpClick(this,'${fmt(totTTC)}')">${fmtE(totTTC)}</td>`;
+  if(prods.length>0){
+    const tbl=document.createElement('div');tbl.style.cssText='background:var(--s3);border-radius:10px;overflow:hidden;margin-bottom:8px';
+    tbl.innerHTML='<div style="padding:8px 11px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);border-bottom:1px solid var(--b1)">📦 Produits</div>';
+    const table=document.createElement('table');table.style.cssText='width:100%;border-collapse:collapse;font-size:12px';
+    table.innerHTML=`<thead><tr style="background:var(--s2)"><th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Désignation</th><th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Dim.</th><th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Qté</th><th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">PU HT</th><th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Total HT</th><th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">TVA</th><th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">TTC</th></tr></thead>`;
+    const tbody=document.createElement('tbody');
+    prods.forEach(p=>{
+      const rm=(p.total_ht||0)*((remMt&&brutHT)?remMt/brutHT:0);
+      const hn=(p.total_ht||0)-rm;const ttc=hn*(1+tvaTaux);
+      const tr=document.createElement('tr');tr.style.cssText='border-top:1px solid var(--b1);cursor:pointer;transition:.1s';
+      tr.onmouseover=()=>tr.style.background='var(--a3)';tr.onmouseout=()=>tr.style.background='';
+      const mkTd=(val,right=false)=>`<td style="padding:8px 10px;${right?'text-align:right':''}" onclick="cpClick(this,'${esc(String(val||''))}')">${esc(String(val||'—'))}</td>`;
+      tr.innerHTML=`${mkTd(p.designation)}${mkTd(p.dimensions)}${mkTd(p.quantite,true)}${mkTd(fmtE(p.pu_ht),true)}${mkTd(fmtE(p.total_ht),true)}${mkTd(p.tva_taux,true)}<td style="padding:8px 10px;text-align:right;font-weight:600;color:var(--a)" onclick="cpClick(this,'${fmt(ttc)}')">${fmtE(ttc)}</td>`;
       tbody.appendChild(tr);
     });
-    table.appendChild(tbody);
-    tbl.appendChild(table);
-
-    // Bouton copier tableau
-    const copyBtn = document.createElement('button');
-    copyBtn.style.cssText = 'width:100%;padding:8px;background:transparent;border:none;border-top:1px solid var(--b1);color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit;transition:.15s';
-    copyBtn.textContent = '📋 Copier tout le tableau';
-    copyBtn.onmouseover = () => copyBtn.style.color = 'var(--a)';
-    copyBtn.onmouseout = () => copyBtn.style.color = 'var(--t3)';
-    copyBtn.onclick = () => {
-      let txt = 'Désignation\tDimensions\tQté\tPU HT\tTotal HT\tRemise\tTVA\tTTC\n';
-      prods.forEach(p => {
-        const rm = (p.total_ht||0)*((remMt&&brutHT)?remMt/brutHT:0);
-        const hn = (p.total_ht||0)-rm;
-        const ttc = hn*(1+tvaTaux);
-        txt += `${p.designation||''}\t${p.dimensions||''}\t${p.quantite||1}\t${fmt(p.pu_ht)}\t${fmt(p.total_ht)}\t${rm>0?'-'+fmt(rm):''}\t${p.tva_taux||''}\t${fmt(ttc)}\n`;
-      });
-      navigator.clipboard.writeText(txt).then(() => { copyBtn.textContent = '✅ Copié !'; setTimeout(()=>copyBtn.textContent='📋 Copier tout le tableau',1500); });
+    table.appendChild(tbody);tbl.appendChild(table);
+    const copyBtn=document.createElement('button');
+    copyBtn.style.cssText='width:100%;padding:8px;background:transparent;border:none;border-top:1px solid var(--b1);color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit;transition:.15s';
+    copyBtn.textContent='📋 Copier tout le tableau';
+    copyBtn.onclick=()=>{
+      let txt='Désignation\tDimensions\tQté\tPU HT\tTotal HT\tTVA\tTTC\n';
+      prods.forEach(p=>{const rm=(p.total_ht||0)*((remMt&&brutHT)?remMt/brutHT:0);const hn=(p.total_ht||0)-rm;const ttc=hn*(1+tvaTaux);txt+=`${p.designation||''}\t${p.dimensions||''}\t${p.quantite||1}\t${fmt(p.pu_ht)}\t${fmt(p.total_ht)}\t${p.tva_taux||''}\t${fmt(ttc)}\n`;});
+      navigator.clipboard.writeText(txt).then(()=>{copyBtn.textContent='✅ Copié !';setTimeout(()=>copyBtn.textContent='📋 Copier tout le tableau',1500);});
     };
-    tbl.appendChild(copyBtn);
-    bubble.appendChild(tbl);
+    tbl.appendChild(copyBtn);bubble.appendChild(tbl);
   }
-
-  // TOTAUX
-  const totDiv = document.createElement('div');
-  totDiv.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr) 1fr;gap:1px;background:var(--b1);border-radius:10px;overflow:hidden;';
-  [
-    { l: 'Brut HT', v: fmtE(brutHT), raw: fmt(brutHT) },
-    { l: 'Remise', v: t.remise_pct ? t.remise_pct+' = -'+fmtE(remMt) : '—', raw: t.remise_pct||'' },
-    { l: 'Total HT net', v: fmtE(totalHT), raw: fmt(totalHT) },
-    { l: 'TVA', v: fmtE(totalTVA), raw: fmt(totalTVA) },
-  ].forEach(tot => {
-    const cell = document.createElement('div');
-    cell.style.cssText = 'background:var(--s3);padding:10px;text-align:center;cursor:pointer;transition:.12s';
-    cell.innerHTML = `<div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:600">${tot.l}</div><div style="font-size:13px;font-weight:700;margin-top:3px">${tot.v}</div>`;
-    cell.onmouseover = () => cell.style.background = 'var(--a3)';
-    cell.onmouseout = () => cell.style.background = 'var(--s3)';
-    cell.onclick = () => { navigator.clipboard.writeText(tot.raw); cell.style.background='var(--g2)'; setTimeout(()=>cell.style.background='var(--s3)',1200); };
+  const totDiv=document.createElement('div');
+  totDiv.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--b1);border-radius:10px;overflow:hidden';
+  [{l:'Brut HT',v:fmtE(brutHT),raw:fmt(brutHT)},{l:'Remise',v:t.remise_pct?t.remise_pct+' = -'+fmtE(remMt):'—',raw:t.remise_pct||''},{l:'Total HT net',v:fmtE(totalHT),raw:fmt(totalHT)},{l:'TVA',v:fmtE(totalTVA),raw:fmt(totalTVA)}].forEach(tot=>{
+    const cell=document.createElement('div');cell.style.cssText='background:var(--s3);padding:10px;text-align:center;cursor:pointer;transition:.12s';
+    cell.innerHTML=`<div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:600">${tot.l}</div><div style="font-size:13px;font-weight:700;margin-top:3px">${tot.v}</div>`;
+    cell.onmouseover=()=>cell.style.background='var(--a3)';cell.onmouseout=()=>cell.style.background='var(--s3)';
+    cell.onclick=()=>{navigator.clipboard.writeText(tot.raw);cell.style.background='var(--g2)';setTimeout(()=>cell.style.background='var(--s3)',1200);};
     totDiv.appendChild(cell);
   });
-  // TTC
-  const ttcCell = document.createElement('div');
-  ttcCell.style.cssText = 'background:var(--a3);padding:10px;text-align:center;cursor:pointer;grid-column:1/-1;transition:.12s';
-  ttcCell.innerHTML = `<div style="font-size:10px;color:var(--a);text-transform:uppercase;font-weight:600">Total TTC</div><div style="font-size:1.3rem;font-weight:800;color:var(--a);margin-top:3px">${fmtE(totalTTC)}</div>`;
-  ttcCell.onclick = () => { navigator.clipboard.writeText(fmt(totalTTC)); ttcCell.style.background='var(--g2)'; setTimeout(()=>ttcCell.style.background='var(--a3)',1200); };
-  totDiv.appendChild(ttcCell);
-  bubble.appendChild(totDiv);
-
-  document.getElementById('chat-area').appendChild(div);
-  scrollChat();
+  const ttcCell=document.createElement('div');ttcCell.style.cssText='background:var(--a3);padding:12px;text-align:center;cursor:pointer;grid-column:1/-1;transition:.12s';
+  ttcCell.innerHTML=`<div style="font-size:10px;color:var(--a);text-transform:uppercase;font-weight:600">Total TTC</div><div style="font-size:1.4rem;font-weight:800;color:var(--a);margin-top:3px">${fmtE(totalTTC)}</div>`;
+  ttcCell.onclick=()=>{navigator.clipboard.writeText(fmt(totalTTC));ttcCell.style.background='var(--g2)';setTimeout(()=>ttcCell.style.background='var(--a3)',1200);};
+  totDiv.appendChild(ttcCell);bubble.appendChild(totDiv);
+  document.getElementById('chat-area').appendChild(div);scrollChat();
 }
-
-function cpClick(el, val) {
-  if (!val || val === '—') return;
-  navigator.clipboard.writeText(val).then(() => {
-    const orig = el.style.background;
-    el.style.background = 'var(--g2)';
-    el.style.color = 'var(--g)';
-    setTimeout(() => { el.style.background = orig; el.style.color = ''; }, 1200);
-  });
+function cpClick(el,val){
+  if(!val||val==='—')return;
+  navigator.clipboard.writeText(val).then(()=>{const o=el.style.background;el.style.background='var(--g2)';el.style.color='var(--g)';setTimeout(()=>{el.style.background=o;el.style.color='';},1200);});
 }
 
 // ══════════════════════════════════════════
 // MESSAGERIE INTERNE
 // ══════════════════════════════════════════
-const CONVS = {
-  benjamin: { benjamin_aurelie: { name: 'Aurélie', other: 'aurelie', color: 'linear-gradient(135deg,#22C55E,#15803D)', initial: 'A' }, benjamin_claudine: { name: 'Claudine', other: 'claudine', color: 'linear-gradient(135deg,#60A5FA,#1D4ED8)', initial: 'C' }, groupe: { name: 'Groupe équipe', group: true, color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: '👥' } },
-  aurelie: { benjamin_aurelie: { name: 'Benjamin', other: 'benjamin', color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: 'B' }, aurelie_claudine: { name: 'Claudine', other: 'claudine', color: 'linear-gradient(135deg,#60A5FA,#1D4ED8)', initial: 'C' }, groupe: { name: 'Groupe équipe', group: true, color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: '👥' } },
-  claudine: { benjamin_claudine: { name: 'Benjamin', other: 'benjamin', color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: 'B' }, aurelie_claudine: { name: 'Aurélie', other: 'aurelie', color: 'linear-gradient(135deg,#22C55E,#15803D)', initial: 'A' }, groupe: { name: 'Groupe équipe', group: true, color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: '👥' } }
+const CONVS={
+  benjamin:{benjamin_aurelie:{name:'Aurélie',other:'aurelie',color:'linear-gradient(135deg,#22C55E,#15803D)',initial:'A'},benjamin_claudine:{name:'Claudine',other:'claudine',color:'linear-gradient(135deg,#60A5FA,#1D4ED8)',initial:'C'},groupe:{name:'Groupe équipe',group:true,color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'👥'}},
+  aurelie:{benjamin_aurelie:{name:'Benjamin',other:'benjamin',color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B'},aurelie_claudine:{name:'Claudine',other:'claudine',color:'linear-gradient(135deg,#60A5FA,#1D4ED8)',initial:'C'},groupe:{name:'Groupe équipe',group:true,color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'👥'}},
+  claudine:{benjamin_claudine:{name:'Benjamin',other:'benjamin',color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B'},aurelie_claudine:{name:'Aurélie',other:'aurelie',color:'linear-gradient(135deg,#22C55E,#15803D)',initial:'A'},groupe:{name:'Groupe équipe',group:true,color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'👥'}}
 };
 
-function buildNavMessages() {
-  const nav = document.getElementById('nav-messages');
-  nav.innerHTML = '';
-  const convs = CONVS[currentUser.id] || {};
-  Object.entries(convs).forEach(([cid, conv]) => {
-    const item = document.createElement('div');
-    item.className = 'sb-item';
-    item.id = 'nav-conv-' + cid;
-    item.innerHTML = `<span class="sb-icon">${conv.group ? '👥' : '💬'}</span><span class="sb-txt">${conv.name}</span>`;
-    item.onclick = () => { showPage('messages'); openConv(cid, conv); };
-    nav.appendChild(item);
-  });
-  // Ajouter nav-messages dans sidebar
-  const sbnav = document.createElement('div');
-  sbnav.className = 'sb-item';
-  sbnav.id = 'nav-messages';
-  sbnav.innerHTML = '<span class="sb-icon">💬</span><span class="sb-txt">Messages</span>';
-  sbnav.onclick = () => showPage('messages');
-}
-
-function renderConvList() {
-  const list = document.getElementById('conv-list');
-  list.innerHTML = '<div class="conv-header">Conversations</div>';
-  const convs = CONVS[currentUser.id] || {};
-  const mem = getMem();
-  Object.entries(convs).forEach(([cid, conv]) => {
-    const msgs = (mem.messages[cid] || []);
-    const last = msgs[msgs.length - 1];
-    const item = document.createElement('div');
-    item.className = 'conv-item' + (conv.group ? ' conv-group' : '') + (currentConv === cid ? ' active' : '');
-    item.innerHTML = `<div class="conv-name">${conv.name}</div><div class="conv-preview">${last ? esc(last.text.substring(0, 30)) : 'Aucun message'}</div>`;
-    item.onclick = () => openConv(cid, conv);
+function renderConvList(){
+  const list=document.getElementById('conv-list');
+  list.innerHTML='<div class="conv-header">Conversations</div>';
+  const convs=CONVS[currentUser.id]||{};
+  Object.entries(convs).forEach(([cid,conv])=>{
+    const mem=getMem();const msgs=mem.messages[cid]||[];const last=msgs[msgs.length-1];
+    const unread=countUnread(currentUser.id,cid);
+    const item=document.createElement('div');
+    item.className='conv-item'+(conv.group?' conv-group':'')+(currentConv===cid?' active':'');
+    item.innerHTML=`<div class="conv-name">${conv.name}</div><div class="conv-preview">${last?esc(last.text.substring(0,30)):'Aucun message'}</div>${unread>0?`<span class="conv-unread-badge">${unread}</span>`:''}`;
+    item.onclick=()=>openConv(cid,conv);
     list.appendChild(item);
   });
 }
 
-function openConv(cid, conv) {
-  currentConv = cid;
+function openConv(cid,conv){
+  currentConv=cid;markRead(currentUser.id,cid);refreshMsgBadge();
   renderConvList();
-  const header = document.getElementById('thread-header');
-  header.innerHTML = `<div class="thread-avatar" style="background:${conv.color}">${conv.initial}</div><div><div class="thread-name">${conv.name}</div><div class="thread-status">${conv.group ? 'Benjamin, Aurélie, Claudine' : 'Conversation privée'}</div></div>`;
-  document.getElementById('thread-input').style.display = 'flex';
+  const header=document.getElementById('thread-header');
+  header.innerHTML=`<div class="thread-avatar" style="background:${conv.color}">${conv.initial}</div><div><div class="thread-name">${conv.name}</div><div class="thread-status">${conv.group?'Benjamin, Aurélie, Claudine':'Conversation privée'}</div></div>`;
+  document.getElementById('thread-input').style.display='flex';
   renderThread(cid);
 }
 
-function renderThread(cid) {
-  const mem = getMem();
-  const msgs = mem.messages[cid] || [];
-  const area = document.getElementById('thread-msgs');
-  area.innerHTML = '';
-  if (!msgs.length) { area.innerHTML = '<div style="color:var(--t3);font-size:12px;text-align:center;padding:20px">Aucun message — démarrez la conversation !</div>'; return; }
-  msgs.forEach(m => {
-    const mine = m.from === currentUser.id;
-    const sender = USERS[m.from] || {};
-    const div = document.createElement('div');
-    div.className = 'tmsg ' + (mine ? 'mine' : 'theirs');
-    div.innerHTML = `
-      ${!mine ? `<div class="tmsg-av" style="background:${sender.color}">${sender.initial}</div>` : ''}
-      <div>
-        <div class="tmsg-bubble" style="${mine ? 'background:' + currentUser.color : ''}">${esc(m.text)}</div>
-        <div class="tmsg-time">${m.time}</div>
+function renderThread(cid){
+  const mem=getMem();const msgs=mem.messages[cid]||[];
+  const area=document.getElementById('thread-msgs');area.innerHTML='';
+  if(!msgs.length){area.innerHTML='<div style="color:var(--t3);font-size:12px;text-align:center;padding:20px">Aucun message — démarrez la conversation !</div>';return;}
+  msgs.forEach((m,idx)=>{
+    const mine=m.from===currentUser.id;const sender=USERS[m.from]||{};
+    const div=document.createElement('div');div.className='tmsg '+(mine?'mine':'theirs');
+    const actionsHtml=mine?`<div class="tmsg-actions"><button class="tmsg-act-btn" onclick="editMsg('${cid}',${idx})">✏️</button><button class="tmsg-act-btn" onclick="deleteMsg('${cid}',${idx})" style="color:var(--r)">🗑️</button></div>`:'';
+    div.innerHTML=`
+      ${!mine?`<div class="tmsg-av" style="background:${sender.color||'#666'}">${sender.initial||'?'}</div>`:''}
+      <div class="tmsg-body">
+        <div class="tmsg-bubble" style="${mine?'background:'+currentUser.color:''}">
+          ${actionsHtml}
+          ${esc(m.text)}
+        </div>
+        <div class="tmsg-time">${m.time||''}${m.edited?' (modifié)':''}</div>
       </div>
-      ${mine ? `<div class="tmsg-av" style="background:${currentUser.color}">${currentUser.initial}</div>` : ''}`;
+      ${mine?`<div class="tmsg-av" style="background:${currentUser.color}">${currentUser.initial}</div>`:''}`;
     area.appendChild(div);
   });
-  area.scrollTop = area.scrollHeight;
+  area.scrollTop=area.scrollHeight;
 }
 
-function sendMsg() {
-  const input = document.getElementById('msg-input');
-  const txt = input.value.trim();
-  if (!txt || !currentConv) return;
-  input.value = '';
-  const mem = getMem();
-  if (!mem.messages[currentConv]) mem.messages[currentConv] = [];
-  const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  mem.messages[currentConv].push({ from: currentUser.id, text: txt, time: now });
-  saveMem(mem);
-  renderThread(currentConv);
-  renderConvList();
+function sendMsg(){
+  const input=document.getElementById('msg-input');const txt=input.value.trim();
+  if(!txt||!currentConv)return;input.value='';
+  const mem=getMem();if(!mem.messages[currentConv])mem.messages[currentConv]=[];
+  const now=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  mem.messages[currentConv].push({from:currentUser.id,text:txt,time:now,ts:Date.now()});
+  saveMem(mem);renderThread(currentConv);renderConvList();
   logActivity(`${currentUser.name} a envoyé un message`);
-  // Refresh admin
-  if (currentUser.role === 'admin') { const el = document.getElementById('admin-msgs'); if (el) { const tot = Object.values(mem.messages).reduce((s,a)=>s+a.length,0); el.textContent = tot; } }
+}
+
+function deleteMsg(cid,idx){
+  if(!confirm('Supprimer ce message ?'))return;
+  const mem=getMem();if(mem.messages[cid])mem.messages[cid].splice(idx,1);
+  saveMem(mem);renderThread(cid);renderConvList();
+}
+
+function editMsg(cid,idx){
+  const mem=getMem();const msg=mem.messages[cid]?.[idx];if(!msg)return;
+  const nouveau=prompt('Modifier le message :',msg.text);
+  if(!nouveau||!nouveau.trim())return;
+  msg.text=nouveau.trim();msg.edited=true;
+  saveMem(mem);renderThread(cid);
 }
 
 // ══════════════════════════════════════════
 // SAV
 // ══════════════════════════════════════════
-let currentFilter = 'tous';
-
-function toggleSavForm() {
-  const wrap = document.getElementById('sav-form-wrap');
-  wrap.style.display = wrap.style.display === 'none' ? 'block' : 'none';
+function toggleSavForm(){
+  const wrap=document.getElementById('sav-form-wrap');
+  wrap.style.display=wrap.style.display==='none'?'block':'none';
 }
 
-function filterSAV(filter, btn) {
-  currentFilter = filter;
-  document.querySelectorAll('.sav-filter').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderSAV();
+function filterSAV(filter,btn){
+  currentFilter=filter;
+  document.querySelectorAll('.sav-filter').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');renderSAV();
 }
 
-function addSAV() {
-  const client = document.getElementById('sav-client').value.trim();
-  const pb = document.getElementById('sav-pb').value.trim();
-  const soc = document.getElementById('sav-soc').value;
-  const commercial = document.getElementById('sav-commercial').value.trim();
-  const fourn = document.getElementById('sav-fourn').value.trim();
-  if (!client || !pb) { alert('Remplissez le client et le problème'); return; }
-  const mem = getMem();
-  mem.sav.unshift({
-    id: Date.now(), client, probleme: pb, societe: soc,
-    commercial, fournisseur: fourn,
-    statut: 'nouveau',
-    date_creation: new Date().toLocaleDateString('fr-FR'),
-    by: currentUser.name,
-    actions: []
-  });
+function addSAV(){
+  const client=document.getElementById('sav-client').value.trim();
+  const pb=document.getElementById('sav-pb').value.trim();
+  const soc=document.getElementById('sav-soc').value;
+  const commercial=document.getElementById('sav-commercial').value.trim();
+  const fourn=document.getElementById('sav-fourn').value.trim();
+  const rappel=document.getElementById('sav-rappel').value;
+  const urgent=document.getElementById('sav-urgent').checked;
+  if(!client||!pb){alert('Remplissez le client et le problème');return;}
+  const mem=getMem();
+  mem.sav.unshift({id:Date.now(),client,probleme:pb,societe:soc,commercial,fournisseur:fourn,rappel,urgent,statut:'nouveau',date_creation:new Date().toLocaleDateString('fr-FR'),by:currentUser.name,actions:[]});
   saveMem(mem);
-  ['sav-client','sav-pb','sav-commercial','sav-fourn'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
-  const ok = document.getElementById('sav-ok');
-  ok.textContent = '✅ SAV enregistré !';
-  setTimeout(() => { ok.textContent = ''; toggleSavForm(); }, 1500);
-  renderSAV();
-  refreshSAVBadge();
-  logActivity(`${currentUser.name} a ouvert un SAV : ${client}`);
+  ['sav-client','sav-pb','sav-commercial','sav-fourn','sav-rappel'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('sav-urgent').checked=false;
+  const ok=document.getElementById('sav-ok');ok.textContent='✅ SAV enregistré !';
+  setTimeout(()=>{ok.textContent='';toggleSavForm();},1500);
+  renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a ouvert un SAV : ${client}`);
 }
 
-function renderSAV() {
-  const mem = getMem();
-  const list = document.getElementById('sav-list');
-  let savs = mem.sav || [];
-  const isAdmin = currentUser.role === 'admin';
-
-  // Filtrage par société selon utilisateur
-  if (currentUser.id === 'aurelie') savs = savs.filter(s => s.societe === 'nemausus');
-  else if (currentUser.id === 'claudine') savs = savs.filter(s => s.societe === 'lambert');
-
+function renderSAV(){
+  const mem=getMem();const list=document.getElementById('sav-list');
+  let savs=mem.sav||[];const isAdmin=currentUser.role==='admin';
+  const search=(document.getElementById('sav-search')?.value||'').toLowerCase();
+  // Filtre société
+  if(currentUser.id==='aurelie')savs=savs.filter(s=>s.societe==='nemausus');
+  else if(currentUser.id==='claudine')savs=savs.filter(s=>s.societe==='lambert');
   // Filtre état
-  if (currentFilter === 'nouveau') savs = savs.filter(s => s.statut === 'nouveau');
-  else if (currentFilter === 'en_cours') savs = savs.filter(s => s.statut === 'en_cours');
-  else if (currentFilter === 'regle') savs = savs.filter(s => s.statut === 'regle');
-  else savs = savs.filter(s => s.statut !== 'regle');
+  if(currentFilter==='nouveau')savs=savs.filter(s=>s.statut==='nouveau');
+  else if(currentFilter==='en_cours')savs=savs.filter(s=>s.statut==='en_cours');
+  else if(currentFilter==='regle')savs=savs.filter(s=>s.statut==='regle');
+  else if(currentFilter==='urgent')savs=savs.filter(s=>s.urgent&&s.statut!=='regle');
+  else savs=savs.filter(s=>s.statut!=='regle');
+  // Recherche
+  if(search)savs=savs.filter(s=>(s.client||'').toLowerCase().includes(search)||(s.probleme||'').toLowerCase().includes(search)||(s.commercial||'').toLowerCase().includes(search)||(s.fournisseur||'').toLowerCase().includes(search));
 
-  if (!savs.length) {
-    list.innerHTML = `<div style="color:var(--t3);font-size:13px;padding:24px;text-align:center">${currentFilter === 'regle' ? 'Aucun SAV réglé' : 'Aucun SAV en cours 🎉'}</div>`;
-    return;
+  // Rappels SAV
+  const rappelArea=document.getElementById('sav-reminders-area');
+  if(rappelArea){
+    const today=new Date();today.setHours(0,0,0,0);
+    const rappels=(mem.sav||[]).filter(s=>{
+      if(!s.rappel||s.statut==='regle')return false;
+      const d=new Date(s.rappel);d.setHours(0,0,0,0);
+      const diff=Math.ceil((d-today)/(1000*60*60*24));
+      return diff<=7&&diff>=0;
+    });
+    rappelArea.innerHTML=rappels.map(s=>{
+      const d=new Date(s.rappel);d.setHours(0,0,0,0);
+      const diff=Math.ceil((d-today)/(1000*60*60*24));
+      const label=diff===0?'AUJOURD\'HUI':diff===1?'DEMAIN':`dans ${diff} jours`;
+      return `<div class="reminder-alert">🔔 Rappel SAV — <strong>${esc(s.client)}</strong> — ${label} (${formatDate(s.rappel)})</div>`;
+    }).join('');
   }
 
-  const stateLabel = {
-    nouveau: '<span class="state-new">🔴 Nouveau</span>',
-    en_cours: '<span class="state-progress">🟡 En cours</span>',
-    regle: '<span class="state-done">🟢 Réglé</span>'
-  };
+  if(!savs.length){list.innerHTML=`<div style="color:var(--t3);font-size:13px;padding:24px;text-align:center">${currentFilter==='regle'?'Aucun SAV réglé':'Aucun SAV en cours 🎉'}</div>`;return;}
 
-  list.innerHTML = savs.map(s => {
-    const derniereAction = s.actions && s.actions.length > 0 ? s.actions[s.actions.length-1] : null;
-    return `
-    <div class="sav-card" id="sav-${s.id}">
-      <div class="sav-info" style="flex:1">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
-          ${stateLabel[s.statut] || ''}
-          <span class="badge ${s.societe==='nemausus'?'badge-nem':'badge-lam'}">${s.societe==='nemausus'?'Nemausus':'Lambert'}</span>
-          <span style="font-size:10px;color:var(--t3);margin-left:auto">${s.date_creation||''}</span>
-          ${isAdmin ? `<button onclick="deleteSAV(${s.id})" title="Supprimer" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:14px;padding:2px 4px">🗑️</button>` : ''}
-        </div>
-        <div class="sav-client">${esc(s.client)}</div>
-        <div class="sav-pb">${esc(s.probleme)}</div>
-        <div class="sav-meta">
-          ${s.commercial?'Commercial : '+esc(s.commercial)+' · ':''}
-          ${s.fournisseur?'Fournisseur : '+esc(s.fournisseur)+' · ':''}
-          Créé par ${esc(s.by||'?')}
-        </div>
-        ${derniereAction ? `<div style="margin-top:6px;padding:6px 10px;background:var(--s3);border-radius:6px;font-size:11px;color:var(--t2)">
-          ✅ <strong>${esc(derniereAction.action)}</strong> — ${esc(derniereAction.date)}${derniereAction.by?' par '+esc(derniereAction.by):''}
-        </div>` : ''}
-        ${isAdmin && s.statut !== 'regle' ? `
-        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-          <input type="text" class="sav-action-input" id="action-${s.id}" placeholder="Ce que tu as fait (ex: Commandé chez Somfy le 12/04, Email envoyé fournisseur...)">
-          <button onclick="savAction(${s.id})" style="padding:7px 12px;background:var(--a);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">✓ Enregistrer</button>
-          <button onclick="changeStatut(${s.id},'regle')" class="btn-resolve">🟢 Réglé</button>
-        </div>` : ''}
+  const stateLabel={nouveau:'<span class="state-new">🔴 Nouveau</span>',en_cours:'<span class="state-progress">🟡 En cours</span>',regle:'<span class="state-done">🟢 Réglé</span>'};
+
+  list.innerHTML=savs.map(s=>{
+    const derniereAction=s.actions&&s.actions.length>0?s.actions[s.actions.length-1]:null;
+    const hist=getClientHistory(s.client,s.id,mem);
+    const rappelBadge=s.rappel?`<span class="sav-reminder-badge">🔔 ${formatDate(s.rappel)}</span>`:'';
+    return `<div class="sav-card${s.urgent?' urgent':''}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+        ${stateLabel[s.statut]||''}
+        <span class="badge ${s.societe==='nemausus'?'badge-nem':'badge-lam'}">${s.societe==='nemausus'?'Nemausus':'Lambert'}</span>
+        ${s.urgent?'<span class="badge badge-urgent">🚨 URGENT</span>':''}
+        ${rappelBadge}
+        <span style="font-size:10px;color:var(--t3);margin-left:auto">${s.date_creation||''}</span>
+        ${isAdmin?`<button onclick="deleteSAV(${s.id})" title="Supprimer" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:14px;padding:2px 4px">🗑️</button>`:''}
       </div>
+      <div class="sav-client">${esc(s.client)}</div>
+      <div class="sav-pb">${esc(s.probleme)}</div>
+      <div class="sav-meta">${s.commercial?'Commercial : '+esc(s.commercial)+' · ':''}${s.fournisseur?'Fournisseur : '+esc(s.fournisseur)+' · ':''}Créé par ${esc(s.by||'?')}</div>
+      ${derniereAction?`<div style="margin-top:6px;padding:6px 10px;background:var(--s3);border-radius:6px;font-size:11px;color:var(--t2)">✅ <strong>${esc(derniereAction.action)}</strong> — ${esc(derniereAction.date)}</div>`:''}
+      ${hist.length>0?`<div style="margin-top:6px"><details><summary style="font-size:11px;color:var(--t3);cursor:pointer">🕐 Historique client (${hist.length} SAV précédent(s))</summary><div style="margin-top:6px">${hist.map(h=>`<div class="hist-item"><div class="hist-date">${h.date_creation||''} · ${h.statut}</div><div class="hist-pb">${esc(h.probleme)}</div></div>`).join('')}</div></details></div>`:''}
+      ${isAdmin&&s.statut!=='regle'?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        <input type="text" class="sav-action-input" id="action-${s.id}" placeholder="Ce que tu as fait (ex: Commandé chez Somfy le 12/04...)">
+        <button onclick="savAction(${s.id})" style="padding:7px 12px;background:var(--a);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">✓ Enregistrer</button>
+        <button onclick="changeStatut(${s.id},'regle')" class="btn-resolve">🟢 Réglé</button>
+      </div>`:''}
     </div>`;
   }).join('');
 }
 
-function deleteSAV(id) {
-  if (!confirm('Supprimer ce SAV définitivement ?')) return;
-  const mem = getMem();
-  mem.sav = mem.sav.filter(s => s.id !== id);
-  saveMem(mem);
-  renderSAV();
-  refreshSAVBadge();
-  logActivity(`${currentUser.name} a supprimé un SAV`);
+function getClientHistory(client,excludeId,mem){
+  return (mem.sav||[]).filter(s=>s.client===client&&s.id!==excludeId).slice(0,5);
 }
 
-function savAction(id) {
-  const input = document.getElementById('action-' + id);
-  const txt = input?.value.trim();
-  if (!txt) return;
-  const mem = getMem();
-  const sav = mem.sav.find(s => s.id === id);
-  if (!sav) return;
-  if (!sav.actions) sav.actions = [];
-  sav.actions.push({ action: txt, date: new Date().toLocaleDateString('fr-FR'), by: currentUser.name });
-  sav.statut = 'en_cours';
-  saveMem(mem);
-  renderSAV();
-  refreshSAVBadge();
-  logActivity(`${currentUser.name} a traité le SAV : ${sav.client} — ${txt}`);
+function deleteSAV(id){
+  if(!confirm('Supprimer ce SAV définitivement ?'))return;
+  const mem=getMem();mem.sav=mem.sav.filter(s=>s.id!==id);saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a supprimé un SAV`);
 }
 
-function changeStatut(id, statut) {
-  const mem = getMem();
-  const sav = mem.sav.find(s => s.id === id);
-  if (sav) {
-    sav.statut = statut;
-    if (statut === 'regle') sav.date_reglement = new Date().toLocaleDateString('fr-FR');
-    saveMem(mem);
-    renderSAV();
-    refreshSAVBadge();
-    logActivity(`${currentUser.name} a réglé le SAV : ${sav.client}`);
-  }
+function savAction(id){
+  const input=document.getElementById('action-'+id);const txt=input?.value.trim();if(!txt)return;
+  const mem=getMem();const sav=mem.sav.find(s=>s.id===id);if(!sav)return;
+  if(!sav.actions)sav.actions=[];
+  sav.actions.push({action:txt,date:new Date().toLocaleDateString('fr-FR'),by:currentUser.name});
+  sav.statut='en_cours';saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a traité SAV : ${sav.client}`);
 }
 
-function closeSAV(id) { changeStatut(id, 'regle'); }
+function changeStatut(id,statut){
+  const mem=getMem();const sav=mem.sav.find(s=>s.id===id);
+  if(sav){sav.statut=statut;if(statut==='regle')sav.date_reglement=new Date().toLocaleDateString('fr-FR');saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a réglé SAV : ${sav.client}`);}
+}
 
-function refreshSAVBadge() {
-  const mem = getMem();
-  const nb = (mem.sav || []).filter(s => s.statut === 'nouveau' || s.statut === 'en_cours').length;
-  const badge = document.getElementById('sav-badge');
-  if (nb > 0) { badge.style.display = 'flex'; badge.textContent = nb; } else { badge.style.display = 'none'; }
-  const adminEl = document.getElementById('admin-sav');
-  if (adminEl) adminEl.textContent = nb;
+function refreshSAVBadge(){
+  const mem=getMem();
+  const nb=(mem.sav||[]).filter(s=>s.statut!=='regle').length;
+  const urgent=(mem.sav||[]).filter(s=>s.urgent&&s.statut!=='regle').length;
+  const badge=document.getElementById('sav-badge');
+  badge.style.display=nb>0?'flex':'none';badge.textContent=nb;
+  if(urgent>0)badge.style.background='var(--r)';else badge.style.background='var(--a)';
+}
+
+function exportSAVCSV(){
+  const mem=getMem();let savs=mem.sav||[];
+  if(currentUser.id==='aurelie')savs=savs.filter(s=>s.societe==='nemausus');
+  else if(currentUser.id==='claudine')savs=savs.filter(s=>s.societe==='lambert');
+  const header='Date,Client,Problème,Société,Commercial,Fournisseur,Statut,Urgent,Date rappel\n';
+  const rows=savs.map(s=>`${s.date_creation||''},${csv(s.client)},${csv(s.probleme)},${s.societe==='nemausus'?'Nemausus Fermetures':'Lambert SAS'},${csv(s.commercial)},${csv(s.fournisseur)},${s.statut},${s.urgent?'Oui':'Non'},${s.rappel||''}`).join('\n');
+  download('SAV_BenAI_'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.csv',header+rows,'text/csv');
 }
 
 // ══════════════════════════════════════════
-// ADMIN
+// NOTES RAPIDES
 // ══════════════════════════════════════════
-function refreshAdmin() {
-  refreshSAVBadge();
-  const mem = getMem();
-  const tot = Object.values(mem.messages).reduce((s, a) => s + a.length, 0);
-  const el = document.getElementById('admin-msgs');
-  if (el) el.textContent = tot;
-
-  // Activité
-  const actList = document.getElementById('activity-list');
-  if (actList && mem.activity && mem.activity.length) {
-    actList.innerHTML = mem.activity.slice(-8).reverse().map(a => `
-      <div class="act-item">
-        <div class="act-av" style="background:${getUserColor(a.user)}">${getUserInitial(a.user)}</div>
-        <div class="act-txt">${esc(a.txt)}</div>
-        <div class="act-time">${a.time}</div>
-      </div>`).join('');
-  }
-
-  // Mots de passe
-  renderPwdList();
+function addNote(){
+  const mem=getMem();if(!mem.notes)mem.notes=[];
+  mem.notes.unshift({id:Date.now(),text:'',date:new Date().toLocaleDateString('fr-FR'),by:currentUser.id});
+  saveMem(mem);renderNotes();setTimeout(()=>{const first=document.querySelector('.note-card textarea');if(first)first.focus();},50);
 }
 
-function getPwds() {
-  try { return JSON.parse(localStorage.getItem('benai_pwds')) || { benjamin: '1234', aurelie: '1234', claudine: '1234' }; }
-  catch { return { benjamin: '1234', aurelie: '1234', claudine: '1234' }; }
-}
-function savePwds(pwds) { localStorage.setItem('benai_pwds', JSON.stringify(pwds)); }
-
-function renderPwdList() {
-  const pwdList = document.getElementById('pwd-list');
-  if (!pwdList) return;
-  const pwds = getPwds();
-  const users = [
-    { id: 'benjamin', name: 'Benjamin', color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: 'B' },
-    { id: 'aurelie', name: 'Aurélie', color: 'linear-gradient(135deg,#22C55E,#15803D)', initial: 'A' },
-    { id: 'claudine', name: 'Claudine', color: 'linear-gradient(135deg,#60A5FA,#1D4ED8)', initial: 'C' }
-  ];
-  pwdList.innerHTML = users.map(u => `
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s3);border-radius:8px">
-      <div style="width:28px;height:28px;border-radius:8px;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${u.initial}</div>
-      <div style="flex:1;font-size:13px;font-weight:500">${u.name}</div>
-      <div style="font-size:12px;color:var(--t3);font-family:'JetBrains Mono',monospace;background:var(--bg);padding:4px 10px;border-radius:6px">${pwds[u.id]||'1234'}</div>
-      <button onclick="changerMdp('${u.id}','${u.name}')" style="padding:5px 10px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s">Modifier</button>
+function renderNotes(){
+  const mem=getMem();const area=document.getElementById('notes-area');
+  const notes=(mem.notes||[]).filter(n=>n.by===currentUser.id||currentUser.role==='admin');
+  if(!notes.length){area.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune note — cliquez sur + Nouvelle note</div>';return;}
+  area.innerHTML=notes.map((n,i)=>`
+    <div class="note-card">
+      <button class="note-del" onclick="deleteNote(${n.id})">✕</button>
+      <textarea oninput="saveNote(${n.id},this.value)">${esc(n.text)}</textarea>
+      <div class="note-meta"><span>${n.date}</span><span>${USERS[n.by]?.name||n.by}</span></div>
     </div>`).join('');
 }
 
-function changerMdp(uid, name) {
-  const nouveau = prompt(`Nouveau mot de passe pour ${name} :`);
-  if (!nouveau || nouveau.length < 3) { alert('Mot de passe trop court (minimum 3 caractères)'); return; }
-  const pwds = getPwds();
-  pwds[uid] = nouveau;
-  savePwds(pwds);
-  // Mettre à jour dans USERS aussi
-  if (USERS[uid]) USERS[uid].pwd = nouveau;
-  renderPwdList();
-  logActivity(`Benjamin a modifié le mot de passe de ${name}`);
-  alert(`✅ Mot de passe de ${name} modifié !`);
+function saveNote(id,val){
+  const mem=getMem();const n=mem.notes?.find(x=>x.id===id);if(n)n.text=val;saveMem(mem);
 }
 
-function logActivity(txt) {
-  const mem = getMem();
-  if (!mem.activity) mem.activity = [];
-  const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  mem.activity.push({ user: currentUser.id, txt, time: now });
-  if (mem.activity.length > 50) mem.activity = mem.activity.slice(-50);
+function deleteNote(id){
+  if(!confirm('Supprimer cette note ?'))return;
+  const mem=getMem();mem.notes=(mem.notes||[]).filter(n=>n.id!==id);saveMem(mem);renderNotes();
+}
+
+// ══════════════════════════════════════════
+// ABSENCES (Benjamin uniquement)
+// ══════════════════════════════════════════
+function toggleAbsForm(){
+  const wrap=document.getElementById('abs-form-wrap');
+  wrap.style.display=wrap.style.display==='none'?'block':'none';
+}
+
+function addAbsence(){
+  const emp=document.getElementById('abs-emp').value.trim();
+  const debut=document.getElementById('abs-debut').value;
+  const fin=document.getElementById('abs-fin').value;
+  const type=document.getElementById('abs-type').value;
+  const note=document.getElementById('abs-note').value.trim();
+  if(!emp||!debut||!fin){alert('Remplissez tous les champs obligatoires');return;}
+  const mem=getMem();if(!mem.absences)mem.absences=[];
+  mem.absences.push({id:Date.now(),employe:emp,debut,fin,type,note,created:Date.now()});
   saveMem(mem);
+  ['abs-emp','abs-debut','abs-fin','abs-note'].forEach(id=>document.getElementById(id).value='');
+  toggleAbsForm();renderAbsences();logActivity(`Benjamin a enregistré une absence pour ${emp}`);
 }
 
-function getUserColor(uid) { return USERS[uid]?.color || '#333'; }
-function getUserInitial(uid) { return USERS[uid]?.initial || '?'; }
+function deleteAbsence(id){
+  if(!confirm('Supprimer cette absence ?'))return;
+  const mem=getMem();mem.absences=(mem.absences||[]).filter(a=>a.id!==id);saveMem(mem);renderAbsences();
+}
+
+function renderAbsences(){
+  const mem=getMem();const list=document.getElementById('abs-list');
+  const absences=(mem.absences||[]).sort((a,b)=>new Date(a.debut)-new Date(b.debut));
+  if(!absences.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune absence enregistrée</div>';return;}
+  const today=new Date();today.setHours(0,0,0,0);
+  list.innerHTML=absences.map(a=>{
+    const debut=new Date(a.debut);debut.setHours(0,0,0,0);
+    const fin=new Date(a.fin);fin.setHours(0,0,0,0);
+    let status,statusClass;
+    if(today>fin){status='Passée';statusClass='abs-past';}
+    else if(today>=debut){status='En cours';statusClass='abs-today';}
+    else{
+      const diff=Math.ceil((debut-today)/(1000*60*60*24));
+      status=diff===1?'Demain':`Dans ${diff} jour(s)`;statusClass='abs-future';
+    }
+    return `<div class="absence-card">
+      <div class="absence-icon">${a.type==='Congé'?'🏖️':a.type==='Maladie'?'🤒':a.type==='Formation'?'📚':'🗓️'}</div>
+      <div class="absence-info">
+        <div class="absence-name">${esc(a.employe)} — ${a.type}</div>
+        <div class="absence-dates">Du ${formatDate(a.debut)} au ${formatDate(a.fin)}</div>
+        ${a.note?`<div class="absence-type">${esc(a.note)}</div>`:''}
+      </div>
+      <span class="absence-status ${statusClass}">${status}</span>
+      <button onclick="deleteAbsence(${a.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:18px;padding:4px">🗑️</button>
+    </div>`;
+  }).join('');
+}
+
+function checkAbsenceReminders(){
+  const mem=getMem();const absences=mem.absences||[];
+  const today=new Date();today.setHours(0,0,0,0);
+  const reminders=[];
+  absences.forEach(a=>{
+    const debut=new Date(a.debut);debut.setHours(0,0,0,0);
+    const diff=Math.ceil((debut-today)/(1000*60*60*24));
+    if(diff===7)reminders.push(`📅 Dans 7 jours : ${a.employe} — ${a.type} (du ${formatDate(a.debut)} au ${formatDate(a.fin)})`);
+    if(diff===1)reminders.push(`⚠️ DEMAIN : ${a.employe} sera absent(e) — ${a.type}`);
+    if(diff===0)reminders.push(`🔴 AUJOURD'HUI : ${a.employe} est absent(e) (jusqu'au ${formatDate(a.fin)})`);
+  });
+  if(reminders.length>0){
+    setTimeout(()=>{
+      reminders.forEach(r=>addAIMsg(`**Rappel absence** : ${r}`));
+    },800);
+  }
+}
+
+// ══════════════════════════════════════════
+// EVOLUTION
+// ══════════════════════════════════════════
+const EVOLUTIONS=[
+  {id:1,tag:'Productivité',tagColor:'var(--a)',title:'Export SAV mensuel automatique',desc:'Chaque 1er du mois, BenAI prépare un export CSV du SAV du mois écoulé. Vous le recevez dans un rappel.'},
+  {id:2,tag:'Communication',tagColor:'var(--bl)',title:'Modèles d\'emails SAV',desc:'Des modèles pré-rédigés pour les emails fournisseurs courants : pièce manquante, délai de livraison, réclamation qualité.'},
+  {id:3,tag:'Suivi',tagColor:'var(--g)',title:'Tableau de bord mensuel',desc:'Un récapitulatif mensuel des SAV par société avec les temps de résolution moyens.'},
+  {id:4,tag:'Sécurité',tagColor:'var(--r)',title:'Sauvegarde automatique hebdomadaire',desc:'Rappel chaque lundi pour télécharger la sauvegarde BenAI. Simple et fiable.'},
+  {id:5,tag:'Productivité',tagColor:'var(--a)',title:'Signatures email personnalisées',desc:'BenAI mémorise vos signatures Nemausus et Lambert pour les intégrer automatiquement dans les emails rédigés.'},
+];
+
+function renderEvolution(){
+  const dismissed=JSON.parse(localStorage.getItem('benai_evol_dismissed')||'[]');
+  const list=document.getElementById('evolution-list');
+  const active=EVOLUTIONS.filter(e=>!dismissed.includes(e.id));
+  if(!active.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Toutes les suggestions ont été traitées 🎉</div>';return;}
+  list.innerHTML=active.map(e=>`
+    <div class="evol-card">
+      <span class="evol-tag" style="background:${e.tagColor}22;color:${e.tagColor}">${e.tag}</span>
+      <div class="evol-title">${e.title}</div>
+      <div class="evol-desc">${e.desc}</div>
+      <div class="evol-actions">
+        <button class="evol-btn-ok" onclick="validateEvol(${e.id})">✅ À développer</button>
+        <button class="evol-btn-later" onclick="dismissEvol(${e.id})">Plus tard</button>
+      </div>
+    </div>`).join('');
+}
+
+function validateEvol(id){
+  const e=EVOLUTIONS.find(x=>x.id===id);
+  if(e)alert(`✅ Noté ! "${e.title}" sera développé dans la prochaine mise à jour BenAI.`);
+  dismissEvol(id);
+}
+function dismissEvol(id){
+  const dismissed=JSON.parse(localStorage.getItem('benai_evol_dismissed')||'[]');
+  dismissed.push(id);localStorage.setItem('benai_evol_dismissed',JSON.stringify(dismissed));renderEvolution();
+}
+
+// ══════════════════════════════════════════
+// ADMIN DASHBOARD
+// ══════════════════════════════════════════
+function refreshAdmin(){
+  refreshSAVBadge();
+  const mem=getMem();
+  const tot=Object.values(mem.messages).reduce((s,a)=>s+a.length,0);
+  const el=document.getElementById('admin-msgs');if(el)el.textContent=tot;
+  const notesEl=document.getElementById('admin-notes');if(notesEl)notesEl.textContent=(mem.notes||[]).length;
+  renderTokenStats();renderSAVStatsAdmin();renderPwdList();renderUsersList();
+  const actList=document.getElementById('activity-list');
+  if(actList&&mem.activity?.length){
+    actList.innerHTML=mem.activity.slice(-10).reverse().map(a=>`<div class="act-item"><div class="act-av" style="background:${getUserColor(a.user)}">${getUserInitial(a.user)}</div><div class="act-txt">${esc(a.txt)}</div><div class="act-time">${a.time}</div></div>`).join('');
+  }
+}
+
+function renderTokenStats(){
+  const el=document.getElementById('token-stats');if(!el)return;
+  const mem=getMem();const tokens=mem.tokens||{};
+  const users=['benjamin','aurelie','claudine',...getExtraUsers().map(u=>u.id)];
+  let html='';
+  users.forEach(uid=>{
+    const u=USERS[uid]||getExtraUserById(uid);if(!u)return;
+    const t=tokens[uid]||{input:0,output:0};
+    const total=(t.input||0)+(t.output||0);
+    const cost=estimateCost(t.input||0,t.output||0);
+    html+=`<div class="token-row"><div class="user-av" style="background:${u.color};width:26px;height:26px;border-radius:7px;font-size:11px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center">${u.initial}</div><div class="token-name">${u.name}</div><div class="token-val">${total.toLocaleString()} tokens</div><div class="token-cost">~${cost}€</div></div>`;
+  });
+  el.innerHTML=html||'<div style="color:var(--t3);font-size:12px">Aucune utilisation</div>';
+}
+
+function renderSAVStatsAdmin(){
+  const el=document.getElementById('sav-stats-admin');if(!el)return;
+  const mem=getMem();const savs=mem.sav||[];
+  const total=savs.length,regle=savs.filter(s=>s.statut==='regle').length,en_cours=savs.filter(s=>s.statut==='en_cours').length,nouveau=savs.filter(s=>s.statut==='nouveau').length;
+  const nem=savs.filter(s=>s.societe==='nemausus').length,lam=savs.filter(s=>s.societe==='lambert').length;
+  const urgent=savs.filter(s=>s.urgent).length;
+  el.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div style="background:var(--s3);border-radius:8px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">Total SAV</div><div style="font-size:20px;font-weight:700">${total}</div></div>
+      <div style="background:var(--s3);border-radius:8px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">🚨 Urgents</div><div style="font-size:20px;font-weight:700;color:var(--r)">${urgent}</div></div>
+    </div>
+    <div class="stat-bar-wrap"><div class="stat-bar-label"><span>🔴 Nouveaux</span><span>${nouveau}</span></div><div class="stat-bar"><div class="stat-bar-fill" style="width:${total?nouveau/total*100:0}%;background:var(--r)"></div></div></div>
+    <div class="stat-bar-wrap"><div class="stat-bar-label"><span>🟡 En cours</span><span>${en_cours}</span></div><div class="stat-bar"><div class="stat-bar-fill" style="width:${total?en_cours/total*100:0}%;background:var(--y)"></div></div></div>
+    <div class="stat-bar-wrap"><div class="stat-bar-label"><span>🟢 Réglés</span><span>${regle}</span></div><div class="stat-bar"><div class="stat-bar-fill" style="width:${total?regle/total*100:0}%;background:var(--g)"></div></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+      <div style="background:rgba(232,148,58,.1);border-radius:8px;padding:8px;text-align:center;font-size:12px"><span style="color:var(--nem);font-weight:600">Nemausus</span><br><span style="font-size:18px;font-weight:700">${nem}</span></div>
+      <div style="background:var(--bl2);border-radius:8px;padding:8px;text-align:center;font-size:12px"><span style="color:var(--lam);font-weight:600">Lambert</span><br><span style="font-size:18px;font-weight:700">${lam}</span></div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════
+// GESTION UTILISATEURS
+// ══════════════════════════════════════════
+const COLORS=['linear-gradient(135deg,#22C55E,#15803D)','linear-gradient(135deg,#60A5FA,#1D4ED8)','linear-gradient(135deg,#F472B6,#DB2777)','linear-gradient(135deg,#A78BFA,#7C3AED)','linear-gradient(135deg,#34D399,#059669)'];
+
+function getExtraUsers(){try{return JSON.parse(localStorage.getItem('benai_extra_users'))||[];}catch{return [];}}
+function saveExtraUsers(u){localStorage.setItem('benai_extra_users',JSON.stringify(u));}
+function getExtraUserById(id){return getExtraUsers().find(u=>u.id===id)||null;}
+function getAllUsers(){
+  return[{id:'benjamin',name:'Benjamin',role:'admin',societe:'les-deux',color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B',builtin:true},{id:'aurelie',name:'Aurélie',role:'assistante',societe:'nemausus',color:'linear-gradient(135deg,#22C55E,#15803D)',initial:'A',builtin:true},{id:'claudine',name:'Claudine',role:'assistante',societe:'lambert',color:'linear-gradient(135deg,#60A5FA,#1D4ED8)',initial:'C',builtin:true},...getExtraUsers()];
+}
+
+function showAddUser(){const f=document.getElementById('add-user-form');f.style.display=f.style.display==='none'?'block':'none';}
+
+function creerUtilisateur(){
+  const name=document.getElementById('new-user-name').value.trim();
+  const uid=document.getElementById('new-user-id').value.trim().toLowerCase().replace(/\s+/g,'_');
+  const pwd=document.getElementById('new-user-pwd').value.trim();
+  const soc=document.getElementById('new-user-soc').value;
+  const status=document.getElementById('add-user-status');
+  if(!name||!uid||!pwd){status.style.color='var(--r)';status.textContent='⚠️ Remplissez tous les champs';return;}
+  if(getAllUsers().find(u=>u.id===uid)){status.style.color='var(--r)';status.textContent='⚠️ Identifiant déjà utilisé';return;}
+  const extras=getExtraUsers();
+  const newUser={id:uid,name,role:'assistante',societe:soc,color:COLORS[extras.length%COLORS.length],initial:name[0].toUpperCase(),builtin:false,pages:['benai','messages','sav']};
+  extras.push(newUser);saveExtraUsers(extras);
+  const pwds=getPwds();pwds[uid]=pwd;savePwds(pwds);
+  USERS[uid]={name,pwd,role:'assistante',color:newUser.color,initial:newUser.initial,pages:['benai','messages','sav'],system:`Tu es BenAI, l'assistant de ${name}. Tu proposes toujours — ${name} décide toujours.`};
+  const select=document.getElementById('login-user');
+  if(select&&!select.querySelector(`option[value="${uid}"]`)){const opt=document.createElement('option');opt.value=uid;opt.textContent=name;select.appendChild(opt);}
+  status.style.color='var(--g)';status.textContent=`✅ ${name} créé(e) !`;
+  ['new-user-name','new-user-id','new-user-pwd'].forEach(id=>document.getElementById(id).value='');
+  setTimeout(()=>{document.getElementById('add-user-form').style.display='none';status.textContent='';},1500);
+  renderUsersList();renderPwdList();logActivity(`Benjamin a créé l'utilisateur ${name}`);
+}
+
+function supprimerUtilisateur(uid){
+  if(!confirm(`Supprimer ${uid} définitivement ?`))return;
+  const extras=getExtraUsers().filter(u=>u.id!==uid);saveExtraUsers(extras);
+  delete USERS[uid];const pwds=getPwds();delete pwds[uid];savePwds(pwds);
+  const opt=document.querySelector(`#login-user option[value="${uid}"]`);if(opt)opt.remove();
+  renderUsersList();renderPwdList();logActivity(`Benjamin a supprimé l'utilisateur ${uid}`);
+}
+
+function toggleAccess(uid){
+  const access=getAccess();
+  access[uid]=access[uid]===false?true:false;
+  saveAccess(access);renderUsersList();
+  logActivity(`Benjamin a ${access[uid]===false?'bloqué':'réactivé'} l'accès de ${uid}`);
+}
+
+function renderUsersList(){
+  const list=document.getElementById('users-list');if(!list)return;
+  const users=getAllUsers();const access=getAccess();
+  list.innerHTML=users.map(u=>`
+    <div class="user-row">
+      <div class="user-av" style="background:${u.color}">${u.initial}</div>
+      <div class="user-info"><div class="user-name">${esc(u.name)}</div><div class="user-role">${u.role==='admin'?'Admin':'Assistante'} · ${u.societe==='les-deux'?'Nemausus & Lambert':u.societe==='nemausus'?'Nemausus':'Lambert'}</div></div>
+      ${u.builtin&&u.id==='benjamin'?'<span style="font-size:10px;color:var(--t3)">Admin</span>':`
+        <div onclick="toggleAccess('${u.id}')" class="toggle ${access[u.id]===false?'':'on'}" title="${access[u.id]===false?'Accès bloqué':'Accès actif'}"></div>
+        ${!u.builtin?`<button onclick="supprimerUtilisateur('${u.id}')" style="padding:4px 8px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">🗑️</button>`:''}
+      `}
+    </div>`).join('');
+}
+
+function renderPwdList(){
+  const list=document.getElementById('pwd-list');if(!list)return;
+  const pwds=getPwds();
+  list.innerHTML=getAllUsers().map(u=>`
+    <div class="user-row">
+      <div class="user-av" style="background:${u.color};width:26px;height:26px;border-radius:7px;font-size:11px">${u.initial}</div>
+      <div style="flex:1;font-size:13px;font-weight:500">${esc(u.name)}</div>
+      <div style="font-size:12px;color:var(--t3);font-family:'JetBrains Mono',monospace;background:var(--bg);padding:4px 10px;border-radius:6px;cursor:pointer" onclick="this.textContent=this.textContent.includes('•')?'${pwds[u.id]||'1234'}':'••••'">${'••••'}</div>
+      <button onclick="changerMdp('${u.id}','${u.name}')" style="padding:5px 10px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">Modifier</button>
+    </div>`).join('');
+  // Panel settings aussi
+  renderTeamPwdSettings();
+}
+
+function changerMdp(uid,name){
+  const nouveau=prompt(`Nouveau mot de passe pour ${name} :\n\n(Minimum 6 caractères, évitez 1234 ou prenom)`);
+  if(!nouveau||nouveau.length<6){alert('Mot de passe trop court (minimum 6 caractères)');return;}
+  if(['1234','12345','azerty','password',name.toLowerCase()].includes(nouveau.toLowerCase())){alert('⚠️ Mot de passe trop facile à deviner. Choisissez quelque chose de plus solide.');return;}
+  const pwds=getPwds();pwds[uid]=nouveau;savePwds(pwds);if(USERS[uid])USERS[uid].pwd=nouveau;
+  renderPwdList();logActivity(`Benjamin a modifié le mot de passe de ${name}`);alert(`✅ Mot de passe de ${name} modifié !`);
+}
+
+// PARAMÈTRES
+function toggleSettings(){
+  const panel=document.getElementById('settings-panel');
+  const isOpen=panel.style.display!=='none';
+  panel.style.display=isOpen?'none':'block';
+  if(!isOpen)initSettings();
+}
+
+function initSettings(){
+  const isAdmin=currentUser?.role==='admin';
+  document.getElementById('api-settings').style.display=isAdmin?'block':'none';
+  const theme=localStorage.getItem('benai_theme')||'dark';
+  document.getElementById('btn-dark').style.borderColor=theme==='dark'?'var(--a)':'var(--b1)';
+  document.getElementById('btn-light').style.borderColor=theme==='light'?'var(--a)':'var(--b1)';
+  if(isAdmin)renderTeamPwdSettings();
+}
+
+function setTheme(theme){
+  localStorage.setItem('benai_theme',theme);document.body.classList.toggle('light',theme==='light');
+  document.getElementById('btn-dark').style.borderColor=theme==='dark'?'var(--a)':'var(--b1)';
+  document.getElementById('btn-light').style.borderColor=theme==='light'?'var(--a)':'var(--b1)';
+}
+
+function changerMonMdp(){
+  const pwd=document.getElementById('new-pwd').value.trim();const msg=document.getElementById('pwd-msg');
+  if(!pwd||pwd.length<6){msg.style.color='var(--r)';msg.textContent='⚠️ Minimum 6 caractères';return;}
+  if(['1234','12345','azerty','password'].includes(pwd.toLowerCase())){msg.style.color='var(--r)';msg.textContent='⚠️ Mot de passe trop simple';return;}
+  const pwds=getPwds();pwds[currentUser.id]=pwd;savePwds(pwds);
+  document.getElementById('new-pwd').value='';msg.style.color='var(--g)';msg.textContent='✅ Modifié !';
+  setTimeout(()=>msg.textContent='',2000);logActivity(`${currentUser.name} a changé son mot de passe`);
+}
+
+function renderTeamPwdSettings(){
+  const list=document.getElementById('team-pwd-list');if(!list)return;
+  const pwds=getPwds();
+  list.innerHTML=getAllUsers().map(u=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s3);border-radius:8px;margin-bottom:5px">
+      <div style="width:22px;height:22px;border-radius:6px;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff">${u.initial}</div>
+      <div style="flex:1;font-size:12px;font-weight:500">${u.name}</div>
+      <div style="font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;background:var(--bg);padding:3px 8px;border-radius:5px;cursor:pointer" onclick="this.textContent=this.textContent.includes('•')?'${pwds[u.id]||'1234'}':'••••'">••••</div>
+      <button onclick="changerMdp('${u.id}','${u.name}')" style="padding:3px 8px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:5px;font-size:10px;cursor:pointer;font-family:inherit">✏️</button>
+    </div>`).join('');
+}
+
+function saveApiKeySettings(){
+  const key=document.getElementById('api-key-settings').value.trim();const msg=document.getElementById('api-msg');
+  if(!key||!key.startsWith('sk-')){msg.style.color='var(--r)';msg.textContent='⚠️ Clé invalide';return;}
+  localStorage.setItem('benai_api',key);document.getElementById('api-key-settings').value='';
+  msg.style.color='var(--g)';msg.textContent='✅ Clé enregistrée !';setTimeout(()=>msg.textContent='',2000);
+}
+
+// SAUVEGARDE / RESTAURATION
+function exportData(){
+  const mem=getMem();const pwds=getPwds();const extras=getExtraUsers();const access=getAccess();
+  const backup={version:BENAI_VERSION,date:new Date().toISOString(),data:mem,pwds,extras,access};
+  download('BenAI_sauvegarde_'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.json',JSON.stringify(backup,null,2),'application/json');
+  const msg=document.getElementById('backup-msg');if(msg){msg.style.color='var(--g)';msg.textContent='✅ Sauvegarde téléchargée !';setTimeout(()=>msg.textContent='',3000);}
+  logActivity('Benjamin a sauvegardé les données');
+}
+
+function importData(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const backup=JSON.parse(e.target.result);
+      if(!backup.data)throw new Error('Format invalide');
+      if(!confirm(`Restaurer la sauvegarde du ${new Date(backup.date).toLocaleDateString('fr-FR')} ?\n\nToutes les données actuelles seront remplacées.`))return;
+      saveMem(backup.data);savePwds(backup.pwds||{});saveExtraUsers(backup.extras||[]);saveAccess(backup.access||{});
+      const msg=document.getElementById('backup-msg');if(msg){msg.style.color='var(--g)';msg.textContent='✅ Données restaurées ! Rechargez la page.';} 
+      alert('✅ Données restaurées ! La page va se recharger.');location.reload();
+    }catch(err){alert('❌ Erreur : fichier de sauvegarde invalide');}
+  };
+  reader.readAsText(file);input.value='';
+}
 
 // ══════════════════════════════════════════
 // HELPERS
 // ══════════════════════════════════════════
-const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-const md = txt => (txt||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const md=txt=>(txt||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+const csv=s=>`"${(s||'').replace(/"/g,'""')}"`;
+const getUserColor=uid=>USERS[uid]?.color||getExtraUserById(uid)?.color||'#333';
+const getUserInitial=uid=>USERS[uid]?.initial||getExtraUserById(uid)?.initial||'?';
+const formatDate=d=>{if(!d)return '';try{return new Date(d).toLocaleDateString('fr-FR');}catch{return d;}};
 
-// ══════════════════════════════════════════
-// SÉCURITÉ — Déconnexion à la fermeture
-// ══════════════════════════════════════════
-window.addEventListener('beforeunload', () => {
-  // Déconnecter à la fermeture de l'onglet/fenêtre
-  sessionStorage.removeItem('benai_session');
+function download(filename,content,type){
+  const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);
+}
+
+function logActivity(txt){
+  const mem=getMem();if(!mem.activity)mem.activity=[];
+  const now=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  mem.activity.push({user:currentUser?.id||'?',txt,time:now});
+  if(mem.activity.length>100)mem.activity=mem.activity.slice(-100);
+  saveMem(mem);
+}
+
+// FERMER SETTINGS si clic ailleurs
+document.addEventListener('click',e=>{
+  const panel=document.getElementById('settings-panel');
+  const btn=document.querySelector('.tb-icon-btn');
+  if(panel&&!panel.contains(e.target)&&btn&&!btn.contains(e.target))panel.style.display='none';
 });
 
-// Vérifier session au chargement
-window.addEventListener('load', () => {
-  const session = sessionStorage.getItem('benai_session');
-  if (!session) {
-    // Pas de session active — on reste sur login
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('app').classList.remove('visible');
+// ══════════════════════════════════════════
+// INIT AU CHARGEMENT
+// ══════════════════════════════════════════
+window.addEventListener('load',()=>{
+  // Thème
+  const theme=localStorage.getItem('benai_theme')||'dark';
+  if(theme==='light')document.body.classList.add('light');
+  // Clé API
+  const stored=localStorage.getItem('benai_api');
+  if(!stored){
+    setTimeout(()=>{
+      const k=prompt('🔑 Première configuration BenAI\n\nEntrez votre clé API Anthropic (sk-ant-...):\n\n(Obtenez-la sur console.anthropic.com)');
+      if(k&&k.startsWith('sk-'))localStorage.setItem('benai_api',k);
+    },500);
   }
-});
-
-// Bloquer après 3 tentatives
-let loginAttempts = 0;
-let loginBlocked = false;
-
-// ══════════════════════════════════════════
-// MISE À JOUR AUTOMATIQUE
-// ══════════════════════════════════════════
-const BENAI_VERSION = '2.5';
-const GITHUB_TOKEN = ''; // Colle ton token ici entre les guillemets
-const GITHUB_REPO = 'BenAI30/benai';
-const GITHUB_FILE = 'index.html';
-
-async function checkUpdate() {
-  try {
-    const VERSION_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/version.json`;
-    const res = await fetch(VERSION_URL + '?t=' + Date.now());
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data.version && data.version !== BENAI_VERSION) {
-      showUpdateBadge(data.version, data.notes || '');
-    }
-  } catch(e) {}
-}
-
-async function installUpdate(version, notes) {
-  if (!confirm(`Installer BenAI v${version} ?\n\n${notes}\n\nBenAI va se recharger.`)) return;
-  const badge = document.getElementById('update-badge');
-  if (badge) badge.innerHTML = '⏳ Installation...';
-  try {
-    const UPDATE_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/index.html`;
-    const res = await fetch(UPDATE_URL + '?t=' + Date.now());
-    if (!res.ok) throw new Error('Impossible de télécharger');
-    const html = await res.text();
-    // Remplacer la page courante
-    document.open();
-    document.write(html);
-    document.close();
-  } catch(e) {
-    alert('❌ Erreur : ' + e.message);
-    if (badge) badge.innerHTML = `⬆️ Mise à jour v${version} disponible`;
-  }
-}
-
-// Vérifier les mises à jour au démarrage et toutes les heures
-setTimeout(checkUpdate, 3000);
-setInterval(checkUpdate, 60 * 60 * 1000);
-
-// ══════════════════════════════════════════
-// SÉCURITÉ — Tentatives limitées
-// ══════════════════════════════════════════
-function checkLoginBlock() {
-  const blockUntil = parseInt(localStorage.getItem('benai_block') || '0');
-  if (Date.now() < blockUntil) {
-    const remaining = Math.ceil((blockUntil - Date.now()) / 1000);
-    return `Trop de tentatives. Réessayez dans ${remaining} secondes.`;
-  }
-  return null;
-}
-
-// Remplacer login pour gérer les tentatives
-const _loginOriginal = login;
-
-// ══════════════════════════════════════════
-// CONFIG API KEY
-// ══════════════════════════════════════════
-// ══════════════════════════════════════════
-// STYLE ANIMATION BADGE
-// ══════════════════════════════════════════
-const style = document.createElement('style');
-style.textContent = `
-@keyframes pulse {
-  0%,100% { box-shadow: 0 4px 20px rgba(232,148,58,.5); }
-  50% { box-shadow: 0 4px 30px rgba(232,148,58,.8); }
-}`;
-document.head.appendChild(style);
-
-// ══════════════════════════════════════════
-// CONFIG API KEY
-// ══════════════════════════════════════════
-const stored = localStorage.getItem('benai_api');
-if (!stored) {
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      const k = prompt('🔑 Première configuration BenAI\n\nEntrez votre clé API Anthropic (sk-ant-...):\n\n(Obtenez-la sur console.anthropic.com)');
-      if (k && k.startsWith('sk-')) {
-        localStorage.setItem('benai_api', k);
-        alert('✅ Clé enregistrée ! BenAI est prêt.');
-      }
-    }, 500);
+  // Charger utilisateurs extra
+  getExtraUsers().forEach(u=>{
+    USERS[u.id]={name:u.name,pwd:getPwds()[u.id]||'1234',role:'assistante',color:u.color,initial:u.initial,pages:['benai','messages','sav'],system:`Tu es BenAI, l'assistant de ${u.name}. Tu proposes toujours — ${u.name} décide toujours.`};
+    const select=document.getElementById('login-user');
+    if(select&&!select.querySelector(`option[value="${u.id}"]`)){const opt=document.createElement('option');opt.value=u.id;opt.textContent=u.name;select.appendChild(opt);}
   });
-}
-
-// ══════════════════════════════════════════
-// PARAMÈTRES
-// ══════════════════════════════════════════
-function toggleSettings() {
-  const panel = document.getElementById('settings-panel');
-  const isOpen = panel.style.display !== 'none';
-  panel.style.display = isOpen ? 'none' : 'block';
-  if (!isOpen) initSettings();
-}
-
-function initSettings() {
-  // Afficher sections selon rôle
-  const isAdmin = currentUser?.role === 'admin';
-  document.getElementById('api-settings').style.display = isAdmin ? 'block' : 'none';
-  document.getElementById('team-pwd-settings').style.display = isAdmin ? 'block' : 'none';
-  if (isAdmin) renderTeamPwdSettings();
-
-  // Thème actif
-  const theme = localStorage.getItem('benai_theme') || 'dark';
-  document.getElementById('btn-dark').style.borderColor = theme === 'dark' ? 'var(--a)' : 'var(--b1)';
-  document.getElementById('btn-light').style.borderColor = theme === 'light' ? 'var(--a)' : 'var(--b1)';
-}
-
-function setTheme(theme) {
-  localStorage.setItem('benai_theme', theme);
-  document.body.classList.toggle('light', theme === 'light');
-  document.getElementById('btn-dark').style.borderColor = theme === 'dark' ? 'var(--a)' : 'var(--b1)';
-  document.getElementById('btn-light').style.borderColor = theme === 'light' ? 'var(--a)' : 'var(--b1)';
-}
-
-// Appliquer thème au chargement
-window.addEventListener('load', () => {
-  const theme = localStorage.getItem('benai_theme') || 'dark';
-  if (theme === 'light') document.body.classList.add('light');
+  // Vérif mise à jour
+  checkUpdate();
 });
 
-function changerMonMdp() {
-  const pwd = document.getElementById('new-pwd').value.trim();
-  const msg = document.getElementById('pwd-msg');
-  if (!pwd || pwd.length < 3) { msg.style.color = 'var(--r)'; msg.textContent = '⚠️ Minimum 3 caractères'; return; }
-  const pwds = getPwds();
-  pwds[currentUser.id] = pwd;
-  savePwds(pwds);
-  document.getElementById('new-pwd').value = '';
-  msg.style.color = 'var(--g)';
-  msg.textContent = '✅ Mot de passe modifié !';
-  setTimeout(() => msg.textContent = '', 2000);
-  logActivity(`${currentUser.name} a changé son mot de passe`);
+// MISE À JOUR
+async function checkUpdate(){
+  try{
+    const res=await fetch(`https://raw.githubusercontent.com/BenAI30/benai/main/version.json?t=${Date.now()}`);
+    if(!res.ok)return;
+    const data=await res.json();
+    if(data.version&&data.version!==BENAI_VERSION){
+      const badge=document.createElement('div');
+      badge.style.cssText='position:fixed;bottom:16px;right:16px;background:var(--a);color:#fff;border-radius:10px;padding:10px 16px;font-size:12px;font-weight:600;cursor:pointer;z-index:9999;box-shadow:0 4px 20px rgba(232,148,58,.5)';
+      badge.textContent=`⬆️ Mise à jour v${data.version} disponible`;
+      badge.onclick=()=>installUpdate(data.version,data.notes||'');
+      document.body.appendChild(badge);
+    }
+  }catch(e){}
 }
 
-function renderTeamPwdSettings() {
-  const list = document.getElementById('team-pwd-list');
-  if (!list) return;
-  const pwds = getPwds();
-  const users = [
-    { id: 'benjamin', name: 'Benjamin', color: 'linear-gradient(135deg,#E8943A,#B45309)', initial: 'B' },
-    { id: 'aurelie', name: 'Aurélie', color: 'linear-gradient(135deg,#22C55E,#15803D)', initial: 'A' },
-    { id: 'claudine', name: 'Claudine', color: 'linear-gradient(135deg,#60A5FA,#1D4ED8)', initial: 'C' }
-  ];
-  list.innerHTML = users.map(u => `
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s3);border-radius:8px;margin-bottom:5px">
-      <div style="width:24px;height:24px;border-radius:7px;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">${u.initial}</div>
-      <div style="flex:1;font-size:12px;font-weight:500">${u.name}</div>
-      <div style="font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;background:var(--bg);padding:3px 8px;border-radius:5px;cursor:pointer" onclick="togglePwdVisibility(this,'${pwds[u.id]||'1234'}')">••••</div>
-      <button onclick="changerMdp('${u.id}','${u.name}')" style="padding:4px 8px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">✏️</button>
-    </div>`).join('');
+async function installUpdate(version,notes){
+  if(!confirm(`Installer BenAI v${version} ?\n\n${notes}\n\nBenAI va se recharger.`))return;
+  try{
+    const res=await fetch(`https://raw.githubusercontent.com/BenAI30/benai/main/index.html?t=${Date.now()}`);
+    if(!res.ok)throw new Error('Impossible de télécharger');
+    const html=await res.text();
+    document.open();document.write(html);document.close();
+  }catch(e){alert('❌ Erreur : '+e.message);}
 }
-
-function togglePwdVisibility(el, pwd) {
-  el.textContent = el.textContent === '••••' ? pwd : '••••';
-}
-
-function saveApiKeySettings() {
-  const key = document.getElementById('api-key-settings').value.trim();
-  const msg = document.getElementById('api-msg');
-  if (!key || !key.startsWith('sk-')) { msg.style.color = 'var(--r)'; msg.textContent = '⚠️ Clé invalide'; return; }
-  localStorage.setItem('benai_api', key);
-  document.getElementById('api-key-settings').value = '';
-  msg.style.color = 'var(--g)';
-  msg.textContent = '✅ Clé enregistrée !';
-  setTimeout(() => msg.textContent = '', 2000);
-}
-
-// Fermer paramètres si clic ailleurs
-document.addEventListener('click', e => {
-  const panel = document.getElementById('settings-panel');
-  const btn = document.querySelector('.tb-settings');
-  if (panel && !panel.contains(e.target) && btn && !btn.contains(e.target)) {
-    panel.style.display = 'none';
-  }
-});
 </script>
 </body>
 </html>
