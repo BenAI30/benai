@@ -1,10 +1,8 @@
 {
-  "version": "3.7",
+  "version": "3.8",
   "notes": [
-    "Planning : bouton séparé Nemausus et Lambert — une page par société",
-    "Créer un utilisateur BenAI depuis l'annuaire uniquement",
-    "Aurélie et Claudine supprimables depuis le dashboard",
-    "Correction orthographique active partout",
-    "Bouton Changer pour switcher de session rapidement"
+    "Correction orthographique automatique à l'envoi pour tous les utilisateurs",
+    "Switch session sans mot de passe — avatars cliquables directement",
+    "Absences triées par date la plus proche en premier"
   ]
 }
