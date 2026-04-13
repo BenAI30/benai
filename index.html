@@ -249,7 +249,17 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .hist-item{padding:8px 10px;background:var(--s3);border-radius:8px;margin-bottom:5px;}
 .hist-date{font-size:10px;color:var(--t3);}
 .hist-pb{font-size:12px;color:var(--t2);margin-top:2px;}
-/* ANNUAIRE */
+/* CORRECTION AUTO */
+.correction-bubble{margin-top:5px;padding:5px 10px;background:var(--g2);border:1px solid rgba(34,197,94,.2);border-radius:8px;font-size:11px;color:var(--g);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.correction-use{background:var(--g);color:#fff;border:none;border-radius:5px;padding:2px 8px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;}
+/* ATTACH */
+.btn-attach-plus{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:9px 12px;cursor:pointer;color:var(--a);font-size:20px;font-weight:700;transition:.15s;flex-shrink:0;line-height:1;}
+.btn-attach-plus:hover{border-color:var(--a);background:var(--a3);}
+/* ANNUAIRE FILTERS */
+.ann-filter{background:var(--s3);border:1px solid var(--b1);border-radius:16px;padding:4px 10px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:inherit;transition:.15s;}
+.ann-filter:hover{border-color:var(--a);color:var(--a);}
+.ann-filter.active{background:var(--a3);border-color:var(--a);color:var(--a);}
+.ann-counter{font-size:11px;font-weight:600;color:var(--t3);padding:4px 10px;}
 .emp-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:13px 15px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
 .emp-avatar{width:40px;height:40px;border-radius:10px;background:var(--a3);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:var(--a);flex-shrink:0;}
 .emp-name{font-size:13px;font-weight:600;}
@@ -414,7 +424,6 @@ input[type=file]{display:none;}
             <div class="page-title">🤖 BenAI IA</div>
             <div class="page-sub">BenAI suggère — vous décidez toujours</div>
           </div>
-          <button onclick="document.getElementById('pdf-file').click()" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 12px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit;display:flex;align-items:center;gap:6px">📎 Devis PDF</button>
         </div>
         <div class="chat-area" id="chat-area"></div>
         <div id="emoji-picker" class="emoji-picker">
@@ -423,10 +432,11 @@ input[type=file]{display:none;}
         <div class="chat-input-area">
           <div class="chat-tools">
             <button class="tool-btn" onclick="toggleEmojiPicker()" title="Emojis">😊</button>
-            <button class="tool-btn" onclick="correctSpelling()" title="Corriger l'orthographe">✏️ Corriger</button>
+            <button class="tool-btn" id="btn-correct" onclick="correctSpelling()" title="Corriger l'orthographe" style="display:none">✏️ Corriger</button>
             <span id="token-info" style="font-size:11px;color:var(--t3);margin-left:auto"></span>
           </div>
           <div class="chat-input-row">
+            <button class="btn-attach-plus" onclick="document.getElementById('attach-file').click()" title="Joindre image ou PDF">+</button>
             <textarea class="chat-textarea" id="chat-input" placeholder="Parlez à BenAI..." rows="1"
               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"
               oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
@@ -483,7 +493,7 @@ input[type=file]{display:none;}
             </div>
             <div class="form-row">
               <div class="form-group"><div class="form-label">Problème</div><input type="text" class="form-input" id="sav-pb" placeholder="Ex: Volet roulant bloqué..."></div>
-              <div class="form-group"><div class="form-label">Société</div>
+            <div class="form-group"><div class="form-label">Société</div>
                 <select class="form-input" id="sav-soc">
                   <option value="nemausus">Nemausus Fermetures</option>
                   <option value="lambert">Lambert SAS</option>
@@ -656,7 +666,7 @@ input[type=file]{display:none;}
       <!-- PAGE ANNUAIRE -->
       <div id="page-annuaire" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
-          <div><div class="page-title">👥 Annuaire employés</div><div class="page-sub">16 employés — Nemausus & Lambert SAS</div></div>
+          <div><div class="page-title">👥 Annuaire employés</div><div class="page-sub" id="ann-counter-sub">Chargement...</div></div>
           <button class="btn-primary" onclick="toggleEmpForm()">+ Ajouter</button>
         </div>
         <div style="padding:0 16px;flex-shrink:0;display:none" id="emp-form-wrap">
@@ -673,10 +683,10 @@ input[type=file]{display:none;}
             <div class="form-row">
               <div class="form-group"><div class="form-label">Fonction</div>
                 <select class="form-input" id="emp-fonction">
-                  <option value="Poseur">Poseur</option>
-                  <option value="Commercial">Commercial</option>
-                  <option value="Secrétaire">Secrétaire</option>
                   <option value="Technicien">Technicien</option>
+                  <option value="Métreur">Métreur</option>
+                  <option value="Commercial">Commercial</option>
+                  <option value="Assistante">Assistante</option>
                   <option value="Comptable">Comptable</option>
                   <option value="Autre">Autre</option>
                 </select>
@@ -696,8 +706,15 @@ input[type=file]{display:none;}
             </div>
           </div>
         </div>
-        <div style="padding:0 16px 10px;flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap" id="emp-filters">
-          <input type="text" placeholder="🔍 Rechercher..." oninput="renderAnnuaire(this.value)" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 12px;color:var(--t1);font-family:inherit;font-size:13px;outline:none;width:200px">
+        <div style="padding:0 16px 10px;flex-shrink:0;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <input type="text" placeholder="🔍 Rechercher..." id="ann-search" oninput="renderAnnuaire()" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 12px;color:var(--t1);font-family:inherit;font-size:13px;outline:none;width:180px">
+          <button class="ann-filter active" onclick="setAnnFilter('tous',this)">Tous</button>
+          <button class="ann-filter" onclick="setAnnFilter('nemausus',this)">Nemausus</button>
+          <button class="ann-filter" onclick="setAnnFilter('lambert',this)">Lambert</button>
+          <button class="ann-filter" onclick="setAnnFilter('Technicien',this)">Techniciens</button>
+          <button class="ann-filter" onclick="setAnnFilter('Métreur',this)">Métreurs</button>
+          <button class="ann-filter" onclick="setAnnFilter('Commercial',this)">Commerciaux</button>
+          <button class="ann-filter" onclick="setAnnFilter('Assistante',this)">Assistantes</button>
         </div>
         <div style="padding:0 16px;flex:1;overflow-y:auto" id="annuaire-list"></div>
       </div>
@@ -725,13 +742,14 @@ input[type=file]{display:none;}
   </div><!-- /main -->
 </div><!-- /app -->
 
-<input type="file" id="pdf-file" accept=".pdf">
+<input type="file" id="attach-file" accept=".pdf,image/*" multiple onchange="handleAttachment(this)">
+<input type="file" id="paie-files" accept=".pdf" multiple onchange="processFichesPaie(this)">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const BENAI_VERSION = '3.0';
+const BENAI_VERSION = '3.2';
 
 // ══════════════════════════════════════════
 // UTILISATEURS
@@ -885,8 +903,14 @@ function login(){
   initApp();
 }
 function logout(){
+  // Stopper le polling
+  if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
   sessionStorage.removeItem('benai_session');
   currentUser=null;chatHistory=[];currentConv=null;
+  // Réinitialiser la sidebar
+  ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.style.display='none';
+  });
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app').classList.remove('visible');
   document.getElementById('login-user').value='';
@@ -898,24 +922,35 @@ function logout(){
 // ══════════════════════════════════════════
 // INIT APP
 // ══════════════════════════════════════════
-function initApp(){
+function initApp(silent=false){
   const u=currentUser;
   document.getElementById('tb-avatar').style.background=u.color;
   document.getElementById('tb-avatar').textContent=u.initial;
   document.getElementById('tb-username').textContent=u.name;
+
+  // Réinitialiser TOUS les éléments admin avant d'appliquer les droits
+  ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.style.display='none';
+  });
   if(u.role==='admin'){
     document.getElementById('nav-admin').style.display='flex';
     document.getElementById('nav-absences').style.display='flex';
     document.getElementById('nav-annuaire').style.display='flex';
     document.getElementById('nav-paie').style.display='flex';
   }
-  // Charger historique chat
+  // Bouton correction : auto pour Benjamin, manuel pour les autres
+  const btnCorrect=document.getElementById('btn-correct');
+  if(btnCorrect)btnCorrect.style.display=u.id==='benjamin'?'none':'inline-flex';
   const mem=loadChatMem(u.id);
   chatHistory=mem.map(m=>({role:m.role,content:m.content}));
-  // Message accueil
-  const h=new Date().getHours();
-  const sal=h<18?'Bonjour':'Bonsoir';
-  addAIMsg(`${sal} **${u.name}** 👋\n\nJe suis BenAI v${BENAI_VERSION}, votre assistant.\n\n⚠️ Je propose toujours — vous décidez toujours.\n\nComment puis-je vous aider ?`);
+  // Message d'accueil ou restauration silencieuse
+  if(silent){
+    restoreChatVisual();
+  } else {
+    const h=new Date().getHours();
+    const sal=h<18?'Bonjour':'Bonsoir';
+    addAIMsg(`${sal} **${u.name}** 👋\n\nJe suis BenAI v${BENAI_VERSION}, votre assistant.\n\n⚠️ Je propose toujours — vous décidez toujours.\n\nComment puis-je vous aider ?`);
+  }
   // Vérifier rappels absences pour tous les utilisateurs
   if(u.role==='admin'){
     checkAbsenceReminders();
@@ -927,29 +962,26 @@ function initApp(){
   refreshMsgBadge();
   showPage('benai');
   buildEmojiPicker();
-  // Restaurer visuellement les 6 derniers échanges du chat
-  restoreChatVisual();
-  // Démarrer le polling (toutes les 30 secondes)
   startPolling();
+  // Briefing quotidien intelligent (une seule fois par jour)
+  if(!silent)setTimeout(()=>generateDailyBriefing(),600);
 }
 
 // ══════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════
 function showPage(page){
+  const adminOnly=['admin','absences','annuaire','paie'];
+  if(adminOnly.includes(page)&&currentUser?.role!=='admin'){showPage('benai');return;}
   ['benai','notes','messages','sav','absences','evolution','admin','annuaire','paie'].forEach(p=>{
-    const el=document.getElementById('page-'+p);
-    if(el)el.style.display='none';
-    const nav=document.getElementById('nav-'+p);
-    if(nav)nav.classList.remove('active');
+    const el=document.getElementById('page-'+p);if(el)el.style.display='none';
+    const nav=document.getElementById('nav-'+p);if(nav)nav.classList.remove('active');
   });
-  const el=document.getElementById('page-'+page);
-  if(el)el.style.display='flex';
-  const nav=document.getElementById('nav-'+page);
-  if(nav)nav.classList.add('active');
-  if(page==='sav'){renderSAV();markSAVVu();}
+  const el=document.getElementById('page-'+page);if(el)el.style.display='flex';
+  const nav=document.getElementById('nav-'+page);if(nav)nav.classList.add('active');
+  if(page==='sav'){renderSAV();markSAVVu();showPageContext('sav');}
   if(page==='admin')refreshAdmin();
-  if(page==='messages')renderConvList();
+  if(page==='messages'){renderConvList();showPageContext('messages');}
   if(page==='notes')renderNotes();
   if(page==='absences'){renderAbsences();fillAbsEmpList();}
   if(page==='evolution')renderEvolution();
@@ -967,8 +999,14 @@ function addAIMsg(txt,pinnable=false){
 }
 function addUserMsg(txt){
   const div=document.createElement('div');div.className='msg user';
-  div.innerHTML=`<div class="msg-avatar" style="background:${currentUser.color}">${currentUser.initial}</div><div class="bubble" style="background:${currentUser.color}">${esc(txt)}</div>`;
-  document.getElementById('chat-area').appendChild(div);scrollChat();
+  div.innerHTML=`<div class="msg-avatar" style="background:${currentUser.color}">${currentUser.initial}</div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+      <div class="bubble" style="background:${currentUser.color}">${esc(txt)}</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="editUserMsg(this,'${esc(txt).replace(/'/g,'&#39;')}')" style="background:none;border:none;color:var(--t3);font-size:10px;cursor:pointer;font-family:inherit;padding:0" title="Modifier">✏️ modifier</button>
+      </div>
+    </div>`;
+  document.getElementById('chat-area').appendChild(div);scrollChat();return div;
 }
 function addTyping(){
   const div=document.createElement('div');div.className='msg ai';
@@ -983,7 +1021,7 @@ async function sendChat(txtOverride){
   if(!txt||busy)return;
   if(!txtOverride){input.value='';input.style.height='auto';}
   busy=true;document.getElementById('btn-send').disabled=true;
-  addUserMsg(txt);const typing=addTyping();
+  const userMsgEl=addUserMsg(txt);const typing=addTyping();
   const now=Date.now();
   chatHistory.push({role:'user',content:txt,ts:now});
   if(chatHistory.length>60)chatHistory=chatHistory.slice(-60);
@@ -992,11 +1030,13 @@ async function sendChat(txtOverride){
     if(!apiKey)throw new Error('Clé API manquante — demandez à Benjamin de la configurer');
     const mem=getMem();
     const ctx=`\nSAV ouverts: ${mem.sav.filter(s=>s.statut!=='regle').length}`;
+    // Contexte intelligent Benjamin : planning + rappels
+    const smartCtx=currentUser.id==='benjamin'?getBenjaminSmartContext():'';
     const msgs=chatHistory.filter(m=>m.role).map(m=>({role:m.role,content:m.content}));
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:currentUser.system+BENAI_CTX+ctx,messages:msgs})
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:currentUser.system+BENAI_CTX+ctx+smartCtx,messages:msgs})
     });
     const data=await res.json();
     if(!res.ok)throw new Error(data.error?.message||'Erreur API');
@@ -1008,6 +1048,10 @@ async function sendChat(txtOverride){
     saveChatMem(currentUser.id,chatHistory);
     typing.remove();addAIMsg(reply);
     logActivity(`${currentUser.name} a consulté BenAI IA`);
+    // Auto-correction intelligente pour Benjamin
+    if(currentUser.id==='benjamin'&&txt.split(' ').length>2){
+      autoCorrectForBenjamin(txt,userMsgEl);
+    }
   }catch(e){typing.remove();addAIMsg('❌ '+e.message);}
   busy=false;document.getElementById('btn-send').disabled=false;
 }
@@ -1037,6 +1081,168 @@ async function correctSpelling(){
   }catch(e){}
 }
 
+// CONTEXTE INTELLIGENT BENJAMIN
+function getBenjaminSmartContext(){
+  const days=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+  const schedule={1:'Nemausus Fermetures',3:'Nemausus Fermetures',5:'Nemausus Fermetures',2:'Lambert SAS',4:'Lambert SAS'};
+  const today=new Date().getDay();
+  const site=schedule[today];
+  const dayCtx=site?`\nAujourd'hui ${days[today]}, Benjamin est physiquement à ${site}.`:`\nAujourd'hui ${days[today]}, Benjamin travaille depuis chez lui pour les deux sociétés.`;
+  const reminders=getSmartReminders();
+  const reminderCtx=reminders.length>0?`\nRappels actifs de Benjamin (mentionne naturellement si pertinent) : ${reminders.slice(0,5).join(' | ')}`:'';
+  return dayCtx+reminderCtx;
+}
+
+function getSmartReminders(){
+  const mem=getMem();
+  const notes=(mem.notes||[]).filter(n=>n.by==='benjamin'&&n.text);
+  const keywords=['rappelle','rappeler','rappel','oublie','pense à','à faire','appeler','contacter','envoyer','commander','relancer','vérifier','suivre'];
+  return notes.filter(n=>keywords.some(k=>n.text.toLowerCase().includes(k))).map(n=>n.text.substring(0,120));
+}
+
+// AUTO-CORRECTION BENJAMIN
+async function autoCorrectForBenjamin(txt,msgEl){
+  const apiKey=getApiKey();if(!apiKey||!msgEl)return;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:150,messages:[{role:'user',content:`Détecte les fautes d'orthographe et de grammaire. Si aucune faute : réponds uniquement "OK". Sinon : réponds uniquement le texte corrigé sans aucune explication.\n\n${txt}`}]})
+    });
+    const data=await res.json();if(!data.content)return;
+    const corrected=data.content[0].text.trim();
+    if(!corrected||corrected.toUpperCase()==='OK'||corrected===txt)return;
+    const corrDiv=document.createElement('div');
+    corrDiv.className='correction-bubble';
+    const safeCorrect=esc(corrected).replace(/'/g,'&#39;');
+    corrDiv.innerHTML=`📝 <span style="flex:1">${esc(corrected)}</span><button class="correction-use" onclick="useCorrection('${safeCorrect}',this)">Utiliser</button><button class="correction-use" style="background:var(--s3);color:var(--t3)" onclick="this.parentElement.remove()">✕</button>`;
+    const wrapper=msgEl.querySelector('[style*="flex-direction:column"]');
+    if(wrapper)wrapper.appendChild(corrDiv);
+    if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
+  }catch(e){}
+}
+
+function useCorrection(corrected,btn){
+  const input=document.getElementById('chat-input');
+  input.value=corrected.replace(/&#39;/g,"'");
+  input.style.height='auto';input.style.height=Math.min(input.scrollHeight,100)+'px';
+  input.focus();
+  btn.closest('.correction-bubble').remove();
+}
+
+// MODIFIER MESSAGE UTILISATEUR
+function editUserMsg(btn,originalTxt){
+  const input=document.getElementById('chat-input');
+  input.value=originalTxt.replace(/&#39;/g,"'");
+  input.style.height='auto';input.style.height=Math.min(input.scrollHeight,100)+'px';
+  input.focus();
+  const chatArea=document.getElementById('chat-area');
+  const msgs=chatArea.querySelectorAll('.msg');
+  const userMsg=btn.closest('.msg');
+  const userIdx=Array.from(msgs).indexOf(userMsg);
+  for(let i=msgs.length-1;i>=userIdx;i--)msgs[i].remove();
+  const lastUserIdx=chatHistory.map(m=>m.role).lastIndexOf('user');
+  if(lastUserIdx>-1)chatHistory=chatHistory.slice(0,lastUserIdx);
+  saveChatMem(currentUser.id,chatHistory);
+}
+
+// GESTION FICHIERS JOINTS
+async function handleAttachment(input){
+  const files=Array.from(input.files);if(!files.length)return;input.value='';
+  for(const file of files){
+    if(file.type.startsWith('image/'))await handleImageFile(file);
+    else if(file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')){
+      const isDevis=file.name.toLowerCase().includes('devis')||file.name.toLowerCase().includes('commande');
+      if(isDevis)await handleDevisPDF(file);
+      else await handleGenericPDF(file);
+    }
+  }
+}
+
+async function handleImageFile(file){
+  busy=true;document.getElementById('btn-send').disabled=true;
+  addUserMsg('🖼️ '+file.name);const typing=addTyping();
+  try{
+    const reader=new FileReader();
+    const base64=await new Promise((res,rej)=>{reader.onload=e=>res(e.target.result.split(',')[1]);reader.onerror=rej;reader.readAsDataURL(file);});
+    const userPrompt=document.getElementById('chat-input').value.trim()||'Décris et analyse cette image.';
+    document.getElementById('chat-input').value='';
+    const apiKey=getApiKey();
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:currentUser.system+BENAI_CTX,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},{type:'text',text:userPrompt}]}]})
+    });
+    const data=await res.json();if(!res.ok)throw new Error(data.error?.message||'Erreur API');
+    if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
+    typing.remove();addAIMsg(data.content[0].text);
+  }catch(e){typing.remove();addAIMsg('❌ '+e.message);}
+  busy=false;document.getElementById('btn-send').disabled=false;
+}
+
+async function handleGenericPDF(file){
+  busy=true;document.getElementById('btn-send').disabled=true;
+  addUserMsg('📄 '+file.name);const typing=addTyping();
+  try{
+    const ab=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:ab}).promise;
+    const maxPages=Math.min(pdf.numPages,3);let imgs=[];
+    for(let i=1;i<=maxPages;i++){
+      const p=await pdf.getPage(i);const vp=p.getViewport({scale:1.5});
+      const c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;
+      await p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+      imgs.push(c.toDataURL('image/jpeg',0.8).split(',')[1]);
+    }
+    const userPrompt=document.getElementById('chat-input').value.trim()||'Analyse et résume ce document.';
+    document.getElementById('chat-input').value='';
+    const apiKey=getApiKey();
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:currentUser.system+BENAI_CTX,messages:[{role:'user',content:[...imgs.map(img=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}})),{type:'text',text:userPrompt}]}]})
+    });
+    const data=await res.json();if(!res.ok)throw new Error(data.error?.message||'Erreur API');
+    if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
+    typing.remove();addAIMsg(data.content[0].text);
+  }catch(e){typing.remove();addAIMsg('❌ '+e.message);}
+  busy=false;document.getElementById('btn-send').disabled=false;
+}
+
+async function handleDevisPDF(file){
+  busy=true;document.getElementById('btn-send').disabled=true;
+  addUserMsg('📋 Devis : '+file.name);const typing=addTyping();
+  try{
+    const ab=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:ab}).promise;
+    let imgs=[];
+    for(let i=1;i<=pdf.numPages;i++){
+      const p=await pdf.getPage(i);const vp=p.getViewport({scale:1.8});
+      const c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;
+      await p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+      imgs.push(c.toDataURL('image/jpeg',0.82).split(',')[1]);
+    }
+    const apiKey=getApiKey();
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4000,system:`Tu es BenAI. Analyse ce devis Hercule Pro et réponds UNIQUEMENT en JSON valide :{"devis":{"numero":"","date":"","validite":"","type_prestation":"","contact_nom":"","contact_tel":"","contact_email":""},"client":{"nom_prenom":"","telephone":"","email":"","adresse_facturation":"","adresse_chantier":""},"produits":[{"designation":"","dimensions":"","quantite":1,"pu_ht":0.00,"total_ht":0.00,"tva_taux":""}],"totaux":{"montant_brut_ht":0.00,"remise_pct":"","remise_montant":0.00,"total_ht_net":0.00,"tva_montant":0.00,"total_ttc":0.00}}`,
+        messages:[{role:'user',content:[...imgs.map(img=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}})),{type:'text',text:'Extrais toutes les données de ce devis.'}]}]})
+    });
+    const data=await res.json();if(!res.ok)throw new Error(data.error?.message||'Erreur API');
+    if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
+    typing.remove();
+    try{const devis=JSON.parse(data.content[0].text.replace(/```json|```/g,'').trim());afficherDevis(devis,file.name);}
+    catch{addAIMsg(data.content[0].text);}
+  }catch(e){typing.remove();addAIMsg('❌ Erreur : '+e.message);}
+  busy=false;document.getElementById('btn-send').disabled=false;
+}
+
+// ANNUAIRE FILTRES
+let annFilter='tous';
+function setAnnFilter(filter,btn){
+  annFilter=filter;
+  document.querySelectorAll('.ann-filter').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderAnnuaire();
+}
+
 // EMOJI PICKER
 const EMOJIS=['😊','😄','😂','🙏','👍','👌','✅','❌','⚠️','📋','📎','📧','📞','🔧','🏠','🏢','📅','💰','🎯','✨','💡','🔑','📊','🚀','❤️','😅','🤔','👋','💪','🎉','📝','✏️','🗓️','⏰','📦','🚚','💬','🔔','⭐','🙂'];
 function buildEmojiPicker(){
@@ -1058,42 +1264,6 @@ document.addEventListener('click',e=>{
 });
 
 // PDF
-document.getElementById('pdf-file').addEventListener('change',async e=>{
-  const file=e.target.files[0];if(!file)return;e.target.value='';
-  busy=true;document.getElementById('btn-send').disabled=true;
-  addUserMsg('📄 '+file.name);const typing=addTyping();
-  try{
-    const ab=await file.arrayBuffer();
-    const pdf=await pdfjsLib.getDocument({data:ab}).promise;
-    let imgs=[];
-    for(let i=1;i<=pdf.numPages;i++){
-      const p=await pdf.getPage(i);const vp=p.getViewport({scale:1.8});
-      const c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;
-      await p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
-      imgs.push(c.toDataURL('image/jpeg',0.82).split(',')[1]);
-    }
-    const apiKey=getApiKey();
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',max_tokens:4000,
-        system:`Tu es BenAI. Analyse ce devis Hercule Pro et réponds UNIQUEMENT en JSON valide :
-{"devis":{"numero":"","date":"","validite":"","type_prestation":"","contact_nom":"","contact_tel":"","contact_email":""},"client":{"nom_prenom":"","telephone":"","email":"","adresse_facturation":"","adresse_chantier":""},"produits":[{"designation":"","dimensions":"","quantite":1,"pu_ht":0.00,"total_ht":0.00,"tva_taux":""}],"totaux":{"montant_brut_ht":0.00,"remise_pct":"","remise_montant":0.00,"total_ht_net":0.00,"tva_montant":0.00,"total_ttc":0.00}}
-RÈGLES: Pas d'éco-participation ni sous-totaux comme produits.`,
-        messages:[{role:'user',content:[...imgs.map(img=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}})),{type:'text',text:'Extrais toutes les données de ce devis.'}]}]
-      })
-    });
-    const data=await res.json();
-    typing.remove();
-    if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
-    try{const devis=JSON.parse(data.content[0].text.replace(/```json|```/g,'').trim());afficherDevis(devis,file.name);}
-    catch{addAIMsg(data.content[0].text);}
-    logActivity(`${currentUser.name} a analysé un devis PDF`);
-  }catch(e){typing.remove();addAIMsg('❌ Erreur PDF : '+e.message);}
-  busy=false;document.getElementById('btn-send').disabled=false;
-});
-
 function afficherDevis(data,filename){
   const d=data.devis||{},c=data.client||{},t=data.totaux||{},prods=data.produits||[];
   const fmt=n=>n?Number(n).toFixed(2).replace('.',','):'—';
@@ -1227,7 +1397,7 @@ function renderThread(cid){
     const mine=m.from===currentUser.id;
     const sender=USERS[m.from]||getExtraUserById(m.from)||{color:'#666',initial:'?'};
     const div=document.createElement('div');div.className='tmsg '+(mine?'mine':'theirs');
-    const actionsHtml=mine?`<div class="tmsg-actions"><button class="tmsg-act-btn" onclick="editMsg('${cid}',${idx})">✏️</button><button class="tmsg-act-btn" onclick="deleteMsg('${cid}',${idx})" style="color:var(--r)">🗑️</button></div>`:'';
+    const actionsHtml=mine||currentUser.role==='admin'?`<div class="tmsg-actions"><button class="tmsg-act-btn" onclick="editMsg('${cid}',${idx})">✏️</button><button class="tmsg-act-btn" onclick="deleteMsg('${cid}',${idx})" style="color:var(--r)">🗑️</button></div>`:'';
     div.innerHTML=`
       ${!mine?`<div class="tmsg-av" style="background:${sender.color||'#666'}">${sender.initial||'?'}</div>`:''}
       <div class="tmsg-body">
@@ -1274,11 +1444,15 @@ function toggleSavForm(){
   const isOpen=wrap.style.display!=='none';
   wrap.style.display=isOpen?'none':'block';
   if(!isOpen){
-    // Pré-remplir la société selon l'utilisateur connecté
     const socSelect=document.getElementById('sav-soc');
     if(socSelect){
-      if(currentUser.id==='aurelie')socSelect.value='nemausus';
-      else if(currentUser.id==='claudine')socSelect.value='lambert';
+      if(currentUser.id==='aurelie'){
+        socSelect.value='nemausus';socSelect.disabled=true;
+      } else if(currentUser.id==='claudine'){
+        socSelect.value='lambert';socSelect.disabled=true;
+      } else {
+        socSelect.disabled=false;
+      }
     }
   }
 }
@@ -1301,6 +1475,7 @@ function addSAV(){
   const mem=getMem();
   mem.sav.unshift({id:Date.now(),client,probleme:pb,societe:soc,commercial,fournisseur:fourn,rappel,urgent,statut:'nouveau',date_creation:new Date().toLocaleDateString('fr-FR'),by:currentUser.name,actions:[]});
   saveMem(mem);
+  updatePatterns(fourn,client);
   ['sav-client','sav-pb','sav-commercial','sav-fourn','sav-rappel'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('sav-urgent').checked=false;
   const ok=document.getElementById('sav-ok');ok.textContent='✅ SAV enregistré !';
@@ -1344,25 +1519,40 @@ function renderSAV(){
 
   if(!savs.length){list.innerHTML=`<div style="color:var(--t3);font-size:13px;padding:24px;text-align:center">${currentFilter==='regle'?'Aucun SAV réglé':'Aucun SAV en cours 🎉'}</div>`;return;}
 
+  // Trier par priorité (admin uniquement, vue normale)
+  if(isAdmin&&currentFilter==='tous'){
+    savs.sort((a,b)=>computeSAVPriority(b)-computeSAVPriority(a));
+  }
+
   const stateLabel={nouveau:'<span class="state-new">🔴 Nouveau</span>',en_cours:'<span class="state-progress">🟡 En cours</span>',regle:'<span class="state-done">🟢 Réglé</span>'};
 
   list.innerHTML=savs.map(s=>{
     const derniereAction=s.actions&&s.actions.length>0?s.actions[s.actions.length-1]:null;
     const hist=getClientHistory(s.client,s.id,mem);
     const rappelBadge=s.rappel?`<span class="sav-reminder-badge">🔔 ${formatDate(s.rappel)}</span>`:'';
+    const priority=computeSAVPriority(s);
+    const priorityBadge=isAdmin?getPriorityBadge(priority):'';
+    const daysSinceCreation=getSAVAgeDays(s);
+    const proactiveSuggestion=isAdmin&&daysSinceCreation>=5&&s.statut!=='regle'&&s.fournisseur?
+      `<div style="margin-top:6px;padding:7px 10px;background:var(--bl2);border:1px solid rgba(96,165,250,.2);border-radius:8px;font-size:11px;color:var(--bl);display:flex;align-items:center;gap:8px">
+        💡 <span style="flex:1">Sans réponse depuis ${daysSinceCreation} jours — Veux-tu que je rédige l'email pour <strong>${esc(s.fournisseur)}</strong> ?</span>
+        <button onclick="suggestFournisseurEmail('${esc(s.id)}','${esc(s.client)}','${esc(s.probleme)}','${esc(s.fournisseur)}')" style="padding:4px 10px;background:var(--bl);color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">✍️ Rédiger</button>
+      </div>`:'';
     return `<div class="sav-card${s.urgent?' urgent':''}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+        ${priorityBadge}
         ${stateLabel[s.statut]||''}
         <span class="badge ${s.societe==='nemausus'?'badge-nem':'badge-lam'}">${s.societe==='nemausus'?'Nemausus':'Lambert'}</span>
         ${s.urgent?'<span class="badge badge-urgent">🚨 URGENT</span>':''}
         ${rappelBadge}
-        <span style="font-size:10px;color:var(--t3);margin-left:auto">${s.date_creation||''}</span>
+        <span style="font-size:10px;color:var(--t3);margin-left:auto">${s.date_creation||''}${daysSinceCreation>0?' · '+daysSinceCreation+'j':''}</span>
         ${isAdmin?`<button onclick="deleteSAV(${s.id})" title="Supprimer" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:14px;padding:2px 4px">🗑️</button>`:''}
       </div>
       <div class="sav-client">${esc(s.client)}</div>
       <div class="sav-pb">${esc(s.probleme)}</div>
       <div class="sav-meta">${s.commercial?'Commercial : '+esc(s.commercial)+' · ':''}${s.fournisseur?'Fournisseur : '+esc(s.fournisseur)+' · ':''}Créé par ${esc(s.by||'?')}</div>
       ${derniereAction?`<div style="margin-top:6px;padding:6px 10px;background:var(--s3);border-radius:6px;font-size:11px;color:var(--t2)">✅ <strong>${esc(derniereAction.action)}</strong> — ${esc(derniereAction.date)}</div>`:''}
+      ${proactiveSuggestion}
       ${currentUser.role!=='admin'?`<div style="margin-top:4px;font-size:10px;color:var(--g)">${getSAVVu(s.id)?'👁️ Vu par Benjamin le '+getSAVVu(s.id):'⏳ Pas encore vu par Benjamin'}</div>`:''}
       ${hist.length>0?`<div style="margin-top:6px"><details><summary style="font-size:11px;color:var(--t3);cursor:pointer">🕐 Historique client (${hist.length} SAV précédent(s))</summary><div style="margin-top:6px">${hist.map(h=>`<div class="hist-item"><div class="hist-date">${h.date_creation||''} · ${h.statut}</div><div class="hist-pb">${esc(h.probleme)}</div></div>`).join('')}</div></details></div>`:''}
       ${isAdmin&&s.statut!=='regle'?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
@@ -1459,6 +1649,7 @@ function addAbsence(){
   const type=document.getElementById('abs-type').value;
   const note=document.getElementById('abs-note').value.trim();
   if(!emp||!debut||!fin){alert('Remplissez tous les champs obligatoires');return;}
+  if(new Date(fin)<new Date(debut)){alert('⚠️ La date de fin doit être après la date de début');return;}
   const notifs=[];
   if(document.getElementById('abs-notif-benjamin')?.checked)notifs.push('benjamin');
   if(document.getElementById('abs-notif-aurelie')?.checked)notifs.push('aurelie');
@@ -1601,22 +1792,43 @@ function saveEditEmploye(id){
   renderAnnuaire();logActivity(`Benjamin a modifié ${prenom} ${nom}`);
 }
 
-function renderAnnuaire(search=''){
+function renderAnnuaire(search){
+  if(search===undefined)search=document.getElementById('ann-search')?.value||'';
   const list=document.getElementById('annuaire-list');if(!list)return;
   let emps=getAnnuaire();
-  if(search)emps=emps.filter(e=>`${e.prenom} ${e.nom} ${e.email||''} ${e.fonction||''}`.toLowerCase().includes(search.toLowerCase()));
-  if(!emps.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun employé — cliquez sur + Ajouter</div>';return;}
-  const fc={'Poseur':'#60A5FA','Commercial':'#E8943A','Secrétaire':'#22C55E','Technicien':'#A78BFA','Comptable':'#FBBF24','Autre':'#888'};
-  list.innerHTML=emps.map(e=>`
-    <div class="emp-card">
-      <div class="emp-avatar">${e.prenom[0].toUpperCase()}${e.nom[0].toUpperCase()}</div>
-      <div style="flex:1">
-        <div class="emp-name">${esc(e.prenom)} ${esc(e.nom)} <span style="background:${fc[e.fonction]||'#888'}22;color:${fc[e.fonction]||'#888'};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">${e.fonction||'Autre'}</span></div>
-        <div class="emp-detail">${e.societe==='nemausus'?'Nemausus':e.societe==='lambert'?'Lambert':'Nemausus & Lambert'}${e.tel?' · '+esc(e.tel):''}</div>
-        ${e.email?`<div class="emp-email" onclick="navigator.clipboard.writeText('${esc(e.email)}')" title="Cliquer pour copier">✉️ ${esc(e.email)}</div>`:'<div class="emp-detail" style="color:var(--r)">⚠️ Pas d\'email</div>'}
+  // Filtre
+  if(annFilter==='nemausus')emps=emps.filter(e=>e.societe==='nemausus'||e.societe==='les-deux');
+  else if(annFilter==='lambert')emps=emps.filter(e=>e.societe==='lambert'||e.societe==='les-deux');
+  else if(annFilter!=='tous')emps=emps.filter(e=>e.fonction===annFilter);
+  // Recherche
+  if(search)emps=emps.filter(e=>`${e.prenom} ${e.nom} ${e.email||''} ${e.fonction||''} ${e.tel||''}`.toLowerCase().includes(search.toLowerCase()));
+  // Compteur
+  const all=getAnnuaire();
+  const nem=all.filter(e=>e.societe==='nemausus'||e.societe==='les-deux').length;
+  const lam=all.filter(e=>e.societe==='lambert'||e.societe==='les-deux').length;
+  const sub=document.getElementById('ann-counter-sub');
+  if(sub)sub.textContent=`${all.length} employé(s) — Nemausus: ${nem} · Lambert: ${lam}`;
+  if(!emps.length){list.innerHTML=`<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">${search||annFilter!=='tous'?'Aucun résultat':'Aucun employé — cliquez sur + Ajouter'}</div>`;return;}
+  const fc={'Technicien':'#60A5FA','Métreur':'#A78BFA','Commercial':'#E8943A','Assistante':'#22C55E','Comptable':'#FBBF24','Autre':'#888'};
+  // Grouper par fonction
+  const byFonction={};
+  emps.forEach(e=>{const f=e.fonction||'Autre';if(!byFonction[f])byFonction[f]=[];byFonction[f].push(e);});
+  list.innerHTML=Object.entries(byFonction).map(([fonction,groupe])=>`
+    <div style="margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${fc[fonction]||'#888'};padding:6px 0;display:flex;align-items:center;gap:6px">
+        <span style="flex:1">${fonction}</span><span style="background:${fc[fonction]||'#888'}22;color:${fc[fonction]||'#888'};padding:2px 8px;border-radius:10px;font-size:11px">${groupe.length}</span>
       </div>
-      <button onclick="editEmploye(${e.id})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:18px;padding:4px" title="Modifier">✏️</button>
-      <button onclick="deleteEmploye(${e.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:18px;padding:4px" title="Supprimer">🗑️</button>
+      ${groupe.map(e=>`
+        <div class="emp-card">
+          <div class="emp-avatar">${e.prenom[0].toUpperCase()}${e.nom[0].toUpperCase()}</div>
+          <div style="flex:1">
+            <div class="emp-name">${esc(e.prenom)} ${esc(e.nom)} <span style="background:${fc[e.societe==='nemausus'?'Commercial':e.societe==='lambert'?'Technicien':'Métreur']||'var(--s3)'}11;color:var(--t3);padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600">${e.societe==='nemausus'?'Nemausus':e.societe==='lambert'?'Lambert':'Les deux'}</span></div>
+            <div class="emp-detail">${e.tel?'📞 '+esc(e.tel):''}</div>
+            ${e.email?`<div class="emp-email" onclick="navigator.clipboard.writeText('${esc(e.email)}').then(()=>{this.style.color='var(--g)';setTimeout(()=>this.style.color='',1000)})" title="Copier l'email">✉️ ${esc(e.email)}</div>`:'<div class="emp-detail" style="color:var(--r)">⚠️ Pas d\'email</div>'}
+          </div>
+          <button onclick="editEmploye(${e.id})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:16px;padding:4px" title="Modifier">✏️</button>
+          <button onclick="deleteEmploye(${e.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:16px;padding:4px" title="Supprimer">🗑️</button>
+        </div>`).join('')}
     </div>`).join('');
 }
 
@@ -1985,6 +2197,164 @@ function importData(input){
 }
 
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// 🧠 INTELLIGENCE PROACTIVE
+// ══════════════════════════════════════════
+
+// PATTERNS — mémoire longue
+function getPatterns(){try{return JSON.parse(localStorage.getItem('benai_patterns'))||{topFournisseurs:{},topClients:{},savCount:0,resolvedCount:0};}catch{return{topFournisseurs:{},topClients:{},savCount:0,resolvedCount:0};}}
+function savePatterns(p){localStorage.setItem('benai_patterns',JSON.stringify(p));}
+
+function updatePatterns(fournisseur,client){
+  const p=getPatterns();
+  if(fournisseur){p.topFournisseurs[fournisseur]=(p.topFournisseurs[fournisseur]||0)+1;}
+  if(client){p.topClients[client]=(p.topClients[client]||0)+1;}
+  p.savCount=(p.savCount||0)+1;
+  savePatterns(p);
+}
+
+function getTopPatterns(){
+  const p=getPatterns();
+  const topF=Object.entries(p.topFournisseurs||{}).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k])=>k);
+  const topC=Object.entries(p.topClients||{}).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k])=>k);
+  return {topFournisseurs:topF,topClients:topC,savCount:p.savCount||0};
+}
+
+// PRIORITÉ SAV
+function computeSAVPriority(sav){
+  let score=0;
+  if(sav.urgent)score+=50;
+  if(sav.statut==='nouveau')score+=20;
+  const days=getSAVAgeDays(sav);
+  score+=days*4;
+  if(!sav.fournisseur)score+=8;
+  if(!sav.actions||sav.actions.length===0)score+=15;
+  return score;
+}
+
+function getSAVAgeDays(sav){
+  if(!sav.date_creation)return 0;
+  const d=parseDateFR(sav.date_creation);
+  if(!d)return 0;
+  return Math.floor((Date.now()-d)/(1000*60*60*24));
+}
+
+function parseDateFR(str){
+  if(!str)return null;
+  const parts=str.split('/');
+  if(parts.length===3)return new Date(+parts[2],+parts[1]-1,+parts[0]).getTime();
+  return null;
+}
+
+function getPriorityBadge(score){
+  if(score>=60)return '<span style="background:rgba(248,113,113,.15);color:var(--r);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">🔥 Critique</span>';
+  if(score>=30)return '<span style="background:rgba(251,191,36,.15);color:var(--y);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">⚠️ Important</span>';
+  return '';
+}
+
+// BRIEFING QUOTIDIEN INTELLIGENT
+async function generateDailyBriefing(){
+  const todayKey='benai_briefing_'+new Date().toDateString();
+  if(localStorage.getItem(todayKey))return; // Déjà fait aujourd'hui
+  const apiKey=getApiKey();if(!apiKey)return;
+  const ctx=buildBriefingContext();
+  const typing=addTyping();
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:350,
+        messages:[{role:'user',content:`Tu es BenAI, l'assistant de Benjamin. Génère son briefing du matin : 3-4 phrases maximum, direct, utile, proactif. Commence par ce qui est le plus urgent. Tutoie-le. Pas de formule de politesse, va à l'essentiel. Si tout va bien, dis-le en une phrase et propose quelque chose de concret.\n\n${ctx}`}]
+      })
+    });
+    const data=await res.json();
+    typing.remove();
+    if(data.content&&data.content[0]){
+      addAIMsg(data.content[0].text);
+      if(data.usage)trackTokens('benjamin',data.usage.input_tokens||0,data.usage.output_tokens||0);
+      localStorage.setItem(todayKey,'1');
+    }
+  }catch(e){
+    typing.remove();
+    addAIMsg(buildFallbackBriefing());
+    localStorage.setItem(todayKey,'1');
+  }
+}
+
+function buildBriefingContext(){
+  const mem=getMem();
+  const days=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+  const schedule={1:'Nemausus Fermetures',3:'Nemausus Fermetures',5:'Nemausus Fermetures',2:'Lambert SAS',4:'Lambert SAS'};
+  const today=new Date().getDay();
+  const site=schedule[today]||'chez toi (télétravail)';
+  const savs=mem.sav||[];
+  const openSAV=savs.filter(s=>s.statut!=='regle');
+  const urgentSAV=openSAV.filter(s=>s.urgent);
+  const criticalSAV=openSAV.filter(s=>getSAVAgeDays(s)>=5).slice(0,3);
+  const convs=getConvsForUser('benjamin');
+  let unread=0;Object.keys(convs).forEach(cid=>unread+=countUnread('benjamin',cid));
+  const todayDate=new Date();
+  const absToday=(mem.absences||[]).filter(a=>new Date(a.debut)<=todayDate&&new Date(a.fin)>=todayDate);
+  const absWeek=(mem.absences||[]).filter(a=>{const d=new Date(a.debut);const w=new Date();w.setDate(w.getDate()+7);return d>todayDate&&d<=w;});
+  const reminders=getSmartReminders();
+  const patterns=getTopPatterns();
+  const nem=openSAV.filter(s=>s.societe==='nemausus').length;
+  const lam=openSAV.filter(s=>s.societe==='lambert').length;
+  return `Aujourd'hui: ${days[today]}, Benjamin est à ${site}.
+SAV: ${openSAV.length} ouvert(s) — Nemausus: ${nem}, Lambert: ${lam} — Urgents: ${urgentSAV.length}${urgentSAV.length>0?' ('+urgentSAV.slice(0,2).map(s=>s.client+' - '+s.probleme).join(', ')+')':''}
+${criticalSAV.length>0?'SAV sans réponse +5j: '+criticalSAV.map(s=>`${s.client} (${getSAVAgeDays(s)}j, fournisseur: ${s.fournisseur||'non renseigné'})`).join(', '):''}
+Messages non lus: ${unread}${unread>0?' — vérifier la messagerie':''}
+${absToday.length>0?'Absents aujourd\'hui: '+absToday.map(a=>a.employe).join(', '):'Toute l\'équipe est présente'}
+${absWeek.length>0?'Absences à venir: '+absWeek.map(a=>a.employe+' le '+formatDate(a.debut)).join(', '):''}
+${reminders.length>0?'Rappels notes: '+reminders.slice(0,3).join(' | '):''}
+${patterns.topFournisseurs.length>0?'Fournisseurs habituels: '+patterns.topFournisseurs.join(', '):''}`;
+}
+
+function buildFallbackBriefing(){
+  const mem=getMem();
+  const open=(mem.sav||[]).filter(s=>s.statut!=='regle').length;
+  const urgent=(mem.sav||[]).filter(s=>s.urgent&&s.statut!=='regle').length;
+  const days=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+  const schedule={1:'Nemausus',3:'Nemausus',5:'Nemausus',2:'Lambert',4:'Lambert'};
+  const d=new Date().getDay();
+  const site=schedule[d]||'chez toi';
+  return `**Briefing du ${days[d]}** — Tu es à ${site}.\n${open>0?`🔧 ${open} SAV ouvert(s)${urgent>0?' dont '+urgent+' urgent(s)':''}.`:'✅ Aucun SAV en attente.'}\nBonne journée Benjamin !`;
+}
+
+// CONTEXTE PAR PAGE (sans API — instantané)
+let lastPageContext='';
+function showPageContext(page){
+  if(!currentUser||currentUser.id!=='benjamin')return;
+  const mem=getMem();
+  let msg='';
+  if(page==='sav'){
+    const open=(mem.sav||[]).filter(s=>s.statut!=='regle');
+    const urgent=open.filter(s=>s.urgent);
+    const old=open.filter(s=>getSAVAgeDays(s)>=5);
+    const parts=[];
+    if(urgent.length>0)parts.push(`🚨 **${urgent.length} SAV urgent(s)**`);
+    if(old.length>0)parts.push(`⏳ **${old.length} SAV** sans réponse depuis +5 jours`);
+    if(parts.length>0)msg=parts.join(' · ');
+  }
+  if(page==='messages'){
+    const convs=getConvsForUser('benjamin');
+    let unread=0;Object.keys(convs).forEach(cid=>unread+=countUnread('benjamin',cid));
+    if(unread>0)msg=`💬 **${unread} message(s) non lu(s)**`;
+  }
+  if(msg&&msg!==lastPageContext){
+    lastPageContext=msg;
+    setTimeout(()=>addAIMsg(msg),200);
+  }
+}
+
+// SUGGESTION EMAIL FOURNISSEUR
+function suggestFournisseurEmail(savId,client,probleme,fournisseur){
+  const prompt=`Rédige un email professionnel et concis à envoyer au fournisseur ${fournisseur} concernant le SAV du client ${client} (problème : ${probleme}). Email de relance ou réclamation selon le contexte. Commence directement par l'objet suggéré puis le corps de l'email.`;
+  showPage('benai');
+  setTimeout(()=>sendChat(prompt),300);
+}
+
 // HELPERS
 // ══════════════════════════════════════════
 function restoreChatVisual(){
@@ -2071,10 +2441,23 @@ window.addEventListener('load',()=>{
     const uid=savedSession;
     const userObj=USERS[uid]||getExtraUserById(uid);
     if(userObj){
+      // Vérif accès non révoqué
+      const access=getAccess();
+      if(access[uid]===false&&uid!=='benjamin'){
+        sessionStorage.removeItem('benai_session');
+        checkUpdate();return;
+      }
+      // Vérif mot de passe pas encore 1234
+      const pwds=getPwds();
+      if((pwds[uid]||'1234')==='1234'){
+        sessionStorage.removeItem('benai_session');
+        checkUpdate();return;
+      }
       currentUser={id:uid,...userObj};
       document.getElementById('login-screen').style.display='none';
       document.getElementById('app').classList.add('visible');
-      initApp();
+      initApp(true); // true = restauration silencieuse (pas de message d'accueil)
+      checkUpdate();
       return;
     }
   }
