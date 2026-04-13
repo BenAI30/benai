@@ -625,7 +625,6 @@ input[type=file]{display:none;}
                 <select class="form-input" id="abs-type">
                   <option value="Congé">Congé</option>
                   <option value="Maladie">Maladie</option>
-                  <option value="Formation">Formation</option>
                   <option value="Autre">Autre</option>
                 </select>
               </div>
@@ -825,7 +824,7 @@ input[type=file]{display:none;}
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const BENAI_VERSION = '3.4';
+const BENAI_VERSION = '3.5';
 
 // ══════════════════════════════════════════
 // UTILISATEURS
@@ -2055,7 +2054,7 @@ function downloadPlanningAbsences(){
   const users=getAllUsers().filter(u=>u.id!=='benjamin');
   const DAY_NAMES=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
   const MONTH_NAMES=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  const TYPE_COLORS={'Congé':{bg:'#BFDBFE',icon:'🏖️',label:'Congé'},'Maladie':{bg:'#FED7AA',icon:'🤒',label:'Maladie'},'Formation':{bg:'#BBF7D0',icon:'📚',label:'Formation'},'Autre':{bg:'#DDD6FE',icon:'📅',label:'Autre'}};
+  const TYPE_COLORS={'Congé':{bg:'#BFDBFE',icon:'🏖️',label:'Congé'},'Maladie':{bg:'#FED7AA',icon:'🤒',label:'Maladie'},'Autre':{bg:'#DDD6FE',icon:'📅',label:'Autre'}};
 
   function getEmpSociete(name){
     const a=ann.find(e=>`${e.prenom} ${e.nom}`===name);
@@ -2111,7 +2110,7 @@ function downloadPlanningAbsences(){
       const dayHeaders=Array.from({length:daysInMonth},(_,i)=>{
         const d=i+1;const date=new Date(yr,mo-1,d);
         const isWE=date.getDay()===0||date.getDay()===6;
-        return`<th style="min-width:24px;width:24px;padding:4px 2px;text-align:center;background:${isWE?'#F3F4F6':'#F9FAFB'};color:${isWE?'#9CA3AF':'#374151'};border:1px solid #E5E7EB;font-size:10px"><div style="font-weight:700">${d}</div><div style="font-size:8px;opacity:.7">${DAY_NAMES[date.getDay()]}</div></th>`;
+        return`<th style="min-width:32px;width:32px;padding:5px 2px;text-align:center;background:${isWE?'#E5E7EB':'#F3F4F6'};color:${isWE?'#9CA3AF':'#374151'};border:1px solid #D1D5DB;font-size:11px"><div style="font-weight:800">${d}</div><div style="font-size:9px;opacity:.8">${DAY_NAMES[date.getDay()]}</div></th>`;
       }).join('');
       const rows=empsThisMonth.map(emp=>{
         const cells=Array.from({length:daysInMonth},(_,i)=>{
@@ -2120,22 +2119,24 @@ function downloadPlanningAbsences(){
           const date=new Date(yr,mo-1,d);
           const isWE=date.getDay()===0||date.getDay()===6;
           const tc=type?TYPE_COLORS[type]||TYPE_COLORS['Autre']:null;
-          return`<td style="border:1px solid #E5E7EB;background:${tc?tc.bg:isWE?'#F9FAFB':'#fff'};text-align:center;padding:2px;font-size:11px">${tc?tc.icon:''}</td>`;
+          return`<td style="border:1px solid #D1D5DB;background:${tc?tc.bg:isWE?'#F3F4F6':'#fff'};text-align:center;padding:3px 1px;font-size:14px;height:36px;vertical-align:middle">${tc?tc.icon:''}</td>`;
         }).join('');
-        return`<tr><td style="padding:6px 12px;font-weight:600;white-space:nowrap;border:1px solid #E5E7EB;font-size:11px;background:#FAFAFA;min-width:130px">👤 ${emp}</td>${cells}</tr>`;
+        return`<tr><td style="padding:8px 14px;font-weight:700;white-space:nowrap;border:1px solid #D1D5DB;font-size:13px;background:#F9FAFB;min-width:150px;color:#111827">👤 ${emp}</td>${cells}</tr>`;
       }).join('');
-      return`<div style="margin-bottom:20px">
-        <div style="padding:8px 14px;font-weight:700;font-size:12px;color:#fff;background:inherit;border-radius:6px 6px 0 0;margin-bottom:0" class="month-header">📅 ${MONTH_NAMES[mo-1]} ${yr}</div>
-        <div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:11px;width:100%">
-          <thead><tr><th style="padding:6px 12px;text-align:left;background:#F9FAFB;border:1px solid #E5E7EB;font-size:10px;min-width:130px">Employé</th>${dayHeaders}</tr></thead>
+      return`<div style="margin-bottom:24px">
+        <div style="padding:10px 16px;font-weight:800;font-size:14px;color:#fff;background:inherit;border-radius:8px 8px 0 0" class="month-header">📅 ${MONTH_NAMES[mo-1]} ${yr}</div>
+        <div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;width:100%">
+          <thead><tr><th style="padding:8px 14px;text-align:left;background:#F3F4F6;border:1px solid #D1D5DB;font-size:11px;min-width:150px;color:#374151;font-weight:700">Employé</th>${dayHeaders}</tr></thead>
           <tbody>${rows}</tbody>
         </table></div></div>`;
     }).filter(Boolean).join('');
   }
 
   const legend=`<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:16px;padding:10px 14px;background:#F9FAFB;border-radius:8px;border:1px solid #E5E7EB">
-    <span style="font-size:11px;font-weight:600;color:#6B7280">Légende :</span>
-    ${Object.values(TYPE_COLORS).map(c=>`<span style="display:flex;align-items:center;gap:5px;font-size:11px"><span style="display:inline-block;width:14px;height:14px;background:${c.bg};border-radius:3px;border:1px solid rgba(0,0,0,.1)"></span>${c.icon} ${c.label}</span>`).join('')}
+    <span style="font-size:12px;font-weight:700;color:#6B7280">Légende :</span>
+    <span style="display:flex;align-items:center;gap:6px;font-size:12px"><span style="display:inline-block;width:16px;height:16px;background:#BFDBFE;border-radius:3px;border:1px solid rgba(0,0,0,.1)"></span>🏖️ Congé</span>
+    <span style="display:flex;align-items:center;gap:6px;font-size:12px"><span style="display:inline-block;width:16px;height:16px;background:#FED7AA;border-radius:3px;border:1px solid rgba(0,0,0,.1)"></span>🤒 Maladie</span>
+    <span style="display:flex;align-items:center;gap:6px;font-size:12px"><span style="display:inline-block;width:16px;height:16px;background:#DDD6FE;border-radius:3px;border:1px solid rgba(0,0,0,.1)"></span>📅 Autre</span>
   </div>`;
 
   function companyPage(societe,label,color,borderColor){
