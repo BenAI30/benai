@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#E8943A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BenAI">
+<meta name="description" content="BenAI — Assistant Nemausus Fermetures & Lambert SAS">
 <title>BenAI</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -276,6 +282,9 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 /* SAV VU */
 .sav-vu{font-size:10px;color:var(--g);display:inline-flex;align-items:center;gap:3px;}
 /* LIGHT */
+/* OFFLINE */
+#offline-banner{display:none;position:fixed;top:0;left:0;right:0;background:#1a1a1a;color:#fff;text-align:center;padding:8px;font-size:12px;font-weight:600;z-index:9999;align-items:center;justify-content:center;gap:8px;}
+.shortcut{font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace;background:var(--s3);padding:1px 5px;border-radius:4px;border:1px solid var(--b1);}
 body.light{--bg:#F5F5F0;--s1:#FFFFFF;--s2:#F0EFE9;--s3:#E8E7E0;--b1:#D8D6CE;--b2:#C8C6BE;--t1:#1A1917;--t2:#4A4845;--t3:#8A8880;}
 body.light .login-box{background:#fff;border-color:#E0DDD5;}
 body.light .msg.ai .bubble{background:#fff;border-color:#E0DDD5;}
@@ -324,6 +333,9 @@ input[type=file]{display:none;}
     <div id="force-pwd-err" style="font-size:12px;color:var(--r);text-align:center;margin-top:8px;min-height:16px"></div>
   </div>
 </div>
+
+<!-- OFFLINE BANNER -->
+<div id="offline-banner">📵 Mode hors-ligne — BenAI IA indisponible, les autres fonctionnalités restent actives</div>
 
 <!-- ══ APP ══ -->
 <div id="app">
@@ -538,7 +550,10 @@ input[type=file]{display:none;}
       <div id="page-absences" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
           <div><div class="page-title">🗓️ Absences & Congés</div><div class="page-sub">Rappels J-7 et la veille</div></div>
-          <button class="btn-primary" onclick="toggleAbsForm()">+ Nouvelle absence</button>
+          <div style="display:flex;gap:8px">
+            <button onclick="downloadPlanningAbsences()" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">📥 Planning</button>
+            <button class="btn-primary" onclick="toggleAbsForm()">+ Nouvelle absence</button>
+          </div>
         </div>
         <div style="padding:0 16px;flex-shrink:0;display:none" id="abs-form-wrap">
           <div class="sav-form">
@@ -546,8 +561,9 @@ input[type=file]{display:none;}
             <div class="form-row">
               <div class="form-group">
                 <div class="form-label">Employé(e)</div>
-                <input type="text" class="form-input" id="abs-emp" placeholder="Nom ou sélectionner dans l'annuaire" list="abs-emp-list" autocomplete="off">
-                <datalist id="abs-emp-list"></datalist>
+                <select class="form-input" id="abs-emp-select">
+                  <option value="">Sélectionner...</option>
+                </select>
               </div>
               <div class="form-group"><div class="form-label">Type</div>
                 <select class="form-input" id="abs-type">
@@ -562,10 +578,14 @@ input[type=file]{display:none;}
               <div class="form-group"><div class="form-label">Date de début</div><input type="date" class="form-input" id="abs-debut"></div>
               <div class="form-group"><div class="form-label">Date de fin</div><input type="date" class="form-input" id="abs-fin"></div>
             </div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Heure de début</div><input type="time" class="form-input" id="abs-heure-debut" placeholder="08:00"></div>
+              <div class="form-group"><div class="form-label">Heure de fin</div><input type="time" class="form-input" id="abs-heure-fin" placeholder="17:00"></div>
+            </div>
             <div class="form-group" style="margin-bottom:12px"><div class="form-label">Note</div><input type="text" class="form-input" id="abs-note" placeholder="Optionnel..."></div>
             <div style="margin-bottom:12px">
               <div class="form-label" style="margin-bottom:8px">Notifier</div>
-              <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <div style="display:flex;gap:12px;flex-wrap:wrap" id="abs-notif-list">
                 <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="abs-notif-benjamin" checked style="accent-color:var(--a)"> Benjamin</label>
                 <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="abs-notif-aurelie" style="accent-color:var(--a)"> Aurélie</label>
                 <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="abs-notif-claudine" style="accent-color:var(--a)"> Claudine</label>
@@ -749,7 +769,7 @@ input[type=file]{display:none;}
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const BENAI_VERSION = '3.2';
+const BENAI_VERSION = '3.3';
 
 // ══════════════════════════════════════════
 // UTILISATEURS
@@ -1692,21 +1712,25 @@ function toggleAbsForm(){
 }
 
 function addAbsence(){
-  const emp=document.getElementById('abs-emp').value.trim();
+  const emp=document.getElementById('abs-emp-select')?.value||'';
   const debut=document.getElementById('abs-debut').value;
   const fin=document.getElementById('abs-fin').value;
+  const heureDebut=document.getElementById('abs-heure-debut')?.value||'';
+  const heureFin=document.getElementById('abs-heure-fin')?.value||'';
   const type=document.getElementById('abs-type').value;
   const note=document.getElementById('abs-note').value.trim();
-  if(!emp||!debut||!fin){alert('Remplissez tous les champs obligatoires');return;}
-  if(new Date(fin)<new Date(debut)){alert('⚠️ La date de fin doit être après la date de début');return;}
+  if(!emp){alert('Sélectionnez un employé');return;}
+  if(!debut||!fin){alert('Remplissez les dates');return;}
+  if(new Date(fin)<new Date(debut)){alert('⚠️ La date de fin doit être après le début');return;}
   const notifs=[];
   if(document.getElementById('abs-notif-benjamin')?.checked)notifs.push('benjamin');
   if(document.getElementById('abs-notif-aurelie')?.checked)notifs.push('aurelie');
   if(document.getElementById('abs-notif-claudine')?.checked)notifs.push('claudine');
   const mem=getMem();if(!mem.absences)mem.absences=[];
-  mem.absences.push({id:Date.now(),employe:emp,debut,fin,type,note,notifs,created:Date.now()});
+  mem.absences.push({id:Date.now(),employe:emp,debut,fin,heureDebut,heureFin,type,note,notifs,created:Date.now()});
   saveMem(mem);
-  ['abs-emp','abs-debut','abs-fin','abs-note'].forEach(id=>document.getElementById(id).value='');
+  ['abs-debut','abs-fin','abs-note','abs-heure-debut','abs-heure-fin'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  if(document.getElementById('abs-emp-select'))document.getElementById('abs-emp-select').value='';
   toggleAbsForm();renderAbsences();logActivity(`Benjamin a enregistré une absence pour ${emp}`);
 }
 
@@ -1717,9 +1741,15 @@ function deleteAbsence(id){
 
 function editAbsence(id){
   const mem=getMem();const a=(mem.absences||[]).find(x=>x.id===id);if(!a)return;
-  document.getElementById('abs-emp').value=a.employe||'';
+  fillAbsEmpList();
+  setTimeout(()=>{
+    const sel=document.getElementById('abs-emp-select');
+    if(sel){sel.value=a.employe||'';}
+  },50);
   document.getElementById('abs-debut').value=a.debut||'';
   document.getElementById('abs-fin').value=a.fin||'';
+  if(document.getElementById('abs-heure-debut'))document.getElementById('abs-heure-debut').value=a.heureDebut||'';
+  if(document.getElementById('abs-heure-fin'))document.getElementById('abs-heure-fin').value=a.heureFin||'';
   document.getElementById('abs-type').value=a.type||'Congé';
   document.getElementById('abs-note').value=a.note||'';
   if(document.getElementById('abs-notif-benjamin'))document.getElementById('abs-notif-benjamin').checked=(a.notifs||['benjamin']).includes('benjamin');
@@ -1732,7 +1762,7 @@ function editAbsence(id){
 }
 
 function saveEditAbsence(id){
-  const emp=document.getElementById('abs-emp').value.trim();
+  const emp=document.getElementById('abs-emp-select')?.value||'';
   const debut=document.getElementById('abs-debut').value;
   const fin=document.getElementById('abs-fin').value;
   if(!emp||!debut||!fin){alert('Remplissez tous les champs obligatoires');return;}
@@ -1742,7 +1772,11 @@ function saveEditAbsence(id){
   if(document.getElementById('abs-notif-aurelie')?.checked)notifs.push('aurelie');
   if(document.getElementById('abs-notif-claudine')?.checked)notifs.push('claudine');
   const mem=getMem();const idx=(mem.absences||[]).findIndex(a=>a.id===id);if(idx===-1)return;
-  mem.absences[idx]={...mem.absences[idx],employe:emp,debut,fin,type:document.getElementById('abs-type').value,note:document.getElementById('abs-note').value.trim(),notifs};
+  mem.absences[idx]={...mem.absences[idx],employe:emp,debut,fin,
+    heureDebut:document.getElementById('abs-heure-debut')?.value||'',
+    heureFin:document.getElementById('abs-heure-fin')?.value||'',
+    type:document.getElementById('abs-type').value,
+    note:document.getElementById('abs-note').value.trim(),notifs};
   saveMem(mem);
   const btn=document.querySelector('#abs-form-wrap .btn-primary');
   if(btn){btn.textContent='Enregistrer';btn.onclick=addAbsence;}
@@ -1763,11 +1797,12 @@ function renderAbsences(){
     else if(today>=debut){status='En cours';statusClass='abs-today';}
     else{const diff=Math.ceil((debut-today)/(1000*60*60*24));status=diff===1?'Demain':`Dans ${diff} jour(s)`;statusClass='abs-future';}
     const notifIcons=(a.notifs||['benjamin']).map(n=>n==='benjamin'?'👨':'👩').join('');
+    const heures=a.heureDebut&&a.heureFin?` · ${a.heureDebut} → ${a.heureFin}`:a.heureDebut?` · à partir de ${a.heureDebut}`:'';
     return `<div class="absence-card">
       <div class="absence-icon">${a.type==='Congé'?'🏖️':a.type==='Maladie'?'🤒':a.type==='Formation'?'📚':'🗓️'}</div>
       <div class="absence-info">
         <div class="absence-name">${esc(a.employe)} — ${a.type} <span style="font-size:10px;color:var(--t3)">${notifIcons}</span></div>
-        <div class="absence-dates">Du ${formatDate(a.debut)} au ${formatDate(a.fin)}</div>
+        <div class="absence-dates">Du ${formatDate(a.debut)} au ${formatDate(a.fin)}${heures}</div>
         ${a.note?`<div class="absence-type">${esc(a.note)}</div>`:''}
       </div>
       <span class="absence-status ${statusClass}">${status}</span>
@@ -1916,8 +1951,120 @@ function renderAnnuaire(search){
 }
 
 function fillAbsEmpList(){
-  const dl=document.getElementById('abs-emp-list');if(!dl)return;
-  dl.innerHTML=getAnnuaire().map(e=>`<option value="${esc(e.prenom+' '+e.nom)}">`).join('');
+  const sel=document.getElementById('abs-emp-select');if(!sel)return;
+  const emps=getAnnuaire();
+  const fixed=['Aurélie','Claudine'];
+  const from_annuaire=emps.map(e=>`${e.prenom} ${e.nom}`);
+  const all=[...new Set([...fixed,...from_annuaire])].sort();
+  sel.innerHTML='<option value="">Sélectionner...</option>'+all.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+}
+
+// PLANNING ABSENCES - téléchargement CSV
+function downloadPlanningAbsences(){
+  const mem=getMem();
+  const absences=(mem.absences||[]).sort((a,b)=>new Date(a.debut)-new Date(b.debut));
+  if(!absences.length){alert('Aucune absence enregistrée');return;}
+  const header='Employé,Type,Date début,Heure début,Date fin,Heure fin,Note,Statut\n';
+  const today=new Date();today.setHours(0,0,0,0);
+  const rows=absences.map(a=>{
+    const fin=new Date(a.fin);fin.setHours(0,0,0,0);
+    const statut=today>fin?'Passée':today>=new Date(a.debut)?'En cours':'À venir';
+    return `${csv(a.employe)},${csv(a.type)},${csv(formatDate(a.debut))},${csv(a.heureDebut||'')},${csv(formatDate(a.fin))},${csv(a.heureFin||'')},${csv(a.note||'')},${csv(statut)}`;
+  }).join('\n');
+  download(`Planning_absences_${new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')}.csv`,'\uFEFF'+header+rows,'text/csv;charset=utf-8');
+  logActivity('Benjamin a téléchargé le planning des absences');
+}
+
+// ══════════════════════════════════════════
+// 🔊 NOTIFICATIONS SONORES
+// ══════════════════════════════════════════
+function playNotifSound(){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=ctx.createOscillator();const gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.frequency.value=880;osc.type='sine';
+    gain.gain.setValueAtTime(0,ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.2,ctx.currentTime+0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.4);
+    osc.start(ctx.currentTime);osc.stop(ctx.currentTime+0.4);
+  }catch(e){}
+}
+
+// ══════════════════════════════════════════
+// ⌨️ RACCOURCIS CLAVIER (Benjamin)
+// ══════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(currentUser?.id!=='benjamin')return;
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
+  if(e.altKey){
+    switch(e.key){
+      case 'b':e.preventDefault();showPage('benai');break;
+      case 's':e.preventDefault();showPage('sav');break;
+      case 'm':e.preventDefault();showPage('messages');break;
+      case 'n':e.preventDefault();showPage('notes');break;
+      case 'a':e.preventDefault();showPage('annuaire');break;
+      case 'd':e.preventDefault();showPage('admin');break;
+    }
+  }
+});
+
+// ══════════════════════════════════════════
+// 📋 RÉSUMÉ HEBDOMADAIRE VENDREDI
+// ══════════════════════════════════════════
+async function generateWeeklySummary(){
+  if(currentUser?.id!=='benjamin')return;
+  const todayKey='benai_weekly_'+new Date().toDateString();
+  if(localStorage.getItem(todayKey))return;
+  const apiKey=getApiKey();if(!apiKey)return;
+  const mem=getMem();
+  const savs=mem.sav||[];
+  const reglesSemaine=savs.filter(s=>{
+    if(s.statut!=='regle'||!s.date_reglement)return false;
+    const d=parseDateFR(s.date_reglement);
+    return d&&(Date.now()-d)<7*24*60*60*1000;
+  });
+  const totalMessages=Object.values(mem.messages).reduce((t,m)=>t+m.length,0);
+  const patterns=getTopPatterns();
+  const ctx=`Semaine terminée. Résumé :
+- SAV réglés cette semaine : ${reglesSemaine.length} (${reglesSemaine.map(s=>s.client).join(', ')||'aucun'})
+- SAV encore ouverts : ${savs.filter(s=>s.statut!=='regle').length}
+- Messages échangés total : ${totalMessages}
+- Fournisseurs les plus sollicités : ${patterns.topFournisseurs.join(', ')||'aucun'}
+- Total SAV traités depuis le début : ${patterns.savCount||0}`;
+  const typing=addTyping();
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:250,messages:[{role:'user',content:`Tu es BenAI. Génère le résumé de fin de semaine pour Benjamin, 3 phrases max, positif et constructif, tutoie-le. Commence directement par les chiffres importants.\n\n${ctx}`}]})
+    });
+    const data=await res.json();
+    typing.remove();
+    if(data.content&&data.content[0]){
+      addAIMsg('📊 **Résumé de la semaine**\n\n'+data.content[0].text);
+      if(data.usage)trackTokens('benjamin',data.usage.input_tokens||0,data.usage.output_tokens||0);
+      localStorage.setItem(todayKey,'1');
+    }
+  }catch(e){typing.remove();}
+}
+
+// ══════════════════════════════════════════
+// 📵 MODE HORS-LIGNE
+// ══════════════════════════════════════════
+function initOfflineDetection(){
+  const banner=document.getElementById('offline-banner');
+  if(!banner)return;
+  const update=()=>{
+    banner.style.display=navigator.onLine?'none':'flex';
+    if(!navigator.onLine){
+      const sendBtn=document.getElementById('btn-send');
+      if(sendBtn)sendBtn.title='Mode hors-ligne — IA indisponible';
+    }
+  };
+  window.addEventListener('online',update);
+  window.addEventListener('offline',update);
+  update();
 }
 
 // FICHES DE PAIE
@@ -2376,11 +2523,14 @@ async function generateDailyBriefing(){
       addAIMsg(data.content[0].text);
       if(data.usage)trackTokens('benjamin',data.usage.input_tokens||0,data.usage.output_tokens||0);
       localStorage.setItem(todayKey,'1');
+      // Résumé hebdomadaire le vendredi
+      if(new Date().getDay()===5)setTimeout(()=>generateWeeklySummary(),2000);
     }
   }catch(e){
     typing.remove();
     addAIMsg(buildFallbackBriefing());
     localStorage.setItem(todayKey,'1');
+    if(new Date().getDay()===5)setTimeout(()=>generateWeeklySummary(),2000);
   }
 }
 
@@ -2472,17 +2622,23 @@ function restoreChatVisual(){
 let pollingInterval=null;
 function startPolling(){
   if(pollingInterval)clearInterval(pollingInterval);
+  let lastMsgCount=0;
   pollingInterval=setInterval(()=>{
     if(!currentUser)return;
+    const prevBadge=parseInt(document.getElementById('msg-badge')?.textContent||'0');
     refreshMsgBadge();
+    const newBadge=parseInt(document.getElementById('msg-badge')?.textContent||'0');
+    // Son si nouveaux messages
+    if(newBadge>prevBadge)playNotifSound();
     refreshSAVBadge();
-    // Rafraîchir le thread ouvert si des messages ont été ajoutés
+    // Rafraîchir le thread ouvert
     if(currentConv){
       const area=document.getElementById('thread-msgs');
       const mem=getMem();
       const count=(mem.messages[currentConv]||[]).length;
       if(area&&area.dataset.count&&parseInt(area.dataset.count)!==count){
         renderThread(currentConv);renderConvList();
+        if(count>parseInt(area.dataset.count||'0'))playNotifSound();
       }
       if(area)area.dataset.count=count;
     }
@@ -2565,6 +2721,8 @@ window.addEventListener('load',()=>{
   }
   // Vérif mise à jour
   checkUpdate();
+  // Mode hors-ligne
+  initOfflineDetection();
 });
 
 // MISE À JOUR
