@@ -1,14 +1,13 @@
-  "version": "3.4",
+{
+  "version": "3.5",
   "notes": [
+    "Planning absences : Formation supprimé comme type",
+    "Planning absences : cases plus grandes et plus lisibles",
+    "Planning absences : séparé par société (Nemausus / Lambert)",
+    "Planning absences : seuls les employés absents s'affichent",
     "Tuto première utilisation pour les nouveaux utilisateurs",
     "Popup détaillé des améliorations à chaque mise à jour",
     "Absences regroupées par employé",
-    "Doublons supprimés dans le menu employés",
-    "Absences avec heures précises",
-    "Planning absences téléchargeable",
-    "Notifications sonores messagerie",
-    "Raccourcis clavier (Alt+B/S/M/N/A/D)",
-    "Résumé hebdomadaire automatique le vendredi",
-    "Mode hors-ligne avec bannière"
+    "Correction Assistante / Technicien dans la création d'utilisateur"
   ]
 }
