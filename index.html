@@ -401,6 +401,7 @@ input[type=file]{display:none;}
       <div class="tb-avatar" id="tb-avatar"></div>
       <span class="tb-username" id="tb-username"></span>
       <button class="tb-icon-btn" onclick="toggleSettings()" title="Paramètres">⚙️</button>
+      <button class="tb-logout" onclick="switchSession()" title="Changer d'utilisateur" style="margin-right:4px">🔄 Changer</button>
       <button class="tb-logout" onclick="logout()">Déconnexion</button>
     </div>
   </div>
@@ -640,11 +641,7 @@ input[type=file]{display:none;}
             <div class="form-group" style="margin-bottom:12px"><div class="form-label">Note</div><input type="text" class="form-input" id="abs-note" placeholder="Optionnel..."></div>
             <div style="margin-bottom:12px">
               <div class="form-label" style="margin-bottom:8px">Notifier</div>
-              <div style="display:flex;gap:12px;flex-wrap:wrap" id="abs-notif-list">
-                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="abs-notif-benjamin" checked style="accent-color:var(--a)"> Benjamin</label>
-                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="abs-notif-aurelie" style="accent-color:var(--a)"> Aurélie</label>
-                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="abs-notif-claudine" style="accent-color:var(--a)"> Claudine</label>
-              </div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap" id="abs-notif-list"></div>
             </div>
             <div style="display:flex;gap:8px">
               <button class="btn-primary" onclick="addAbsence()">Enregistrer</button>
@@ -824,7 +821,7 @@ input[type=file]{display:none;}
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const BENAI_VERSION = '3.5';
+const BENAI_VERSION = '3.6';
 
 // ══════════════════════════════════════════
 // UTILISATEURS
@@ -1008,9 +1005,26 @@ function logout(){
   document.getElementById('chat-area').innerHTML='';
 }
 
-// ══════════════════════════════════════════
-// INIT APP
-// ══════════════════════════════════════════
+function switchSession(){
+  // Déconnexion rapide sans effacer les données — retourne au login
+  if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
+  sessionStorage.removeItem('benai_session');
+  currentUser=null;chatHistory=[];currentConv=null;
+  ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.style.display='none';
+  });
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-user').value='';
+  document.getElementById('login-pwd').value='';
+  document.getElementById('login-err').textContent='';
+  document.getElementById('chat-area').innerHTML='';
+  // Pré-remplir le select avec tous les utilisateurs
+  const sel=document.getElementById('login-user');
+  loadExtraUsers();
+}
+
+
 function initApp(silent=false){
   const u=currentUser;
   document.getElementById('tb-avatar').style.background=u.color;
@@ -1786,12 +1800,7 @@ function addAbsence(){
   if(!emp){alert('Sélectionnez un employé');return;}
   if(!debut||!fin){alert('Remplissez les dates');return;}
   if(new Date(fin)<new Date(debut)){alert('⚠️ La date de fin doit être après le début');return;}
-  const notifs=[];
-  if(document.getElementById('abs-notif-benjamin')?.checked)notifs.push('benjamin');
-  if(document.getElementById('abs-notif-aurelie')?.checked)notifs.push('aurelie');
-  if(document.getElementById('abs-notif-claudine')?.checked)notifs.push('claudine');
-  const mem=getMem();if(!mem.absences)mem.absences=[];
-  mem.absences.push({id:Date.now(),employe:emp,debut,fin,heureDebut,heureFin,type,note,notifs,created:Date.now()});
+  const notifs=[...document.querySelectorAll('.abs-notif-cb:checked')].map(cb=>cb.dataset.uid);
   saveMem(mem);
   ['abs-debut','abs-fin','abs-note','abs-heure-debut','abs-heure-fin'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   if(document.getElementById('abs-emp-select'))document.getElementById('abs-emp-select').value='';
@@ -1816,9 +1825,12 @@ function editAbsence(id){
   if(document.getElementById('abs-heure-fin'))document.getElementById('abs-heure-fin').value=a.heureFin||'';
   document.getElementById('abs-type').value=a.type||'Congé';
   document.getElementById('abs-note').value=a.note||'';
-  if(document.getElementById('abs-notif-benjamin'))document.getElementById('abs-notif-benjamin').checked=(a.notifs||['benjamin']).includes('benjamin');
-  if(document.getElementById('abs-notif-aurelie'))document.getElementById('abs-notif-aurelie').checked=(a.notifs||[]).includes('aurelie');
-  if(document.getElementById('abs-notif-claudine'))document.getElementById('abs-notif-claudine').checked=(a.notifs||[]).includes('claudine');
+  // Restaurer les checkboxes notif
+  setTimeout(()=>{
+    document.querySelectorAll('.abs-notif-cb').forEach(cb=>{
+      cb.checked=(a.notifs||['benjamin']).includes(cb.dataset.uid);
+    });
+  },60);
   const btn=document.querySelector('#abs-form-wrap .btn-primary');
   if(btn){btn.textContent='💾 Modifier';btn.onclick=()=>saveEditAbsence(id);}
   document.getElementById('abs-form-wrap').style.display='block';
@@ -1831,10 +1843,7 @@ function saveEditAbsence(id){
   const fin=document.getElementById('abs-fin').value;
   if(!emp||!debut||!fin){alert('Remplissez tous les champs obligatoires');return;}
   if(new Date(fin)<new Date(debut)){alert('⚠️ La date de fin doit être après le début');return;}
-  const notifs=[];
-  if(document.getElementById('abs-notif-benjamin')?.checked)notifs.push('benjamin');
-  if(document.getElementById('abs-notif-aurelie')?.checked)notifs.push('aurelie');
-  if(document.getElementById('abs-notif-claudine')?.checked)notifs.push('claudine');
+  const notifs=[...document.querySelectorAll('.abs-notif-cb:checked')].map(cb=>cb.dataset.uid);
   const mem=getMem();const idx=(mem.absences||[]).findIndex(a=>a.id===id);if(idx===-1)return;
   mem.absences[idx]={...mem.absences[idx],employe:emp,debut,fin,
     heureDebut:document.getElementById('abs-heure-debut')?.value||'',
@@ -1850,10 +1859,17 @@ function saveEditAbsence(id){
 
 function renderAbsences(){
   const mem=getMem();const list=document.getElementById('abs-list');
-  const absences=(mem.absences||[]).sort((a,b)=>new Date(a.debut)-new Date(b.debut));
-  if(!absences.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune absence enregistrée</div>';return;}
+  if(!(mem.absences||[]).length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune absence enregistrée</div>';return;}
   const today=new Date();today.setHours(0,0,0,0);
-  // Grouper par employé
+  // Trier : à venir et en cours d'abord (plus proche), puis passées
+  const absences=(mem.absences||[]).sort((a,b)=>{
+    const da=new Date(a.debut),db=new Date(b.debut);
+    const fa=new Date(a.fin),fb=new Date(b.fin);
+    const aPast=today>fa,bPast=today>fb;
+    if(aPast&&!bPast)return 1;
+    if(!aPast&&bPast)return -1;
+    return da-db;
+  });
   const byEmp={};
   absences.forEach(a=>{
     if(!byEmp[a.employe])byEmp[a.employe]=[];
@@ -2036,13 +2052,19 @@ function fillAbsEmpList(){
   const sel=document.getElementById('abs-emp-select');if(!sel)return;
   const ann=getAnnuaire();
   const annNoms=ann.map(e=>`${e.prenom} ${e.nom}`);
-  // Ajouter utilisateurs BenAI non-admin si pas déjà dans l'annuaire
   const users=getAllUsers().filter(u=>u.id!=='benjamin');
   const extraUsers=users
     .filter(u=>!annNoms.some(n=>normalizeId(n).includes(normalizeId(u.name))||normalizeId(n.split(' ')[0]||'').includes(normalizeId(u.name))))
     .map(u=>u.name);
   const all=[...new Set([...annNoms,...extraUsers])].sort((a,b)=>a.localeCompare(b,'fr'));
   sel.innerHTML='<option value="">Sélectionner...</option>'+all.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  // Checkboxes notif dynamiques
+  const notifList=document.getElementById('abs-notif-list');if(!notifList)return;
+  notifList.innerHTML=getAllUsers().map(u=>`
+    <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+      <input type="checkbox" class="abs-notif-cb" data-uid="${u.id}" ${u.id==='benjamin'?'checked':''} style="accent-color:var(--a)">
+      ${esc(u.name)}
+    </label>`).join('');
 }
 
 // PLANNING ABSENCES - téléchargement CSV
@@ -2110,7 +2132,7 @@ function downloadPlanningAbsences(){
       const dayHeaders=Array.from({length:daysInMonth},(_,i)=>{
         const d=i+1;const date=new Date(yr,mo-1,d);
         const isWE=date.getDay()===0||date.getDay()===6;
-        return`<th style="min-width:32px;width:32px;padding:5px 2px;text-align:center;background:${isWE?'#E5E7EB':'#F3F4F6'};color:${isWE?'#9CA3AF':'#374151'};border:1px solid #D1D5DB;font-size:11px"><div style="font-weight:800">${d}</div><div style="font-size:9px;opacity:.8">${DAY_NAMES[date.getDay()]}</div></th>`;
+        return`<th class="day-header${isWE?' we':''}">${d}<br><span style="font-weight:400">${DAY_NAMES[date.getDay()]}</span></th>`;
       }).join('');
       const rows=empsThisMonth.map(emp=>{
         const cells=Array.from({length:daysInMonth},(_,i)=>{
@@ -2119,40 +2141,39 @@ function downloadPlanningAbsences(){
           const date=new Date(yr,mo-1,d);
           const isWE=date.getDay()===0||date.getDay()===6;
           const tc=type?TYPE_COLORS[type]||TYPE_COLORS['Autre']:null;
-          return`<td style="border:1px solid #D1D5DB;background:${tc?tc.bg:isWE?'#F3F4F6':'#fff'};text-align:center;padding:3px 1px;font-size:14px;height:36px;vertical-align:middle">${tc?tc.icon:''}</td>`;
+          return`<td class="day-cell${isWE?' we':''}"${tc?` style="background:${tc.bg}"`:''}>${tc?tc.icon:''}</td>`;
         }).join('');
-        return`<tr><td style="padding:8px 14px;font-weight:700;white-space:nowrap;border:1px solid #D1D5DB;font-size:13px;background:#F9FAFB;min-width:150px;color:#111827">👤 ${emp}</td>${cells}</tr>`;
+        return`<tr><td class="emp-cell">👤 ${emp}</td>${cells}</tr>`;
       }).join('');
-      return`<div style="margin-bottom:24px">
-        <div style="padding:10px 16px;font-weight:800;font-size:14px;color:#fff;background:inherit;border-radius:8px 8px 0 0" class="month-header">📅 ${MONTH_NAMES[mo-1]} ${yr}</div>
-        <div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;width:100%">
-          <thead><tr><th style="padding:8px 14px;text-align:left;background:#F3F4F6;border:1px solid #D1D5DB;font-size:11px;min-width:150px;color:#374151;font-weight:700">Employé</th>${dayHeaders}</tr></thead>
-          <tbody>${rows}</tbody>
-        </table></div></div>`;
+      return`<div class="month-block">
+        <div class="month-title" style="background:var(--mc,#E8943A)">📅 ${MONTH_NAMES[mo-1]} ${yr}</div>
+        <table><thead><tr><th class="emp-cell" style="background:#F3F4F6;font-size:9px;color:#6B7280;font-weight:600">Employé</th>${dayHeaders}</tr></thead>
+        <tbody>${rows}</tbody></table></div>`;
     }).filter(Boolean).join('');
   }
 
-  const legend=`<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:16px;padding:10px 14px;background:#F9FAFB;border-radius:8px;border:1px solid #E5E7EB">
-    <span style="font-size:12px;font-weight:700;color:#6B7280">Légende :</span>
-    <span style="display:flex;align-items:center;gap:6px;font-size:12px"><span style="display:inline-block;width:16px;height:16px;background:#BFDBFE;border-radius:3px;border:1px solid rgba(0,0,0,.1)"></span>🏖️ Congé</span>
-    <span style="display:flex;align-items:center;gap:6px;font-size:12px"><span style="display:inline-block;width:16px;height:16px;background:#FED7AA;border-radius:3px;border:1px solid rgba(0,0,0,.1)"></span>🤒 Maladie</span>
-    <span style="display:flex;align-items:center;gap:6px;font-size:12px"><span style="display:inline-block;width:16px;height:16px;background:#DDD6FE;border-radius:3px;border:1px solid rgba(0,0,0,.1)"></span>📅 Autre</span>
+  const legend=`<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;padding:8px 12px;background:#F9FAFB;border-radius:6px;border:1px solid #E5E7EB">
+    <span style="font-size:11px;font-weight:700;color:#6B7280">Légende :</span>
+    <span style="display:flex;align-items:center;gap:5px;font-size:11px"><span style="display:inline-block;width:14px;height:14px;background:#BFDBFE;border-radius:3px"></span>🏖️ Congé</span>
+    <span style="display:flex;align-items:center;gap:5px;font-size:11px"><span style="display:inline-block;width:14px;height:14px;background:#FED7AA;border-radius:3px"></span>🤒 Maladie</span>
+    <span style="display:flex;align-items:center;gap:5px;font-size:11px"><span style="display:inline-block;width:14px;height:14px;background:#DDD6FE;border-radius:3px"></span>📅 Autre</span>
   </div>`;
 
   function companyPage(societe,label,color,borderColor){
+    const cal=buildCalendar(societe);
+    if(!cal)return`<div class="company-page"><div style="padding:20px;color:#9CA3AF;text-align:center">Aucune absence pour ${label}</div></div>`;
     return`<div class="company-page">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:12px;border-bottom:3px solid ${borderColor}">
-        <div style="display:flex;align-items:center;gap:12px">
-          <div style="width:40px;height:40px;border-radius:10px;background:${color};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff">B</div>
-          <div><div style="font-size:18px;font-weight:800">Planning des Absences</div><div style="font-size:13px;color:${borderColor};font-weight:700">${label}</div></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:3px solid ${borderColor}">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:34px;height:34px;border-radius:8px;background:${color};display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#fff">B</div>
+          <div><div style="font-size:15px;font-weight:800">Planning des Absences</div><div style="font-size:12px;color:${borderColor};font-weight:700">${label}</div></div>
         </div>
         <div style="text-align:right">
-          <div style="font-size:11px;color:#9CA3AF">Généré le ${new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
-          <button onclick="window.print()" class="no-print" style="margin-top:6px;padding:6px 14px;background:${borderColor};color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">🖨️ Imprimer / PDF</button>
+          <div style="font-size:10px;color:#9CA3AF">Généré le ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>
+          <button onclick="window.print()" class="no-print" style="margin-top:4px;padding:5px 12px;background:${borderColor};color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">🖨️ Imprimer / PDF</button>
         </div>
       </div>
-      <style>.month-header{background:${color}!important}</style>
-      ${buildCalendar(societe)}
+      ${cal}
       ${legend}
     </div>`;
   }
@@ -2160,12 +2181,28 @@ function downloadPlanningAbsences(){
   const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Planning Absences</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F9FAFB;color:#111827;padding:24px}
-    @media print{body{padding:8mm;background:#fff}.no-print{display:none}.page-break{page-break-before:always}}
-    @page{size:A4 landscape;margin:8mm}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#111827;padding:6mm;font-size:10px}
+    .company-page{width:100%}
+    .month-block{margin-bottom:14px}
+    .month-title{padding:6px 10px;font-weight:800;font-size:12px;color:#fff;border-radius:5px 5px 0 0}
+    table{border-collapse:collapse;width:100%;table-layout:fixed}
+    td,th{border:1px solid #D1D5DB;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .emp-cell{width:110px;min-width:110px;max-width:110px;padding:5px 8px;font-weight:700;font-size:10px;background:#FAFAFA;color:#111}
+    .day-header{width:22px;min-width:22px;max-width:22px;text-align:center;padding:3px 1px;font-size:8px;font-weight:700;background:#F3F4F6}
+    .day-cell{width:22px;min-width:22px;max-width:22px;text-align:center;padding:0;height:28px;vertical-align:middle;font-size:11px}
+    .we{background:#F3F4F6!important;color:#9CA3AF}
+    .page-break{page-break-before:always}
+    @media print{
+      body{padding:4mm;background:#fff}
+      .no-print{display:none!important}
+      .page-break{page-break-before:always;margin:0}
+      .company-page{page-break-inside:avoid}
+      .month-block{page-break-inside:avoid}
+    }
+    @page{size:A4 landscape;margin:5mm}
   </style></head><body>
   ${companyPage('nemausus','Nemausus Fermetures','linear-gradient(135deg,#E8943A,#C4711A)','#E8943A')}
-  <div class="page-break" style="margin:40px 0 0"></div>
+  <div class="page-break"></div>
   ${companyPage('lambert','Lambert SAS','linear-gradient(135deg,#3B82F6,#1D4ED8)','#3B82F6')}
   </body></html>`;
 
@@ -2433,12 +2470,13 @@ function getExtraUsers(){try{return JSON.parse(localStorage.getItem('benai_extra
 function saveExtraUsers(u){localStorage.setItem('benai_extra_users',JSON.stringify(u));}
 function getExtraUserById(id){return getExtraUsers().find(u=>u.id===id)||null;}
 function getAllUsers(){
-  return[
+  const hidden=JSON.parse(localStorage.getItem('benai_hidden_users')||'[]');
+  const base=[
     {id:'benjamin',name:'Benjamin',role:'admin',societe:'les-deux',color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B',builtin:true},
     {id:'aurelie',name:'Aurélie',role:'assistante',societe:'nemausus',color:'linear-gradient(135deg,#22C55E,#15803D)',initial:'A',builtin:true},
     {id:'claudine',name:'Claudine',role:'assistante',societe:'lambert',color:'linear-gradient(135deg,#60A5FA,#1D4ED8)',initial:'C',builtin:true},
-    ...getExtraUsers()
-  ];
+  ].filter(u=>!hidden.includes(u.id));
+  return[...base,...getExtraUsers()];
 }
 
 // Trouver un utilisateur par identifiant normalisé
@@ -2471,10 +2509,23 @@ function creerUtilisateur(){
 }
 
 function supprimerUtilisateur(uid){
-  if(!confirm(`Supprimer ${uid} définitivement ?`))return;
-  const extras=getExtraUsers().filter(u=>u.id!==uid);saveExtraUsers(extras);
-  delete USERS[uid];const pwds=getPwds();delete pwds[uid];savePwds(pwds);
-  renderUsersList();renderPwdList();logActivity(`Benjamin a supprimé l'utilisateur ${uid}`);
+  if(uid==='benjamin'){alert('Benjamin ne peut pas être supprimé.');return;}
+  const u=findUserById(uid);
+  if(!confirm(`Supprimer ${u?.name||uid} définitivement ? Cette action est irréversible.`))return;
+  // Si builtin (Aurélie/Claudine), les masquer via un flag
+  if(u?.builtin){
+    const hidden=JSON.parse(localStorage.getItem('benai_hidden_users')||'[]');
+    if(!hidden.includes(uid))hidden.push(uid);
+    localStorage.setItem('benai_hidden_users',JSON.stringify(hidden));
+    delete USERS[uid];
+  } else {
+    const extras=getExtraUsers().filter(e=>e.id!==uid);saveExtraUsers(extras);
+    delete USERS[uid];
+  }
+  const pwds=getPwds();delete pwds[uid];savePwds(pwds);
+  // Retirer du select login
+  const opt=document.querySelector(`#login-user option[value="${uid}"]`);if(opt)opt.remove();
+  renderUsersList();renderPwdList();logActivity(`Benjamin a supprimé l'utilisateur ${u?.name||uid}`);
 }
 
 function toggleAccess(uid){
@@ -2494,7 +2545,7 @@ function renderUsersList(){
       ${u.id==='benjamin'?'<span style="font-size:10px;color:var(--t3)">Admin</span>':`
         <button onclick="editUser('${u.id}')" style="padding:4px 8px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">✏️</button>
         <div onclick="toggleAccess('${u.id}')" class="toggle ${access[u.id]===false?'':'on'}" title="${access[u.id]===false?'Accès bloqué':'Accès actif'}"></div>
-        ${!u.builtin?`<button onclick="supprimerUtilisateur('${u.id}')" style="padding:4px 8px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">🗑️</button>`:''}
+        <button onclick="supprimerUtilisateur('${u.id}')" style="padding:4px 8px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">🗑️</button>
       `}
     </div>`).join('');
 }
@@ -2920,6 +2971,8 @@ window.addEventListener('load',()=>{
   checkUpdate();
   // Mode hors-ligne
   initOfflineDetection();
+  // Correction automatique partout
+  enableSpellcheckEverywhere();
 });
 
 // MISE À JOUR
@@ -2957,8 +3010,25 @@ function isNewerVersion(remote,current){
 }
 
 // ══════════════════════════════════════════
-// 🎓 TUTORIEL PREMIÈRE UTILISATION
+// ✏️ CORRECTION AUTOMATIQUE PARTOUT
 // ══════════════════════════════════════════
+function enableSpellcheckEverywhere(){
+  document.querySelectorAll('input[type="text"],input[type="search"],textarea').forEach(el=>{
+    el.spellcheck=true;
+    el.setAttribute('autocorrect','on');
+    el.setAttribute('autocapitalize','sentences');
+  });
+  // Observer pour les éléments ajoutés dynamiquement
+  new MutationObserver(()=>{
+    document.querySelectorAll('input[type="text"]:not([spellcheck]),textarea:not([spellcheck])').forEach(el=>{
+      el.spellcheck=true;
+      el.setAttribute('autocorrect','on');
+      el.setAttribute('autocapitalize','sentences');
+    });
+  }).observe(document.body,{childList:true,subtree:true});
+}
+
+
 const TUTO_SLIDES=[
   {icon:'👋',title:'Bienvenue sur BenAI !',desc:'Votre assistant de travail pour Nemausus Fermetures et Lambert SAS. BenAI est là pour vous aider au quotidien — emails, SAV, questions métier.',highlight:null},
   {icon:'🤖',title:'BenAI IA — Votre assistant',desc:'Posez toutes vos questions professionnelles : rédiger un email client, aide sur le SAV, questions sur All Manager ou Hercule Pro. BenAI répond en quelques secondes.',highlight:'💡 Utilisez le bouton + en bas pour joindre des images ou des PDF'},
