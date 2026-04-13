@@ -249,7 +249,23 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .hist-item{padding:8px 10px;background:var(--s3);border-radius:8px;margin-bottom:5px;}
 .hist-date{font-size:10px;color:var(--t3);}
 .hist-pb{font-size:12px;color:var(--t2);margin-top:2px;}
-/* LIGHT THEME */
+/* ANNUAIRE */
+.emp-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:13px 15px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.emp-avatar{width:40px;height:40px;border-radius:10px;background:var(--a3);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:var(--a);flex-shrink:0;}
+.emp-name{font-size:13px;font-weight:600;}
+.emp-detail{font-size:11px;color:var(--t2);margin-top:2px;}
+.emp-email{font-size:11px;color:var(--bl);margin-top:2px;cursor:pointer;}
+.emp-email:hover{text-decoration:underline;}
+.fonction-tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:var(--a3);color:var(--a);margin-left:6px;}
+/* PAIE */
+.paie-item{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.paie-status{font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;}
+.paie-ok{background:var(--g2);color:var(--g);}
+.paie-warn{background:var(--y2);color:var(--y);}
+.paie-err{background:var(--r2);color:var(--r);}
+/* SAV VU */
+.sav-vu{font-size:10px;color:var(--g);display:inline-flex;align-items:center;gap:3px;}
+/* LIGHT */
 body.light{--bg:#F5F5F0;--s1:#FFFFFF;--s2:#F0EFE9;--s3:#E8E7E0;--b1:#D8D6CE;--b2:#C8C6BE;--t1:#1A1917;--t2:#4A4845;--t3:#8A8880;}
 body.light .login-box{background:#fff;border-color:#E0DDD5;}
 body.light .msg.ai .bubble{background:#fff;border-color:#E0DDD5;}
@@ -382,6 +398,8 @@ input[type=file]{display:none;}
           <span class="sb-badge" id="sav-badge" style="display:none"></span>
         </div>
         <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span></div>
+        <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')"><span class="sb-icon">👥</span><span class="sb-txt">Annuaire</span></div>
+        <div class="sb-item" id="nav-paie" style="display:none" onclick="showPage('paie')"><span class="sb-icon">💰</span><span class="sb-txt">Fiches de paie</span></div>
         <div class="sb-item" id="nav-admin" style="display:none" onclick="showPage('admin')"><span class="sb-icon">📊</span><span class="sb-txt">Dashboard</span></div>
       </div>
     </div>
@@ -516,8 +534,10 @@ input[type=file]{display:none;}
           <div class="sav-form">
             <div style="font-size:13px;font-weight:600;margin-bottom:12px">📅 Nouvelle absence</div>
             <div class="form-row">
-              <div class="form-group"><div class="form-label">Employé(e)</div>
-                <input type="text" class="form-input" id="abs-emp" placeholder="Ex: Aurélie, Claudine...">
+              <div class="form-group">
+                <div class="form-label">Employé(e)</div>
+                <input type="text" class="form-input" id="abs-emp" placeholder="Nom ou sélectionner dans l'annuaire" list="abs-emp-list" autocomplete="off">
+                <datalist id="abs-emp-list"></datalist>
               </div>
               <div class="form-group"><div class="form-label">Type</div>
                 <select class="form-input" id="abs-type">
@@ -533,6 +553,14 @@ input[type=file]{display:none;}
               <div class="form-group"><div class="form-label">Date de fin</div><input type="date" class="form-input" id="abs-fin"></div>
             </div>
             <div class="form-group" style="margin-bottom:12px"><div class="form-label">Note</div><input type="text" class="form-input" id="abs-note" placeholder="Optionnel..."></div>
+            <div style="margin-bottom:12px">
+              <div class="form-label" style="margin-bottom:8px">Notifier</div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap">
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="abs-notif-benjamin" checked style="accent-color:var(--a)"> Benjamin</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="abs-notif-aurelie" style="accent-color:var(--a)"> Aurélie</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="abs-notif-claudine" style="accent-color:var(--a)"> Claudine</label>
+              </div>
+            </div>
             <div style="display:flex;gap:8px">
               <button class="btn-primary" onclick="addAbsence()">Enregistrer</button>
               <button onclick="toggleAbsForm()" style="background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
@@ -592,6 +620,16 @@ input[type=file]{display:none;}
                     <option value="les-deux">Les deux</option>
                   </select>
                 </div>
+                <div><div class="form-label">Fonction</div>
+                  <select class="form-input" id="new-user-fonction">
+                    <option value="Secrétaire">Secrétaire</option>
+                    <option value="Commercial">Commercial</option>
+                    <option value="Poseur">Poseur</option>
+                    <option value="Technicien">Technicien</option>
+                    <option value="Comptable">Comptable</option>
+                    <option value="Autre">Autre</option>
+                  </select>
+                </div>
               </div>
               <div style="display:flex;gap:6px">
                 <button onclick="creerUtilisateur()" class="btn-primary" style="flex:1">Créer</button>
@@ -611,6 +649,74 @@ input[type=file]{display:none;}
           <div class="dash-card">
             <div class="dc-label">⚡ Activité récente</div>
             <div id="activity-list" style="margin-top:8px"><div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE ANNUAIRE -->
+      <div id="page-annuaire" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+          <div><div class="page-title">👥 Annuaire employés</div><div class="page-sub">16 employés — Nemausus & Lambert SAS</div></div>
+          <button class="btn-primary" onclick="toggleEmpForm()">+ Ajouter</button>
+        </div>
+        <div style="padding:0 16px;flex-shrink:0;display:none" id="emp-form-wrap">
+          <div class="sav-form">
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px">➕ Nouvel employé</div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Prénom</div><input type="text" class="form-input" id="emp-prenom" placeholder="Prénom"></div>
+              <div class="form-group"><div class="form-label">Nom</div><input type="text" class="form-input" id="emp-nom" placeholder="Nom"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Email</div><input type="email" class="form-input" id="emp-email" placeholder="email@exemple.fr"></div>
+              <div class="form-group"><div class="form-label">Téléphone</div><input type="text" class="form-input" id="emp-tel" placeholder="06..."></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Fonction</div>
+                <select class="form-input" id="emp-fonction">
+                  <option value="Poseur">Poseur</option>
+                  <option value="Commercial">Commercial</option>
+                  <option value="Secrétaire">Secrétaire</option>
+                  <option value="Technicien">Technicien</option>
+                  <option value="Comptable">Comptable</option>
+                  <option value="Autre">Autre</option>
+                </select>
+              </div>
+              <div class="form-group"><div class="form-label">Société</div>
+                <select class="form-input" id="emp-soc">
+                  <option value="nemausus">Nemausus Fermetures</option>
+                  <option value="lambert">Lambert SAS</option>
+                  <option value="les-deux">Les deux</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-primary" onclick="addEmploye()">Enregistrer</button>
+              <button onclick="toggleEmpForm()" style="background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+              <span id="emp-ok" style="font-size:12px;color:var(--g);margin-left:6px"></span>
+            </div>
+          </div>
+        </div>
+        <div style="padding:0 16px 10px;flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap" id="emp-filters">
+          <input type="text" placeholder="🔍 Rechercher..." oninput="renderAnnuaire(this.value)" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 12px;color:var(--t1);font-family:inherit;font-size:13px;outline:none;width:200px">
+        </div>
+        <div style="padding:0 16px;flex:1;overflow-y:auto" id="annuaire-list"></div>
+      </div>
+
+      <!-- PAGE FICHES DE PAIE -->
+      <div id="page-paie" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+          <div><div class="page-title">💰 Fiches de paie</div><div class="page-sub">Déposez les PDF — BenAI prépare les emails Outlook</div></div>
+          <button onclick="document.getElementById('paie-files').click()" class="btn-primary">📎 Déposer les PDF</button>
+        </div>
+        <input type="file" id="paie-files" accept=".pdf" multiple onchange="processFichesPaie(this)">
+        <div style="padding:16px;flex:1;overflow-y:auto">
+          <div id="paie-progress" style="display:none;margin-bottom:12px">
+            <div style="font-size:12px;color:var(--t2);margin-bottom:6px" id="paie-progress-txt">Analyse en cours...</div>
+            <div style="height:4px;background:var(--s3);border-radius:2px"><div id="paie-progress-bar" style="height:100%;background:var(--a);border-radius:2px;transition:width .3s;width:0%"></div></div>
+          </div>
+          <div id="paie-list"></div>
+          <div id="paie-empty" style="color:var(--t3);font-size:13px;text-align:center;padding:40px 0">
+            Déposez les fiches de paie PDF ci-dessus.<br><span style="font-size:11px;margin-top:6px;display:block">BenAI détecte le nom et prépare l'email Outlook pour chaque employé.</span>
           </div>
         </div>
       </div>
@@ -797,6 +903,8 @@ function initApp(){
   if(u.role==='admin'){
     document.getElementById('nav-admin').style.display='flex';
     document.getElementById('nav-absences').style.display='flex';
+    document.getElementById('nav-annuaire').style.display='flex';
+    document.getElementById('nav-paie').style.display='flex';
   }
   // Charger historique chat
   const mem=loadChatMem(u.id);
@@ -805,10 +913,12 @@ function initApp(){
   const h=new Date().getHours();
   const sal=h<18?'Bonjour':'Bonsoir';
   addAIMsg(`${sal} **${u.name}** 👋\n\nJe suis BenAI v${BENAI_VERSION}, votre assistant.\n\n⚠️ Je propose toujours — vous décidez toujours.\n\nComment puis-je vous aider ?`);
-  // Vérifier absences et rappels SAV (admin)
+  // Vérifier rappels absences pour tous les utilisateurs
   if(u.role==='admin'){
     checkAbsenceReminders();
     refreshAdmin();
+  } else {
+    checkAbsenceRemindersForUser(u.id);
   }
   refreshSAVBadge();
   refreshMsgBadge();
@@ -820,7 +930,7 @@ function initApp(){
 // NAVIGATION
 // ══════════════════════════════════════════
 function showPage(page){
-  ['benai','notes','messages','sav','absences','evolution','admin'].forEach(p=>{
+  ['benai','notes','messages','sav','absences','evolution','admin','annuaire','paie'].forEach(p=>{
     const el=document.getElementById('page-'+p);
     if(el)el.style.display='none';
     const nav=document.getElementById('nav-'+p);
@@ -830,12 +940,14 @@ function showPage(page){
   if(el)el.style.display='flex';
   const nav=document.getElementById('nav-'+page);
   if(nav)nav.classList.add('active');
-  if(page==='sav')renderSAV();
+  if(page==='sav'){renderSAV();markSAVVu();}
   if(page==='admin')refreshAdmin();
   if(page==='messages')renderConvList();
   if(page==='notes')renderNotes();
-  if(page==='absences')renderAbsences();
+  if(page==='absences'){renderAbsences();fillAbsEmpList();}
   if(page==='evolution')renderEvolution();
+  if(page==='annuaire')renderAnnuaire();
+  if(page==='paie')renderPaieList();
 }
 
 // ══════════════════════════════════════════
@@ -1210,6 +1322,7 @@ function renderSAV(){
       <div class="sav-pb">${esc(s.probleme)}</div>
       <div class="sav-meta">${s.commercial?'Commercial : '+esc(s.commercial)+' · ':''}${s.fournisseur?'Fournisseur : '+esc(s.fournisseur)+' · ':''}Créé par ${esc(s.by||'?')}</div>
       ${derniereAction?`<div style="margin-top:6px;padding:6px 10px;background:var(--s3);border-radius:6px;font-size:11px;color:var(--t2)">✅ <strong>${esc(derniereAction.action)}</strong> — ${esc(derniereAction.date)}</div>`:''}
+      ${currentUser.role!=='admin'?`<div style="margin-top:4px;font-size:10px;color:var(--g)">${getSAVVu(s.id)?'👁️ Vu par Benjamin le '+getSAVVu(s.id):'⏳ Pas encore vu par Benjamin'}</div>`:''}
       ${hist.length>0?`<div style="margin-top:6px"><details><summary style="font-size:11px;color:var(--t3);cursor:pointer">🕐 Historique client (${hist.length} SAV précédent(s))</summary><div style="margin-top:6px">${hist.map(h=>`<div class="hist-item"><div class="hist-date">${h.date_creation||''} · ${h.statut}</div><div class="hist-pb">${esc(h.probleme)}</div></div>`).join('')}</div></details></div>`:''}
       ${isAdmin&&s.statut!=='regle'?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
         <input type="text" class="sav-action-input" id="action-${s.id}" placeholder="Ce que tu as fait (ex: Commandé chez Somfy le 12/04...)">
@@ -1305,8 +1418,12 @@ function addAbsence(){
   const type=document.getElementById('abs-type').value;
   const note=document.getElementById('abs-note').value.trim();
   if(!emp||!debut||!fin){alert('Remplissez tous les champs obligatoires');return;}
+  const notifs=[];
+  if(document.getElementById('abs-notif-benjamin')?.checked)notifs.push('benjamin');
+  if(document.getElementById('abs-notif-aurelie')?.checked)notifs.push('aurelie');
+  if(document.getElementById('abs-notif-claudine')?.checked)notifs.push('claudine');
   const mem=getMem();if(!mem.absences)mem.absences=[];
-  mem.absences.push({id:Date.now(),employe:emp,debut,fin,type,note,created:Date.now()});
+  mem.absences.push({id:Date.now(),employe:emp,debut,fin,type,note,notifs,created:Date.now()});
   saveMem(mem);
   ['abs-emp','abs-debut','abs-fin','abs-note'].forEach(id=>document.getElementById(id).value='');
   toggleAbsForm();renderAbsences();logActivity(`Benjamin a enregistré une absence pour ${emp}`);
@@ -1345,22 +1462,153 @@ function renderAbsences(){
   }).join('');
 }
 
-function checkAbsenceReminders(){
+function checkAbsenceReminders(){_checkRemindersFor('benjamin');}
+function checkAbsenceRemindersForUser(uid){_checkRemindersFor(uid);}
+function _checkRemindersFor(uid){
   const mem=getMem();const absences=mem.absences||[];
   const today=new Date();today.setHours(0,0,0,0);
   const reminders=[];
   absences.forEach(a=>{
+    const notifs=a.notifs||['benjamin'];
+    if(!notifs.includes(uid))return;
     const debut=new Date(a.debut);debut.setHours(0,0,0,0);
     const diff=Math.ceil((debut-today)/(1000*60*60*24));
-    if(diff===7)reminders.push(`📅 Dans 7 jours : ${a.employe} — ${a.type} (du ${formatDate(a.debut)} au ${formatDate(a.fin)})`);
-    if(diff===1)reminders.push(`⚠️ DEMAIN : ${a.employe} sera absent(e) — ${a.type}`);
-    if(diff===0)reminders.push(`🔴 AUJOURD'HUI : ${a.employe} est absent(e) (jusqu'au ${formatDate(a.fin)})`);
+    if(diff===7)reminders.push(`📅 Dans 7 jours : **${a.employe}** absent(e) — ${a.type} (du ${formatDate(a.debut)} au ${formatDate(a.fin)})`);
+    if(diff===1)reminders.push(`⚠️ DEMAIN : **${a.employe}** sera absent(e) — ${a.type}`);
+    if(diff===0)reminders.push(`🔴 AUJOURD'HUI : **${a.employe}** est absent(e) (jusqu'au ${formatDate(a.fin)})`);
   });
-  if(reminders.length>0){
-    setTimeout(()=>{
-      reminders.forEach(r=>addAIMsg(`**Rappel absence** : ${r}`));
-    },800);
+  if(reminders.length>0)setTimeout(()=>{reminders.forEach(r=>addAIMsg('**Rappel absence** : '+r));},800);
+}
+
+// SAV VU PAR BENJAMIN
+function markSAVVu(){
+  if(currentUser?.role!=='admin')return;
+  const mem=getMem();if(!mem.sav_vu)mem.sav_vu={};
+  const today=new Date().toLocaleDateString('fr-FR');
+  (mem.sav||[]).forEach(s=>{if(!mem.sav_vu[s.id])mem.sav_vu[s.id]=today;});
+  saveMem(mem);
+}
+function getSAVVu(id){return((getMem().sav_vu)||{})[id]||null;}
+
+// ANNUAIRE
+function getAnnuaire(){try{return JSON.parse(localStorage.getItem('benai_annuaire'))||[];}catch{return[];}}
+function saveAnnuaire(a){localStorage.setItem('benai_annuaire',JSON.stringify(a));}
+function toggleEmpForm(){const w=document.getElementById('emp-form-wrap');w.style.display=w.style.display==='none'?'block':'none';}
+
+function addEmploye(){
+  const prenom=document.getElementById('emp-prenom').value.trim();
+  const nom=document.getElementById('emp-nom').value.trim();
+  const email=document.getElementById('emp-email').value.trim();
+  const tel=document.getElementById('emp-tel').value.trim();
+  const fonction=document.getElementById('emp-fonction').value;
+  const soc=document.getElementById('emp-soc').value;
+  if(!prenom||!nom){alert('Prénom et Nom sont obligatoires');return;}
+  const ann=getAnnuaire();
+  ann.push({id:Date.now(),prenom,nom,email,tel,fonction,societe:soc});
+  saveAnnuaire(ann);
+  ['emp-prenom','emp-nom','emp-email','emp-tel'].forEach(id=>document.getElementById(id).value='');
+  const ok=document.getElementById('emp-ok');ok.textContent='✅ Enregistré !';
+  setTimeout(()=>{ok.textContent='';toggleEmpForm();},1200);
+  renderAnnuaire();logActivity(`Benjamin a ajouté ${prenom} ${nom} dans l'annuaire`);
+}
+
+function deleteEmploye(id){
+  if(!confirm('Supprimer cet employé de l\'annuaire ?'))return;
+  saveAnnuaire(getAnnuaire().filter(e=>e.id!==id));renderAnnuaire();
+}
+
+function renderAnnuaire(search=''){
+  const list=document.getElementById('annuaire-list');if(!list)return;
+  let emps=getAnnuaire();
+  if(search)emps=emps.filter(e=>`${e.prenom} ${e.nom} ${e.email||''} ${e.fonction||''}`.toLowerCase().includes(search.toLowerCase()));
+  if(!emps.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun employé — cliquez sur + Ajouter</div>';return;}
+  const fc={'Poseur':'#60A5FA','Commercial':'#E8943A','Secrétaire':'#22C55E','Technicien':'#A78BFA','Comptable':'#FBBF24','Autre':'#888'};
+  list.innerHTML=emps.map(e=>`
+    <div class="emp-card">
+      <div class="emp-avatar">${e.prenom[0].toUpperCase()}${e.nom[0].toUpperCase()}</div>
+      <div style="flex:1">
+        <div class="emp-name">${esc(e.prenom)} ${esc(e.nom)} <span style="background:${fc[e.fonction]||'#888'}22;color:${fc[e.fonction]||'#888'};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">${e.fonction||'Autre'}</span></div>
+        <div class="emp-detail">${e.societe==='nemausus'?'Nemausus':e.societe==='lambert'?'Lambert':'Nemausus & Lambert'}${e.tel?' · '+esc(e.tel):''}</div>
+        ${e.email?`<div class="emp-email" onclick="navigator.clipboard.writeText('${esc(e.email)}')" title="Cliquer pour copier">✉️ ${esc(e.email)}</div>`:'<div class="emp-detail" style="color:var(--r)">⚠️ Pas d\'email</div>'}
+      </div>
+      <button onclick="deleteEmploye(${e.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:18px;padding:4px">🗑️</button>
+    </div>`).join('');
+}
+
+function fillAbsEmpList(){
+  const dl=document.getElementById('abs-emp-list');if(!dl)return;
+  dl.innerHTML=getAnnuaire().map(e=>`<option value="${esc(e.prenom+' '+e.nom)}">`).join('');
+}
+
+// FICHES DE PAIE
+let paieResults=[];
+
+async function processFichesPaie(input){
+  const files=Array.from(input.files);if(!files.length)return;
+  input.value='';
+  const apiKey=getApiKey();if(!apiKey){alert('Clé API manquante');return;}
+  paieResults=[];
+  document.getElementById('paie-empty').style.display='none';
+  document.getElementById('paie-progress').style.display='block';
+  document.getElementById('paie-list').innerHTML='';
+  for(let i=0;i<files.length;i++){
+    const file=files[i];
+    document.getElementById('paie-progress-bar').style.width=Math.round((i/files.length)*100)+'%';
+    document.getElementById('paie-progress-txt').textContent=`Analyse ${i+1}/${files.length} : ${file.name}`;
+    try{
+      const ab=await file.arrayBuffer();
+      const pdf=await pdfjsLib.getDocument({data:ab}).promise;
+      const page=await pdf.getPage(1);
+      const vp=page.getViewport({scale:1.5});
+      const c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;
+      await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+      const img=c.toDataURL('image/jpeg',0.8).split(',')[1];
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:200,system:'Analyse cette fiche de paie et réponds UNIQUEMENT en JSON valide sans rien d\'autre : {"prenom":"","nom":"","mois":"","annee":""}',messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}},{type:'text',text:'Extrait prénom, nom, mois et année de cette fiche de paie.'}]}]})
+      });
+      const data=await res.json();
+      if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
+      const parsed=JSON.parse(data.content[0].text.replace(/```json|```/g,'').trim());
+      const ann=getAnnuaire();
+      const match=ann.find(e=>normalizeId(e.nom)===normalizeId(parsed.nom||'')||normalizeId(`${e.prenom} ${e.nom}`)===normalizeId(`${parsed.prenom||''} ${parsed.nom||''}`));
+      paieResults.push({file:file.name,prenom:parsed.prenom||'',nom:parsed.nom||'',mois:parsed.mois||'',annee:parsed.annee||'',email:match?.email||'',found:!!match});
+    }catch(e){
+      paieResults.push({file:file.name,prenom:'?',nom:'?',mois:'',annee:'',email:'',found:false,error:e.message});
+    }
   }
+  document.getElementById('paie-progress-bar').style.width='100%';
+  setTimeout(()=>document.getElementById('paie-progress').style.display='none',500);
+  renderPaieList();
+}
+
+function renderPaieList(){
+  const list=document.getElementById('paie-list');if(!list)return;
+  if(!paieResults.length){document.getElementById('paie-empty').style.display='block';return;}
+  document.getElementById('paie-empty').style.display='none';
+  list.innerHTML=paieResults.map((r,i)=>{
+    const nom=r.prenom&&r.nom&&r.nom!=='?'?`${r.prenom} ${r.nom}`:r.file;
+    const periode=r.mois&&r.annee?`${r.mois} ${r.annee}`:r.mois||r.annee||'';
+    const sujet=encodeURIComponent(`Fiche de paie${periode?' — '+periode:''}`);
+    const corps=encodeURIComponent(`Bonjour ${r.prenom||''},\n\nVeuillez trouver ci-joint votre fiche de paie${periode?' du '+periode:''}.\n\nCordialement,\nBenjamin Muller\nNemausus Fermetures`);
+    const mailto=r.email?`mailto:${r.email}?subject=${sujet}&body=${corps}`:'';
+    return `<div class="paie-item">
+      <div style="font-size:22px">${r.found?'👤':'❓'}</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${esc(nom)}${periode?' <span style="color:var(--t2);font-weight:400;font-size:11px">— '+esc(periode)+'</span>':''}</div>
+        ${r.email?`<div style="font-size:11px;color:var(--bl);margin-top:2px">✉️ ${esc(r.email)}</div>`:`<div style="font-size:11px;color:var(--r);margin-top:2px">⚠️ Email non trouvé — <button onclick="askEmailPaie(${i})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:11px;font-family:inherit;text-decoration:underline">Saisir manuellement</button></div>`}
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">📄 ${esc(r.file)}</div>
+      </div>
+      ${r.email?`<a href="${mailto}" onclick="logActivity('Fiche de paie envoyée : '+this.getAttribute('data-nom'))" data-nom="${esc(nom)}" style="padding:8px 14px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;display:inline-block">📧 Ouvrir Outlook</a>`:`<button disabled style="padding:8px 14px;background:var(--s3);color:var(--t3);border:1px solid var(--b1);border-radius:8px;font-size:12px;cursor:not-allowed">📧 Email manquant</button>`}
+    </div>`;
+  }).join('');
+}
+
+function askEmailPaie(idx){
+  const email=prompt(`Email pour ${paieResults[idx].prenom} ${paieResults[idx].nom} :`);
+  if(!email||!email.includes('@'))return;
+  paieResults[idx].email=email;renderPaieList();
 }
 
 // ══════════════════════════════════════════
@@ -1482,11 +1730,12 @@ function creerUtilisateur(){
   const uid=document.getElementById('new-user-id').value.trim().toLowerCase().replace(/\s+/g,'_');
   const pwd=document.getElementById('new-user-pwd').value.trim();
   const soc=document.getElementById('new-user-soc').value;
+  const fonction=document.getElementById('new-user-fonction')?.value||'Autre';
   const status=document.getElementById('add-user-status');
   if(!name||!uid||!pwd){status.style.color='var(--r)';status.textContent='⚠️ Remplissez tous les champs';return;}
   if(getAllUsers().find(u=>u.id===uid)){status.style.color='var(--r)';status.textContent='⚠️ Identifiant déjà utilisé';return;}
   const extras=getExtraUsers();
-  const newUser={id:uid,name,role:'assistante',societe:soc,color:COLORS[extras.length%COLORS.length],initial:name[0].toUpperCase(),builtin:false,pages:['benai','messages','sav']};
+  const newUser={id:uid,name,role:'assistante',societe:soc,fonction,color:COLORS[extras.length%COLORS.length],initial:name[0].toUpperCase(),builtin:false,pages:['benai','messages','sav']};
   extras.push(newUser);saveExtraUsers(extras);
   const pwds=getPwds();pwds[uid]=pwd;savePwds(pwds);
   // Mettre à jour USERS en mémoire
@@ -1517,7 +1766,7 @@ function renderUsersList(){
   list.innerHTML=users.map(u=>`
     <div class="user-row">
       <div class="user-av" style="background:${u.color}">${u.initial}</div>
-      <div class="user-info"><div class="user-name">${esc(u.name)}</div><div class="user-role">${u.role==='admin'?'Admin':'Assistante'} · ${u.societe==='les-deux'?'Nemausus & Lambert':u.societe==='nemausus'?'Nemausus':'Lambert'}</div></div>
+      <div class="user-info"><div class="user-name">${esc(u.name)}</div><div class="user-role">${u.role==='admin'?'Admin':u.fonction||'Assistante'} · ${u.societe==='les-deux'?'Nemausus & Lambert':u.societe==='nemausus'?'Nemausus':'Lambert'}</div></div>
       ${u.builtin&&u.id==='benjamin'?'<span style="font-size:10px;color:var(--t3)">Admin</span>':`
         <div onclick="toggleAccess('${u.id}')" class="toggle ${access[u.id]===false?'':'on'}" title="${access[u.id]===false?'Accès bloqué':'Accès actif'}"></div>
         ${!u.builtin?`<button onclick="supprimerUtilisateur('${u.id}')" style="padding:4px 8px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">🗑️</button>`:''}
