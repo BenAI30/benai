@@ -389,6 +389,12 @@ input[type=file]{display:none;}
   </div>
 </div>
 
+<!-- SWITCH SESSION PANEL (Benjamin uniquement) -->
+<div id="switch-panel" style="display:none;position:fixed;top:52px;right:12px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.6);z-index:999;padding:14px;font-family:'Outfit',sans-serif;min-width:200px">
+  <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:10px">Passer à...</div>
+  <div id="switch-user-list"></div>
+</div>
+
 <!-- ══ APP ══ -->
 <div id="app">
 
@@ -401,7 +407,7 @@ input[type=file]{display:none;}
       <div class="tb-avatar" id="tb-avatar"></div>
       <span class="tb-username" id="tb-username"></span>
       <button class="tb-icon-btn" onclick="toggleSettings()" title="Paramètres">⚙️</button>
-      <button class="tb-logout" id="btn-switch-session" onclick="switchSession()" title="Changer d'utilisateur" style="display:none;margin-right:4px">🔄 Changer</button>
+      <button class="tb-logout" id="btn-switch-session" onclick="toggleSwitchPanel()" title="Changer d'utilisateur" style="display:none;margin-right:4px">🔄 Changer</button>
       <button class="tb-logout" onclick="logout()">Déconnexion</button>
     </div>
   </div>
@@ -993,23 +999,50 @@ function logout(){
   document.getElementById('chat-area').innerHTML='';
 }
 
-function switchSession(){
-  // Déconnexion rapide sans effacer les données — retourne au login
+function toggleSwitchPanel(){
+  const panel=document.getElementById('switch-panel');
+  const isOpen=panel.style.display!=='none';
+  panel.style.display=isOpen?'none':'block';
+  if(!isOpen){
+    // Peupler la liste des utilisateurs (tous sauf l'actuel)
+    const list=document.getElementById('switch-user-list');
+    const users=getAllUsers().filter(u=>u.id!==currentUser.id);
+    list.innerHTML=users.map(u=>`
+      <div onclick="switchToUser('${u.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;transition:.12s" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">
+        <div style="width:32px;height:32px;border-radius:9px;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">${u.initial}</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">${esc(u.name)}</div>
+          <div style="font-size:10px;color:var(--t3)">${u.role==='admin'?'Admin':u.fonction||'Assistante'}</div>
+        </div>
+      </div>`).join('');
+  }
+}
+
+function switchToUser(uid){
+  document.getElementById('switch-panel').style.display='none';
+  // Arrêter le polling
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
-  sessionStorage.removeItem('benai_session');
-  currentUser=null;chatHistory=[];currentConv=null;
+  // Switcher directement sans mot de passe
+  const u=USERS[uid]||getExtraUserById(uid);
+  if(!u){alert('Utilisateur introuvable');return;}
+  // Vérifier accès
+  const access=getAccess();
+  if(access[uid]===false){alert(`Accès bloqué pour ${u.name}`);return;}
+  // Nettoyer l'état
+  chatHistory=[];currentConv=null;
+  document.getElementById('chat-area').innerHTML='';
   ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
-  document.getElementById('app').classList.remove('visible');
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('login-user').value='';
-  document.getElementById('login-pwd').value='';
-  document.getElementById('login-err').textContent='';
-  document.getElementById('chat-area').innerHTML='';
-  // Pré-remplir le select avec tous les utilisateurs
-  const sel=document.getElementById('login-user');
-  loadExtraUsers();
+  // Connecter directement
+  currentUser={id:uid,...u};
+  sessionStorage.setItem('benai_session',uid);
+  logActivity(`Benjamin a basculé vers ${u.name}`);
+  initApp();
+}
+
+function switchSession(){
+  toggleSwitchPanel();
 }
 
 
@@ -1116,10 +1149,26 @@ function scrollChat(){const c=document.getElementById('chat-area');c.scrollTop=c
 
 async function sendChat(txtOverride){
   const input=document.getElementById('chat-input');
-  const txt=txtOverride||input.value.trim();
+  let txt=txtOverride||input.value.trim();
   if(!txt||busy)return;
   if(!txtOverride){input.value='';input.style.height='auto';}
   busy=true;document.getElementById('btn-send').disabled=true;
+
+  // Correction auto avant envoi (tous utilisateurs, si >3 mots)
+  if(!txtOverride&&txt.split(' ').length>3){
+    const apiKey=getApiKey();
+    if(apiKey){
+      try{
+        const r=await fetch('https://api.anthropic.com/v1/messages',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+          body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:`Corrige uniquement les fautes d'orthographe et de grammaire, sans changer le sens ni le style. Réponds UNIQUEMENT avec le texte corrigé, rien d'autre :\n\n${txt}`}]})
+        });
+        const d=await r.json();
+        if(d.content?.[0]?.text)txt=d.content[0].text.trim();
+      }catch(e){}
+    }
+  }
   const userMsgEl=addUserMsg(txt);const typing=addTyping();
   const now=Date.now();
   chatHistory.push({role:'user',content:txt,ts:now});
@@ -1854,16 +1903,16 @@ function renderAbsences(){
   const today=new Date();today.setHours(0,0,0,0);
   // Trier : à venir et en cours d'abord (plus proche), puis passées
   const absences=(mem.absences||[]).sort((a,b)=>{
-    const da=new Date(a.debut),db=new Date(b.debut);
     const fa=new Date(a.fin),fb=new Date(b.fin);
     const aPast=today>fa,bPast=today>fb;
     if(aPast&&!bPast)return 1;
     if(!aPast&&bPast)return -1;
-    return da-db;
+    return new Date(a.debut)-new Date(b.debut);
   });
-  const byEmp={};
+  // Grouper par employé en respectant l'ordre des premières absences
+  const empOrder=[];const byEmp={};
   absences.forEach(a=>{
-    if(!byEmp[a.employe])byEmp[a.employe]=[];
+    if(!byEmp[a.employe]){byEmp[a.employe]=[];empOrder.push(a.employe);}
     byEmp[a.employe].push(a);
   });
   const getStatus=(a)=>{
@@ -1874,7 +1923,7 @@ function renderAbsences(){
     const diff=Math.ceil((debut-today)/(1000*60*60*24));
     return{status:diff===1?'Demain':`Dans ${diff} jour(s)`,statusClass:'abs-future'};
   };
-  list.innerHTML=Object.entries(byEmp).sort((a,b)=>a[0].localeCompare(b[0],'fr')).map(([emp,abs])=>`
+  list.innerHTML=empOrder.map(emp=>{const abs=byEmp[emp];return`
     <div style="margin-bottom:18px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;overflow:hidden">
       <div style="padding:10px 14px;background:var(--s3);border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:8px">
         <span style="font-size:16px">👤</span>
@@ -1898,7 +1947,7 @@ function renderAbsences(){
           <button onclick="deleteAbsence(${a.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:16px;padding:2px" title="Supprimer">🗑️</button>
         </div>`;
       }).join('')}
-    </div>`).join('');
+    </div>`;}).join('');
 }
 
 function checkAbsenceReminders(){_checkRemindersFor('benjamin');}
@@ -2928,6 +2977,9 @@ document.addEventListener('click',e=>{
   const panel=document.getElementById('settings-panel');
   const btn=document.querySelector('.tb-icon-btn');
   if(panel&&!panel.contains(e.target)&&btn&&!btn.contains(e.target))panel.style.display='none';
+  const sp=document.getElementById('switch-panel');
+  const sb=document.getElementById('btn-switch-session');
+  if(sp&&!sp.contains(e.target)&&sb&&!sb.contains(e.target))sp.style.display='none';
 });
 
 // ══════════════════════════════════════════
