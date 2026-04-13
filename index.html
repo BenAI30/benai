@@ -2573,7 +2573,7 @@ async function checkUpdate(){
     const res=await fetch(`https://raw.githubusercontent.com/BenAI30/benai/main/version.json?t=${Date.now()}`);
     if(!res.ok)return;
     const data=await res.json();
-    if(data.version&&data.version!==BENAI_VERSION){
+    if(data.version&&isNewerVersion(data.version,BENAI_VERSION)){
       const badge=document.createElement('div');
       badge.style.cssText='position:fixed;bottom:16px;right:16px;background:var(--a);color:#fff;border-radius:10px;padding:10px 16px;font-size:12px;font-weight:600;cursor:pointer;z-index:9999;box-shadow:0 4px 20px rgba(232,148,58,.5)';
       badge.textContent=`⬆️ Mise à jour v${data.version} disponible`;
@@ -2581,6 +2581,17 @@ async function checkUpdate(){
       document.body.appendChild(badge);
     }
   }catch(e){}
+}
+
+function isNewerVersion(remote,current){
+  const r=remote.split('.').map(Number);
+  const c=current.split('.').map(Number);
+  for(let i=0;i<Math.max(r.length,c.length);i++){
+    const rv=r[i]||0,cv=c[i]||0;
+    if(rv>cv)return true;
+    if(rv<cv)return false;
+  }
+  return false;
 }
 
 async function installUpdate(version,notes){
