@@ -4484,8 +4484,8 @@ function toggleRdvDate(){
   const wrap=document.getElementById('rdv-date-wrap');
   const isRdv=sel&&sel.value==='rdv_programme';
   if(wrap)wrap.style.display=isRdv?'block':'none';
-  // RDV programmé reste en Non traité — on attend que le RDV ait lieu
-  // C'est APRÈS le RDV que le commercial passe en "En cours" manuellement
+  // RDV programmé → passe automatiquement dans "RDV pris"
+  if(isRdv)selectStatut('rdv',null,false);
 }
 
 function formatTel(input){
