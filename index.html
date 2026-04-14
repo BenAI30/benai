@@ -1057,7 +1057,7 @@ input[type=file]{display:none;}
 
               <!-- PANEL EN COURS — RDV a eu lieu → devis -->
               <div id="panel-jaune" style="display:none">
-                <div style="background:var(--y2);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--y);font-weight:600;margin-bottom:10px">📋 Le RDV a eu lieu — renseigner le devis</div>
+                
                 <div class="form-row">
                   <div class="form-group"><div class="form-label">Montant devis HT (€)</div><input type="number" class="form-input" id="lead-montant-devis" placeholder="0" step="100"></div>
                   <div class="form-group"><div class="form-label">Date envoi devis</div><input type="date" class="form-input" id="lead-date-devis"></div>
@@ -1070,7 +1070,7 @@ input[type=file]{display:none;}
 
               <!-- PANEL VENDU -->
               <div id="panel-vert" style="display:none">
-                <div style="background:var(--g2);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--g);font-weight:600;margin-bottom:10px">🎉 Vente signée — renseigner les détails</div>
+                
                 <div class="form-row">
                   <div class="form-group"><div class="form-label">Prix vendu HT (€) *</div><input type="number" class="form-input" id="lead-prix-vendu" placeholder="0" step="100"></div>
                   <div class="form-group"><div class="form-label">Date signature</div><input type="date" class="form-input" id="lead-date-signature"></div>
@@ -1080,7 +1080,7 @@ input[type=file]{display:none;}
 
               <!-- PANEL PERDU -->
               <div id="panel-rouge" style="display:none">
-                <div style="background:var(--r2);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--r);font-weight:600;margin-bottom:10px">❌ Lead perdu — indiquer la raison</div>
+                
                 <select class="form-input" id="lead-raison-mort">
                   <option value="">Raison obligatoire *</option>
                   <option value="concurrent">Concurrent choisi</option>
@@ -4423,9 +4423,9 @@ function resetLeadForm(){
   document.getElementById('lead-raison-mort').value='';
   const rdvWrap=document.getElementById('rdv-date-wrap');
   if(rdvWrap)rdvWrap.style.display='none';
-  // Reset fond modale
+  // Reset bordure modale
   const box=document.querySelector('.lead-modal-box');
-  if(box){box.style.background='var(--s1)';box.style.borderColor='var(--b1)';}
+  if(box){box.style.background='';box.style.borderColor='var(--b1)';}
   selectStatut('gris',null,true);
   selectSourceByVal('MAG');
 }
@@ -4450,12 +4450,13 @@ function selectStatut(statut,btn,silent=false){
   ['gris','jaune','vert','rouge'].forEach(s=>{
     const p=document.getElementById('panel-'+s);if(p)p.style.display=s===statut?'block':'none';
   });
-  // Fond de la modale — uniquement la bordure change, pas le fond
+  // Bordure modale selon statut — aucun fond coloré
   const box=document.querySelector('.lead-modal-box');
   if(box){
-    const borders={gris:'var(--b1)',jaune:'rgba(251,191,36,.5)',vert:'rgba(34,197,94,.5)',rouge:'rgba(248,113,113,.5)'};
-    box.style.background='var(--s1)';
+    box.style.background='';
+    const borders={gris:'var(--b1)',jaune:'rgba(251,191,36,.6)',vert:'rgba(34,197,94,.6)',rouge:'rgba(248,113,113,.6)'};
     box.style.borderColor=borders[statut]||'var(--b1)';
+    box.style.borderWidth='2px';
   }
   // Afficher/masquer date RDV selon sous-statut
   if(statut==='gris')toggleRdvDate();
