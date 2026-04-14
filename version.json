@@ -1,25 +1,19 @@
 {
   "version": "3.14",
   "notes_admin": [
-    "🔄 Bouton Changer visible uniquement sur ta session",
-    "🔵 Statut renommé en Non traité",
-    "🔒 Rôles commerciaux et directeur co correctement blindés",
-    "🎯 Leads : projet affiché en évidence sur chaque carte"
+    "🔄 Switch session corrigé — bouton Retour apparaît automatiquement",
+    "🚫 Auto-attribution supprimée — tous les leads passent par le directeur co"
   ],
   "notes_directeur_co": [
-    "⚠️ Arrivée directe sur les leads non attribués",
-    "🔔 Notifications bien plus visibles",
-    "📋 Vous voyez maintenant tous les leads correctement",
-    "🔵 Statut renommé en Non traité",
-    "🎯 Projet affiché en évidence sur chaque lead"
+    "⚠️ Tous les leads arrivent chez vous sans exception",
+    "🔄 Retour session corrigé"
   ],
   "notes_assistante": [
-    "📋 Vue CRM simplifiée — saisie et vos leads uniquement",
-    "🎯 Projet affiché en évidence sur chaque lead"
+    "👤 Vos leads affichent maintenant à qui ils ont été attribués",
+    "📅 Date de RDV visible directement sur la carte",
+    "📞 Rappel visible si programmé"
   ],
   "notes_commercial": [
-    "🔔 Notifications bien plus visibles",
-    "🔵 Statut renommé en Non traité",
-    "🎯 Projet affiché en évidence sur chaque lead"
+    "🔄 Retour session corrigé"
   ]
 }
