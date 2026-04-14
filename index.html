@@ -1482,38 +1482,26 @@ let sessionStack=[];
 const ROLE_LABELS={admin:'Admin',assistante:'Assistante',metreur:'Métreur',commercial:'Commercial',directeur_co:'Dir. commercial'};
 
 function toggleSwitchPanel(){
+  // Si pas Benjamin et qu'on peut revenir → retour direct sans panel
+  if(currentUser.id!=='benjamin'&&sessionStack.length>0){
+    switchBack();
+    return;
+  }
+  // Benjamin → ouvrir le panel
   const panel=document.getElementById('switch-panel');
   const isOpen=panel.style.display!=='none';
   panel.style.display=isOpen?'none':'block';
   if(!isOpen){
     const list=document.getElementById('switch-user-list');
-    // Seul Benjamin peut switcher de session
-    if(currentUser.id!=='benjamin'&&sessionStack.length===0){
-      list.innerHTML='<div style="font-size:12px;color:var(--t3)">Réservé à Benjamin</div>';
-      return;
-    }
     const users=getAllUsers().filter(u=>u.id!==currentUser.id);
-    const canGoBack=sessionStack.length>0&&currentUser.id!=='benjamin';
-    let html='';
-    if(canGoBack){
-      const prev=sessionStack[sessionStack.length-1];
-      const pu=USERS[prev]||getExtraUserById(prev);
-      if(pu)html+=`<div onclick="switchBack()" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;background:var(--a3);margin-bottom:6px">
-        <div style="width:32px;height:32px;border-radius:9px;background:${pu.color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">${pu.initial}</div>
-        <div><div style="font-size:13px;font-weight:600;color:var(--a)">↩️ Retour ${pu.name}</div><div style="font-size:10px;color:var(--t3)">Sans ressaisir les identifiants</div></div>
-      </div>`;
-    }
-    if(currentUser.id==='benjamin'){
-      html+=users.map(u=>`
-        <div onclick="switchToUser('${u.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;transition:.12s" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">
-          <div style="width:32px;height:32px;border-radius:9px;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">${u.initial}</div>
-          <div>
-            <div style="font-size:13px;font-weight:600">${esc(u.name)}</div>
-            <div style="font-size:10px;color:var(--t3)">${ROLE_LABELS[u.role]||u.role}</div>
-          </div>
-        </div>`).join('');
-    }
-    list.innerHTML=html||'<div style="font-size:12px;color:var(--t3)">Aucune session disponible</div>';
+    list.innerHTML=users.map(u=>`
+      <div onclick="switchToUser('${u.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;transition:.12s" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">
+        <div style="width:32px;height:32px;border-radius:9px;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">${u.initial}</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">${esc(u.name)}</div>
+          <div style="font-size:10px;color:var(--t3)">${ROLE_LABELS[u.role]||u.role}</div>
+        </div>
+      </div>`).join('');
   }
 }
 
@@ -1557,9 +1545,13 @@ function initApp(silent=false){
   document.getElementById('tb-avatar').style.background=u.color;
   document.getElementById('tb-avatar').textContent=u.initial;
   document.getElementById('tb-username').textContent=u.name;
-  // Bouton changer de session — Benjamin uniquement
+  // Bouton changer de session — Benjamin uniquement OU retour si en mode switch
   const btnSwitch=document.getElementById('btn-switch-session');
-  if(btnSwitch)btnSwitch.style.display=u.id==='benjamin'?'inline-block':'none';
+  if(btnSwitch){
+    const showSwitch=u.id==='benjamin'||sessionStack.length>0;
+    btnSwitch.style.display=showSwitch?'inline-block':'none';
+    btnSwitch.textContent=sessionStack.length>0&&u.id!=='benjamin'?'↩️ Retour':'🔄 Changer';
+  }
 
   // Réinitialiser TOUS les éléments admin avant d'appliquer les droits
   ['nav-admin','nav-absences','nav-annuaire','nav-paie','nav-leads',
@@ -4089,18 +4081,32 @@ function dispatchLead(id){
 function renderLeadCardAssistante(l){
   const srcIcon={MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'}[l.source]||'📋';
   const age=getLeadAge(l);
-  return `<div class="lead-card statut-gris" onclick="openLead(${l.id})">
+  const comm=getAllUsers().find(u=>u.id===l.commercial);
+  // Infos RDV/rappel
+  let rdvInfo='';
+  if(l.date_rdv){
+    const d=new Date(l.date_rdv);
+    rdvInfo=`<div style="font-size:11px;color:var(--bl);font-weight:600;margin-top:4px;padding:4px 8px;background:var(--bl2);border-radius:6px">📅 RDV le ${d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>`;
+  } else if(l.rappel){
+    const d=new Date(l.rappel);
+    rdvInfo=`<div style="font-size:11px;color:var(--y);font-weight:600;margin-top:4px;padding:4px 8px;background:var(--y2);border-radius:6px">📞 Rappel le ${d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>`;
+  }
+  return `<div class="lead-card statut-${l.statut||'gris'}" onclick="openLead(${l.id})">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
       <span>${srcIcon}</span>
       <div class="lead-nom">${esc(l.nom)}</div>
       <span style="margin-left:auto;font-size:10px;color:var(--t3)">${age}</span>
     </div>
-    <div class="lead-info">${esc(l.ville||'')} · ${esc(l.type_projet||'')}</div>
-    <div class="lead-meta" style="margin-top:4px">
+    <div style="font-size:13px;font-weight:700;color:var(--a);margin-bottom:3px">${esc(l.type_projet||'—')}</div>
+    <div class="lead-info">${esc(l.ville||'')}</div>
+    <div class="lead-meta" style="margin-top:6px;gap:8px">
+      ${comm
+        ?`<span style="background:var(--a3);color:var(--a);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">👤 ${esc(comm.name)}</span>`
+        :'<span style="background:var(--y2);color:var(--y);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⏳ En attente d\'attribution</span>'}
       ${makeCallLink(l.telephone)}
-      ${makeGPSLink(l.adresse,l.ville,l.cp)}
     </div>
-    ${l.commentaire?`<div style="font-size:11px;color:var(--t2);margin-top:4px;padding:4px 8px;background:var(--s3);border-radius:6px">${esc(l.commentaire)}</div>`:''}
+    ${rdvInfo}
+    ${l.commentaire?`<div style="font-size:11px;color:var(--t2);margin-top:4px;padding:4px 8px;background:var(--s3);border-radius:6px">💬 ${esc(l.commentaire)}</div>`:''}
   </div>`;
 }
 
@@ -4529,9 +4535,8 @@ function saveLead(){
   } else {
     // Nouveau lead
     const societe=getSocieteFromUser(currentUser.id);
-    // Auto-attribution si un seul commercial sur cette société
-    const autoComm=getAutoAttribution(societe);
-    const newLead={...data,id:Date.now(),date_creation:now,timeline:[],cree_par:currentUser.id,societe_crm:societe,commercial:data.commercial||autoComm||null};
+    // Pas d'auto-attribution — toujours passer par le directeur co
+    const newLead={...data,id:Date.now(),date_creation:now,timeline:[],cree_par:currentUser.id,societe_crm:societe,commercial:data.commercial||null};
     addLeadTimelineEntry(newLead,'Lead créé',currentUser.name);
     if(data.commercial){
       const c=getAllUsers().find(u=>u.id===data.commercial);
