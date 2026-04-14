@@ -353,9 +353,9 @@ body.light .bubble{color:var(--t1);}
 .lead-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:13px 15px;cursor:pointer;transition:.12s;position:relative;}
 .lead-card:hover{border-color:var(--a);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.2);}
 .lead-card.statut-gris{border-left:4px solid #888;}
-.lead-card.statut-jaune{border-left:4px solid var(--y);}
-.lead-card.statut-vert{border-left:4px solid var(--g);}
-.lead-card.statut-rouge{border-left:4px solid var(--r);}
+.lead-card.statut-jaune{border-left:4px solid var(--y);background:rgba(251,191,36,.07);}
+.lead-card.statut-vert{border-left:4px solid var(--g);background:rgba(34,197,94,.07);}
+.lead-card.statut-rouge{border-left:4px solid var(--r);background:rgba(248,113,113,.07);}
 .lead-card.alerte24{border-color:var(--r);box-shadow:0 0 0 2px rgba(248,113,113,.2);}
 .lead-nom{font-size:13px;font-weight:700;}
 .lead-info{font-size:11px;color:var(--t2);margin-top:3px;}
@@ -4465,7 +4465,12 @@ function selectStatut(statut,btn,silent=false){
 function toggleRdvDate(){
   const sel=document.getElementById('lead-sous-statut');
   const wrap=document.getElementById('rdv-date-wrap');
-  if(wrap)wrap.style.display=(sel&&sel.value==='rdv_programme')?'block':'none';
+  const isRdv=sel&&sel.value==='rdv_programme';
+  if(wrap)wrap.style.display=isRdv?'block':'none';
+  // RDV programmé → passer automatiquement en "En cours"
+  if(isRdv&&currentLeadStatut==='gris'){
+    selectStatut('jaune',null,false);
+  }
 }
 
 function formatTel(input){
