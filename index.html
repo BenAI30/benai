@@ -1004,8 +1004,8 @@ input[type=file]{display:none;}
                 <div id="adresse-suggestions" style="position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:0 0 8px 8px;z-index:100;display:none;max-height:160px;overflow-y:auto"></div>
               </div>
               <div class="form-row">
-                <div class="form-group"><div class="form-label">Ville *</div><input type="text" class="form-input" id="lead-ville" placeholder="Ville" readonly style="background:var(--s3)"></div>
-                <div class="form-group"><div class="form-label">Code postal *</div><input type="text" class="form-input" id="lead-cp" placeholder="30000" readonly style="background:var(--s3)"></div>
+                <div class="form-group"><div class="form-label">Ville *</div><input type="text" class="form-input" id="lead-ville" placeholder="Ville (auto ou manuel)"></div>
+                <div class="form-group"><div class="form-label">Code postal *</div><input type="text" class="form-input" id="lead-cp" placeholder="Code postal"></div>
               </div>
               <div class="form-row">
                 <div class="form-group"><div class="form-label">Type de projet *</div>
@@ -4511,11 +4511,15 @@ function saveLead(){
   const nom=document.getElementById('lead-nom').value.trim();
   const tel=document.getElementById('lead-tel').value.trim();
   const adresse=document.getElementById('lead-adresse').value.trim();
-  const ville=document.getElementById('lead-ville').value.trim();
-  const cp=document.getElementById('lead-cp').value.trim();
+  // Ville en lecture seule — permettre saisie manuelle si autocomplétion non utilisée
+  const villeEl=document.getElementById('lead-ville');
+  const cpEl=document.getElementById('lead-cp');
+  if(villeEl)villeEl.removeAttribute('readonly');
+  if(cpEl)cpEl.removeAttribute('readonly');
+  const ville=villeEl?.value.trim()||adresse.split(/\d{5}/)?.[1]?.trim()||'';
+  const cp2=cpEl?.value.trim()||'';
   const projet=document.getElementById('lead-projet').value.trim();
   if(!nom||!tel||!projet){alert('Remplissez les champs obligatoires : Nom, Téléphone, Projet');return;}
-  if(!ville&&!adresse){alert('Saisissez une adresse');return;}
   if(currentLeadStatut==='rouge'&&!document.getElementById('lead-raison-mort').value){alert('Indiquez la raison du refus');return;}
   if(currentLeadStatut==='vert'&&!document.getElementById('lead-prix-vendu').value){alert('Indiquez le prix vendu');return;}
   const leads=getLeads();
@@ -4523,7 +4527,7 @@ function saveLead(){
   const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   const commercial=document.getElementById('lead-commercial-assign')?.value||null;
   const data={
-    nom,telephone:tel,adresse,ville,cp,type_projet:projet,
+    nom,telephone:tel,adresse,ville,cp:cp2,type_projet:projet,
     secteur:document.getElementById('lead-secteur').value,
     source:currentLeadSource,
     statut:currentLeadStatut,
