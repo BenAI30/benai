@@ -198,7 +198,7 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 /* NOTES */
 .notes-area{flex:1;overflow-y:auto;padding:16px;}
 .note-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:14px;margin-bottom:10px;position:relative;}
-.note-card textarea{width:100%;background:transparent;border:none;outline:none;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;line-height:1.6;resize:none;min-height:60px;}
+.note-card textarea{width:100%;background:transparent;border:none;outline:none;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;line-height:1.6;resize:vertical;min-height:60px;max-height:400px;}
 .note-meta{font-size:10px;color:var(--t3);margin-top:6px;display:flex;justify-content:space-between;}
 .note-del{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;transition:.15s;}
 .note-del:hover{color:var(--r);}
@@ -312,8 +312,31 @@ body.light{--bg:#F5F5F0;--s1:#FFFFFF;--s2:#F0EFE9;--s3:#E8E7E0;--b1:#D8D6CE;--b2
 body.light .login-box{background:#fff;border-color:#E0DDD5;}
 body.light .msg.ai .bubble{background:#fff;border-color:#E0DDD5;}
 body.light .bubble{color:var(--t1);}
+/* ACCORDION DASHBOARD */
+.accordion-header{cursor:pointer;user-select:none;display:flex;align-items:center;}
+.accordion-header:hover{opacity:.8;}
+.accordion-arrow{margin-left:auto;font-size:12px;transition:transform .2s;color:var(--t3);}
+.accordion-body{overflow:hidden;transition:max-height .25s ease;}
+.accordion-body.collapsed{display:none;}
+/* NOTIFICATION POPUP */
+.notif-popup{position:fixed;top:60px;right:16px;width:300px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:9998;overflow:hidden;display:none;}
+.notif-popup-header{padding:10px 14px;background:var(--s2);border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;}
+.notif-popup-title{font-size:12px;font-weight:700;color:var(--t1);}
+.notif-popup-body{max-height:300px;overflow-y:auto;}
+.notif-item{padding:10px 14px;border-bottom:1px solid var(--b1);display:flex;gap:8px;align-items:flex-start;cursor:pointer;transition:.12s;}
+.notif-item:hover{background:var(--s3);}
+.notif-item.unread{background:var(--a3);}
+.notif-item-icon{font-size:18px;flex-shrink:0;}
+.notif-item-txt{flex:1;font-size:12px;color:var(--t1);line-height:1.4;}
+.notif-item-time{font-size:10px;color:var(--t3);margin-top:2px;}
+/* DOWNLOAD CHAT */
+.download-chat-btn{background:none;border:1px solid var(--b1);border-radius:7px;padding:4px 8px;cursor:pointer;font-size:12px;transition:.15s;color:var(--t3);}
+.download-chat-btn:hover{border-color:var(--a);color:var(--a);}
+/* BADGE ABSENCES SIDEBAR */
+.sb-badge-abs{margin-left:auto;background:var(--bl);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;}
 input[type=file]{display:none;}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -389,6 +412,18 @@ input[type=file]{display:none;}
   </div>
 </div>
 
+<!-- NOTIFICATION PANEL -->
+<div class="notif-popup" id="notif-panel">
+  <div class="notif-popup-header">
+    <span class="notif-popup-title">🔔 Notifications</span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="markAllNotifsRead()" style="background:none;border:none;color:var(--t3);font-size:10px;cursor:pointer;font-family:inherit">Tout marquer lu</button>
+      <button onclick="toggleNotifPanel()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px">✕</button>
+    </div>
+  </div>
+  <div class="notif-popup-body" id="notif-list"><div style="padding:16px;color:var(--t3);font-size:12px;text-align:center">Aucune notification</div></div>
+</div>
+
 <!-- SWITCH SESSION PANEL (Benjamin uniquement) -->
 <div id="switch-panel" style="display:none;position:fixed;top:52px;right:12px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.6);z-index:999;padding:14px;font-family:'Outfit',sans-serif;min-width:200px">
   <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:10px">Passer à...</div>
@@ -408,6 +443,7 @@ input[type=file]{display:none;}
       <span class="tb-username" id="tb-username"></span>
       <button class="tb-icon-btn" onclick="toggleSettings()" title="Paramètres">⚙️</button>
       <button class="tb-logout" id="btn-switch-session" onclick="toggleSwitchPanel()" title="Changer d'utilisateur" style="display:none;margin-right:4px">🔄 Changer</button>
+      <button class="tb-icon-btn" id="btn-notif" onclick="toggleNotifPanel()" title="Notifications" style="position:relative">🔔<span id="notif-dot" style="position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--r);border:2px solid var(--s1);display:none"></span></button>
       <button class="tb-logout" onclick="logout()">Déconnexion</button>
     </div>
   </div>
@@ -493,7 +529,7 @@ input[type=file]{display:none;}
           <span class="sb-icon">🔧</span><span class="sb-txt">SAV</span>
           <span class="sb-badge" id="sav-badge" style="display:none"></span>
         </div>
-        <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span></div>
+        <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span><span class="sb-badge-abs" id="abs-badge" style="display:none"></span></div>
         <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')"><span class="sb-icon">👥</span><span class="sb-txt">Annuaire</span></div>
         <div class="sb-item" id="nav-paie" style="display:none" onclick="showPage('paie')"><span class="sb-icon">💰</span><span class="sb-txt">Fiches de paie</span></div>
         <div class="sb-item" id="nav-admin" style="display:none" onclick="showPage('admin')"><span class="sb-icon">📊</span><span class="sb-txt">Dashboard</span></div>
@@ -510,6 +546,7 @@ input[type=file]{display:none;}
             <div class="page-title">🤖 BenAI IA</div>
             <div class="page-sub">BenAI suggère — vous décidez toujours</div>
           </div>
+          <button class="download-chat-btn" onclick="downloadMyChat()" title="Télécharger ma conversation">⬇️ Conversation</button>
         </div>
         <div class="chat-area" id="chat-area"></div>
         <div id="emoji-picker" class="emoji-picker">
@@ -701,50 +738,52 @@ input[type=file]{display:none;}
           </div>
 
           <!-- TOKENS -->
-          <div class="dash-card" style="margin-bottom:12px">
-            <div class="dc-label">🔢 Consommation API (tokens)</div>
-            <div id="token-stats" style="margin-top:8px"></div>
+          <div class="dash-card accordion-card" style="margin-bottom:12px">
+            <div class="dc-label accordion-header" onclick="toggleAccordion('token-stats-wrap')">🔢 Consommation API <span class="accordion-arrow">▾</span></div>
+            <div id="token-stats-wrap" class="accordion-body"><div id="token-stats" style="margin-top:8px"></div></div>
           </div>
 
           <!-- STATS SAV -->
-          <div class="dash-card" style="margin-bottom:12px">
-            <div class="dc-label">📊 Statistiques SAV</div>
-            <div id="sav-stats-admin" style="margin-top:8px"></div>
+          <div class="dash-card accordion-card" style="margin-bottom:12px">
+            <div class="dc-label accordion-header" onclick="toggleAccordion('sav-stats-wrap')">📊 Statistiques SAV <span class="accordion-arrow">▾</span></div>
+            <div id="sav-stats-wrap" class="accordion-body"><div id="sav-stats-admin" style="margin-top:8px"></div></div>
           </div>
 
           <!-- UTILISATEURS -->
-          <div class="dash-card" style="margin-bottom:12px">
-            <div class="dc-label">👥 Gestion des utilisateurs <button onclick="showAddUser()" style="padding:4px 10px;background:var(--a);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">+ Ajouter</button></div>
-            <div id="users-list" style="margin-top:10px"></div>
-            <div id="add-user-form" style="display:none;margin-top:12px;background:var(--s3);border-radius:10px;padding:12px">
-              <div style="font-size:12px;font-weight:600;margin-bottom:10px">➕ Créer un accès BenAI</div>
-              <div style="font-size:11px;color:var(--t3);margin-bottom:10px">Sélectionnez un salarié de l'annuaire pour lui créer un accès BenAI.</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-                <div><div class="form-label">Salarié (annuaire)</div>
-                  <select class="form-input" id="new-user-ann-select">
-                    <option value="">Sélectionner...</option>
-                  </select>
+          <div class="dash-card accordion-card" style="margin-bottom:12px">
+            <div class="dc-label accordion-header" onclick="toggleAccordion('users-wrap')">👥 Gestion des utilisateurs <span class="accordion-arrow">▾</span><button onclick="event.stopPropagation();showAddUser()" style="padding:4px 10px;background:var(--a);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;margin-left:8px">+ Ajouter</button></div>
+            <div id="users-wrap" class="accordion-body">
+              <div id="users-list" style="margin-top:10px"></div>
+              <div id="add-user-form" style="display:none;margin-top:12px;background:var(--s3);border-radius:10px;padding:12px">
+                <div style="font-size:12px;font-weight:600;margin-bottom:10px">➕ Créer un accès BenAI</div>
+                <div style="font-size:11px;color:var(--t3);margin-bottom:10px">Sélectionnez un salarié de l'annuaire pour lui créer un accès BenAI.</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                  <div><div class="form-label">Salarié (annuaire)</div>
+                    <select class="form-input" id="new-user-ann-select">
+                      <option value="">Sélectionner...</option>
+                    </select>
+                  </div>
+                  <div><div class="form-label">Mot de passe</div><input type="text" class="form-input" id="new-user-pwd" placeholder="Mot de passe"></div>
                 </div>
-                <div><div class="form-label">Mot de passe</div><input type="text" class="form-input" id="new-user-pwd" placeholder="Mot de passe"></div>
+                <div style="display:flex;gap:6px">
+                  <button onclick="creerUtilisateur()" class="btn-primary" style="flex:1">Créer l'accès</button>
+                  <button onclick="document.getElementById('add-user-form').style.display='none'" style="padding:9px 14px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+                </div>
+                <div id="add-user-status" style="font-size:11px;margin-top:6px;min-height:14px"></div>
               </div>
-              <div style="display:flex;gap:6px">
-                <button onclick="creerUtilisateur()" class="btn-primary" style="flex:1">Créer l'accès</button>
-                <button onclick="document.getElementById('add-user-form').style.display='none'" style="padding:9px 14px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
-              </div>
-              <div id="add-user-status" style="font-size:11px;margin-top:6px;min-height:14px"></div>
             </div>
           </div>
 
           <!-- MOTS DE PASSE -->
-          <div class="dash-card" style="margin-bottom:12px">
-            <div class="dc-label">🔑 Mots de passe</div>
-            <div id="pwd-list" style="margin-top:8px"></div>
+          <div class="dash-card accordion-card" style="margin-bottom:12px">
+            <div class="dc-label accordion-header" onclick="toggleAccordion('pwd-wrap')">🔑 Mots de passe <span class="accordion-arrow">▾</span></div>
+            <div id="pwd-wrap" class="accordion-body"><div id="pwd-list" style="margin-top:8px"></div></div>
           </div>
 
           <!-- ACTIVITÉ -->
-          <div class="dash-card">
-            <div class="dc-label">⚡ Activité récente</div>
-            <div id="activity-list" style="margin-top:8px"><div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div></div>
+          <div class="dash-card accordion-card">
+            <div class="dc-label accordion-header" onclick="toggleAccordion('activity-wrap')">⚡ Activité récente <span class="accordion-arrow">▾</span></div>
+            <div id="activity-wrap" class="accordion-body"><div id="activity-list" style="margin-top:8px"><div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div></div></div>
           </div>
         </div>
       </div>
@@ -835,7 +874,7 @@ input[type=file]{display:none;}
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const BENAI_VERSION = '3.9';
+const BENAI_VERSION = '3.10';
 
 // ══════════════════════════════════════════
 // UTILISATEURS
@@ -1019,51 +1058,78 @@ function logout(){
   document.getElementById('chat-area').innerHTML='';
 }
 
+// Pile de sessions — pour revenir à Benjamin sans mot de passe
+let sessionStack=[];
+
 function toggleSwitchPanel(){
   const panel=document.getElementById('switch-panel');
   const isOpen=panel.style.display!=='none';
   panel.style.display=isOpen?'none':'block';
   if(!isOpen){
-    // Peupler la liste des utilisateurs (tous sauf l'actuel)
     const list=document.getElementById('switch-user-list');
     const users=getAllUsers().filter(u=>u.id!==currentUser.id);
-    list.innerHTML=users.map(u=>`
+    // Si on est pas Benjamin et qu'il y a une session Benjamin dans la pile → proposer retour
+    const canGoBack=sessionStack.length>0&&currentUser.id!=='benjamin';
+    let html='';
+    if(canGoBack){
+      const prev=sessionStack[sessionStack.length-1];
+      const pu=USERS[prev]||getExtraUserById(prev);
+      if(pu)html+=`<div onclick="switchBack()" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;background:var(--a3);margin-bottom:6px" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
+        <div style="width:32px;height:32px;border-radius:9px;background:${pu.color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">${pu.initial}</div>
+        <div><div style="font-size:13px;font-weight:600;color:var(--a)">↩️ Retour ${pu.name}</div><div style="font-size:10px;color:var(--t3)">Sans ressaisir les identifiants</div></div>
+      </div>`;
+    }
+    html+=users.map(u=>`
       <div onclick="switchToUser('${u.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;transition:.12s" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">
         <div style="width:32px;height:32px;border-radius:9px;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">${u.initial}</div>
         <div>
           <div style="font-size:13px;font-weight:600">${esc(u.name)}</div>
-          <div style="font-size:10px;color:var(--t3)">${u.role==='admin'?'Admin':u.fonction||'Assistante'}</div>
+          <div style="font-size:10px;color:var(--t3)">${u.role==='admin'?'Admin':'Assistante'}</div>
         </div>
       </div>`).join('');
+    list.innerHTML=html;
   }
 }
 
-function switchToUser(uid){
+function switchBack(){
+  if(!sessionStack.length)return;
+  const prevUid=sessionStack.pop();
   document.getElementById('switch-panel').style.display='none';
-  // Arrêter le polling
+  const u=USERS[prevUid]||getExtraUserById(prevUid);
+  if(!u)return;
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
-  // Switcher directement sans mot de passe
-  const u=USERS[uid]||getExtraUserById(uid);
-  if(!u){alert('Utilisateur introuvable');return;}
-  // Vérifier accès
-  const access=getAccess();
-  if(access[uid]===false){alert(`Accès bloqué pour ${u.name}`);return;}
-  // Nettoyer l'état
   chatHistory=[];currentConv=null;
   document.getElementById('chat-area').innerHTML='';
   ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
-  // Connecter directement
-  currentUser={id:uid,...u};
-  sessionStorage.setItem('benai_session',uid);
-  logActivity(`Benjamin a basculé vers ${u.name}`);
+  currentUser={id:prevUid,...u};
+  sessionStorage.setItem('benai_session',prevUid);
+  logActivity(`Retour sur la session de ${u.name}`);
   initApp();
 }
 
-function switchSession(){
-  toggleSwitchPanel();
+function switchToUser(uid){
+  document.getElementById('switch-panel').style.display='none';
+  if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
+  const u=USERS[uid]||getExtraUserById(uid);
+  if(!u){alert('Utilisateur introuvable');return;}
+  const access=getAccess();
+  if(access[uid]===false){alert(`Accès bloqué pour ${u.name}`);return;}
+  // Empiler la session actuelle pour pouvoir y revenir
+  if(currentUser)sessionStack.push(currentUser.id);
+  chatHistory=[];currentConv=null;
+  document.getElementById('chat-area').innerHTML='';
+  ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.style.display='none';
+  });
+  currentUser={id:uid,...u};
+  sessionStorage.setItem('benai_session',uid);
+  logActivity(`${sessionStack.length>0?USERS[sessionStack[sessionStack.length-1]]?.name||'Benjamin':'Benjamin'} a basculé vers ${u.name}`);
+  initApp();
 }
+
+function switchSession(){toggleSwitchPanel();}
 
 
 function initApp(silent=false){
@@ -1071,9 +1137,9 @@ function initApp(silent=false){
   document.getElementById('tb-avatar').style.background=u.color;
   document.getElementById('tb-avatar').textContent=u.initial;
   document.getElementById('tb-username').textContent=u.name;
-  // Bouton changer de session — Benjamin uniquement
+  // Bouton changer de session — visible pour tous
   const btnSwitch=document.getElementById('btn-switch-session');
-  if(btnSwitch)btnSwitch.style.display=u.id==='benjamin'?'inline-block':'none';
+  if(btnSwitch)btnSwitch.style.display='inline-block';
 
   // Réinitialiser TOUS les éléments admin avant d'appliquer les droits
   ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
@@ -1110,6 +1176,11 @@ function initApp(silent=false){
   showPage('benai');
   buildEmojiPicker();
   startPolling();
+  refreshAbsBadge();
+  refreshNotifBadge();
+  requestNotifPermission();
+  // Initialiser Google Drive client si configuré
+  if(u.id==='benjamin')setTimeout(()=>initGDriveClient(),1000);
   // Briefing quotidien intelligent (une seule fois par jour)
   if(!silent)setTimeout(()=>generateDailyBriefing(),600);
   // Tuto première utilisation
@@ -1209,7 +1280,7 @@ async function sendChat(txtOverride){
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:currentUser.system+BENAI_CTX+ctx+smartCtx,messages:msgs})
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,system:currentUser.system+BENAI_CTX+ctx+smartCtx,messages:msgs})
     });
     const data=await res.json();
     if(!res.ok)throw new Error(data.error?.message||'Erreur API');
@@ -1339,7 +1410,7 @@ async function handleImageFile(file){
     const apiKey=getApiKey();
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:currentUser.system+BENAI_CTX,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},{type:'text',text:userPrompt}]}]})
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,system:currentUser.system+BENAI_CTX,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},{type:'text',text:userPrompt}]}]})
     });
     const data=await res.json();if(!res.ok)throw new Error(data.error?.message||'Erreur API');
     if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
@@ -3083,130 +3154,105 @@ function startPolling(){
 }
 
 // ══════════════════════════════════════════
-// 🔴 SAUVEGARDE GOOGLE DRIVE AUTOMATIQUE
+// ☁️ SAUVEGARDE GOOGLE DRIVE (Google Identity Services)
 // ══════════════════════════════════════════
-
-const GDRIVE_CLIENT_ID='';// Rempli automatiquement via settings
 const GDRIVE_SCOPE='https://www.googleapis.com/auth/drive.file';
 const GDRIVE_BACKUP_FILENAME='BenAI_backup.json';
-let gdriveAccessToken=null;
+let gdriveTokenClient=null;
+let gdriveToken=null;
 
 function getGDriveClientId(){return localStorage.getItem('benai_gdrive_client_id')||'';}
 function saveGDriveClientId(id){localStorage.setItem('benai_gdrive_client_id',id);}
-function getGDriveToken(){return localStorage.getItem('benai_gdrive_token')||null;}
-function saveGDriveToken(t){localStorage.setItem('benai_gdrive_token',t);}
+
+function initGDriveClient(){
+  const clientId=getGDriveClientId();
+  if(!clientId||!window.google?.accounts?.oauth2)return;
+  gdriveTokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:clientId,
+    scope:GDRIVE_SCOPE,
+    callback:(resp)=>{
+      if(resp.error){showDriveNotif('❌ Erreur Google Drive : '+resp.error);return;}
+      gdriveToken=resp.access_token;
+      uploadToDrive(gdriveToken).then(ok=>{
+        if(ok){
+          showDriveNotif('✅ Sauvegarde Google Drive effectuée');
+          localStorage.setItem('benai_gdrive_last_backup',new Date().toISOString());
+          const el=document.getElementById('gdrive-last-backup');
+          if(el)el.textContent='Dernière sauvegarde : '+new Date().toLocaleString('fr-FR');
+        } else {
+          showDriveNotif('❌ Échec sauvegarde Drive — vérifie le Client ID');
+        }
+      });
+    }
+  });
+}
 
 async function autoBackupToDrive(){
   const clientId=getGDriveClientId();
   if(!clientId){
-    // Pas encore configuré — notif discrète une seule fois
     const seen=localStorage.getItem('benai_gdrive_prompt_seen');
     if(!seen){
       localStorage.setItem('benai_gdrive_prompt_seen','1');
-      setTimeout(()=>addAIMsg('💾 **Sauvegarde Google Drive non configurée**\n\nVa dans ⚙️ Paramètres pour configurer la sauvegarde automatique et protéger tes données.'),2500);
+      setTimeout(()=>addAIMsg('💾 **Sauvegarde Google Drive non configurée**\n\nVa dans ⚙️ Paramètres → section Google Drive pour entrer ton Client ID et activer la sauvegarde automatique.'),2500);
     }
     return;
   }
-  // Tenter sauvegarde silencieuse avec token existant
-  const token=getGDriveToken();
-  if(token){
-    const ok=await uploadToDrive(token);
-    if(ok){
-      showDriveNotif('✅ Sauvegarde Google Drive effectuée');
-      localStorage.setItem('benai_gdrive_last_backup',new Date().toISOString());
-      return;
-    }
+  if(!window.google?.accounts?.oauth2){
+    // Google Identity Services pas encore chargé — attendre
+    setTimeout(()=>autoBackupToDrive(),1500);
+    return;
   }
-  // Token expiré ou absent → demander autorisation
-  requestDriveAuth(clientId);
-}
-
-function requestDriveAuth(clientId){
-  const redirectUri=window.location.origin+window.location.pathname;
-  const authUrl=`https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(GDRIVE_SCOPE)}&prompt=none`;
-  // Ouvrir dans popup invisible
-  const w=window.open(authUrl,'gdrive_auth','width=500,height=600,left=200,top=100');
-  const timer=setInterval(()=>{
-    try{
-      if(w&&w.closed){clearInterval(timer);return;}
-      const url=w?.location?.href||'';
-      if(url.includes('access_token=')){
-        const params=new URLSearchParams(url.split('#')[1]||url.split('?')[1]||'');
-        const token=params.get('access_token');
-        if(token){
-          saveGDriveToken(token);
-          gdriveAccessToken=token;
-          w.close();clearInterval(timer);
-          uploadToDrive(token).then(ok=>{
-            if(ok){showDriveNotif('✅ Sauvegarde Google Drive effectuée');localStorage.setItem('benai_gdrive_last_backup',new Date().toISOString());}
-          });
-        }
-      }
-    }catch(e){}
-  },500);
-}
-
-async function uploadToDrive(token){
-  try{
-    const mem=getMem();const pwds=getPwds();const extras=getExtraUsers();const access=getAccess();const annuaire=getAnnuaire();
-    const backup={version:BENAI_VERSION,date:new Date().toISOString(),data:mem,pwds,extras,access,annuaire};
-    const content=JSON.stringify(backup,null,2);
-    // Chercher si le fichier existe déjà
-    const search=await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${GDRIVE_BACKUP_FILENAME}'+and+trashed=false&fields=files(id,name)`,{
-      headers:{Authorization:`Bearer ${token}`}
-    });
-    if(!search.ok){saveGDriveToken('');return false;}
-    const {files}=await search.json();
-    let fileId=files?.[0]?.id||null;
-    if(fileId){
-      // Mettre à jour
-      const res=await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,{
-        method:'PATCH',
-        headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-        body:content
-      });
-      return res.ok;
-    } else {
-      // Créer
-      const meta=new Blob([JSON.stringify({name:GDRIVE_BACKUP_FILENAME,mimeType:'application/json'})],{type:'application/json'});
-      const data=new Blob([content],{type:'application/json'});
-      const form=new FormData();form.append('metadata',meta);form.append('file',data);
-      const res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
-        method:'POST',headers:{Authorization:`Bearer ${token}`},body:form
-      });
-      return res.ok;
-    }
-  }catch(e){saveGDriveToken('');return false;}
-}
-
-function showDriveNotif(msg){
-  const notif=document.createElement('div');
-  notif.style.cssText='position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--s2);border:1px solid var(--g);border-radius:10px;padding:8px 16px;font-size:12px;font-weight:500;color:var(--g);z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.4)';
-  notif.textContent=msg;
-  document.body.appendChild(notif);
-  setTimeout(()=>notif.remove(),3000);
+  if(!gdriveTokenClient)initGDriveClient();
+  if(!gdriveTokenClient)return;
+  // Demander token silencieusement (prompt:'none' = sans popup si déjà autorisé)
+  gdriveTokenClient.requestAccessToken({prompt:''});
 }
 
 async function manualBackupToDrive(){
   const clientId=getGDriveClientId();
   if(!clientId){alert('⚠️ Configure ton Client ID Google Drive dans les paramètres.');return;}
-  const token=getGDriveToken();
-  if(token){
-    const ok=await uploadToDrive(token);
-    if(ok){showDriveNotif('✅ Sauvegarde Google Drive effectuée');return;}
-  }
-  requestDriveAuth(clientId);
+  if(!window.google?.accounts?.oauth2){alert('⚠️ Google Identity Services non chargé. Vérifie ta connexion internet.');return;}
+  if(!gdriveTokenClient)initGDriveClient();
+  if(!gdriveTokenClient)return;
+  // Forcer la popup d'autorisation
+  gdriveTokenClient.requestAccessToken({prompt:'consent'});
 }
 
-// Récupérer token depuis URL hash après redirect OAuth
-(function checkOAuthRedirect(){
-  const hash=window.location.hash;
-  if(hash.includes('access_token=')){
-    const params=new URLSearchParams(hash.substring(1));
-    const token=params.get('access_token');
-    if(token){saveGDriveToken(token);history.replaceState(null,'',window.location.pathname);}
-  }
-})();
+async function uploadToDrive(token){
+  try{
+    const mem=getMem();const pwds=getPwds();const extras=getExtraUsers();const access=getAccess();const ann=getAnnuaire();
+    const backup={version:BENAI_VERSION,date:new Date().toISOString(),data:mem,pwds,extras,access,annuaire:ann};
+    const content=JSON.stringify(backup,null,2);
+    // Chercher si le fichier existe déjà
+    const search=await fetch(`https://www.googleapis.com/drive/v3/files?q=name%3D'${GDRIVE_BACKUP_FILENAME}'+and+trashed%3Dfalse&fields=files(id)`,{
+      headers:{Authorization:'Bearer '+token}
+    });
+    if(!search.ok)return false;
+    const {files=[]}=await search.json();
+    if(files[0]?.id){
+      const res=await fetch(`https://www.googleapis.com/upload/drive/v3/files/${files[0].id}?uploadType=media`,{
+        method:'PATCH',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:content
+      });
+      return res.ok;
+    } else {
+      const meta=new Blob([JSON.stringify({name:GDRIVE_BACKUP_FILENAME,mimeType:'application/json'})],{type:'application/json'});
+      const blob=new Blob([content],{type:'application/json'});
+      const form=new FormData();form.append('metadata',meta);form.append('file',blob);
+      const res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+        method:'POST',headers:{Authorization:'Bearer '+token},body:form
+      });
+      return res.ok;
+    }
+  }catch(e){return false;}
+}
+
+function showDriveNotif(msg){
+  const notif=document.createElement('div');
+  notif.style.cssText='position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--s2);border:1px solid var(--g);border-radius:10px;padding:10px 18px;font-size:12px;font-weight:600;color:var(--g);z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .3s';
+  notif.textContent=msg;
+  document.body.appendChild(notif);
+  setTimeout(()=>{notif.style.opacity='0';setTimeout(()=>notif.remove(),300);},3000);
+}
 
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const md=txt=>(txt||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
@@ -3228,6 +3274,140 @@ function logActivity(txt){
   saveMem(mem);
 }
 
+// ══════════════════════════════════════════
+// ACCORDION DASHBOARD
+// ══════════════════════════════════════════
+function toggleAccordion(id){
+  const body=document.getElementById(id);if(!body)return;
+  const isOpen=!body.classList.contains('collapsed');
+  body.classList.toggle('collapsed',isOpen);
+  const arrow=body.previousElementSibling?.querySelector('.accordion-arrow');
+  if(arrow)arrow.style.transform=isOpen?'rotate(-90deg)':'rotate(0deg)';
+}
+
+// ══════════════════════════════════════════
+// SYSTÈME DE NOTIFICATIONS
+// ══════════════════════════════════════════
+function getNotifs(){try{return JSON.parse(localStorage.getItem('benai_notifs_'+( currentUser?.id||'?')))||[];}catch{return[];}}
+function saveNotifs(n){localStorage.setItem('benai_notifs_'+(currentUser?.id||'?'),JSON.stringify(n));}
+
+function pushNotif(titre,msg,icon='🔔',uid){
+  // uid = destinataire (si vide = utilisateur courant)
+  const target=uid||currentUser?.id||'?';
+  try{
+    const key='benai_notifs_'+target;
+    const notifs=JSON.parse(localStorage.getItem(key)||'[]');
+    notifs.unshift({id:Date.now(),titre,msg,icon,time:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),read:false});
+    if(notifs.length>50)notifs.splice(50);
+    localStorage.setItem(key,JSON.stringify(notifs));
+  }catch(e){}
+  // Notification navigateur si autorisée
+  if(Notification.permission==='granted'&&uid===currentUser?.id){
+    new Notification('BenAI — '+titre,{body:msg,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="%23E8943A"/><text x="16" y="22" text-anchor="middle" font-size="18" fill="white">B</text></svg>'});
+  }
+  refreshNotifBadge();
+}
+
+function refreshNotifBadge(){
+  if(!currentUser)return;
+  const notifs=getNotifs();
+  const unread=notifs.filter(n=>!n.read).length;
+  const dot=document.getElementById('notif-dot');
+  if(dot)dot.style.display=unread>0?'block':'none';
+}
+
+function toggleNotifPanel(){
+  const panel=document.getElementById('notif-panel');
+  if(!panel)return;
+  const isOpen=panel.style.display!=='none';
+  panel.style.display=isOpen?'none':'block';
+  if(!isOpen)renderNotifList();
+}
+
+function renderNotifList(){
+  const list=document.getElementById('notif-list');if(!list)return;
+  const notifs=getNotifs();
+  if(!notifs.length){list.innerHTML='<div style="padding:16px;color:var(--t3);font-size:12px;text-align:center">Aucune notification</div>';return;}
+  list.innerHTML=notifs.map(n=>`
+    <div class="notif-item${n.read?'':' unread'}" onclick="readNotif(${n.id})">
+      <div class="notif-item-icon">${n.icon}</div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:600">${esc(n.titre)}</div>
+        <div class="notif-item-txt">${esc(n.msg)}</div>
+        <div class="notif-item-time">${n.time}</div>
+      </div>
+    </div>`).join('');
+  // Marquer comme lus après affichage
+  setTimeout(()=>markAllNotifsRead(),1500);
+}
+
+function readNotif(id){
+  const notifs=getNotifs();
+  const n=notifs.find(x=>x.id===id);
+  if(n)n.read=true;
+  saveNotifs(notifs);
+  refreshNotifBadge();
+}
+
+function markAllNotifsRead(){
+  const notifs=getNotifs();
+  notifs.forEach(n=>n.read=true);
+  saveNotifs(notifs);
+  refreshNotifBadge();
+  renderNotifList();
+}
+
+function requestNotifPermission(){
+  if(Notification.permission==='default'){
+    Notification.requestPermission();
+  }
+}
+
+// ══════════════════════════════════════════
+// BADGE ABSENCES SIDEBAR
+// ══════════════════════════════════════════
+function refreshAbsBadge(){
+  const badge=document.getElementById('abs-badge');if(!badge)return;
+  const mem=getMem();
+  const today=new Date();today.setHours(0,0,0,0);
+  const upcoming=(mem.absences||[]).filter(a=>{
+    const debut=new Date(a.debut);debut.setHours(0,0,0,0);
+    const fin=new Date(a.fin);fin.setHours(0,0,0,0);
+    const diff=Math.ceil((debut-today)/(1000*60*60*24));
+    return diff>=0&&diff<=7&&today<=fin;
+  }).length;
+  if(upcoming>0){badge.style.display='flex';badge.textContent=upcoming;}
+  else badge.style.display='none';
+}
+
+// ══════════════════════════════════════════
+// TÉLÉCHARGER MA CONVERSATION
+// ══════════════════════════════════════════
+function downloadMyChat(){
+  const msgs=loadChatMem(currentUser?.id||'?');
+  if(!msgs.length){showDriveNotif('Aucune conversation à télécharger');return;}
+  const lines=msgs.filter(m=>m.role&&m.content).map(m=>{
+    const who=m.role==='user'?currentUser.name:'BenAI';
+    return `[${who}]\n${m.content}\n`;
+  }).join('\n---\n\n');
+  const header=`BenAI — Conversation de ${currentUser.name}\nExportée le ${new Date().toLocaleString('fr-FR')}\n${'═'.repeat(50)}\n\n`;
+  download(`BenAI_conversation_${currentUser.name}_${new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')}.txt`,header+lines,'text/plain');
+}
+
+// ══════════════════════════════════════════
+// SAUVEGARDE À LA FERMETURE
+// ══════════════════════════════════════════
+window.addEventListener('beforeunload',()=>{
+  if(!currentUser||currentUser.id!=='benjamin')return;
+  // Sauvegarde JSON locale silencieuse dans localStorage avec timestamp
+  try{
+    const mem=getMem();const pwds=getPwds();const extras=getExtraUsers();const access=getAccess();const annuaire=getAnnuaire();
+    const backup={version:BENAI_VERSION,date:new Date().toISOString(),data:mem,pwds,extras,access,annuaire};
+    localStorage.setItem('benai_auto_backup',JSON.stringify(backup));
+    localStorage.setItem('benai_auto_backup_date',new Date().toISOString());
+  }catch(e){}
+});
+
 // FERMER SETTINGS si clic ailleurs
 document.addEventListener('click',e=>{
   const panel=document.getElementById('settings-panel');
@@ -3236,6 +3416,9 @@ document.addEventListener('click',e=>{
   const sp=document.getElementById('switch-panel');
   const sb=document.getElementById('btn-switch-session');
   if(sp&&!sp.contains(e.target)&&sb&&!sb.contains(e.target))sp.style.display='none';
+  const np=document.getElementById('notif-panel');
+  const nb=document.getElementById('btn-notif');
+  if(np&&!np.contains(e.target)&&nb&&!nb.contains(e.target))np.style.display='none';
 });
 
 // ══════════════════════════════════════════
