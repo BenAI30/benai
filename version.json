@@ -1,4 +1,19 @@
 {
+  "version": "3.11",
+  "notes": [
+    "📱 PWA Android — installez BenAI sur votre écran d'accueil",
+    "🐛 Onglet Bugs — signalez les problèmes directement",
+    "⏰ Règle 24h hors weekend et jours fériés français",
+    "🎯 Objectifs commerciaux mensuel + hebdo avec progression",
+    "🤖 Messages de motivation BenAI automatiques et personnalisés",
+    "📈 Tableau de ventes mensuel exportable",
+    "🚨 Rapport alertes complet pour le directeur commercial",
+    "🔒 Bloquer un commercial instantanément",
+    "📞 Clic sur numéro → appel direct Android",
+    "🗺️ Clic sur adresse → Google Maps GPS"
+  ]
+}
+{
   "version": "3.10",
   "notes": [
     "📋 CRM Leads intégré — saisie, suivi, dashboard par secteur",
