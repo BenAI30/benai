@@ -60,7 +60,8 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .tb-icon-btn:hover{border-color:var(--a);}
 .tb-logout{background:none;border:1px solid var(--b1);border-radius:6px;padding:4px 9px;color:var(--t3);font-size:11px;cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
 .tb-logout:hover{border-color:var(--r);color:var(--r);}
-.notif-dot{position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--r);border:2px solid var(--s1);display:none;}
+.notif-dot{position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;background:var(--r);border:2px solid var(--s1);display:none;animation:pulse-notif .8s infinite;}
+@keyframes pulse-notif{0%,100%{transform:scale(1);}50%{transform:scale(1.3);box-shadow:0 0 0 4px rgba(248,113,113,.4);}}
 /* MAIN */
 .main{display:flex;flex:1;overflow:hidden;}
 /* SIDEBAR */
@@ -325,15 +326,15 @@ body.light .bubble{color:var(--t1);}
 .accordion-body{overflow:hidden;transition:max-height .25s ease;}
 .accordion-body.collapsed{display:none;}
 /* NOTIFICATION POPUP */
-.notif-popup{position:fixed;top:60px;right:16px;width:300px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:9998;overflow:hidden;display:none;}
-.notif-popup-header{padding:10px 14px;background:var(--s2);border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;}
-.notif-popup-title{font-size:12px;font-weight:700;color:var(--t1);}
-.notif-popup-body{max-height:300px;overflow-y:auto;}
-.notif-item{padding:10px 14px;border-bottom:1px solid var(--b1);display:flex;gap:8px;align-items:flex-start;cursor:pointer;transition:.12s;}
+.notif-popup{position:fixed;top:60px;right:12px;width:340px;background:var(--s1);border:2px solid var(--a);border-radius:16px;box-shadow:0 12px 48px rgba(0,0,0,.6);z-index:9998;overflow:hidden;display:none;}
+.notif-popup-header{padding:12px 16px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:space-between;}
+.notif-popup-title{font-size:13px;font-weight:700;color:#fff;}
+.notif-popup-body{max-height:360px;overflow-y:auto;}
+.notif-item{padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;gap:10px;align-items:flex-start;cursor:pointer;transition:.12s;}
 .notif-item:hover{background:var(--s3);}
-.notif-item.unread{background:var(--a3);}
-.notif-item-icon{font-size:18px;flex-shrink:0;}
-.notif-item-txt{flex:1;font-size:12px;color:var(--t1);line-height:1.4;}
+.notif-item.unread{background:var(--a3);border-left:3px solid var(--a);}
+.notif-item-icon{font-size:22px;flex-shrink:0;}
+.notif-item-txt{flex:1;font-size:12px;color:var(--t1);line-height:1.4;font-weight:500;}
 .notif-item-time{font-size:10px;color:var(--t3);margin-top:2px;}
 /* DOWNLOAD CHAT */
 .download-chat-btn{background:none;border:1px solid var(--b1);border-radius:7px;padding:4px 8px;cursor:pointer;font-size:12px;transition:.15s;color:var(--t3);}
@@ -932,7 +933,7 @@ input[type=file]{display:none;}
             <!-- Filtres -->
             <div class="crm-filters" id="crm-filters" style="display:none">
               <button class="crm-filter active" onclick="filterLeads('tous',this)">Tous</button>
-              <button class="crm-filter f-gris" onclick="filterLeads('gris',this)">⚪ Gris</button>
+              <button class="crm-filter f-gris" onclick="filterLeads('gris',this)">🔵 Non traité</button>
               <button class="crm-filter f-jaune" onclick="filterLeads('jaune',this)">🟡 En cours</button>
               <button class="crm-filter f-vert" onclick="filterLeads('vert',this)">🟢 Vendu</button>
               <button class="crm-filter f-rouge" onclick="filterLeads('rouge',this)">🔴 Perdu</button>
@@ -1032,7 +1033,7 @@ input[type=file]{display:none;}
             <div class="lead-modal-section" id="modal-statut-section" style="display:none">
               <div class="lead-modal-section-title">Résultat du contact</div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-                <button class="statut-btn sb-gris selected" onclick="selectStatut('gris',this)">⚪ Gris</button>
+                <button class="statut-btn sb-gris selected" onclick="selectStatut('gris',this)">🔵 Non traité</button>
                 <button class="statut-btn sb-jaune" onclick="selectStatut('jaune',this)">🟡 En cours</button>
                 <button class="statut-btn sb-vert" onclick="selectStatut('vert',this)">🟢 Vendu</button>
                 <button class="statut-btn sb-rouge" onclick="selectStatut('rouge',this)">🔴 Perdu</button>
@@ -1255,7 +1256,7 @@ input[type=file]{display:none;}
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const BENAI_VERSION = '3.13';
+const BENAI_VERSION = '3.14';
 
 // ══════════════════════════════════════════
 // UTILISATEURS
@@ -1556,9 +1557,9 @@ function initApp(silent=false){
   document.getElementById('tb-avatar').style.background=u.color;
   document.getElementById('tb-avatar').textContent=u.initial;
   document.getElementById('tb-username').textContent=u.name;
-  // Bouton changer de session — visible pour tous
+  // Bouton changer de session — Benjamin uniquement
   const btnSwitch=document.getElementById('btn-switch-session');
-  if(btnSwitch)btnSwitch.style.display='inline-block';
+  if(btnSwitch)btnSwitch.style.display=u.id==='benjamin'?'inline-block':'none';
 
   // Réinitialiser TOUS les éléments admin avant d'appliquer les droits
   ['nav-admin','nav-absences','nav-annuaire','nav-paie','nav-leads',
@@ -3846,21 +3847,28 @@ function initLeadsPage(){
   const btnNew=document.getElementById('btn-new-lead');
   const filterComm=document.getElementById('crm-filter-commercial');
 
-  // Bouton nouveau lead
+  // Bouton nouveau lead — assistante et commercial uniquement (pas directeur co)
   btnNew.style.display=(role==='assistante'||role==='admin'||role==='commercial')?'flex':'none';
 
-  // Source ACTIF visible pour commerciaux
+  // Source ACTIF visible pour commerciaux uniquement
   const srcActif=document.getElementById('src-actif-btn');
   if(srcActif)srcActif.style.display=role==='commercial'?'flex':'none';
 
   tabs.innerHTML='';
   if(role==='admin'||role==='directeur_co'){
-    addCRMTab('dashboard','📊 Dashboard',true);
+    addCRMTab('non-attribues','⚠️ À attribuer',true);
     addCRMTab('mes-leads','📋 Tous les leads',false);
+    addCRMTab('dashboard','📊 Dashboard',false);
     if(filterComm)filterComm.style.display='block';
     fillCommercialFilter();
     filters.style.display='flex';
-    showCRMTab('dashboard');
+    // Directeur co arrive sur les leads non attribués
+    showCRMTab('non-attribues');
+  } else if(role==='assistante'){
+    // Assistante : onglet unique — saisie + ses leads
+    addCRMTab('mes-leads','📋 Mes leads',true);
+    filters.style.display='none'; // Pas de filtres pour l'assistante
+    showCRMTab('mes-leads');
   } else {
     addCRMTab('mes-leads','📋 Mes leads',true);
     filters.style.display='flex';
@@ -3886,16 +3894,35 @@ function showCRMTab(id){
   const tab=document.getElementById('crm-tab-'+id);
   if(tab)tab.classList.add('active');
   const filters=document.getElementById('crm-filters');
+  const list=document.getElementById('leads-list');
+  const kb=document.getElementById('leads-kanban');
   if(id==='dashboard'){
     filters.style.display='none';
-    document.getElementById('leads-list').style.display='none';
-    const kb=document.getElementById('leads-kanban');if(kb)kb.style.display='none';
+    if(list)list.style.display='none';
+    if(kb)kb.style.display='none';
     renderLeadsDashboard();
+  } else if(id==='non-attribues'){
+    filters.style.display='none';
+    if(list){list.style.display='flex';list.style.flexDirection='column';}
+    if(kb)kb.style.display='none';
+    renderNonAttribues();
   } else {
-    filters.style.display='flex';
+    const role=currentUser?.role;
+    // Assistante ne voit pas les filtres
+    filters.style.display=role==='assistante'?'none':'flex';
     setCRMView(currentCRMView);
     renderLeads();
   }
+}
+
+function renderNonAttribues(){
+  const list=document.getElementById('leads-list');if(!list)return;
+  const leads=getLeads().filter(l=>!l.commercial&&!l.archive&&l.statut==='gris');
+  if(!leads.length){
+    list.innerHTML='<div style="color:var(--g);font-size:14px;padding:32px;text-align:center;font-weight:600">✅ Tous les leads sont attribués !</div>';
+    return;
+  }
+  list.innerHTML='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--r);margin-bottom:10px;padding:0 2px">'+leads.length+' lead(s) en attente d\'attribution</div>'+leads.map(l=>renderDispatchCard(l)).join('');
 }
 
 function setCRMView(view){
@@ -3926,7 +3953,7 @@ function filterLeads(f,btn){
 }
 
 // Statuts renommés
-const STATUT_LABELS={gris:'📞 À contacter',jaune:'🟡 En cours',vert:'🟢 Vendu',rouge:'🔴 Perdu'};
+const STATUT_LABELS={gris:'🔵 Non traité',jaune:'🟡 En cours',vert:'🟢 Vendu',rouge:'🔴 Perdu'};
 const STATUT_CLS={gris:'ls-gris',jaune:'ls-jaune',vert:'ls-vert',rouge:'ls-rouge'};
 
 function getFilteredLeads(){
@@ -3935,10 +3962,17 @@ function getFilteredLeads(){
   const secteurFilter=document.getElementById('crm-filter-secteur')?.value||'';
   const commFilter=document.getElementById('crm-filter-commercial')?.value||'';
   let leads=getLeads();
-  // RÈGLE STRICTE : commercial voit UNIQUEMENT ses leads assignés
-  if(role==='commercial')leads=leads.filter(l=>l.commercial===currentUser.id);
-  // Assistante voit uniquement les leads qu'elle a créés
-  if(role==='assistante')leads=leads.filter(l=>l.cree_par===currentUser.id||l.cree_par===currentUser.name);
+
+  // RÈGLES STRICTES PAR RÔLE
+  if(role==='commercial'){
+    // Commercial voit UNIQUEMENT ses leads assignés
+    leads=leads.filter(l=>l.commercial===currentUser.id);
+  } else if(role==='assistante'){
+    // Assistante voit uniquement les leads qu'elle a créés
+    leads=leads.filter(l=>l.cree_par===currentUser.id||l.cree_par===currentUser.name);
+  }
+  // Admin et directeur_co voient TOUT — aucun filtre de rôle
+
   // Archive
   if(currentLeadFilter!=='archive')leads=leads.filter(l=>!l.archive);
   // Filtres UI
@@ -3980,7 +4014,7 @@ function renderLeads(){
     if(nonAttrib.length>0){
       html+=`<div style="margin-bottom:14px">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--r);margin-bottom:8px;display:flex;align-items:center;gap:6px">
-          ⚠️ À ATTRIBUER <span style="background:var(--r);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px">${nonAttrib.length}</span>
+          ⚠️ NON ATTRIBUÉS <span style="background:var(--r);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px">${nonAttrib.length}</span>
         </div>`;
       html+=nonAttrib.map(l=>renderDispatchCard(l)).join('');
       html+='</div><div style="border-top:1px solid var(--b1);margin-bottom:12px"></div>';
@@ -3992,10 +4026,10 @@ function renderLeads(){
     return;
   }
 
-  // VUE ASSISTANTE — ses leads uniquement, sans statuts
+  // VUE ASSISTANTE — ses leads uniquement, sans statuts, sans cheminement
   if(role==='assistante'){
     const leads=getFilteredLeads();
-    if(!leads.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead saisi</div>';return;}
+    if(!leads.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead saisi pour le moment.<br><br>Cliquez sur <strong>+ Nouveau lead</strong> pour en créer un.</div>';return;}
     list.innerHTML=leads.map(l=>renderLeadCardAssistante(l)).join('');
     return;
   }
@@ -4075,7 +4109,7 @@ function renderLeadCard(l,role){
   const age=getLeadAge(l);
   const comm=getAllUsers().find(u=>u.id===l.commercial);
   const secteurLabel=l.secteur==='avignon'?'Avignon':'Nîmes';
-  const statLabel=STATUT_LABELS[l.statut]||'📞 À contacter';
+  const statLabel=STATUT_LABELS[l.statut]||'🔵 Non traité';
   const statCls=STATUT_CLS[l.statut]||'ls-gris';
   const srcIcon={MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'}[l.source]||'📋';
   const montant=l.statut==='vert'&&l.prix_vendu?` · 💰 ${Number(l.prix_vendu).toLocaleString('fr-FR')} €`:l.statut==='jaune'&&l.montant_devis?` · 📋 ${Number(l.montant_devis).toLocaleString('fr-FR')} €`:'';
@@ -4090,7 +4124,8 @@ function renderLeadCard(l,role){
       <div class="lead-nom">${esc(l.nom)}</div>
       <span style="margin-left:auto;font-size:10px;color:var(--t3)">${age}</span>
     </div>
-    <div class="lead-info">${esc(l.ville||'')}${l.cp?' ('+l.cp+')':''} · ${esc(l.type_projet||'')}${montant}</div>
+    <div style="font-size:13px;font-weight:700;color:var(--a);margin-bottom:3px">${esc(l.type_projet||'—')}</div>
+    <div class="lead-info">${esc(l.ville||'')}${l.cp?' ('+l.cp+')':''} ${montant}</div>
     <div class="lead-meta" style="margin-top:5px">
       <span class="lead-statut ${statCls}">${statLabel}</span>
       <span class="lead-secteur">${secteurLabel}</span>
@@ -4109,7 +4144,7 @@ function renderKanban(){
   const role=currentUser?.role;
   const leads=getFilteredLeads();
   const cols=[
-    {id:'gris',label:'⚪ Gris',cls:'ls-gris'},
+    {id:'gris',label:'🔵 Non traité',cls:'ls-gris'},
     {id:'jaune',label:'🟡 En cours',cls:'ls-jaune'},
     {id:'vert',label:'🟢 Vendu',cls:'ls-vert'},
     {id:'rouge',label:'🔴 Perdu',cls:'ls-rouge'},
@@ -4518,6 +4553,8 @@ function saveLead(){
     leads.unshift(newLead);
     updateProjetSuggestion(projet);
     logActivity(`${currentUser.name} a créé un lead : ${nom}`);
+    // Rafraîchir badge notifs
+    refreshNotifBadge();
   }
   saveLeads(leads);
   closeLeadModal();
@@ -4665,6 +4702,13 @@ function refreshLeadsBadge(){
   const role=currentUser?.role;
   if(role==='admin'){badge.style.display='none';return;}
   let leads=getLeads().filter(l=>!l.archive);
+  // Directeur co : badge = non attribués
+  if(role==='directeur_co'){
+    const n=leads.filter(l=>!l.commercial&&l.statut==='gris').length;
+    if(n>0){badge.style.display='flex';badge.textContent=n;badge.style.background='var(--r)';}
+    else badge.style.display='none';
+    return;
+  }
   if(role==='commercial')leads=leads.filter(l=>l.commercial===currentUser.id);
   const alertes=leads.filter(l=>isLeadAlerte(l)).length;
   if(alertes>0){badge.style.display='flex';badge.textContent=alertes;badge.style.background='var(--r)';}
@@ -5462,10 +5506,15 @@ window.addEventListener('load',()=>{
       if(k&&k.startsWith('sk-'))localStorage.setItem('benai_api',k);
     },500);
   }
-  // Charger utilisateurs extra
+  // Charger utilisateurs extra avec leur vrai rôle
   getExtraUsers().forEach(u=>{
     if(!USERS[u.id]){
-      USERS[u.id]={name:u.name,pwd:getPwds()[u.id]||'1234',role:'assistante',color:u.color,initial:u.initial,pages:['benai','messages','sav'],system:`Tu es BenAI, l'assistant de ${u.name}. Tu proposes toujours — ${u.name} décide toujours.`};
+      const role=u.role||'assistante';
+      const isCRM=CRM_PAGES_ONLY.includes(role);
+      const systemPrompt=isCRM
+        ?`Tu es BenAI CRM, assistant de ${u.name} (${ROLE_LABELS[role]||role}).`
+        :`Tu es BenAI, l'assistant de ${u.name}. Tu proposes toujours — ${u.name} décide toujours.`;
+      USERS[u.id]={name:u.name,pwd:getPwds()[u.id]||'1234',role,color:u.color,initial:u.initial,system:systemPrompt};
     }
   });
   // Restaurer session si rechargement de page
