@@ -4085,8 +4085,8 @@ function renderLeadCardAssistante(l){
   const comm=getAllUsers().find(u=>u.id===l.commercial);
   // Infos RDV/rappel
   let rdvInfo='';
-  if(l.date_rdv){
-    const d=new Date(l.date_rdv);
+  if(l.rappel&&l.sous_statut==='rdv_programme'){
+    const d=new Date(l.rappel);
     rdvInfo=`<div style="font-size:11px;color:var(--bl);font-weight:600;margin-top:4px;padding:4px 8px;background:var(--bl2);border-radius:6px">📅 RDV le ${d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>`;
   } else if(l.rappel){
     const d=new Date(l.rappel);
@@ -4351,10 +4351,9 @@ function openLead(id){
   document.getElementById('modal-statut-section').style.display=canChangeStatut?'block':'none';
   if(canChangeStatut){
     selectStatut(l.statut||'gris',null,true);
-    document.getElementById('lead-sous-statut').value=l.sous_statut||'a_rappeler';
+    if(l.sous_statut)document.getElementById('lead-sous-statut').value=l.sous_statut;
     if(l.rappel)document.getElementById('lead-rappel').value=l.rappel;
-    if(l.rdv_type)document.getElementById('lead-rdv-type').value=l.rdv_type;
-    if(l.date_rdv)document.getElementById('lead-date-rdv').value=l.date_rdv;
+    toggleRdvDate();
     if(l.montant_devis)document.getElementById('lead-montant-devis').value=l.montant_devis;
     if(l.date_devis)document.getElementById('lead-date-devis').value=l.date_devis;
     if(l.rappel_devis)document.getElementById('lead-rappel-devis').value=l.rappel_devis;
@@ -4403,7 +4402,7 @@ function openLead(id){
   // Boutons contextuels
   const btnAgenda=document.getElementById('btn-agenda-lead');
   const btnEmail=document.getElementById('btn-export-lead');
-  if(btnAgenda)btnAgenda.style.display=l.date_rdv?'inline-block':'none';
+  if(btnAgenda)btnAgenda.style.display=(l.rappel||l.date_rdv)?'inline-block':'none';
   if(btnEmail)btnEmail.style.display='inline-block';
 }
 
@@ -4528,20 +4527,20 @@ function saveLead(){
     secteur:document.getElementById('lead-secteur').value,
     source:currentLeadSource,
     statut:currentLeadStatut,
-    sous_statut:document.getElementById('lead-sous-statut').value,
-    rappel:document.getElementById('lead-rappel').value||null,
-    rdv_type:document.getElementById('lead-rdv-type').value||null,
-    date_rdv:document.getElementById('lead-date-rdv').value||null,
-    montant_devis:document.getElementById('lead-montant-devis').value||null,
-    date_devis:document.getElementById('lead-date-devis').value||null,
-    rappel_devis:document.getElementById('lead-rappel-devis').value||null,
-    prix_vendu:document.getElementById('lead-prix-vendu').value||null,
-    date_signature:document.getElementById('lead-date-signature').value||null,
-    produit_vendu:document.getElementById('lead-produit-vendu').value||null,
-    raison_mort:document.getElementById('lead-raison-mort').value||null,
+    sous_statut:document.getElementById('lead-sous-statut')?.value||'a_rappeler',
+    rappel:document.getElementById('lead-rappel')?.value||null,
+    date_rdv:null, // Supprimé — maintenant intégré dans rappel
+    rdv_type:null,
+    montant_devis:document.getElementById('lead-montant-devis')?.value||null,
+    date_devis:document.getElementById('lead-date-devis')?.value||null,
+    rappel_devis:document.getElementById('lead-rappel-devis')?.value||null,
+    prix_vendu:document.getElementById('lead-prix-vendu')?.value||null,
+    date_signature:document.getElementById('lead-date-signature')?.value||null,
+    produit_vendu:document.getElementById('lead-produit-vendu')?.value||null,
+    raison_mort:document.getElementById('lead-raison-mort')?.value||null,
     commercial:currentLeadSource==='ACTIF'?currentUser.id:(commercial||null),
-    suivi:document.getElementById('lead-suivi').value.trim(),
-    commentaire:document.getElementById('lead-commentaire').value.trim(),
+    suivi:document.getElementById('lead-suivi')?.value.trim()||'',
+    commentaire:document.getElementById('lead-commentaire')?.value.trim()||'',
   };
   if(currentLeadId){
     const idx=leads.findIndex(l=>l.id===currentLeadId);
@@ -5229,7 +5228,8 @@ function makeGoogleAgendaLink(l){
 function ouvrirAgenda(){
   if(!currentLeadId)return;
   const l=getLeads().find(x=>x.id===currentLeadId);
-  if(!l||!l.date_rdv){showDriveNotif('⚠️ Aucun RDV programmé sur ce lead');return;}
+  const dateRef=l?.rappel||l?.date_rdv;
+  if(!l||!dateRef){showDriveNotif('⚠️ Aucun RDV programmé sur ce lead');return;}
   const url=makeGoogleAgendaLink(l);
   window.open(url,'_blank');
   logActivity(currentUser.name+' a ajouté le RDV de '+l.nom+' à Google Agenda');
