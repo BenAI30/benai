@@ -334,6 +334,74 @@ body.light .bubble{color:var(--t1);}
 .download-chat-btn:hover{border-color:var(--a);color:var(--a);}
 /* BADGE ABSENCES SIDEBAR */
 .sb-badge-abs{margin-left:auto;background:var(--bl);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;}
+/* ══════════════════════════════════════════
+   CRM LEADS
+══════════════════════════════════════════ */
+.crm-tabs{display:flex;gap:4px;padding:12px 16px 0;flex-shrink:0;}
+.crm-tab{padding:7px 16px;border-radius:8px 8px 0 0;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--b1);border-bottom:none;background:var(--s2);color:var(--t3);transition:.12s;}
+.crm-tab.active{background:var(--s1);color:var(--a);border-color:var(--a);}
+.crm-tab:hover{color:var(--t1);}
+.crm-body{flex:1;overflow:hidden;display:flex;flex-direction:column;border-top:1px solid var(--b1);}
+.leads-list{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;}
+.lead-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:13px 15px;cursor:pointer;transition:.12s;position:relative;}
+.lead-card:hover{border-color:var(--a);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.2);}
+.lead-card.statut-gris{border-left:4px solid #888;}
+.lead-card.statut-jaune{border-left:4px solid var(--y);}
+.lead-card.statut-vert{border-left:4px solid var(--g);}
+.lead-card.statut-rouge{border-left:4px solid var(--r);}
+.lead-card.alerte24{border-color:var(--r);box-shadow:0 0 0 2px rgba(248,113,113,.2);}
+.lead-nom{font-size:13px;font-weight:700;}
+.lead-info{font-size:11px;color:var(--t2);margin-top:3px;}
+.lead-meta{font-size:10px;color:var(--t3);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.lead-statut{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
+.ls-gris{background:#88888820;color:#888;}
+.ls-jaune{background:var(--y2);color:var(--y);}
+.ls-vert{background:var(--g2);color:var(--g);}
+.ls-rouge{background:var(--r2);color:var(--r);}
+.lead-commercial{background:var(--a3);color:var(--a);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;}
+.lead-secteur{background:var(--bl2);color:var(--bl);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;}
+.lead-alerte{background:var(--r2);color:var(--r);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;animation:pulse-r 1s infinite;}
+@keyframes pulse-r{0%,100%{opacity:1}50%{opacity:.6}}
+.crm-filters{padding:8px 16px;display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;border-bottom:1px solid var(--b1);}
+.crm-filter{background:var(--s3);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;transition:.12s;}
+.crm-filter:hover{border-color:var(--a);color:var(--a);}
+.crm-filter.active{background:var(--a3);border-color:var(--a);color:var(--a);}
+.crm-filter.f-gris.active{background:#88888820;border-color:#888;color:#888;}
+.crm-filter.f-jaune.active{background:var(--y2);border-color:var(--y);color:var(--y);}
+.crm-filter.f-vert.active{background:var(--g2);border-color:var(--g);color:var(--g);}
+.crm-filter.f-rouge.active{background:var(--r2);border-color:var(--r);color:var(--r);}
+/* FICHE LEAD MODALE */
+.lead-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;display:none;align-items:center;justify-content:center;padding:16px;}
+.lead-modal.open{display:flex;}
+.lead-modal-box{background:var(--s1);border:1px solid var(--b1);border-radius:18px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.6);}
+.lead-modal-header{padding:16px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--s1);z-index:1;}
+.lead-modal-body{padding:16px 20px;}
+.lead-modal-section{margin-bottom:16px;}
+.lead-modal-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px;}
+.statut-btn{padding:7px 14px;border-radius:8px;border:2px solid transparent;font-size:12px;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
+.statut-btn:hover{opacity:.8;}
+.statut-btn.selected{border-color:currentColor;box-shadow:0 0 0 2px currentColor;}
+.sb-gris{background:#88888820;color:#888;}
+.sb-jaune{background:var(--y2);color:var(--y);}
+.sb-vert{background:var(--g2);color:var(--g);}
+.sb-rouge{background:var(--r2);color:var(--r);}
+.historique-item{padding:8px 10px;background:var(--s3);border-radius:8px;margin-bottom:5px;}
+.historique-date{font-size:10px;color:var(--t3);}
+.historique-txt{font-size:12px;color:var(--t1);margin-top:2px;}
+/* DASHBOARD CRM */
+.secteur-card{background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:16px;margin-bottom:12px;}
+.secteur-title{font-size:15px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.secteur-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.stat-box{background:var(--s3);border-radius:10px;padding:12px;text-align:center;}
+.stat-box-val{font-size:22px;font-weight:800;margin-bottom:2px;}
+.stat-box-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;}
+.stat-box-obj{font-size:10px;color:var(--t2);margin-top:2px;}
+.objectif-bar{height:6px;background:var(--s1);border-radius:3px;overflow:hidden;margin-top:6px;}
+.objectif-bar-fill{height:100%;border-radius:3px;transition:width .5s;}
+.perf-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--s3);border-radius:8px;margin-bottom:6px;}
+.perf-name{flex:1;font-size:13px;font-weight:500;}
+.perf-stats{font-size:11px;color:var(--t2);}
+.perf-ca{font-size:12px;font-weight:700;color:var(--g);}
 input[type=file]{display:none;}
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -528,6 +596,10 @@ input[type=file]{display:none;}
         <div class="sb-item" onclick="showPage('sav')" id="nav-sav">
           <span class="sb-icon">🔧</span><span class="sb-txt">SAV</span>
           <span class="sb-badge" id="sav-badge" style="display:none"></span>
+        </div>
+        <div class="sb-item" id="nav-leads" style="display:none" onclick="showPage('leads')">
+          <span class="sb-icon">📋</span><span class="sb-txt">Leads CRM</span>
+          <span class="sb-badge" id="leads-badge" style="display:none"></span>
         </div>
         <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span><span class="sb-badge-abs" id="abs-badge" style="display:none"></span></div>
         <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')"><span class="sb-icon">👥</span><span class="sb-txt">Annuaire</span></div>
@@ -765,6 +837,13 @@ input[type=file]{display:none;}
                   </div>
                   <div><div class="form-label">Mot de passe</div><input type="text" class="form-input" id="new-user-pwd" placeholder="Mot de passe"></div>
                 </div>
+                <div style="margin-bottom:8px"><div class="form-label">Rôle BenAI</div>
+                  <select class="form-input" id="new-user-role">
+                    <option value="assistante">Assistante (BenAI complet)</option>
+                    <option value="commercial">Commercial (CRM uniquement)</option>
+                    <option value="directeur_co">Directeur commercial (CRM complet)</option>
+                  </select>
+                </div>
                 <div style="display:flex;gap:6px">
                   <button onclick="creerUtilisateur()" class="btn-primary" style="flex:1">Créer l'accès</button>
                   <button onclick="document.getElementById('add-user-form').style.display='none'" style="padding:9px 14px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
@@ -784,6 +863,154 @@ input[type=file]{display:none;}
           <div class="dash-card accordion-card">
             <div class="dc-label accordion-header" onclick="toggleAccordion('activity-wrap')">⚡ Activité récente <span class="accordion-arrow">▾</span></div>
             <div id="activity-wrap" class="accordion-body"><div id="activity-list" style="margin-top:8px"><div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE LEADS CRM -->
+      <div id="page-leads" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:0;flex-shrink:0">
+          <div>
+            <div class="page-title">📋 Leads CRM</div>
+            <div class="page-sub" id="leads-page-sub">Nemausus Fermetures</div>
+          </div>
+          <div style="display:flex;gap:8px" id="leads-header-btns">
+            <button class="btn-primary" id="btn-new-lead" onclick="openNewLead()" style="display:none">+ Nouveau lead</button>
+          </div>
+        </div>
+        <!-- TABS selon rôle -->
+        <div class="crm-tabs" id="crm-tabs"></div>
+        <div class="crm-body">
+          <!-- CONTENU ONGLET ACTIF -->
+          <div id="crm-tab-content" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+            <!-- Filtres -->
+            <div class="crm-filters" id="crm-filters" style="display:none">
+              <button class="crm-filter active" onclick="filterLeads('tous',this)">Tous</button>
+              <button class="crm-filter f-gris" onclick="filterLeads('gris',this)">⚪ Gris</button>
+              <button class="crm-filter f-jaune" onclick="filterLeads('jaune',this)">🟡 Devis</button>
+              <button class="crm-filter f-vert" onclick="filterLeads('vert',this)">🟢 Vendu</button>
+              <button class="crm-filter f-rouge" onclick="filterLeads('rouge',this)">🔴 Mort</button>
+              <button class="crm-filter" onclick="filterLeads('alerte',this)" style="color:var(--r)">🚨 Alertes 24h</button>
+              <select id="crm-filter-secteur" onchange="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;outline:none">
+                <option value="">Tous secteurs</option>
+                <option value="nimes">Nîmes</option>
+                <option value="avignon">Avignon</option>
+              </select>
+              <select id="crm-filter-commercial" onchange="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;outline:none;display:none">
+                <option value="">Tous commerciaux</option>
+              </select>
+            </div>
+            <div class="leads-list" id="leads-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODALE FICHE LEAD -->
+      <div class="lead-modal" id="lead-modal">
+        <div class="lead-modal-box">
+          <div class="lead-modal-header">
+            <div>
+              <div style="font-size:15px;font-weight:700" id="modal-lead-nom">Nouveau lead</div>
+              <div style="font-size:11px;color:var(--t3)" id="modal-lead-sub"></div>
+            </div>
+            <button onclick="closeLeadModal()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:20px">✕</button>
+          </div>
+          <div class="lead-modal-body">
+            <!-- FORMULAIRE NOUVEAU/EDIT LEAD -->
+            <div id="modal-form">
+              <div class="lead-modal-section">
+                <div class="lead-modal-section-title">Informations client</div>
+                <div class="form-row">
+                  <div class="form-group"><div class="form-label">Nom *</div><input type="text" class="form-input" id="lead-nom" placeholder="Nom du prospect"></div>
+                  <div class="form-group"><div class="form-label">Téléphone *</div><input type="tel" class="form-input" id="lead-tel" placeholder="06 00 00 00 00"></div>
+                </div>
+                <div class="form-group" style="margin-bottom:10px"><div class="form-label">Adresse *</div><input type="text" class="form-input" id="lead-adresse" placeholder="Adresse complète" oninput="detectSecteur(this.value)"></div>
+                <div class="form-row">
+                  <div class="form-group"><div class="form-label">Type de projet *</div>
+                    <input type="text" class="form-input" id="lead-projet" placeholder="Ex: Volets roulants, portail..." list="projets-list">
+                    <datalist id="projets-list"></datalist>
+                  </div>
+                  <div class="form-group"><div class="form-label">Secteur *</div>
+                    <select class="form-input" id="lead-secteur">
+                      <option value="nimes">Nîmes</option>
+                      <option value="avignon">Avignon</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:0;display:none" id="lead-commercial-wrap">
+                  <div class="form-label">Attribuer à</div>
+                  <select class="form-input" id="lead-commercial-assign">
+                    <option value="">Non attribué</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- STATUT (visible directeur/admin/commercial) -->
+              <div class="lead-modal-section" id="modal-statut-section" style="display:none">
+                <div class="lead-modal-section-title">Statut</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+                  <button class="statut-btn sb-gris selected" onclick="selectStatut('gris',this)">⚪ Gris</button>
+                  <button class="statut-btn sb-jaune" onclick="selectStatut('jaune',this)">🟡 Devis</button>
+                  <button class="statut-btn sb-vert" onclick="selectStatut('vert',this)">🟢 Vendu</button>
+                  <button class="statut-btn sb-rouge" onclick="selectStatut('rouge',this)">🔴 Mort</button>
+                </div>
+                <!-- SOUS-STATUT GRIS -->
+                <div id="panel-gris">
+                  <select class="form-input" id="lead-sous-statut" style="margin-bottom:8px">
+                    <option value="a_rappeler">🔘 À rappeler</option>
+                    <option value="injoignable">⭕ Injoignable</option>
+                    <option value="pas_budget">💸 Pas de budget</option>
+                    <option value="pas_interesse">❌ Pas intéressé</option>
+                    <option value="rdv_programme">📞 RDV programmé</option>
+                  </select>
+                  <input type="datetime-local" class="form-input" id="lead-rappel" placeholder="Date/heure rappel">
+                </div>
+                <!-- PANEL JAUNE -->
+                <div id="panel-jaune" style="display:none">
+                  <div class="form-row">
+                    <div class="form-group"><div class="form-label">Montant devis HT</div><input type="number" class="form-input" id="lead-montant-devis" placeholder="0.00" step="0.01"></div>
+                    <div class="form-group"><div class="form-label">Date envoi devis</div><input type="date" class="form-input" id="lead-date-devis"></div>
+                  </div>
+                  <div class="form-group"><div class="form-label">Type de devis</div><input type="text" class="form-input" id="lead-type-devis" placeholder="Ex: Volets, portail..."></div>
+                </div>
+                <!-- PANEL VERT -->
+                <div id="panel-vert" style="display:none">
+                  <div class="form-row">
+                    <div class="form-group"><div class="form-label">Prix vendu HT *</div><input type="number" class="form-input" id="lead-prix-vendu" placeholder="0.00" step="0.01"></div>
+                    <div class="form-group"><div class="form-label">Date signature</div><input type="date" class="form-input" id="lead-date-signature"></div>
+                  </div>
+                  <div class="form-group"><div class="form-label">Produit vendu</div><input type="text" class="form-input" id="lead-produit-vendu" placeholder="Ex: 3 volets roulants alu..."></div>
+                </div>
+                <!-- PANEL ROUGE -->
+                <div id="panel-rouge" style="display:none">
+                  <select class="form-input" id="lead-raison-mort">
+                    <option value="">Raison *</option>
+                    <option value="concurrent">Concurrent choisi</option>
+                    <option value="budget">Budget insuffisant</option>
+                    <option value="annule">Projet annulé</option>
+                    <option value="autre">Autre</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- NOTES -->
+              <div class="lead-modal-section">
+                <div class="lead-modal-section-title">Note</div>
+                <textarea class="form-input" id="lead-note" rows="3" style="resize:vertical;width:100%" placeholder="Notes sur ce lead..."></textarea>
+              </div>
+
+              <div style="display:flex;gap:8px">
+                <button class="btn-primary" onclick="saveLead()" id="btn-save-lead" style="flex:1">Enregistrer</button>
+                <button onclick="closeLeadModal()" style="padding:10px 16px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+                <button id="btn-delete-lead" onclick="deleteLead()" style="padding:10px 12px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:8px;cursor:pointer;font-size:13px;display:none">🗑️</button>
+              </div>
+            </div>
+
+            <!-- HISTORIQUE -->
+            <div id="modal-historique" style="margin-top:16px;display:none">
+              <div class="lead-modal-section-title" style="margin-bottom:8px">Historique</div>
+              <div id="historique-list"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -1142,38 +1369,53 @@ function initApp(silent=false){
   if(btnSwitch)btnSwitch.style.display='inline-block';
 
   // Réinitialiser TOUS les éléments admin avant d'appliquer les droits
-  ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
+  ['nav-admin','nav-absences','nav-annuaire','nav-paie','nav-leads',
+   'nav-benai','nav-notes','nav-messages','nav-sav','nav-evolution'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
-  if(u.role==='admin'){
-    document.getElementById('nav-admin').style.display='flex';
-    document.getElementById('nav-absences').style.display='flex';
-    document.getElementById('nav-annuaire').style.display='flex';
-    document.getElementById('nav-paie').style.display='flex';
+
+  // Afficher nav selon rôle
+  const allowed=ROLE_PAGES[u.role]||ROLE_PAGES['assistante'];
+  allowed.forEach(p=>{
+    const nav=document.getElementById('nav-'+p);
+    if(nav)nav.style.display='flex';
+  });
+  // Nav leads toujours visible si dans les droits
+  if(allowed.includes('leads')){
+    const navL=document.getElementById('nav-leads');
+    if(navL)navL.style.display='flex';
   }
+
   // Bouton correction : auto pour Benjamin, manuel pour les autres
   const btnCorrect=document.getElementById('btn-correct');
   if(btnCorrect)btnCorrect.style.display=u.id==='benjamin'?'none':'inline-flex';
+
+  // Page d'accueil selon rôle
+  const homePage=CRM_PAGES_ONLY.includes(u.role)?'leads':'benai';
+
   const mem=loadChatMem(u.id);
   chatHistory=mem.map(m=>({role:m.role,content:m.content}));
-  // Message d'accueil ou restauration silencieuse
-  if(silent){
-    restoreChatVisual();
-  } else {
-    const h=new Date().getHours();
-    const sal=h<18?'Bonjour':'Bonsoir';
-    addAIMsg(`${sal} **${u.name}** 👋\n\nJe suis BenAI v${BENAI_VERSION}, votre assistant.\n\n⚠️ Je propose toujours — vous décidez toujours.\n\nComment puis-je vous aider ?`);
+  // Message d'accueil ou restauration silencieuse (seulement si pas CRM only)
+  if(!CRM_PAGES_ONLY.includes(u.role)){
+    if(silent){
+      restoreChatVisual();
+    } else {
+      const h=new Date().getHours();
+      const sal=h<18?'Bonjour':'Bonsoir';
+      addAIMsg(`${sal} **${u.name}** 👋\n\nJe suis BenAI v${BENAI_VERSION}, votre assistant.\n\n⚠️ Je propose toujours — vous décidez toujours.\n\nComment puis-je vous aider ?`);
+    }
   }
   // Vérifier rappels absences pour tous les utilisateurs
   if(u.role==='admin'){
     checkAbsenceReminders();
     refreshAdmin();
-  } else {
+  } else if(!CRM_PAGES_ONLY.includes(u.role)){
     checkAbsenceRemindersForUser(u.id);
   }
   refreshSAVBadge();
   refreshMsgBadge();
-  showPage('benai');
+  refreshLeadsBadge();
+  showPage(homePage);
   buildEmojiPicker();
   startPolling();
   refreshAbsBadge();
@@ -1182,9 +1424,9 @@ function initApp(silent=false){
   // Initialiser Google Drive client si configuré
   if(u.id==='benjamin')setTimeout(()=>initGDriveClient(),1000);
   // Briefing quotidien intelligent (une seule fois par jour)
-  if(!silent)setTimeout(()=>generateDailyBriefing(),600);
+  if(!silent&&!CRM_PAGES_ONLY.includes(u.role))setTimeout(()=>generateDailyBriefing(),600);
   // Tuto première utilisation
-  if(shouldShowTuto())setTimeout(()=>startTuto(),1200);
+  if(shouldShowTuto()&&!CRM_PAGES_ONLY.includes(u.role))setTimeout(()=>startTuto(),1200);
   // Bouton tuto dans paramètres
   const tutoSection=document.getElementById('tuto-settings-section');
   if(tutoSection)tutoSection.style.display=currentUser.id==='benjamin'?'none':'block';
@@ -1197,8 +1439,11 @@ function initApp(silent=false){
 // ══════════════════════════════════════════
 function showPage(page){
   const adminOnly=['admin','absences','annuaire','paie'];
-  if(adminOnly.includes(page)&&currentUser?.role!=='admin'){showPage('benai');return;}
-  ['benai','notes','messages','sav','absences','evolution','admin','annuaire','paie'].forEach(p=>{
+  if(adminOnly.includes(page)&&currentUser?.role!=='admin'){showPage('leads');return;}
+  // Vérifier accès selon rôle
+  const allowed=ROLE_PAGES[currentUser?.role]||ROLE_PAGES['assistante'];
+  if(!allowed.includes(page)){showPage(allowed[0]);return;}
+  ['benai','notes','messages','sav','leads','absences','evolution','admin','annuaire','paie'].forEach(p=>{
     const el=document.getElementById('page-'+p);if(el)el.style.display='none';
     const nav=document.getElementById('nav-'+p);if(nav)nav.classList.remove('active');
   });
@@ -1212,6 +1457,7 @@ function showPage(page){
   if(page==='evolution')renderEvolution();
   if(page==='annuaire')renderAnnuaire();
   if(page==='paie')renderPaieList();
+  if(page==='leads')initLeadsPage();
 }
 
 // ══════════════════════════════════════════
@@ -2723,6 +2969,7 @@ function creerUtilisateur(){
   const sel=document.getElementById('new-user-ann-select');
   const val=sel?.value||'';
   const pwd=document.getElementById('new-user-pwd').value.trim();
+  const role=document.getElementById('new-user-role')?.value||'assistante';
   const status=document.getElementById('add-user-status');
   if(!val){status.style.color='var(--r)';status.textContent='⚠️ Sélectionnez un salarié';return;}
   if(!pwd||pwd.length<3){status.style.color='var(--r)';status.textContent='⚠️ Mot de passe trop court (3 min)';return;}
@@ -2731,20 +2978,23 @@ function creerUtilisateur(){
   const uid=normalizeId(prenom);
   if(getAllUsers().find(u=>u.id===uid)){status.style.color='var(--r)';status.textContent='⚠️ Cet accès existe déjà';return;}
   const extras=getExtraUsers();
-  const newUser={id:uid,name,role:'assistante',societe:soc,fonction,color:COLORS[extras.length%COLORS.length],initial:prenom[0].toUpperCase(),builtin:false,pages:['benai','messages','sav']};
+  const roleLabel={assistante:'Assistante',commercial:'Commercial',directeur_co:'Directeur commercial'}[role]||'Assistante';
+  const newUser={id:uid,name,role,societe:soc,fonction,color:COLORS[extras.length%COLORS.length],initial:prenom[0].toUpperCase(),builtin:false};
   extras.push(newUser);saveExtraUsers(extras);
   const pwds=getPwds();pwds[uid]=pwd;savePwds(pwds);
-  USERS[uid]={name,pwd,role:'assistante',color:newUser.color,initial:newUser.initial,pages:['benai','messages','sav'],
-    system:`Tu es BenAI, l'assistant de ${name} (${fonction}) chez Nemausus Fermetures / Lambert SAS. Tu proposes toujours — ${name} décide toujours.`};
+  const systemPrompt=CRM_PAGES_ONLY.includes(role)
+    ?`Tu es BenAI CRM, assistant de ${name} (${roleLabel}) chez Nemausus Fermetures.`
+    :`Tu es BenAI, l'assistant de ${name} (${fonction}) chez Nemausus Fermetures / Lambert SAS. Tu proposes toujours — ${name} décide toujours.`;
+  USERS[uid]={name,pwd,role,color:newUser.color,initial:newUser.initial,system:systemPrompt};
   // Ajouter au select login
   const loginSel=document.getElementById('login-user');
   if(loginSel&&!loginSel.querySelector(`option[value="${uid}"]`)){
     const opt=document.createElement('option');opt.value=uid;opt.textContent=name;loginSel.appendChild(opt);
   }
-  status.style.color='var(--g)';status.textContent=`✅ Accès créé pour ${name} !`;
+  status.style.color='var(--g)';status.textContent=`✅ Accès ${roleLabel} créé pour ${name} !`;
   document.getElementById('new-user-pwd').value='';
   setTimeout(()=>{document.getElementById('add-user-form').style.display='none';status.textContent='';},1500);
-  renderUsersList();renderPwdList();logActivity(`Benjamin a créé l'accès BenAI pour ${name}`);
+  renderUsersList();renderPwdList();logActivity(`Benjamin a créé l'accès BenAI (${roleLabel}) pour ${name}`);
 }
 
 function supprimerUtilisateur(uid){
@@ -3252,6 +3502,491 @@ function showDriveNotif(msg){
   notif.textContent=msg;
   document.body.appendChild(notif);
   setTimeout(()=>{notif.style.opacity='0';setTimeout(()=>notif.remove(),300);},3000);
+}
+
+// ══════════════════════════════════════════
+// 📋 CRM LEADS — LOGIQUE COMPLÈTE
+// ══════════════════════════════════════════
+
+// RÔLES CRM
+const CRM_ROLES=['directeur_co','commercial'];
+const CRM_PAGES_ONLY=['directeur_co','commercial'];
+// Pages autorisées par rôle
+const ROLE_PAGES={
+  admin:['benai','notes','messages','sav','leads','absences','annuaire','paie','admin','evolution'],
+  assistante:['benai','notes','messages','sav','leads','evolution'],
+  directeur_co:['leads'],
+  commercial:['leads']
+};
+
+function getLeads(){try{return JSON.parse(localStorage.getItem('benai_leads'))||[];}catch{return[];}}
+function saveLeads(l){localStorage.setItem('benai_leads',JSON.stringify(l));}
+function getLeadObjectifs(){try{return JSON.parse(localStorage.getItem('benai_lead_obj'))||{nimes:{leads:20,ca:50000},avignon:{leads:15,ca:40000}};}catch{return{nimes:{leads:20,ca:50000},avignon:{leads:15,ca:40000}};}}
+function saveLeadObjectifs(o){localStorage.setItem('benai_lead_obj',JSON.stringify(o));}
+
+let currentLeadFilter='tous';
+let currentLeadId=null;
+let currentLeadStatut='gris';
+
+// INITIALISER LA PAGE LEADS SELON RÔLE
+function initLeadsPage(){
+  const role=currentUser?.role;
+  const tabs=document.getElementById('crm-tabs');
+  const filters=document.getElementById('crm-filters');
+  const btnNew=document.getElementById('btn-new-lead');
+  const filterComm=document.getElementById('crm-filter-commercial');
+
+  // Afficher bouton nouveau lead selon rôle
+  if(role==='assistante'||role==='admin')btnNew.style.display='flex';
+
+  // Tabs selon rôle
+  tabs.innerHTML='';
+  if(role==='admin'||role==='directeur_co'){
+    // Dashboard + Leads
+    addCRMTab('dashboard','📊 Dashboard',true);
+    addCRMTab('mes-leads','📋 Tous les leads',false);
+    // Filtre commercial visible
+    if(filterComm)filterComm.style.display='block';
+    fillCommercialFilter();
+    filters.style.display='flex';
+    showCRMTab('dashboard');
+  } else if(role==='commercial'){
+    addCRMTab('mes-leads','📋 Mes leads',true);
+    filters.style.display='flex';
+    showCRMTab('mes-leads');
+  } else {
+    // Assistante — formulaire saisie + liste
+    addCRMTab('mes-leads','📋 Leads',true);
+    filters.style.display='flex';
+    showCRMTab('mes-leads');
+  }
+  refreshLeadsBadge();
+  // Alertes 24h
+  checkLeadsAlertes();
+}
+
+function addCRMTab(id,label,active){
+  const tabs=document.getElementById('crm-tabs');
+  const btn=document.createElement('button');
+  btn.className='crm-tab'+(active?' active':'');
+  btn.textContent=label;
+  btn.onclick=()=>showCRMTab(id);
+  btn.id='crm-tab-'+id;
+  tabs.appendChild(btn);
+}
+
+function showCRMTab(id){
+  document.querySelectorAll('.crm-tab').forEach(t=>t.classList.remove('active'));
+  const tab=document.getElementById('crm-tab-'+id);
+  if(tab)tab.classList.add('active');
+  const content=document.getElementById('crm-tab-content');
+  const filters=document.getElementById('crm-filters');
+  if(id==='dashboard'){
+    filters.style.display='none';
+    renderLeadsDashboard();
+    content.querySelector('.leads-list').style.display='none';
+  } else {
+    filters.style.display='flex';
+    const list=content.querySelector('.leads-list');
+    if(list)list.style.display='flex';
+    renderLeads();
+  }
+}
+
+function filterLeads(f,btn){
+  currentLeadFilter=f;
+  document.querySelectorAll('.crm-filter').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderLeads();
+}
+
+function renderLeads(){
+  const list=document.getElementById('leads-list');if(!list)return;
+  const role=currentUser?.role;
+  let leads=getLeads();
+  const secteurFilter=document.getElementById('crm-filter-secteur')?.value||'';
+  const commFilter=document.getElementById('crm-filter-commercial')?.value||'';
+
+  // Filtre par rôle
+  if(role==='commercial')leads=leads.filter(l=>l.commercial===currentUser.id);
+
+  // Filtres UI
+  if(secteurFilter)leads=leads.filter(l=>l.secteur===secteurFilter);
+  if(commFilter)leads=leads.filter(l=>l.commercial===commFilter);
+  if(currentLeadFilter==='gris')leads=leads.filter(l=>l.statut==='gris');
+  else if(currentLeadFilter==='jaune')leads=leads.filter(l=>l.statut==='jaune');
+  else if(currentLeadFilter==='vert')leads=leads.filter(l=>l.statut==='vert');
+  else if(currentLeadFilter==='rouge')leads=leads.filter(l=>l.statut==='rouge');
+  else if(currentLeadFilter==='alerte')leads=leads.filter(l=>isLeadAlerte24(l));
+
+  // Trier : alertes d'abord, puis par date création desc
+  leads.sort((a,b)=>{
+    const aa=isLeadAlerte24(a)?1:0,bb=isLeadAlerte24(b)?1:0;
+    if(aa!==bb)return bb-aa;
+    return new Date(b.date_creation)-new Date(a.date_creation);
+  });
+
+  if(!leads.length){
+    list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:24px;text-align:center">Aucun lead</div>';
+    return;
+  }
+
+  list.innerHTML=leads.map(l=>{
+    const alerte=isLeadAlerte24(l);
+    const age=getLeadAge(l);
+    const comm=getAllUsers().find(u=>u.id===l.commercial);
+    const secteurLabel=l.secteur==='avignon'?'Avignon':'Nîmes';
+    const statLabel={gris:'⚪ Gris',jaune:'🟡 Devis',vert:'🟢 Vendu',rouge:'🔴 Mort'}[l.statut]||'';
+    const statCls={gris:'ls-gris',jaune:'ls-jaune',vert:'ls-vert',rouge:'ls-rouge'}[l.statut]||'';
+    const montant=l.statut==='vert'&&l.prix_vendu?` · ${Number(l.prix_vendu).toLocaleString('fr-FR')} € HT`:l.statut==='jaune'&&l.montant_devis?` · Devis ${Number(l.montant_devis).toLocaleString('fr-FR')} € HT`:'';
+    return `<div class="lead-card statut-${l.statut}${alerte?' alerte24':''}" onclick="openLead(${l.id})">
+      ${alerte?'<div class="lead-alerte" style="position:absolute;top:10px;right:10px">⏰ +24h</div>':''}
+      <div class="lead-nom">${esc(l.nom)}</div>
+      <div class="lead-info">${esc(l.type_projet||'')}${montant}</div>
+      <div class="lead-meta">
+        <span class="lead-statut ${statCls}">${statLabel}</span>
+        <span class="lead-secteur">${secteurLabel}</span>
+        ${comm?`<span class="lead-commercial">${esc(comm.name)}</span>`:''}
+        <span style="margin-left:auto;font-size:10px;color:var(--t3)">${age}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function isLeadAlerte24(l){
+  if(l.statut==='vert'||l.statut==='rouge')return false;
+  if(!l.date_creation)return false;
+  const h=(Date.now()-new Date(l.date_creation).getTime())/3600000;
+  return h>24;
+}
+
+function getLeadAge(l){
+  if(!l.date_creation)return '';
+  const h=(Date.now()-new Date(l.date_creation).getTime())/3600000;
+  if(h<1)return 'À l\'instant';
+  if(h<24)return Math.floor(h)+'h';
+  return Math.floor(h/24)+'j';
+}
+
+// DASHBOARD CRM
+function renderLeadsDashboard(){
+  const list=document.getElementById('leads-list');if(!list)return;
+  list.style.display='flex';
+  const leads=getLeads();
+  const obj=getLeadObjectifs();
+  const now=new Date();
+  const month=now.getMonth();const year=now.getFullYear();
+  const leadsMonth=leads.filter(l=>{
+    const d=new Date(l.date_creation);
+    return d.getMonth()===month&&d.getFullYear()===year;
+  });
+
+  const secteurs=[
+    {id:'nimes',label:'Nîmes',icon:'📍',color:'var(--a)'},
+    {id:'avignon',label:'Avignon',icon:'📍',color:'var(--bl)'}
+  ];
+
+  let html='';
+  secteurs.forEach(s=>{
+    const sl=leadsMonth.filter(l=>l.secteur===s.id);
+    const total=sl.length;
+    const ventes=sl.filter(l=>l.statut==='vert');
+    const ca=ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
+    const devis=sl.filter(l=>l.statut==='jaune');
+    const pipeline=devis.reduce((sum,l)=>sum+Number(l.montant_devis||0),0);
+    const taux=total>0?Math.round(ventes.length/total*100):0;
+    const objL=obj[s.id]?.leads||0;
+    const objCA=obj[s.id]?.ca||0;
+    const pctL=objL>0?Math.min(total/objL*100,100):0;
+    const pctCA=objCA>0?Math.min(ca/objCA*100,100):0;
+
+    html+=`<div class="secteur-card">
+      <div class="secteur-title" style="color:${s.color}">${s.icon} ${s.label} <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px">${now.toLocaleString('fr-FR',{month:'long',year:'numeric'})}</span>
+        ${currentUser.role==='admin'?`<button onclick="editObjectif('${s.id}')" style="margin-left:auto;background:var(--s3);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️ Objectifs</button>`:''}
+      </div>
+      <div class="secteur-stats">
+        <div class="stat-box">
+          <div class="stat-box-val" style="color:${s.color}">${total}</div>
+          <div class="stat-box-lbl">Leads</div>
+          <div class="stat-box-obj">Objectif : ${objL}</div>
+          <div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pctL}%;background:${s.color}"></div></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-val" style="color:var(--g)">${ventes.length}</div>
+          <div class="stat-box-lbl">Ventes</div>
+          <div class="stat-box-obj">Taux : ${taux}%</div>
+          <div class="objectif-bar"><div class="objectif-bar-fill" style="width:${taux}%;background:var(--g)"></div></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-val" style="color:var(--g);font-size:16px">${ca.toLocaleString('fr-FR')} €</div>
+          <div class="stat-box-lbl">CA réalisé</div>
+          <div class="stat-box-obj">Objectif : ${objCA.toLocaleString('fr-FR')} €</div>
+          <div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pctCA}%;background:var(--g)"></div></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-val" style="color:var(--y);font-size:16px">${pipeline.toLocaleString('fr-FR')} €</div>
+          <div class="stat-box-lbl">Pipeline devis</div>
+          <div class="stat-box-obj">${devis.length} devis en cours</div>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  // Perf commerciaux
+  const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
+  if(commerciaux.length>0){
+    html+=`<div class="secteur-card">
+      <div class="secteur-title">👤 Performance commerciaux</div>`;
+    commerciaux.forEach(c=>{
+      const cl=leadsMonth.filter(l=>l.commercial===c.id);
+      const cv=cl.filter(l=>l.statut==='vert');
+      const ca=cv.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
+      const taux=cl.length>0?Math.round(cv.length/cl.length*100):0;
+      html+=`<div class="perf-row">
+        <div style="width:30px;height:30px;border-radius:8px;background:${c.color};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">${c.initial}</div>
+        <div class="perf-name">${esc(c.name)}</div>
+        <div class="perf-stats">${cl.length} leads · ${cv.length} ventes · ${taux}%</div>
+        <div class="perf-ca">${ca.toLocaleString('fr-FR')} €</div>
+      </div>`;
+    });
+    html+='</div>';
+  }
+
+  list.innerHTML=html;
+}
+
+// MODIFIER OBJECTIFS
+function editObjectif(secteur){
+  const obj=getLeadObjectifs();
+  const s=obj[secteur]||{leads:0,ca:0};
+  const label=secteur==='nimes'?'Nîmes':'Avignon';
+  const newLeads=prompt(`Objectif leads/mois — ${label} :`,s.leads);
+  if(newLeads===null)return;
+  const newCA=prompt(`Objectif CA/mois (€ HT) — ${label} :`,s.ca);
+  if(newCA===null)return;
+  obj[secteur]={leads:parseInt(newLeads)||0,ca:parseInt(newCA)||0};
+  saveLeadObjectifs(obj);
+  renderLeadsDashboard();
+  logActivity(`Benjamin a mis à jour les objectifs ${label}`);
+}
+
+// OUVRIR FICHE LEAD (NOUVEAU)
+function openNewLead(){
+  currentLeadId=null;currentLeadStatut='gris';
+  document.getElementById('modal-lead-nom').textContent='Nouveau lead';
+  document.getElementById('modal-lead-sub').textContent='';
+  resetLeadForm();
+  // Assistante ne voit pas le statut ni attribution commercial
+  const role=currentUser?.role;
+  document.getElementById('modal-statut-section').style.display=(role==='admin'||role==='directeur_co'||role==='commercial')?'block':'none';
+  const commWrap=document.getElementById('lead-commercial-wrap');
+  if(commWrap)commWrap.style.display=(role==='admin'||role==='directeur_co')?'block':'none';
+  fillCommercialAssign();
+  fillProjetsSuggestions();
+  document.getElementById('btn-delete-lead').style.display='none';
+  document.getElementById('modal-historique').style.display='none';
+  document.getElementById('lead-modal').classList.add('open');
+}
+
+// OUVRIR FICHE LEAD EXISTANT
+function openLead(id){
+  const leads=getLeads();
+  const l=leads.find(x=>x.id===id);if(!l)return;
+  currentLeadId=id;currentLeadStatut=l.statut||'gris';
+  document.getElementById('modal-lead-nom').textContent=l.nom;
+  document.getElementById('modal-lead-sub').textContent=(l.secteur==='avignon'?'Avignon':'Nîmes')+' · '+getLeadAge(l);
+  resetLeadForm();
+  // Remplir les champs
+  document.getElementById('lead-nom').value=l.nom||'';
+  document.getElementById('lead-tel').value=l.telephone||'';
+  document.getElementById('lead-adresse').value=l.adresse||'';
+  document.getElementById('lead-projet').value=l.type_projet||'';
+  document.getElementById('lead-secteur').value=l.secteur||'nimes';
+  document.getElementById('lead-note').value=l.note||'';
+  // Statut
+  const role=currentUser?.role;
+  document.getElementById('modal-statut-section').style.display=(role==='admin'||role==='directeur_co'||role==='commercial')?'block':'none';
+  if(role==='admin'||role==='directeur_co'||role==='commercial'){
+    selectStatut(l.statut||'gris',null,true);
+    document.getElementById('lead-sous-statut').value=l.sous_statut||'a_rappeler';
+    if(l.rappel)document.getElementById('lead-rappel').value=l.rappel;
+    if(l.montant_devis)document.getElementById('lead-montant-devis').value=l.montant_devis;
+    if(l.date_devis)document.getElementById('lead-date-devis').value=l.date_devis;
+    if(l.type_devis)document.getElementById('lead-type-devis').value=l.type_devis;
+    if(l.prix_vendu)document.getElementById('lead-prix-vendu').value=l.prix_vendu;
+    if(l.date_signature)document.getElementById('lead-date-signature').value=l.date_signature;
+    if(l.produit_vendu)document.getElementById('lead-produit-vendu').value=l.produit_vendu;
+    if(l.raison_mort)document.getElementById('lead-raison-mort').value=l.raison_mort;
+  }
+  const commWrap=document.getElementById('lead-commercial-wrap');
+  if(commWrap)commWrap.style.display=(role==='admin'||role==='directeur_co')?'block':'none';
+  fillCommercialAssign(l.commercial);
+  fillProjetsSuggestions();
+  // Bouton supprimer (admin seulement)
+  document.getElementById('btn-delete-lead').style.display=role==='admin'?'block':'none';
+  // Historique
+  if(l.historique&&l.historique.length>0){
+    document.getElementById('modal-historique').style.display='block';
+    document.getElementById('historique-list').innerHTML=l.historique.slice().reverse().map(h=>`
+      <div class="historique-item">
+        <div class="historique-date">${h.date} · ${h.user}</div>
+        <div class="historique-txt">${esc(h.action)}</div>
+      </div>`).join('');
+  } else {
+    document.getElementById('modal-historique').style.display='none';
+  }
+  document.getElementById('lead-modal').classList.add('open');
+}
+
+function closeLeadModal(){
+  document.getElementById('lead-modal').classList.remove('open');
+  currentLeadId=null;
+}
+
+function resetLeadForm(){
+  ['lead-nom','lead-tel','lead-adresse','lead-projet','lead-note','lead-montant-devis','lead-date-devis','lead-type-devis','lead-prix-vendu','lead-date-signature','lead-produit-vendu','lead-rappel'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  document.getElementById('lead-secteur').value='nimes';
+  document.getElementById('lead-sous-statut').value='a_rappeler';
+  document.getElementById('lead-raison-mort').value='';
+  selectStatut('gris',null,true);
+}
+
+function selectStatut(statut,btn,silent=false){
+  currentLeadStatut=statut;
+  document.querySelectorAll('.statut-btn').forEach(b=>b.classList.remove('selected'));
+  if(btn)btn.classList.add('selected');
+  else document.querySelectorAll('.statut-btn').forEach(b=>{if(b.classList.contains('sb-'+statut))b.classList.add('selected');});
+  ['gris','jaune','vert','rouge'].forEach(s=>{
+    const p=document.getElementById('panel-'+s);if(p)p.style.display=s===statut?'block':'none';
+  });
+}
+
+function saveLead(){
+  const nom=document.getElementById('lead-nom').value.trim();
+  const tel=document.getElementById('lead-tel').value.trim();
+  const adresse=document.getElementById('lead-adresse').value.trim();
+  const projet=document.getElementById('lead-projet').value.trim();
+  if(!nom||!tel||!adresse||!projet){alert('Remplissez les champs obligatoires (*)');return;}
+  if(currentLeadStatut==='rouge'&&!document.getElementById('lead-raison-mort').value){alert('Indiquez la raison du refus');return;}
+  const leads=getLeads();
+  const now=new Date().toISOString();
+  const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const data={
+    nom,telephone:tel,adresse,type_projet:projet,
+    secteur:document.getElementById('lead-secteur').value,
+    statut:currentLeadStatut,
+    sous_statut:document.getElementById('lead-sous-statut').value,
+    rappel:document.getElementById('lead-rappel').value||null,
+    montant_devis:document.getElementById('lead-montant-devis').value||null,
+    date_devis:document.getElementById('lead-date-devis').value||null,
+    type_devis:document.getElementById('lead-type-devis').value||null,
+    prix_vendu:document.getElementById('lead-prix-vendu').value||null,
+    date_signature:document.getElementById('lead-date-signature').value||null,
+    produit_vendu:document.getElementById('lead-produit-vendu').value||null,
+    raison_mort:document.getElementById('lead-raison-mort').value||null,
+    commercial:document.getElementById('lead-commercial-assign')?.value||null,
+    note:document.getElementById('lead-note').value.trim(),
+  };
+  if(currentLeadId){
+    // Mise à jour
+    const idx=leads.findIndex(l=>l.id===currentLeadId);
+    if(idx!==-1){
+      const old=leads[idx];
+      if(!old.historique)old.historique=[];
+      if(old.statut!==data.statut)old.historique.push({date:dateStr,user:currentUser.name,action:`Statut : ${old.statut} → ${data.statut}`});
+      if(data.note&&data.note!==old.note)old.historique.push({date:dateStr,user:currentUser.name,action:'Note : '+data.note});
+      leads[idx]={...old,...data,id:currentLeadId,date_creation:old.date_creation,date_modification:now};
+    }
+    logActivity(`${currentUser.name} a mis à jour le lead : ${nom}`);
+  } else {
+    // Nouveau
+    const newLead={...data,id:Date.now(),date_creation:now,historique:[{date:dateStr,user:currentUser.name,action:'Lead créé'}]};
+    leads.unshift(newLead);
+    logActivity(`${currentUser.name} a créé un lead : ${nom}`);
+    // Notifier le directeur co uniquement (pas Benjamin)
+    getAllUsers().filter(u=>u.role==='directeur_co').forEach(u=>{
+      pushNotif('Nouveau lead',`${nom} — ${projet}`,newLead.secteur==='avignon'?'📍':'📍',u.id);
+    });
+    updateProjetSuggestion(projet);
+  }
+  saveLeads(leads);
+  closeLeadModal();
+  renderLeads();
+  refreshLeadsBadge();
+}
+
+function deleteLead(){
+  if(!confirm('Supprimer ce lead définitivement ?'))return;
+  const leads=getLeads().filter(l=>l.id!==currentLeadId);
+  saveLeads(leads);
+  closeLeadModal();
+  renderLeads();
+  refreshLeadsBadge();
+  logActivity(`${currentUser.name} a supprimé un lead`);
+}
+
+// SUGGESTIONS PROJETS
+function getProjetsSuggestions(){try{return JSON.parse(localStorage.getItem('benai_projets_sugg'))||[];}catch{return[];}}
+function updateProjetSuggestion(terme){
+  const sugg=getProjetsSuggestions();
+  const ex=sugg.find(s=>s.t===terme);
+  if(ex)ex.n++;else sugg.push({t:terme,n:1});
+  sugg.sort((a,b)=>b.n-a.n);
+  localStorage.setItem('benai_projets_sugg',JSON.stringify(sugg.slice(0,30)));
+}
+function fillProjetsSuggestions(){
+  const dl=document.getElementById('projets-list');if(!dl)return;
+  dl.innerHTML=getProjetsSuggestions().map(s=>`<option value="${esc(s.t)}">`).join('');
+}
+
+// DETECTION SECTEUR (codes postaux à compléter plus tard)
+const CODES_NIMES=['30000','30900','30100','30130','30132','30133','30190','30128','30900'];
+const CODES_AVIGNON=['84000','84100','84130','84140','84300','84310','84320','84420'];
+function detectSecteur(adresse){
+  const cp=adresse.match(/\b([0-9]{5})\b/);
+  if(!cp)return;
+  const code=cp[1];
+  if(CODES_AVIGNON.includes(code))document.getElementById('lead-secteur').value='avignon';
+  else if(CODES_NIMES.includes(code))document.getElementById('lead-secteur').value='nimes';
+}
+
+// FILTRE COMMERCIAL
+function fillCommercialFilter(){
+  const sel=document.getElementById('crm-filter-commercial');if(!sel)return;
+  const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
+  sel.innerHTML='<option value="">Tous commerciaux</option>'+commerciaux.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+}
+function fillCommercialAssign(selected=''){
+  const sel=document.getElementById('lead-commercial-assign');if(!sel)return;
+  const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
+  sel.innerHTML='<option value="">Non attribué</option>'+commerciaux.map(c=>`<option value="${c.id}"${c.id===selected?' selected':''}>${esc(c.name)}</option>`).join('');
+}
+
+// ALERTES 24H
+function checkLeadsAlertes(){
+  // Benjamin ne reçoit pas les alertes leads — directeur co uniquement
+  if(currentUser?.role!=='directeur_co')return;
+  const alertes=getLeads().filter(l=>isLeadAlerte24(l));
+  if(alertes.length>0){
+    pushNotif('⏰ Leads en attente',`${alertes.length} lead(s) sans contact depuis +24h`,'🚨',currentUser.id);
+  }
+}
+
+// BADGE SIDEBAR
+function refreshLeadsBadge(){
+  const badge=document.getElementById('leads-badge');if(!badge)return;
+  const role=currentUser?.role;
+  // Benjamin : pas de badge leads
+  if(role==='admin'){badge.style.display='none';return;}
+  let leads=getLeads();
+  if(role==='commercial')leads=leads.filter(l=>l.commercial===currentUser.id);
+  const alertes=leads.filter(l=>isLeadAlerte24(l)).length;
+  if(alertes>0){badge.style.display='flex';badge.textContent=alertes;badge.style.background='var(--r)';}
+  else{const nouveaux=leads.filter(l=>l.statut==='gris').length;
+    if(nouveaux>0){badge.style.display='flex';badge.textContent=nouveaux;badge.style.background='var(--a)';}
+    else badge.style.display='none';}
 }
 
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
