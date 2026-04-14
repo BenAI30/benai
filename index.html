@@ -4450,12 +4450,11 @@ function selectStatut(statut,btn,silent=false){
   ['gris','jaune','vert','rouge'].forEach(s=>{
     const p=document.getElementById('panel-'+s);if(p)p.style.display=s===statut?'block':'none';
   });
-  // Fond de la modale selon statut
+  // Fond de la modale — uniquement la bordure change, pas le fond
   const box=document.querySelector('.lead-modal-box');
   if(box){
-    const bgs={gris:'var(--s1)',jaune:'rgba(251,191,36,.06)',vert:'rgba(34,197,94,.06)',rouge:'rgba(248,113,113,.06)'};
-    const borders={gris:'var(--b1)',jaune:'rgba(251,191,36,.4)',vert:'rgba(34,197,94,.4)',rouge:'rgba(248,113,113,.4)'};
-    box.style.background=bgs[statut]||'var(--s1)';
+    const borders={gris:'var(--b1)',jaune:'rgba(251,191,36,.5)',vert:'rgba(34,197,94,.5)',rouge:'rgba(248,113,113,.5)'};
+    box.style.background='var(--s1)';
     box.style.borderColor=borders[statut]||'var(--b1)';
   }
   // Afficher/masquer date RDV selon sous-statut
