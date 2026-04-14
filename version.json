@@ -1,31 +1,25 @@
 {
-  "version": "3.13",
+  "version": "3.14",
   "notes_admin": [
-    "🎂 Rappel anniversaires employés chaque matin",
-    "🗑️ Journal des suppressions — irréversible, visible uniquement par toi",
-    "📧 Email perso + pro dans l'annuaire (envoi fiches de paie sur perso)",
-    "🔒 Blocage instantané en cours de session",
-    "⏰ Timeout automatique 6h d'inactivité",
-    "🔐 Historique de toutes les connexions",
-    "🔀 Fusionner deux leads en double",
-    "🏢 CRM Lambert SAS avec attribution automatique",
-    "📅 Bouton Google Agenda sur les leads avec RDV",
-    "📧 Export lead par email pour commercial externe"
+    "🔄 Bouton Changer visible uniquement sur ta session",
+    "🔵 Statut renommé en Non traité",
+    "🔒 Rôles commerciaux et directeur co correctement blindés",
+    "🎯 Leads : projet affiché en évidence sur chaque carte"
   ],
   "notes_directeur_co": [
-    "⚡ Dispatch rapide — attribuez sans ouvrir la fiche",
-    "⚠️ Section À ATTRIBUER séparée bien visible",
-    "🔀 Fusionner deux leads en double",
-    "📅 Bouton Google Agenda sur les leads avec RDV",
-    "📧 Export lead par email"
+    "⚠️ Arrivée directe sur les leads non attribués",
+    "🔔 Notifications bien plus visibles",
+    "📋 Vous voyez maintenant tous les leads correctement",
+    "🔵 Statut renommé en Non traité",
+    "🎯 Projet affiché en évidence sur chaque lead"
   ],
   "notes_assistante": [
-    "📧 Email perso + email pro dans l'annuaire",
-    "🎂 Anniversaires visibles sur les fiches employés",
-    "📅 Bouton Google Agenda sur les leads avec RDV"
+    "📋 Vue CRM simplifiée — saisie et vos leads uniquement",
+    "🎯 Projet affiché en évidence sur chaque lead"
   ],
   "notes_commercial": [
-    "📅 Bouton Google Agenda sur vos leads avec RDV",
-    "📧 Exporter un lead par email"
+    "🔔 Notifications bien plus visibles",
+    "🔵 Statut renommé en Non traité",
+    "🎯 Projet affiché en évidence sur chaque lead"
   ]
 }
