@@ -1,14 +1,10 @@
 {
   "version": "3.10",
   "notes": [
-    "Réponses BenAI plus longues — plus jamais coupées",
-    "Notes rapides agrandissables à la main",
-    "Dashboard — onglets réductibles",
-    "Cloche 🔔 notifications avec popup",
-    "Badge absences dans le menu gauche",
-    "Télécharger sa conversation ⬇️",
-    "Retour session sans ressaisir les identifiants",
-    "Sauvegarde automatique à la fermeture de BenAI",
-    "Google Drive corrigé (Google Identity Services)"
+    "📋 CRM Leads intégré — saisie, suivi, dashboard par secteur",
+    "🚨 Alertes 24h leads — directeur commercial uniquement, pas Benjamin",
+    "👤 Rôles : Commercial (CRM seul) et Directeur commercial",
+    "📊 Dashboard Nîmes/Avignon avec CA, ventes et objectifs",
+    "🔔 Notifications, ↩️ retour session, 📝 notes agrandissables"
   ]
 }
