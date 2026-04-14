@@ -3622,19 +3622,46 @@ async function uploadToDrive(token){
     const mem=getMem();const pwds=getPwds();const extras=getExtraUsers();const access=getAccess();const ann=getAnnuaire();
     const backup={version:BENAI_VERSION,date:new Date().toISOString(),data:mem,pwds,extras,access,annuaire:ann};
     const content=JSON.stringify(backup,null,2);
-    // Chercher si le fichier existe déjà
-    const search=await fetch(`https://www.googleapis.com/drive/v3/files?q=name%3D'${GDRIVE_BACKUP_FILENAME}'+and+trashed%3Dfalse&fields=files(id)`,{
+    const FOLDER_NAME='BenAI Sauvegardes';
+
+    // 1 — Chercher ou créer le dossier
+    const folderSearch=await fetch(`https://www.googleapis.com/drive/v3/files?q=name%3D'${encodeURIComponent(FOLDER_NAME)}'+and+mimeType%3D'application%2Fvnd.google-apps.folder'+and+trashed%3Dfalse&fields=files(id,name)`,{
       headers:{Authorization:'Bearer '+token}
     });
-    if(!search.ok)return false;
-    const {files=[]}=await search.json();
+    if(!folderSearch.ok)return false;
+    const {files:folders=[]}=await folderSearch.json();
+    let folderId=folders[0]?.id||null;
+
+    if(!folderId){
+      // Créer le dossier
+      const folderRes=await fetch('https://www.googleapis.com/drive/v3/files',{
+        method:'POST',
+        headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({name:FOLDER_NAME,mimeType:'application/vnd.google-apps.folder'})
+      });
+      if(!folderRes.ok)return false;
+      const folderData=await folderRes.json();
+      folderId=folderData.id;
+    }
+
+    // 2 — Chercher si le fichier existe déjà dans ce dossier
+    const fileSearch=await fetch(`https://www.googleapis.com/drive/v3/files?q=name%3D'${GDRIVE_BACKUP_FILENAME}'+and+'${folderId}'+in+parents+and+trashed%3Dfalse&fields=files(id)`,{
+      headers:{Authorization:'Bearer '+token}
+    });
+    if(!fileSearch.ok)return false;
+    const {files=[]}=await fileSearch.json();
+
     if(files[0]?.id){
+      // Mettre à jour le fichier existant
       const res=await fetch(`https://www.googleapis.com/upload/drive/v3/files/${files[0].id}?uploadType=media`,{
-        method:'PATCH',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:content
+        method:'PATCH',
+        headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+        body:content
       });
       return res.ok;
     } else {
-      const meta=new Blob([JSON.stringify({name:GDRIVE_BACKUP_FILENAME,mimeType:'application/json'})],{type:'application/json'});
+      // Créer le fichier dans le dossier
+      const meta=new Blob([JSON.stringify({name:GDRIVE_BACKUP_FILENAME,mimeType:'application/json',parents:[folderId]})],{type:'application/json'});
       const blob=new Blob([content],{type:'application/json'});
       const form=new FormData();form.append('metadata',meta);form.append('file',blob);
       const res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
