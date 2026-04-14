@@ -451,11 +451,22 @@ input[type=file]{display:none;}
       <div class="sp-section">
         <div class="sp-label">Sauvegarde données</div>
         <div style="display:flex;gap:6px">
-          <button onclick="exportData()" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">💾 Sauvegarder</button>
+          <button onclick="exportData()" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">💾 Local</button>
           <button onclick="document.getElementById('import-file').click()" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">📂 Restaurer</button>
+          <button onclick="manualBackupToDrive()" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--g);background:var(--g2);color:var(--g);font-family:inherit;font-size:12px;cursor:pointer;font-weight:600">☁️ Drive</button>
         </div>
         <input type="file" id="import-file" accept=".json" onchange="importData(this)">
         <div id="backup-msg" style="font-size:11px;margin-top:5px;min-height:14px"></div>
+      </div>
+      <div class="sp-section">
+        <div class="sp-label">Google Drive — Client ID</div>
+        <div style="font-size:10px;color:var(--t3);margin-bottom:6px">Créer un projet sur <a href="https://console.cloud.google.com" target="_blank" style="color:var(--a)">console.cloud.google.com</a> → API Drive → OAuth 2.0</div>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="gdrive-client-id" placeholder="xxxx.apps.googleusercontent.com" style="flex:1;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
+          <button onclick="saveGDriveClientIdSettings()" style="padding:8px 12px;background:var(--a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">OK</button>
+        </div>
+        <div id="gdrive-msg" style="font-size:11px;margin-top:5px;min-height:14px"></div>
+        <div id="gdrive-last-backup" style="font-size:10px;color:var(--t3);margin-top:4px"></div>
       </div>
     </div>
   </div>
@@ -611,13 +622,22 @@ input[type=file]{display:none;}
 
       <!-- PAGE ABSENCES (Benjamin only) -->
       <div id="page-absences" style="display:none;flex-direction:column;height:100%">
-        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+        <div class="page-header" style="padding-bottom:8px;flex-shrink:0">
           <div><div class="page-title">🗓️ Absences & Congés</div><div class="page-sub">Rappels J-7 et la veille</div></div>
           <div style="display:flex;gap:8px">
             <button onclick="downloadPlanningAbsences('nemausus')" style="background:var(--a3);border:1px solid var(--a);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--a);font-family:inherit;font-weight:600">📥 Nemausus</button>
             <button onclick="downloadPlanningAbsences('lambert')" style="background:var(--bl2);border:1px solid var(--bl);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--bl);font-family:inherit;font-weight:600">📥 Lambert</button>
             <button class="btn-primary" onclick="toggleAbsForm()">+ Nouvelle absence</button>
           </div>
+        </div>
+        <!-- BARRE TRI + FILTRE -->
+        <div style="padding:0 20px 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
+          <button class="sav-filter active" id="abs-sort-asc" onclick="setAbsSort('asc',this)">📅 Date ↑</button>
+          <button class="sav-filter" id="abs-sort-desc" onclick="setAbsSort('desc',this)">📅 Date ↓</button>
+          <button class="sav-filter" id="abs-sort-emp" onclick="setAbsSort('emp',this)">👤 Employé</button>
+          <select id="abs-filter-emp" onchange="renderAbsences()" style="background:var(--s2);border:1px solid var(--b1);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;outline:none">
+            <option value="">Tous les employés</option>
+          </select>
         </div>
         <div style="padding:0 16px;flex-shrink:0;display:none" id="abs-form-wrap">
           <div class="sav-form">
@@ -815,7 +835,7 @@ input[type=file]{display:none;}
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const BENAI_VERSION = '3.7';
+const BENAI_VERSION = '3.9';
 
 // ══════════════════════════════════════════
 // UTILISATEURS
@@ -1097,6 +1117,8 @@ function initApp(silent=false){
   // Bouton tuto dans paramètres
   const tutoSection=document.getElementById('tuto-settings-section');
   if(tutoSection)tutoSection.style.display=currentUser.id==='benjamin'?'none':'block';
+  // Sauvegarde automatique Google Drive (Benjamin uniquement)
+  if(u.id==='benjamin')setTimeout(()=>autoBackupToDrive(),2000);
 }
 
 // ══════════════════════════════════════════
@@ -1806,7 +1828,7 @@ function renderNotes(){
   area.innerHTML=notes.map((n,i)=>`
     <div class="note-card">
       <button class="note-del" onclick="deleteNote(${n.id})">✕</button>
-      <textarea oninput="saveNote(${n.id},this.value)">${esc(n.text)}</textarea>
+      <textarea oninput="saveNote(${n.id},this.value)" onblur="correctNoteSpelling(${n.id},this)">${esc(n.text)}</textarea>
       <div class="note-meta"><span>${n.date}</span><span>${USERS[n.by]?.name||n.by}</span></div>
     </div>`).join('');
 }
@@ -1814,6 +1836,28 @@ function renderNotes(){
 function saveNote(id,val){
   const mem=getMem();const n=mem.notes?.find(x=>x.id===id);if(n)n.text=val;saveMem(mem);
 }
+
+async function correctNoteSpelling(id,el){
+  const txt=el.value.trim();
+  if(!txt||txt.split(' ').length<3)return;
+  const apiKey=getApiKey();if(!apiKey)return;
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:`Corrige uniquement les fautes d'orthographe et de grammaire françaises, sans changer le sens ni le style. Réponds UNIQUEMENT avec le texte corrigé, rien d'autre. Si aucune faute, réponds le texte exact :\n\n${txt}`}]})
+    });
+    const d=await r.json();
+    if(d.content?.[0]?.text){
+      const corrected=d.content[0].text.trim();
+      if(corrected&&corrected!==txt){
+        el.value=corrected;
+        saveNote(id,corrected);
+      }
+    }
+  }catch(e){}
+}
+
 
 function deleteNote(id){
   if(!confirm('Supprimer cette note ?'))return;
@@ -1896,24 +1940,31 @@ function saveEditAbsence(id){
   renderAbsences();logActivity(`Benjamin a modifié l'absence de ${emp}`);
 }
 
+let currentAbsSort='asc';
+
+function setAbsSort(mode,btn){
+  currentAbsSort=mode;
+  document.querySelectorAll('#abs-sort-asc,#abs-sort-desc,#abs-sort-emp').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderAbsences();
+}
+
+function refreshAbsEmpFilter(){
+  const sel=document.getElementById('abs-filter-emp');if(!sel)return;
+  const mem=getMem();
+  const emps=[...new Set((mem.absences||[]).map(a=>a.employe))].sort((a,b)=>a.localeCompare(b,'fr'));
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Tous les employés</option>'+emps.map(e=>`<option value="${esc(e)}"${cur===e?' selected':''}>${esc(e)}</option>`).join('');
+}
+
 function renderAbsences(){
   const mem=getMem();const list=document.getElementById('abs-list');
-  if(!(mem.absences||[]).length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune absence enregistrée</div>';return;}
+  refreshAbsEmpFilter();
+  const filterEmp=(document.getElementById('abs-filter-emp')?.value||'').trim();
+  let absences=(mem.absences||[]).filter(a=>!filterEmp||a.employe===filterEmp);
+  if(!absences.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune absence enregistrée</div>';return;}
   const today=new Date();today.setHours(0,0,0,0);
-  // Trier : à venir et en cours d'abord (plus proche), puis passées
-  const absences=(mem.absences||[]).sort((a,b)=>{
-    const fa=new Date(a.fin),fb=new Date(b.fin);
-    const aPast=today>fa,bPast=today>fb;
-    if(aPast&&!bPast)return 1;
-    if(!aPast&&bPast)return -1;
-    return new Date(a.debut)-new Date(b.debut);
-  });
-  // Grouper par employé en respectant l'ordre des premières absences
-  const empOrder=[];const byEmp={};
-  absences.forEach(a=>{
-    if(!byEmp[a.employe]){byEmp[a.employe]=[];empOrder.push(a.employe);}
-    byEmp[a.employe].push(a);
-  });
+
   const getStatus=(a)=>{
     const debut=new Date(a.debut);debut.setHours(0,0,0,0);
     const fin=new Date(a.fin);fin.setHours(0,0,0,0);
@@ -1922,31 +1973,63 @@ function renderAbsences(){
     const diff=Math.ceil((debut-today)/(1000*60*60*24));
     return{status:diff===1?'Demain':`Dans ${diff} jour(s)`,statusClass:'abs-future'};
   };
-  list.innerHTML=empOrder.map(emp=>{const abs=byEmp[emp];return`
-    <div style="margin-bottom:18px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;overflow:hidden">
-      <div style="padding:10px 14px;background:var(--s3);border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:8px">
-        <span style="font-size:16px">👤</span>
-        <span style="font-size:13px;font-weight:700;flex:1">${esc(emp)}</span>
-        <span style="background:var(--a3);color:var(--a);border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700">${abs.length} absence(s)</span>
+
+  const renderCard=(a)=>{
+    const {status,statusClass}=getStatus(a);
+    const notifIcons=(a.notifs||['benjamin']).map(n=>n==='benjamin'?'👨':'👩').join('');
+    const heures=a.heureDebut&&a.heureFin?` · ${a.heureDebut}→${a.heureFin}`:a.heureDebut?` · dès ${a.heureDebut}`:'';
+    const icon=a.type==='Congé'?'🏖️':a.type==='Maladie'?'🤒':a.type==='Formation'?'📚':'🗓️';
+    return `<div style="padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--b1)">
+      <span style="font-size:18px">${icon}</span>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:600">${esc(a.employe)} — ${a.type} <span style="font-size:10px;color:var(--t3)">${notifIcons}</span></div>
+        <div style="font-size:11px;color:var(--t2)">Du ${formatDate(a.debut)} au ${formatDate(a.fin)}${heures}</div>
+        ${a.note?`<div style="font-size:10px;color:var(--t3)">${esc(a.note)}</div>`:''}
       </div>
-      ${abs.map(a=>{
-        const {status,statusClass}=getStatus(a);
-        const notifIcons=(a.notifs||['benjamin']).map(n=>n==='benjamin'?'👨':'👩').join('');
-        const heures=a.heureDebut&&a.heureFin?` · ${a.heureDebut}→${a.heureFin}`:a.heureDebut?` · dès ${a.heureDebut}`:'';
-        const icon=a.type==='Congé'?'🏖️':a.type==='Maladie'?'🤒':a.type==='Formation'?'📚':'🗓️';
-        return `<div style="padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--b1);last-child:border:none">
-          <span style="font-size:18px">${icon}</span>
-          <div style="flex:1">
-            <div style="font-size:12px;font-weight:600">${a.type} <span style="font-size:10px;color:var(--t3)">${notifIcons}</span></div>
-            <div style="font-size:11px;color:var(--t2)">Du ${formatDate(a.debut)} au ${formatDate(a.fin)}${heures}</div>
-            ${a.note?`<div style="font-size:10px;color:var(--t3)">${esc(a.note)}</div>`:''}
-          </div>
-          <span class="absence-status ${statusClass}" style="font-size:10px">${status}</span>
-          <button onclick="editAbsence(${a.id})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:16px;padding:2px" title="Modifier">✏️</button>
-          <button onclick="deleteAbsence(${a.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:16px;padding:2px" title="Supprimer">🗑️</button>
-        </div>`;
-      }).join('')}
-    </div>`;}).join('');
+      <span class="absence-status ${statusClass}" style="font-size:10px">${status}</span>
+      <button onclick="editAbsence(${a.id})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:16px;padding:2px" title="Modifier">✏️</button>
+      <button onclick="deleteAbsence(${a.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:16px;padding:2px" title="Supprimer">🗑️</button>
+    </div>`;
+  };
+
+  if(currentAbsSort==='emp'){
+    // Grouper par employé alphabétique, puis date croissante dans chaque groupe
+    const byEmp={};
+    absences.forEach(a=>{
+      if(!byEmp[a.employe])byEmp[a.employe]=[];
+      byEmp[a.employe].push(a);
+    });
+    Object.keys(byEmp).forEach(e=>byEmp[e].sort((a,b)=>new Date(a.debut)-new Date(b.debut)));
+    const emps=Object.keys(byEmp).sort((a,b)=>a.localeCompare(b,'fr'));
+    list.innerHTML=emps.map(emp=>`
+      <div style="margin-bottom:14px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;overflow:hidden">
+        <div style="padding:10px 14px;background:var(--s3);border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:8px">
+          <span style="font-size:16px">👤</span>
+          <span style="font-size:13px;font-weight:700;flex:1">${esc(emp)}</span>
+          <span style="background:var(--a3);color:var(--a);border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700">${byEmp[emp].length} absence(s)</span>
+        </div>
+        ${byEmp[emp].map(renderCard).join('')}
+      </div>`).join('');
+  } else {
+    // Tri global par date
+    absences.sort((a,b)=>{
+      const da=new Date(a.debut),db=new Date(b.debut);
+      const fa=new Date(a.fin),fb=new Date(b.fin);
+      const aPast=today>fa,bPast=today>fb;
+      if(currentAbsSort==='asc'){
+        if(aPast&&!bPast)return 1;
+        if(!aPast&&bPast)return -1;
+        return da-db;
+      } else {
+        if(aPast&&!bPast)return 1;
+        if(!aPast&&bPast)return -1;
+        return db-da;
+      }
+    });
+    list.innerHTML=`<div style="background:var(--s2);border:1px solid var(--b1);border-radius:14px;overflow:hidden">
+      ${absences.map(renderCard).join('')}
+    </div>`;
+  }
 }
 
 function checkAbsenceReminders(){_checkRemindersFor('benjamin');}
@@ -2416,21 +2499,48 @@ const EVOLUTIONS=[
   {id:5,tag:'Productivité',tagColor:'var(--a)',title:'Signatures email personnalisées',desc:'BenAI mémorise vos signatures Nemausus et Lambert pour les intégrer automatiquement dans les emails rédigés.'},
 ];
 
+function getEvolVotes(){try{return JSON.parse(localStorage.getItem('benai_evol_votes'))||{};}catch{return{};}}
+function saveEvolVotes(v){localStorage.setItem('benai_evol_votes',JSON.stringify(v));}
+
+function voteEvol(evolId,vote){
+  if(!currentUser||currentUser.id==='benjamin')return;
+  const votes=getEvolVotes();
+  if(!votes[evolId])votes[evolId]={};
+  votes[evolId][currentUser.id]=vote;
+  saveEvolVotes(votes);
+  renderEvolution();
+}
+
 function renderEvolution(){
   const dismissed=JSON.parse(localStorage.getItem('benai_evol_dismissed')||'[]');
+  const votes=getEvolVotes();
+  const isBenjamin=currentUser?.id==='benjamin';
   const list=document.getElementById('evolution-list');
   const active=EVOLUTIONS.filter(e=>!dismissed.includes(e.id));
   if(!active.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Toutes les suggestions ont été traitées 🎉</div>';return;}
-  list.innerHTML=active.map(e=>`
-    <div class="evol-card">
+  list.innerHTML=active.map(e=>{
+    const eVotes=votes[e.id]||{};
+    const yes=Object.values(eVotes).filter(v=>v==='yes').length;
+    const no=Object.values(eVotes).filter(v=>v==='no').length;
+    const myVote=currentUser?eVotes[currentUser.id]:null;
+    const voteSummary=isBenjamin&&(yes+no>0)?`<div style="font-size:11px;color:var(--t2);margin-top:8px;padding:6px 10px;background:var(--s3);border-radius:8px">👍 ${yes} intéressé(s) · 👎 ${no} pas intéressé(s)</div>`:'';
+    const actions=isBenjamin
+      ?`<div class="evol-actions">
+          <button class="evol-btn-ok" onclick="validateEvol(${e.id})">✅ À développer</button>
+          <button class="evol-btn-later" onclick="dismissEvol(${e.id})">Plus tard</button>
+        </div>`
+      :`<div class="evol-actions">
+          <button onclick="voteEvol(${e.id},'yes')" style="padding:6px 14px;border-radius:6px;border:1px solid ${myVote==='yes'?'var(--g)':'var(--b1)'};background:${myVote==='yes'?'var(--g2)':'var(--s3)'};color:${myVote==='yes'?'var(--g)':'var(--t2)'};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">👍 Intéressé</button>
+          <button onclick="voteEvol(${e.id},'no')" style="padding:6px 14px;border-radius:6px;border:1px solid ${myVote==='no'?'var(--r)':'var(--b1)'};background:${myVote==='no'?'var(--r2)':'var(--s3)'};color:${myVote==='no'?'var(--r)':'var(--t2)'};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">👎 Pas intéressé</button>
+        </div>`;
+    return `<div class="evol-card">
       <span class="evol-tag" style="background:${e.tagColor}22;color:${e.tagColor}">${e.tag}</span>
       <div class="evol-title">${e.title}</div>
       <div class="evol-desc">${e.desc}</div>
-      <div class="evol-actions">
-        <button class="evol-btn-ok" onclick="validateEvol(${e.id})">✅ À développer</button>
-        <button class="evol-btn-later" onclick="dismissEvol(${e.id})">Plus tard</button>
-      </div>
-    </div>`).join('');
+      ${voteSummary}
+      ${actions}
+    </div>`;
+  }).join('');
 }
 
 function validateEvol(id){
@@ -2684,7 +2794,15 @@ function initSettings(){
   const theme=localStorage.getItem('benai_theme')||'dark';
   document.getElementById('btn-dark').style.borderColor=theme==='dark'?'var(--a)':'var(--b1)';
   document.getElementById('btn-light').style.borderColor=theme==='light'?'var(--a)':'var(--b1)';
-  if(isAdmin)renderTeamPwdSettings();
+  if(isAdmin){
+    renderTeamPwdSettings();
+    // Afficher client ID Google Drive existant
+    const clientIdEl=document.getElementById('gdrive-client-id');
+    if(clientIdEl)clientIdEl.value=getGDriveClientId()||'';
+    const lastBackup=localStorage.getItem('benai_gdrive_last_backup');
+    const lastEl=document.getElementById('gdrive-last-backup');
+    if(lastEl&&lastBackup)lastEl.textContent='Dernière sauvegarde : '+new Date(lastBackup).toLocaleString('fr-FR');
+  }
 }
 
 function setTheme(theme){
@@ -2719,6 +2837,19 @@ function saveApiKeySettings(){
   if(!key||!key.startsWith('sk-')){msg.style.color='var(--r)';msg.textContent='⚠️ Clé invalide';return;}
   localStorage.setItem('benai_api',key);document.getElementById('api-key-settings').value='';
   msg.style.color='var(--g)';msg.textContent='✅ Clé enregistrée !';setTimeout(()=>msg.textContent='',2000);
+}
+
+function saveGDriveClientIdSettings(){
+  const id=document.getElementById('gdrive-client-id').value.trim();
+  const msg=document.getElementById('gdrive-msg');
+  if(!id||!id.includes('googleusercontent.com')){
+    msg.style.color='var(--r)';msg.textContent='⚠️ Client ID invalide';
+    setTimeout(()=>msg.textContent='',2000);return;
+  }
+  saveGDriveClientId(id);
+  msg.style.color='var(--g)';msg.textContent='✅ Client ID enregistré ! La sauvegarde sera active à la prochaine connexion.';
+  setTimeout(()=>msg.textContent='',3000);
+  logActivity('Benjamin a configuré la sauvegarde Google Drive');
 }
 
 // SAUVEGARDE / RESTAURATION
@@ -2950,6 +3081,132 @@ function startPolling(){
     }
   },30000);
 }
+
+// ══════════════════════════════════════════
+// 🔴 SAUVEGARDE GOOGLE DRIVE AUTOMATIQUE
+// ══════════════════════════════════════════
+
+const GDRIVE_CLIENT_ID='';// Rempli automatiquement via settings
+const GDRIVE_SCOPE='https://www.googleapis.com/auth/drive.file';
+const GDRIVE_BACKUP_FILENAME='BenAI_backup.json';
+let gdriveAccessToken=null;
+
+function getGDriveClientId(){return localStorage.getItem('benai_gdrive_client_id')||'';}
+function saveGDriveClientId(id){localStorage.setItem('benai_gdrive_client_id',id);}
+function getGDriveToken(){return localStorage.getItem('benai_gdrive_token')||null;}
+function saveGDriveToken(t){localStorage.setItem('benai_gdrive_token',t);}
+
+async function autoBackupToDrive(){
+  const clientId=getGDriveClientId();
+  if(!clientId){
+    // Pas encore configuré — notif discrète une seule fois
+    const seen=localStorage.getItem('benai_gdrive_prompt_seen');
+    if(!seen){
+      localStorage.setItem('benai_gdrive_prompt_seen','1');
+      setTimeout(()=>addAIMsg('💾 **Sauvegarde Google Drive non configurée**\n\nVa dans ⚙️ Paramètres pour configurer la sauvegarde automatique et protéger tes données.'),2500);
+    }
+    return;
+  }
+  // Tenter sauvegarde silencieuse avec token existant
+  const token=getGDriveToken();
+  if(token){
+    const ok=await uploadToDrive(token);
+    if(ok){
+      showDriveNotif('✅ Sauvegarde Google Drive effectuée');
+      localStorage.setItem('benai_gdrive_last_backup',new Date().toISOString());
+      return;
+    }
+  }
+  // Token expiré ou absent → demander autorisation
+  requestDriveAuth(clientId);
+}
+
+function requestDriveAuth(clientId){
+  const redirectUri=window.location.origin+window.location.pathname;
+  const authUrl=`https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(GDRIVE_SCOPE)}&prompt=none`;
+  // Ouvrir dans popup invisible
+  const w=window.open(authUrl,'gdrive_auth','width=500,height=600,left=200,top=100');
+  const timer=setInterval(()=>{
+    try{
+      if(w&&w.closed){clearInterval(timer);return;}
+      const url=w?.location?.href||'';
+      if(url.includes('access_token=')){
+        const params=new URLSearchParams(url.split('#')[1]||url.split('?')[1]||'');
+        const token=params.get('access_token');
+        if(token){
+          saveGDriveToken(token);
+          gdriveAccessToken=token;
+          w.close();clearInterval(timer);
+          uploadToDrive(token).then(ok=>{
+            if(ok){showDriveNotif('✅ Sauvegarde Google Drive effectuée');localStorage.setItem('benai_gdrive_last_backup',new Date().toISOString());}
+          });
+        }
+      }
+    }catch(e){}
+  },500);
+}
+
+async function uploadToDrive(token){
+  try{
+    const mem=getMem();const pwds=getPwds();const extras=getExtraUsers();const access=getAccess();const annuaire=getAnnuaire();
+    const backup={version:BENAI_VERSION,date:new Date().toISOString(),data:mem,pwds,extras,access,annuaire};
+    const content=JSON.stringify(backup,null,2);
+    // Chercher si le fichier existe déjà
+    const search=await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${GDRIVE_BACKUP_FILENAME}'+and+trashed=false&fields=files(id,name)`,{
+      headers:{Authorization:`Bearer ${token}`}
+    });
+    if(!search.ok){saveGDriveToken('');return false;}
+    const {files}=await search.json();
+    let fileId=files?.[0]?.id||null;
+    if(fileId){
+      // Mettre à jour
+      const res=await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,{
+        method:'PATCH',
+        headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+        body:content
+      });
+      return res.ok;
+    } else {
+      // Créer
+      const meta=new Blob([JSON.stringify({name:GDRIVE_BACKUP_FILENAME,mimeType:'application/json'})],{type:'application/json'});
+      const data=new Blob([content],{type:'application/json'});
+      const form=new FormData();form.append('metadata',meta);form.append('file',data);
+      const res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+        method:'POST',headers:{Authorization:`Bearer ${token}`},body:form
+      });
+      return res.ok;
+    }
+  }catch(e){saveGDriveToken('');return false;}
+}
+
+function showDriveNotif(msg){
+  const notif=document.createElement('div');
+  notif.style.cssText='position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--s2);border:1px solid var(--g);border-radius:10px;padding:8px 16px;font-size:12px;font-weight:500;color:var(--g);z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.4)';
+  notif.textContent=msg;
+  document.body.appendChild(notif);
+  setTimeout(()=>notif.remove(),3000);
+}
+
+async function manualBackupToDrive(){
+  const clientId=getGDriveClientId();
+  if(!clientId){alert('⚠️ Configure ton Client ID Google Drive dans les paramètres.');return;}
+  const token=getGDriveToken();
+  if(token){
+    const ok=await uploadToDrive(token);
+    if(ok){showDriveNotif('✅ Sauvegarde Google Drive effectuée');return;}
+  }
+  requestDriveAuth(clientId);
+}
+
+// Récupérer token depuis URL hash après redirect OAuth
+(function checkOAuthRedirect(){
+  const hash=window.location.hash;
+  if(hash.includes('access_token=')){
+    const params=new URLSearchParams(hash.substring(1));
+    const token=params.get('access_token');
+    if(token){saveGDriveToken(token);history.replaceState(null,'',window.location.pathname);}
+  }
+})();
 
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const md=txt=>(txt||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
