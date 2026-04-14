@@ -1,8 +1,4 @@
 {
-  "version": "3.8",
-  "notes": [
-    "Correction orthographique automatique à l'envoi pour tous les utilisateurs",
-    "Switch session sans mot de passe — avatars cliquables directement",
-    "Absences triées par date la plus proche en premier"
-  ]
+  "version": "3.9",
+  "notes": "☁️ Sauvegarde Google Drive automatique · 📅 Tri absences (Date ↑↓ / Employé / Filtre) · 👍 Votes Évolution pour l'équipe · ✏️ Correction auto dans les notes"
 }
