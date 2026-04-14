@@ -8,6 +8,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BenAI">
+<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;BenAI&quot;,&quot;short_name&quot;:&quot;BenAI&quot;,&quot;start_url&quot;:&quot;/&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23080808&quot;,&quot;theme_color&quot;:&quot;%23E8943A&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%23E8943A'/><text x='96' y='140' text-anchor='middle' font-size='120' font-weight='bold' fill='white'>B</text></svg>&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/svg+xml&quot;}]}">
+<meta name="theme-color" content="#E8943A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BenAI">
 <meta name="description" content="BenAI — Assistant Nemausus Fermetures & Lambert SAS">
 <title>BenAI</title>
 <style>
@@ -402,6 +408,31 @@ body.light .bubble{color:var(--t1);}
 .perf-name{flex:1;font-size:13px;font-weight:500;}
 .perf-stats{font-size:11px;color:var(--t2);}
 .perf-ca{font-size:12px;font-weight:700;color:var(--g);}
+/* SOURCE BUTTONS */
+.src-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:.12s;}
+.src-btn:hover{border-color:var(--a);color:var(--a);}
+.src-btn.selected{background:var(--a3);border-color:var(--a);color:var(--a);}
+/* ADRESSE SUGGESTIONS */
+.addr-suggestion{padding:9px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--b1);transition:.1s;}
+.addr-suggestion:hover{background:var(--s3);}
+.addr-suggestion strong{color:var(--a);}
+/* TIMELINE */
+.timeline-item{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--b1);position:relative;}
+.timeline-dot{width:8px;height:8px;border-radius:50%;background:var(--a);flex-shrink:0;margin-top:4px;}
+.timeline-content{flex:1;}
+.timeline-action{font-size:12px;font-weight:500;color:var(--t1);}
+.timeline-meta{font-size:10px;color:var(--t3);margin-top:1px;}
+/* KANBAN */
+.kanban-col{flex:1;min-width:180px;background:var(--s2);border:1px solid var(--b1);border-radius:12px;overflow:hidden;}
+.kanban-col-header{padding:10px 12px;font-size:12px;font-weight:700;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;}
+.kanban-col-body{padding:8px;display:flex;flex-direction:column;gap:6px;min-height:60px;max-height:calc(100vh - 280px);overflow-y:auto;}
+.kanban-card{background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:10px;cursor:pointer;transition:.12s;font-size:12px;}
+.kanban-card:hover{border-color:var(--a);transform:translateY(-1px);}
+.kanban-card-nom{font-weight:700;margin-bottom:3px;}
+.kanban-card-info{color:var(--t2);font-size:11px;}
+/* VU indicator */
+.lead-vu{font-size:10px;color:var(--g);font-weight:600;}
+.lead-non-vu{font-size:10px;color:var(--r);font-weight:600;}
 input[type=file]{display:none;}
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -600,6 +631,10 @@ input[type=file]{display:none;}
         <div class="sb-item" id="nav-leads" style="display:none" onclick="showPage('leads')">
           <span class="sb-icon">📋</span><span class="sb-txt">Leads CRM</span>
           <span class="sb-badge" id="leads-badge" style="display:none"></span>
+        </div>
+        <div class="sb-item" id="nav-bugs" onclick="showPage('bugs')">
+          <span class="sb-icon">🐛</span><span class="sb-txt">Bugs</span>
+          <span class="sb-badge" id="bugs-badge" style="display:none"></span>
         </div>
         <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span><span class="sb-badge-abs" id="abs-badge" style="display:none"></span></div>
         <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')"><span class="sb-icon">👥</span><span class="sb-txt">Annuaire</span></div>
@@ -874,23 +909,28 @@ input[type=file]{display:none;}
             <div class="page-title">📋 Leads CRM</div>
             <div class="page-sub" id="leads-page-sub">Nemausus Fermetures</div>
           </div>
-          <div style="display:flex;gap:8px" id="leads-header-btns">
+          <div style="display:flex;gap:8px;align-items:center">
+            <!-- Recherche -->
+            <input type="text" id="crm-search" placeholder="🔍 Nom, tél, ville..." oninput="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 12px;font-size:12px;color:var(--t1);outline:none;width:180px;font-family:'Outfit',sans-serif">
+            <!-- Vue switch -->
+            <button id="btn-view-list" onclick="setCRMView('list')" title="Vue liste" style="background:var(--a3);border:1px solid var(--a);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:14px">☰</button>
+            <button id="btn-view-kanban" onclick="setCRMView('kanban')" title="Vue kanban" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:14px">⊞</button>
             <button class="btn-primary" id="btn-new-lead" onclick="openNewLead()" style="display:none">+ Nouveau lead</button>
           </div>
         </div>
-        <!-- TABS selon rôle -->
+        <!-- TABS -->
         <div class="crm-tabs" id="crm-tabs"></div>
         <div class="crm-body">
-          <!-- CONTENU ONGLET ACTIF -->
           <div id="crm-tab-content" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
             <!-- Filtres -->
             <div class="crm-filters" id="crm-filters" style="display:none">
               <button class="crm-filter active" onclick="filterLeads('tous',this)">Tous</button>
               <button class="crm-filter f-gris" onclick="filterLeads('gris',this)">⚪ Gris</button>
-              <button class="crm-filter f-jaune" onclick="filterLeads('jaune',this)">🟡 Devis</button>
+              <button class="crm-filter f-jaune" onclick="filterLeads('jaune',this)">🟡 En cours</button>
               <button class="crm-filter f-vert" onclick="filterLeads('vert',this)">🟢 Vendu</button>
-              <button class="crm-filter f-rouge" onclick="filterLeads('rouge',this)">🔴 Mort</button>
-              <button class="crm-filter" onclick="filterLeads('alerte',this)" style="color:var(--r)">🚨 Alertes 24h</button>
+              <button class="crm-filter f-rouge" onclick="filterLeads('rouge',this)">🔴 Perdu</button>
+              <button class="crm-filter" onclick="filterLeads('archive',this)">📁 Archives</button>
+              <button class="crm-filter" onclick="filterLeads('alerte',this)" style="color:var(--r)">🚨 Alertes</button>
               <select id="crm-filter-secteur" onchange="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;outline:none">
                 <option value="">Tous secteurs</option>
                 <option value="nimes">Nîmes</option>
@@ -900,7 +940,10 @@ input[type=file]{display:none;}
                 <option value="">Tous commerciaux</option>
               </select>
             </div>
-            <div class="leads-list" id="leads-list"></div>
+            <div id="leads-container" style="flex:1;overflow-y:auto;padding:12px 16px">
+              <div class="leads-list" id="leads-list"></div>
+              <div id="leads-kanban" style="display:none;gap:10px;align-items:flex-start"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -909,109 +952,208 @@ input[type=file]{display:none;}
       <div class="lead-modal" id="lead-modal">
         <div class="lead-modal-box">
           <div class="lead-modal-header">
-            <div>
+            <div style="flex:1">
               <div style="font-size:15px;font-weight:700" id="modal-lead-nom">Nouveau lead</div>
-              <div style="font-size:11px;color:var(--t3)" id="modal-lead-sub"></div>
+              <div style="font-size:11px;color:var(--t3);display:flex;gap:8px;margin-top:2px" id="modal-lead-sub"></div>
             </div>
-            <button onclick="closeLeadModal()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:20px">✕</button>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button id="btn-export-lead" onclick="exportLeadsExcel()" style="background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:none">📥 Export</button>
+              <button onclick="closeLeadModal()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:20px">✕</button>
+            </div>
           </div>
+
+          <!-- TIMELINE SUIVI -->
+          <div id="lead-timeline" style="display:none;padding:12px 20px;border-bottom:1px solid var(--b1);max-height:180px;overflow-y:auto">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px">📍 Suivi du lead</div>
+            <div id="timeline-list"></div>
+          </div>
+
           <div class="lead-modal-body">
-            <!-- FORMULAIRE NOUVEAU/EDIT LEAD -->
-            <div id="modal-form">
-              <div class="lead-modal-section">
-                <div class="lead-modal-section-title">Informations client</div>
-                <div class="form-row">
-                  <div class="form-group"><div class="form-label">Nom *</div><input type="text" class="form-input" id="lead-nom" placeholder="Nom du prospect"></div>
-                  <div class="form-group"><div class="form-label">Téléphone *</div><input type="tel" class="form-input" id="lead-tel" placeholder="06 00 00 00 00"></div>
+            <!-- SOURCE -->
+            <div class="lead-modal-section">
+              <div class="lead-modal-section-title">Source</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap" id="source-btns">
+                <button class="src-btn selected" data-src="MAG" onclick="selectSource(this)">📍 MAG</button>
+                <button class="src-btn" data-src="TEL" onclick="selectSource(this)">📞 TEL</button>
+                <button class="src-btn" data-src="WEB" onclick="selectSource(this)">🌐 WEB</button>
+                <button class="src-btn" data-src="PARRAINAGE" onclick="selectSource(this)">🤝 PARRAINAGE</button>
+                <button class="src-btn" data-src="ACTIF" onclick="selectSource(this)" id="src-actif-btn" style="display:none">🏃 ACTIF</button>
+              </div>
+            </div>
+
+            <!-- INFOS CLIENT -->
+            <div class="lead-modal-section">
+              <div class="lead-modal-section-title">Informations client</div>
+              <div class="form-row">
+                <div class="form-group"><div class="form-label">Nom *</div><input type="text" class="form-input" id="lead-nom" placeholder="Nom du prospect"></div>
+                <div class="form-group"><div class="form-label">Téléphone *</div><input type="tel" class="form-input" id="lead-tel" placeholder="06 00 00 00 00"></div>
+              </div>
+              <!-- ADRESSE INTELLIGENTE -->
+              <div class="form-group" style="margin-bottom:10px;position:relative">
+                <div class="form-label">Adresse complète * <span style="font-size:9px;color:var(--t3)">(numéro + rue + CP + ville)</span></div>
+                <input type="text" class="form-input" id="lead-adresse" placeholder="Ex: 12 rue de la Paix 30000 Nîmes" oninput="searchAdresse(this.value)" autocomplete="off">
+                <div id="adresse-suggestions" style="position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:0 0 8px 8px;z-index:100;display:none;max-height:160px;overflow-y:auto"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><div class="form-label">Ville *</div><input type="text" class="form-input" id="lead-ville" placeholder="Ville" readonly style="background:var(--s3)"></div>
+                <div class="form-group"><div class="form-label">Code postal *</div><input type="text" class="form-input" id="lead-cp" placeholder="30000" readonly style="background:var(--s3)"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><div class="form-label">Type de projet *</div>
+                  <input type="text" class="form-input" id="lead-projet" placeholder="Ex: Volets roulants, pergola..." list="projets-list">
+                  <datalist id="projets-list"></datalist>
                 </div>
-                <div class="form-group" style="margin-bottom:10px"><div class="form-label">Adresse *</div><input type="text" class="form-input" id="lead-adresse" placeholder="Adresse complète" oninput="detectSecteur(this.value)"></div>
+                <div class="form-group"><div class="form-label">Secteur</div>
+                  <select class="form-input" id="lead-secteur">
+                    <option value="nimes">Nîmes</option>
+                    <option value="avignon">Avignon</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- ATTRIBUTION (dir co / admin) -->
+            <div class="form-group" style="margin-bottom:14px;display:none" id="lead-commercial-wrap">
+              <div class="lead-modal-section-title">Attribution</div>
+              <select class="form-input" id="lead-commercial-assign">
+                <option value="">⏳ Non attribué</option>
+              </select>
+            </div>
+
+            <!-- STATUT (après attribution) -->
+            <div class="lead-modal-section" id="modal-statut-section" style="display:none">
+              <div class="lead-modal-section-title">Résultat du contact</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+                <button class="statut-btn sb-gris selected" onclick="selectStatut('gris',this)">⚪ Gris</button>
+                <button class="statut-btn sb-jaune" onclick="selectStatut('jaune',this)">🟡 En cours</button>
+                <button class="statut-btn sb-vert" onclick="selectStatut('vert',this)">🟢 Vendu</button>
+                <button class="statut-btn sb-rouge" onclick="selectStatut('rouge',this)">🔴 Perdu</button>
+              </div>
+              <!-- PANEL GRIS -->
+              <div id="panel-gris">
+                <select class="form-input" id="lead-sous-statut" style="margin-bottom:8px">
+                  <option value="a_rappeler">🔘 À rappeler</option>
+                  <option value="injoignable">⭕ Injoignable / Ne répond pas</option>
+                  <option value="rdv_programme">📞 RDV programmé</option>
+                  <option value="pas_budget">💸 Pas de budget</option>
+                  <option value="pas_interesse">❌ Pas intéressé</option>
+                </select>
+                <div class="form-group"><div class="form-label">Date/heure de rappel</div>
+                  <input type="datetime-local" class="form-input" id="lead-rappel">
+                </div>
+              </div>
+              <!-- PANEL JAUNE -->
+              <div id="panel-jaune" style="display:none">
                 <div class="form-row">
-                  <div class="form-group"><div class="form-label">Type de projet *</div>
-                    <input type="text" class="form-input" id="lead-projet" placeholder="Ex: Volets roulants, portail..." list="projets-list">
-                    <datalist id="projets-list"></datalist>
-                  </div>
-                  <div class="form-group"><div class="form-label">Secteur *</div>
-                    <select class="form-input" id="lead-secteur">
-                      <option value="nimes">Nîmes</option>
-                      <option value="avignon">Avignon</option>
+                  <div class="form-group"><div class="form-label">RDV</div>
+                    <select class="form-input" id="lead-rdv-type">
+                      <option value="TEL">📞 TEL</option>
+                      <option value="DEVIS_TEL">📋 Devis TEL</option>
+                      <option value="RDV_DATE">📅 RDV date</option>
+                      <option value="MESSAGERIE">💬 Messagerie</option>
                     </select>
                   </div>
+                  <div class="form-group"><div class="form-label">Date RDV</div><input type="datetime-local" class="form-input" id="lead-date-rdv"></div>
                 </div>
-                <div class="form-group" style="margin-bottom:0;display:none" id="lead-commercial-wrap">
-                  <div class="form-label">Attribuer à</div>
-                  <select class="form-input" id="lead-commercial-assign">
-                    <option value="">Non attribué</option>
-                  </select>
+                <div class="form-row">
+                  <div class="form-group"><div class="form-label">Montant devis HT (€)</div><input type="number" class="form-input" id="lead-montant-devis" placeholder="0" step="100"></div>
+                  <div class="form-group"><div class="form-label">Date envoi devis</div><input type="date" class="form-input" id="lead-date-devis"></div>
                 </div>
+                <div class="form-group"><div class="form-label">Rappel relance devis</div><input type="date" class="form-input" id="lead-rappel-devis"></div>
               </div>
-
-              <!-- STATUT (visible directeur/admin/commercial) -->
-              <div class="lead-modal-section" id="modal-statut-section" style="display:none">
-                <div class="lead-modal-section-title">Statut</div>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-                  <button class="statut-btn sb-gris selected" onclick="selectStatut('gris',this)">⚪ Gris</button>
-                  <button class="statut-btn sb-jaune" onclick="selectStatut('jaune',this)">🟡 Devis</button>
-                  <button class="statut-btn sb-vert" onclick="selectStatut('vert',this)">🟢 Vendu</button>
-                  <button class="statut-btn sb-rouge" onclick="selectStatut('rouge',this)">🔴 Mort</button>
+              <!-- PANEL VERT -->
+              <div id="panel-vert" style="display:none">
+                <div class="form-row">
+                  <div class="form-group"><div class="form-label">Prix vendu HT (€) *</div><input type="number" class="form-input" id="lead-prix-vendu" placeholder="0" step="100"></div>
+                  <div class="form-group"><div class="form-label">Date signature</div><input type="date" class="form-input" id="lead-date-signature"></div>
                 </div>
-                <!-- SOUS-STATUT GRIS -->
-                <div id="panel-gris">
-                  <select class="form-input" id="lead-sous-statut" style="margin-bottom:8px">
-                    <option value="a_rappeler">🔘 À rappeler</option>
-                    <option value="injoignable">⭕ Injoignable</option>
-                    <option value="pas_budget">💸 Pas de budget</option>
-                    <option value="pas_interesse">❌ Pas intéressé</option>
-                    <option value="rdv_programme">📞 RDV programmé</option>
-                  </select>
-                  <input type="datetime-local" class="form-input" id="lead-rappel" placeholder="Date/heure rappel">
-                </div>
-                <!-- PANEL JAUNE -->
-                <div id="panel-jaune" style="display:none">
-                  <div class="form-row">
-                    <div class="form-group"><div class="form-label">Montant devis HT</div><input type="number" class="form-input" id="lead-montant-devis" placeholder="0.00" step="0.01"></div>
-                    <div class="form-group"><div class="form-label">Date envoi devis</div><input type="date" class="form-input" id="lead-date-devis"></div>
-                  </div>
-                  <div class="form-group"><div class="form-label">Type de devis</div><input type="text" class="form-input" id="lead-type-devis" placeholder="Ex: Volets, portail..."></div>
-                </div>
-                <!-- PANEL VERT -->
-                <div id="panel-vert" style="display:none">
-                  <div class="form-row">
-                    <div class="form-group"><div class="form-label">Prix vendu HT *</div><input type="number" class="form-input" id="lead-prix-vendu" placeholder="0.00" step="0.01"></div>
-                    <div class="form-group"><div class="form-label">Date signature</div><input type="date" class="form-input" id="lead-date-signature"></div>
-                  </div>
-                  <div class="form-group"><div class="form-label">Produit vendu</div><input type="text" class="form-input" id="lead-produit-vendu" placeholder="Ex: 3 volets roulants alu..."></div>
-                </div>
-                <!-- PANEL ROUGE -->
-                <div id="panel-rouge" style="display:none">
-                  <select class="form-input" id="lead-raison-mort">
-                    <option value="">Raison *</option>
-                    <option value="concurrent">Concurrent choisi</option>
-                    <option value="budget">Budget insuffisant</option>
-                    <option value="annule">Projet annulé</option>
-                    <option value="autre">Autre</option>
-                  </select>
-                </div>
+                <div class="form-group"><div class="form-label">Produit vendu</div><input type="text" class="form-input" id="lead-produit-vendu" placeholder="Ex: 3 volets roulants alu..."></div>
               </div>
-
-              <!-- NOTES -->
-              <div class="lead-modal-section">
-                <div class="lead-modal-section-title">Note</div>
-                <textarea class="form-input" id="lead-note" rows="3" style="resize:vertical;width:100%" placeholder="Notes sur ce lead..."></textarea>
-              </div>
-
-              <div style="display:flex;gap:8px">
-                <button class="btn-primary" onclick="saveLead()" id="btn-save-lead" style="flex:1">Enregistrer</button>
-                <button onclick="closeLeadModal()" style="padding:10px 16px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
-                <button id="btn-delete-lead" onclick="deleteLead()" style="padding:10px 12px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:8px;cursor:pointer;font-size:13px;display:none">🗑️</button>
+              <!-- PANEL ROUGE -->
+              <div id="panel-rouge" style="display:none">
+                <select class="form-input" id="lead-raison-mort">
+                  <option value="">Raison obligatoire *</option>
+                  <option value="concurrent">Concurrent choisi</option>
+                  <option value="budget">Budget insuffisant</option>
+                  <option value="annule">Projet annulé</option>
+                  <option value="injoignable_definitif">Injoignable définitif</option>
+                  <option value="autre">Autre</option>
+                </select>
               </div>
             </div>
 
-            <!-- HISTORIQUE -->
-            <div id="modal-historique" style="margin-top:16px;display:none">
-              <div class="lead-modal-section-title" style="margin-bottom:8px">Historique</div>
-              <div id="historique-list"></div>
+            <!-- SUIVI + COMMENTAIRE -->
+            <div class="lead-modal-section">
+              <div class="form-row">
+                <div class="form-group"><div class="form-label">Suivi</div><input type="text" class="form-input" id="lead-suivi" placeholder="Budget 500€, Assurance expert..."></div>
+                <div class="form-group"><div class="form-label">Ajouter une action</div>
+                  <input type="text" class="form-input" id="lead-action" placeholder="Ex: Appel effectué, mail envoyé..." onkeydown="if(event.key==='Enter'){addLeadAction();event.preventDefault();}">
+                </div>
+              </div>
+              <div class="form-group"><div class="form-label">Commentaire</div>
+                <textarea class="form-input" id="lead-commentaire" rows="2" style="resize:vertical;width:100%" placeholder="Informations importantes, contexte..."></textarea>
+              </div>
+            </div>
+
+            <!-- BOUTONS -->
+            <div style="display:flex;gap:8px">
+              <button class="btn-primary" onclick="saveLead()" id="btn-save-lead" style="flex:1">Enregistrer</button>
+              <button onclick="closeLeadModal()" style="padding:10px 16px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+              <button id="btn-delete-lead" onclick="deleteLead()" style="padding:10px 12px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:8px;cursor:pointer;font-size:13px;display:none" title="Supprimer (Benjamin uniquement)">🗑️</button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- PAGE BUGS -->
+      <div id="page-bugs" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+          <div><div class="page-title">🐛 Signalement de bugs</div><div class="page-sub">Aidez-nous à améliorer BenAI</div></div>
+          <button class="btn-primary" onclick="openNewBug()">+ Signaler un bug</button>
+        </div>
+        <!-- FORMULAIRE -->
+        <div style="padding:0 16px;flex-shrink:0;display:none" id="bug-form-wrap">
+          <div class="sav-form">
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px">🐛 Nouveau signalement</div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Page concernée</div>
+                <select class="form-input" id="bug-page">
+                  <option value="BenAI IA">BenAI IA</option>
+                  <option value="CRM Leads">CRM Leads</option>
+                  <option value="SAV">SAV</option>
+                  <option value="Messages">Messages</option>
+                  <option value="Notes">Notes</option>
+                  <option value="Absences">Absences</option>
+                  <option value="Autre">Autre</option>
+                </select>
+              </div>
+              <div class="form-group"><div class="form-label">Gravité</div>
+                <select class="form-input" id="bug-gravite">
+                  <option value="bloquant">🔴 Bloquant — impossible de travailler</option>
+                  <option value="important">🟡 Important — gêne le travail</option>
+                  <option value="mineur">🟢 Mineur — petit problème</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:10px"><div class="form-label">Description du bug *</div>
+              <textarea class="form-input" id="bug-desc" rows="3" style="resize:vertical;width:100%" placeholder="Décrivez précisément ce qui ne fonctionne pas, comment reproduire le problème..."></textarea>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-primary" onclick="saveBug()">Envoyer</button>
+              <button onclick="document.getElementById('bug-form-wrap').style.display='none'" style="padding:10px 16px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+            </div>
+          </div>
+        </div>
+        <!-- LISTE BUGS -->
+        <div style="flex:1;overflow-y:auto;padding:16px">
+          <!-- Filtres (Benjamin uniquement) -->
+          <div id="bug-filter-bar" style="display:none;margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap">
+            <button class="crm-filter active" onclick="filterBugs('tous',this)">Tous</button>
+            <button class="crm-filter" onclick="filterBugs('ouvert',this)">🔴 Ouverts</button>
+            <button class="crm-filter" onclick="filterBugs('resolu',this)">🟢 Résolus</button>
+            <button class="crm-filter" onclick="filterBugs('bloquant',this)" style="color:var(--r)">🔴 Bloquants</button>
+          </div>
+          <div id="bugs-list"></div>
         </div>
       </div>
 
@@ -1101,7 +1243,7 @@ input[type=file]{display:none;}
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const BENAI_VERSION = '3.10';
+const BENAI_VERSION = '3.11';
 
 // ══════════════════════════════════════════
 // UTILISATEURS
@@ -1415,12 +1557,15 @@ function initApp(silent=false){
   refreshSAVBadge();
   refreshMsgBadge();
   refreshLeadsBadge();
+  refreshBugsBadge();
   showPage(homePage);
   buildEmojiPicker();
   startPolling();
   refreshAbsBadge();
   refreshNotifBadge();
   requestNotifPermission();
+  // Motivations automatiques pour commerciaux
+  if(u.role==='commercial')setTimeout(()=>checkMotivationsAuto(),5000);
   // Initialiser Google Drive client si configuré
   if(u.id==='benjamin')setTimeout(()=>initGDriveClient(),1000);
   // Briefing quotidien intelligent (une seule fois par jour)
@@ -1443,7 +1588,7 @@ function showPage(page){
   // Vérifier accès selon rôle
   const allowed=ROLE_PAGES[currentUser?.role]||ROLE_PAGES['assistante'];
   if(!allowed.includes(page)){showPage(allowed[0]);return;}
-  ['benai','notes','messages','sav','leads','absences','evolution','admin','annuaire','paie'].forEach(p=>{
+  ['benai','notes','messages','sav','leads','absences','evolution','admin','annuaire','paie','bugs'].forEach(p=>{
     const el=document.getElementById('page-'+p);if(el)el.style.display='none';
     const nav=document.getElementById('nav-'+p);if(nav)nav.classList.remove('active');
   });
@@ -1458,6 +1603,7 @@ function showPage(page){
   if(page==='annuaire')renderAnnuaire();
   if(page==='paie')renderPaieList();
   if(page==='leads')initLeadsPage();
+  if(page==='bugs')initBugsPage();
 }
 
 // ══════════════════════════════════════════
@@ -3027,13 +3173,15 @@ function toggleAccess(uid){
 function renderUsersList(){
   const list=document.getElementById('users-list');if(!list)return;
   const users=getAllUsers();const access=getAccess();
+  const roleLabel={admin:'Admin',assistante:'Assistante',commercial:'Commercial',directeur_co:'Dir. commercial'};
   list.innerHTML=users.map(u=>`
     <div class="user-row">
       <div class="user-av" style="background:${u.color}">${u.initial}</div>
-      <div class="user-info"><div class="user-name">${esc(u.name)}</div><div class="user-role">${u.role==='admin'?'Admin':u.fonction||'Assistante'} · ${u.societe==='les-deux'?'Nemausus & Lambert':u.societe==='nemausus'?'Nemausus':'Lambert'}</div></div>
+      <div class="user-info"><div class="user-name">${esc(u.name)}</div><div class="user-role">${roleLabel[u.role]||u.role} · ${u.societe==='les-deux'?'Nemausus & Lambert':u.societe==='nemausus'?'Nemausus':'Lambert'}</div></div>
       ${u.id==='benjamin'?'<span style="font-size:10px;color:var(--t3)">Admin</span>':`
         <button onclick="editUser('${u.id}')" style="padding:4px 8px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">✏️</button>
         <div onclick="toggleAccess('${u.id}')" class="toggle ${access[u.id]===false?'':'on'}" title="${access[u.id]===false?'Accès bloqué':'Accès actif'}"></div>
+        ${(u.role==='commercial'||u.role==='directeur_co')?`<button onclick="toggleBlockCommercial('${u.id}')" style="padding:4px 8px;background:${access[u.id]===false?'var(--g2)':'var(--r2)'};color:${access[u.id]===false?'var(--g)':'var(--r)'};border:1px solid ${access[u.id]===false?'rgba(34,197,94,.3)':'rgba(248,113,113,.3)'};border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">${access[u.id]===false?'🔓':'🔒'}</button>`:''}
         <button onclick="supprimerUtilisateur('${u.id}')" style="padding:4px 8px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">🗑️</button>
       `}
     </div>`).join('');
@@ -3386,10 +3534,11 @@ function startPolling(){
     const prevBadge=parseInt(document.getElementById('msg-badge')?.textContent||'0');
     refreshMsgBadge();
     const newBadge=parseInt(document.getElementById('msg-badge')?.textContent||'0');
-    // Son si nouveaux messages
     if(newBadge>prevBadge)playNotifSound();
     refreshSAVBadge();
-    // Rafraîchir le thread ouvert
+    refreshLeadsBadge();
+    refreshBugsBadge();
+    checkRappelsLeads();
     if(currentConv){
       const area=document.getElementById('thread-msgs');
       const mem=getMem();
@@ -3505,18 +3654,16 @@ function showDriveNotif(msg){
 }
 
 // ══════════════════════════════════════════
-// 📋 CRM LEADS — LOGIQUE COMPLÈTE
+// 📋 CRM LEADS — LOGIQUE COMPLÈTE v2
 // ══════════════════════════════════════════
 
-// RÔLES CRM
 const CRM_ROLES=['directeur_co','commercial'];
 const CRM_PAGES_ONLY=['directeur_co','commercial'];
-// Pages autorisées par rôle
 const ROLE_PAGES={
-  admin:['benai','notes','messages','sav','leads','absences','annuaire','paie','admin','evolution'],
-  assistante:['benai','notes','messages','sav','leads','evolution'],
-  directeur_co:['leads'],
-  commercial:['leads']
+  admin:['benai','notes','messages','sav','leads','absences','annuaire','paie','admin','evolution','bugs'],
+  assistante:['benai','notes','messages','sav','leads','evolution','bugs'],
+  directeur_co:['leads','messages','bugs'],
+  commercial:['leads','messages','bugs']
 };
 
 function getLeads(){try{return JSON.parse(localStorage.getItem('benai_leads'))||[];}catch{return[];}}
@@ -3527,8 +3674,10 @@ function saveLeadObjectifs(o){localStorage.setItem('benai_lead_obj',JSON.stringi
 let currentLeadFilter='tous';
 let currentLeadId=null;
 let currentLeadStatut='gris';
+let currentLeadSource='MAG';
+let currentCRMView='list';
 
-// INITIALISER LA PAGE LEADS SELON RÔLE
+// INIT PAGE LEADS
 function initLeadsPage(){
   const role=currentUser?.role;
   const tabs=document.getElementById('crm-tabs');
@@ -3536,33 +3685,29 @@ function initLeadsPage(){
   const btnNew=document.getElementById('btn-new-lead');
   const filterComm=document.getElementById('crm-filter-commercial');
 
-  // Afficher bouton nouveau lead selon rôle
-  if(role==='assistante'||role==='admin')btnNew.style.display='flex';
+  // Bouton nouveau lead
+  btnNew.style.display=(role==='assistante'||role==='admin'||role==='commercial')?'flex':'none';
 
-  // Tabs selon rôle
+  // Source ACTIF visible pour commerciaux
+  const srcActif=document.getElementById('src-actif-btn');
+  if(srcActif)srcActif.style.display=role==='commercial'?'flex':'none';
+
   tabs.innerHTML='';
   if(role==='admin'||role==='directeur_co'){
-    // Dashboard + Leads
     addCRMTab('dashboard','📊 Dashboard',true);
     addCRMTab('mes-leads','📋 Tous les leads',false);
-    // Filtre commercial visible
     if(filterComm)filterComm.style.display='block';
     fillCommercialFilter();
     filters.style.display='flex';
     showCRMTab('dashboard');
-  } else if(role==='commercial'){
-    addCRMTab('mes-leads','📋 Mes leads',true);
-    filters.style.display='flex';
-    showCRMTab('mes-leads');
   } else {
-    // Assistante — formulaire saisie + liste
-    addCRMTab('mes-leads','📋 Leads',true);
+    addCRMTab('mes-leads','📋 Mes leads',true);
     filters.style.display='flex';
     showCRMTab('mes-leads');
   }
   refreshLeadsBadge();
-  // Alertes 24h
   checkLeadsAlertes();
+  checkRappelsLeads();
 }
 
 function addCRMTab(id,label,active){
@@ -3579,18 +3724,37 @@ function showCRMTab(id){
   document.querySelectorAll('.crm-tab').forEach(t=>t.classList.remove('active'));
   const tab=document.getElementById('crm-tab-'+id);
   if(tab)tab.classList.add('active');
-  const content=document.getElementById('crm-tab-content');
   const filters=document.getElementById('crm-filters');
   if(id==='dashboard'){
     filters.style.display='none';
+    document.getElementById('leads-list').style.display='none';
+    const kb=document.getElementById('leads-kanban');if(kb)kb.style.display='none';
     renderLeadsDashboard();
-    content.querySelector('.leads-list').style.display='none';
   } else {
     filters.style.display='flex';
-    const list=content.querySelector('.leads-list');
-    if(list)list.style.display='flex';
+    setCRMView(currentCRMView);
     renderLeads();
   }
+}
+
+function setCRMView(view){
+  currentCRMView=view;
+  const list=document.getElementById('leads-list');
+  const kanban=document.getElementById('leads-kanban');
+  const btnL=document.getElementById('btn-view-list');
+  const btnK=document.getElementById('btn-view-kanban');
+  if(view==='list'){
+    if(list)list.style.display='flex';
+    if(kanban)kanban.style.display='none';
+    if(btnL){btnL.style.background='var(--a3)';btnL.style.borderColor='var(--a)';}
+    if(btnK){btnK.style.background='var(--s2)';btnK.style.borderColor='var(--b1)';}
+  } else {
+    if(list)list.style.display='none';
+    if(kanban){kanban.style.display='flex';}
+    if(btnL){btnL.style.background='var(--s2)';btnL.style.borderColor='var(--b1)';}
+    if(btnK){btnK.style.background='var(--a3)';btnK.style.borderColor='var(--a)';}
+  }
+  renderLeads();
 }
 
 function filterLeads(f,btn){
@@ -3600,16 +3764,16 @@ function filterLeads(f,btn){
   renderLeads();
 }
 
-function renderLeads(){
-  const list=document.getElementById('leads-list');if(!list)return;
+function getFilteredLeads(){
   const role=currentUser?.role;
-  let leads=getLeads();
+  const search=(document.getElementById('crm-search')?.value||'').toLowerCase();
   const secteurFilter=document.getElementById('crm-filter-secteur')?.value||'';
   const commFilter=document.getElementById('crm-filter-commercial')?.value||'';
-
-  // Filtre par rôle
+  let leads=getLeads();
+  // Filtre rôle
   if(role==='commercial')leads=leads.filter(l=>l.commercial===currentUser.id);
-
+  // Filtre archive
+  if(currentLeadFilter!=='archive')leads=leads.filter(l=>!l.archive);
   // Filtres UI
   if(secteurFilter)leads=leads.filter(l=>l.secteur===secteurFilter);
   if(commFilter)leads=leads.filter(l=>l.commercial===commFilter);
@@ -3617,223 +3781,308 @@ function renderLeads(){
   else if(currentLeadFilter==='jaune')leads=leads.filter(l=>l.statut==='jaune');
   else if(currentLeadFilter==='vert')leads=leads.filter(l=>l.statut==='vert');
   else if(currentLeadFilter==='rouge')leads=leads.filter(l=>l.statut==='rouge');
-  else if(currentLeadFilter==='alerte')leads=leads.filter(l=>isLeadAlerte24(l));
-
-  // Trier : alertes d'abord, puis par date création desc
+  else if(currentLeadFilter==='alerte')leads=leads.filter(l=>isLeadAlerte(l));
+  else if(currentLeadFilter==='archive')leads=leads.filter(l=>l.archive);
+  // Recherche
+  if(search)leads=leads.filter(l=>
+    (l.nom||'').toLowerCase().includes(search)||
+    (l.telephone||'').includes(search)||
+    (l.ville||'').toLowerCase().includes(search)||
+    (l.type_projet||'').toLowerCase().includes(search)
+  );
+  // Tri : alertes d'abord puis date desc
   leads.sort((a,b)=>{
-    const aa=isLeadAlerte24(a)?1:0,bb=isLeadAlerte24(b)?1:0;
+    const aa=isLeadAlerte(a)?1:0,bb=isLeadAlerte(b)?1:0;
     if(aa!==bb)return bb-aa;
-    return new Date(b.date_creation)-new Date(a.date_creation);
+    return new Date(b.date_creation||0)-new Date(a.date_creation||0);
   });
+  return leads;
+}
 
+function renderLeads(){
+  if(currentCRMView==='kanban'){renderKanban();return;}
+  const list=document.getElementById('leads-list');if(!list)return;
+  const leads=getFilteredLeads();
+  const role=currentUser?.role;
   if(!leads.length){
     list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:24px;text-align:center">Aucun lead</div>';
     return;
   }
+  list.innerHTML=leads.map(l=>renderLeadCard(l,role)).join('');
+}
 
-  list.innerHTML=leads.map(l=>{
-    const alerte=isLeadAlerte24(l);
-    const age=getLeadAge(l);
-    const comm=getAllUsers().find(u=>u.id===l.commercial);
-    const secteurLabel=l.secteur==='avignon'?'Avignon':'Nîmes';
-    const statLabel={gris:'⚪ Gris',jaune:'🟡 Devis',vert:'🟢 Vendu',rouge:'🔴 Mort'}[l.statut]||'';
-    const statCls={gris:'ls-gris',jaune:'ls-jaune',vert:'ls-vert',rouge:'ls-rouge'}[l.statut]||'';
-    const montant=l.statut==='vert'&&l.prix_vendu?` · ${Number(l.prix_vendu).toLocaleString('fr-FR')} € HT`:l.statut==='jaune'&&l.montant_devis?` · Devis ${Number(l.montant_devis).toLocaleString('fr-FR')} € HT`:'';
-    return `<div class="lead-card statut-${l.statut}${alerte?' alerte24':''}" onclick="openLead(${l.id})">
-      ${alerte?'<div class="lead-alerte" style="position:absolute;top:10px;right:10px">⏰ +24h</div>':''}
+function renderLeadCard(l,role){
+  const alerte=isLeadAlerte(l);
+  const age=getLeadAge(l);
+  const comm=getAllUsers().find(u=>u.id===l.commercial);
+  const secteurLabel=l.secteur==='avignon'?'Avignon':'Nîmes';
+  const statLabel={gris:'⚪ Gris',jaune:'🟡 En cours',vert:'🟢 Vendu',rouge:'🔴 Perdu'}[l.statut]||'⚪';
+  const statCls={gris:'ls-gris',jaune:'ls-jaune',vert:'ls-vert',rouge:'ls-rouge'}[l.statut]||'';
+  const srcIcon={MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'}[l.source]||'📋';
+  const montant=l.statut==='vert'&&l.prix_vendu?` · 💰 ${Number(l.prix_vendu).toLocaleString('fr-FR')} €`:l.statut==='jaune'&&l.montant_devis?` · 📋 ${Number(l.montant_devis).toLocaleString('fr-FR')} €`:'';
+  // Lead vu
+  const vuBy=(role==='admin'||role==='directeur_co');
+  const vuInfo=vuBy?(l.vu_date?`<span class="lead-vu">👁️ Vu le ${l.vu_date}</span>`:`<span class="lead-non-vu">👁️ Non ouvert</span>`):'';
+  // Non attribué
+  const nonAttrib=!l.commercial&&(role==='admin'||role==='directeur_co')?'<span style="background:var(--y2);color:var(--y);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">⚠️ À attribuer</span>':'';
+  return `<div class="lead-card statut-${l.statut}${alerte?' alerte24':''}${l.archive?' opacity:0.6':''}" onclick="openLead(${l.id})">
+    ${alerte?'<div class="lead-alerte" style="position:absolute;top:10px;right:10px">⏰ Alerte</div>':''}
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
+      <span style="font-size:14px">${srcIcon}</span>
       <div class="lead-nom">${esc(l.nom)}</div>
-      <div class="lead-info">${esc(l.type_projet||'')}${montant}</div>
-      <div class="lead-meta">
-        <span class="lead-statut ${statCls}">${statLabel}</span>
-        <span class="lead-secteur">${secteurLabel}</span>
-        ${comm?`<span class="lead-commercial">${esc(comm.name)}</span>`:''}
-        <span style="margin-left:auto;font-size:10px;color:var(--t3)">${age}</span>
+      ${nonAttrib}
+      <span style="margin-left:auto;font-size:10px;color:var(--t3)">${age}</span>
+    </div>
+    <div class="lead-info">${esc(l.ville||'')}${l.cp?' ('+l.cp+')':''} · ${esc(l.type_projet||'')}${montant}</div>
+    <div class="lead-meta">
+      <span class="lead-statut ${statCls}">${statLabel}</span>
+      <span class="lead-secteur">${secteurLabel}</span>
+      ${comm?`<span class="lead-commercial">${esc(comm.name)}</span>`:''}
+      ${vuInfo}
+      <span style="margin-left:auto;display:flex;gap:4px">${makeCallLink(l.telephone)}${makeGPSLink(l.adresse,l.ville,l.cp)}</span>
+    </div>
+    ${l.suivi?`<div style="font-size:11px;color:var(--t2);margin-top:4px;padding:4px 8px;background:var(--s3);border-radius:6px">📌 ${esc(l.suivi)}</div>`:''}
+  </div>`;
+}
+
+function renderKanban(){
+  const kanban=document.getElementById('leads-kanban');if(!kanban)return;
+  kanban.style.display='flex';
+  const role=currentUser?.role;
+  const leads=getFilteredLeads();
+  const cols=[
+    {id:'gris',label:'⚪ Gris',cls:'ls-gris'},
+    {id:'jaune',label:'🟡 En cours',cls:'ls-jaune'},
+    {id:'vert',label:'🟢 Vendu',cls:'ls-vert'},
+    {id:'rouge',label:'🔴 Perdu',cls:'ls-rouge'},
+  ];
+  kanban.innerHTML=cols.map(col=>{
+    const colLeads=leads.filter(l=>l.statut===col.id);
+    return `<div class="kanban-col">
+      <div class="kanban-col-header">
+        <span>${col.label}</span>
+        <span style="background:var(--s3);border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700">${colLeads.length}</span>
+      </div>
+      <div class="kanban-col-body">
+        ${colLeads.map(l=>`
+          <div class="kanban-card" onclick="openLead(${l.id})">
+            <div class="kanban-card-nom">${esc(l.nom)}</div>
+            <div class="kanban-card-info">${esc(l.ville||'')} · ${esc(l.type_projet||'')}</div>
+            ${l.montant_devis||l.prix_vendu?`<div style="font-size:11px;color:var(--g);font-weight:600;margin-top:2px">${Number(l.prix_vendu||l.montant_devis||0).toLocaleString('fr-FR')} €</div>`:''}
+          </div>`).join('')||'<div style="color:var(--t3);font-size:11px;padding:8px;text-align:center">Vide</div>'}
       </div>
     </div>`;
   }).join('');
 }
 
-function isLeadAlerte24(l){
-  if(l.statut==='vert'||l.statut==='rouge')return false;
-  if(!l.date_creation)return false;
-  const h=(Date.now()-new Date(l.date_creation).getTime())/3600000;
-  return h>24;
-}
-
-function getLeadAge(l){
-  if(!l.date_creation)return '';
-  const h=(Date.now()-new Date(l.date_creation).getTime())/3600000;
-  if(h<1)return 'À l\'instant';
-  if(h<24)return Math.floor(h)+'h';
-  return Math.floor(h/24)+'j';
-}
-
-// DASHBOARD CRM
+// DASHBOARD
 function renderLeadsDashboard(){
-  const list=document.getElementById('leads-list');if(!list)return;
-  list.style.display='flex';
-  const leads=getLeads();
+  const container=document.getElementById('leads-container');if(!container)return;
+  const list=document.getElementById('leads-list');
+  if(list){list.style.display='flex';}
+  const leads=getLeads().filter(l=>!l.archive);
   const obj=getLeadObjectifs();
   const now=new Date();
   const month=now.getMonth();const year=now.getFullYear();
-  const leadsMonth=leads.filter(l=>{
-    const d=new Date(l.date_creation);
-    return d.getMonth()===month&&d.getFullYear()===year;
-  });
-
-  const secteurs=[
-    {id:'nimes',label:'Nîmes',icon:'📍',color:'var(--a)'},
-    {id:'avignon',label:'Avignon',icon:'📍',color:'var(--bl)'}
-  ];
-
+  const leadsMonth=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getMonth()===month&&d.getFullYear()===year;});
+  const secteurs=[{id:'nimes',label:'Nîmes',color:'var(--a)'},{id:'avignon',label:'Avignon',color:'var(--bl)'}];
   let html='';
+  // Stats globales
+  const totalLeads=leads.length;
+  const nonAttrib=leads.filter(l=>!l.commercial&&l.statut==='gris').length;
+  const alertes=leads.filter(l=>isLeadAlerte(l)).length;
+  html+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+    <div class="stat-box"><div class="stat-box-val">${totalLeads}</div><div class="stat-box-lbl">Total leads</div></div>
+    <div class="stat-box"><div class="stat-box-val" style="color:var(--y)">${nonAttrib}</div><div class="stat-box-lbl">À attribuer</div></div>
+    <div class="stat-box"><div class="stat-box-val" style="color:var(--r)">${alertes}</div><div class="stat-box-lbl">Alertes</div></div>
+  </div>`;
+  // Par secteur
   secteurs.forEach(s=>{
     const sl=leadsMonth.filter(l=>l.secteur===s.id);
-    const total=sl.length;
-    const ventes=sl.filter(l=>l.statut==='vert');
+    const total=sl.length,ventes=sl.filter(l=>l.statut==='vert');
     const ca=ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
-    const devis=sl.filter(l=>l.statut==='jaune');
-    const pipeline=devis.reduce((sum,l)=>sum+Number(l.montant_devis||0),0);
+    const pipeline=sl.filter(l=>l.statut==='jaune').reduce((sum,l)=>sum+Number(l.montant_devis||0),0);
     const taux=total>0?Math.round(ventes.length/total*100):0;
-    const objL=obj[s.id]?.leads||0;
-    const objCA=obj[s.id]?.ca||0;
-    const pctL=objL>0?Math.min(total/objL*100,100):0;
-    const pctCA=objCA>0?Math.min(ca/objCA*100,100):0;
-
+    const oL=obj[s.id]?.leads||0,oCA=obj[s.id]?.ca||0;
+    const pL=oL>0?Math.min(total/oL*100,100):0,pCA=oCA>0?Math.min(ca/oCA*100,100):0;
     html+=`<div class="secteur-card">
-      <div class="secteur-title" style="color:${s.color}">${s.icon} ${s.label} <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px">${now.toLocaleString('fr-FR',{month:'long',year:'numeric'})}</span>
-        ${currentUser.role==='admin'?`<button onclick="editObjectif('${s.id}')" style="margin-left:auto;background:var(--s3);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️ Objectifs</button>`:''}
+      <div class="secteur-title" style="color:${s.color}">📍 ${s.label}
+        ${currentUser.role==='admin'?`<button onclick="editObjectif('${s.id}')" style="margin-left:auto;background:var(--s3);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
       </div>
       <div class="secteur-stats">
-        <div class="stat-box">
-          <div class="stat-box-val" style="color:${s.color}">${total}</div>
-          <div class="stat-box-lbl">Leads</div>
-          <div class="stat-box-obj">Objectif : ${objL}</div>
-          <div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pctL}%;background:${s.color}"></div></div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-box-val" style="color:var(--g)">${ventes.length}</div>
-          <div class="stat-box-lbl">Ventes</div>
-          <div class="stat-box-obj">Taux : ${taux}%</div>
-          <div class="objectif-bar"><div class="objectif-bar-fill" style="width:${taux}%;background:var(--g)"></div></div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-box-val" style="color:var(--g);font-size:16px">${ca.toLocaleString('fr-FR')} €</div>
-          <div class="stat-box-lbl">CA réalisé</div>
-          <div class="stat-box-obj">Objectif : ${objCA.toLocaleString('fr-FR')} €</div>
-          <div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pctCA}%;background:var(--g)"></div></div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-box-val" style="color:var(--y);font-size:16px">${pipeline.toLocaleString('fr-FR')} €</div>
-          <div class="stat-box-lbl">Pipeline devis</div>
-          <div class="stat-box-obj">${devis.length} devis en cours</div>
-        </div>
+        <div class="stat-box"><div class="stat-box-val" style="color:${s.color}">${total}</div><div class="stat-box-lbl">Leads</div><div class="stat-box-obj">Obj: ${oL}</div><div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pL}%;background:${s.color}"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val" style="color:var(--g)">${ventes.length}</div><div class="stat-box-lbl">Ventes · ${taux}%</div></div>
+        <div class="stat-box"><div class="stat-box-val" style="color:var(--g);font-size:15px">${ca.toLocaleString('fr-FR')} €</div><div class="stat-box-lbl">CA réalisé</div><div class="stat-box-obj">Obj: ${oCA.toLocaleString('fr-FR')} €</div><div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pCA}%;background:var(--g)"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val" style="color:var(--y);font-size:15px">${pipeline.toLocaleString('fr-FR')} €</div><div class="stat-box-lbl">Pipeline</div></div>
       </div>
     </div>`;
   });
-
+  // Stats par source
+  const sources=['MAG','TEL','WEB','PARRAINAGE','ACTIF'];
+  const srcIcons={MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'};
+  html+=`<div class="secteur-card"><div class="secteur-title">📊 Par source</div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">`;
+  sources.forEach(src=>{
+    const sl=leadsMonth.filter(l=>l.source===src);
+    const v=sl.filter(l=>l.statut==='vert').length;
+    html+=`<div class="stat-box"><div style="font-size:16px">${srcIcons[src]}</div><div class="stat-box-val" style="font-size:16px">${sl.length}</div><div class="stat-box-lbl">${src}</div><div style="font-size:10px;color:var(--g)">${v} ventes</div></div>`;
+  });
+  html+='</div></div>';
   // Perf commerciaux
   const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
-  if(commerciaux.length>0){
-    html+=`<div class="secteur-card">
-      <div class="secteur-title">👤 Performance commerciaux</div>`;
-    commerciaux.forEach(c=>{
-      const cl=leadsMonth.filter(l=>l.commercial===c.id);
-      const cv=cl.filter(l=>l.statut==='vert');
-      const ca=cv.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
-      const taux=cl.length>0?Math.round(cv.length/cl.length*100):0;
-      html+=`<div class="perf-row">
-        <div style="width:30px;height:30px;border-radius:8px;background:${c.color};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">${c.initial}</div>
-        <div class="perf-name">${esc(c.name)}</div>
-        <div class="perf-stats">${cl.length} leads · ${cv.length} ventes · ${taux}%</div>
-        <div class="perf-ca">${ca.toLocaleString('fr-FR')} €</div>
-      </div>`;
-    });
-    html+='</div>';
+  if(role==='admin'||role==='directeur_co'){
+    html+=`<button onclick="exportLeadsExcel()" style="margin-top:0;margin-bottom:12px;width:100%;padding:8px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">📥 Exporter tous les leads</button>`;
   }
 
-  list.innerHTML=html;
+  // RAPPORT ALERTES
+  const rapport=genererRapportAlertes();
+  if(rapport.total>0){
+    html+=`<div class="secteur-card" style="border-color:var(--r)">
+      <div class="secteur-title" style="color:var(--r)">🚨 Rapport alertes (${rapport.total})</div>
+      ${rapport.nonAttrib.length?`<div style="margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--y)">⚠️ ${rapport.nonAttrib.length} lead(s) non attribué(s)</span>${rapport.nonAttrib.map(l=>`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} (${getLeadAge(l)})</div>`).join('')}</div>`:''}
+      ${rapport.nonOuverts.length?`<div style="margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--r)">👁️ ${rapport.nonOuverts.length} lead(s) non ouvert(s) par le commercial</span>${rapport.nonOuverts.map(l=>{const c=getAllUsers().find(u=>u.id===l.commercial);return`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} → ${esc(c?.name||'?')} (${getLeadAge(l)})</div>`;}).join('')}</div>`:''}
+      ${rapport.enRetard.length?`<div><span style="font-size:11px;font-weight:700;color:var(--r)">⏰ ${rapport.enRetard.length} lead(s) sans action +24h</span>${rapport.enRetard.map(l=>{const c=getAllUsers().find(u=>u.id===l.commercial);return`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} → ${esc(c?.name||'?')}</div>`;}).join('')}</div>`:''}
+    </div>`;
+  }
+
+  // OBJECTIFS COMMERCIAUX
+  if(commerciaux.length>0){
+    html+=`<div class="secteur-card"><div class="secteur-title">🎯 Objectifs commerciaux</div>`;
+    commerciaux.forEach(c=>{
+      const prog=getProgressionCommercial(c.id);
+      const pctMois=prog.obj.mensuel>0?Math.min(prog.ca_mois/prog.obj.mensuel*100,110):0;
+      const pctHebdo=prog.obj.hebdo>0?Math.min(prog.ca_semaine/prog.obj.hebdo*100,110):0;
+      const contacts=getContactsParCommercial()[c.id]||{ce_mois:0,cette_semaine:0};
+      html+=`<div style="background:var(--s3);border-radius:10px;padding:12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div style="width:28px;height:28px;border-radius:8px;background:${c.color};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff">${c.initial}</div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(c.name)}</div><div style="font-size:10px;color:var(--t3)">${contacts.ce_mois} contacts ce mois · ${contacts.cette_semaine} cette semaine</div></div>
+          ${(currentUser.role==='admin'||currentUser.role==='directeur_co')?`<button onclick="editObjectifCommercial('${c.id}','${esc(c.name)}')" style="background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
+        </div>
+        <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Mensuel — ${prog.ca_mois.toLocaleString('fr-FR')}€ / ${prog.obj.mensuel.toLocaleString('fr-FR')}€ · ${prog.ventes_mois} ventes</div>
+        <div class="objectif-bar" style="margin-bottom:6px"><div class="objectif-bar-fill" style="width:${pctMois}%;background:${pctMois>=100?'var(--g)':pctMois>=75?'var(--a)':'var(--r)'}"></div></div>
+        <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Hebdo — ${prog.ca_semaine.toLocaleString('fr-FR')}€ / ${prog.obj.hebdo.toLocaleString('fr-FR')}€ · ${prog.ventes_semaine} ventes</div>
+        <div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pctHebdo}%;background:${pctHebdo>=100?'var(--g)':pctHebdo>=75?'var(--a)':'var(--r)'}"></div></div>
+        ${pctMois>=100?`<div style="margin-top:6px;font-size:11px;color:var(--g);font-weight:600">🏆 Objectif mensuel dépassé !</div>`:''}
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+
+  // TABLEAU DE VENTES
+  const tvDiv=document.createElement('div');tvDiv.className='secteur-card';
+  if(list)list.innerHTML=html;
+  renderTableauVentes(tvDiv);
+  if(list)list.appendChild(tvDiv);
 }
 
-// MODIFIER OBJECTIFS
-function editObjectif(secteur){
-  const obj=getLeadObjectifs();
-  const s=obj[secteur]||{leads:0,ca:0};
-  const label=secteur==='nimes'?'Nîmes':'Avignon';
-  const newLeads=prompt(`Objectif leads/mois — ${label} :`,s.leads);
-  if(newLeads===null)return;
-  const newCA=prompt(`Objectif CA/mois (€ HT) — ${label} :`,s.ca);
-  if(newCA===null)return;
-  obj[secteur]={leads:parseInt(newLeads)||0,ca:parseInt(newCA)||0};
-  saveLeadObjectifs(obj);
+function editObjectifCommercial(uid,name){
+  const obj=getObjectifsCommerciaux();
+  const cur=obj[uid]||{mensuel:0,hebdo:0};
+  const mensuel=prompt(`Objectif CA mensuel (€) pour ${name} :`,cur.mensuel);
+  if(mensuel===null)return;
+  const hebdo=prompt(`Objectif CA hebdo (€) pour ${name} :`,cur.hebdo);
+  if(hebdo===null)return;
+  setObjectifCommercial(uid,mensuel,hebdo);
   renderLeadsDashboard();
-  logActivity(`Benjamin a mis à jour les objectifs ${label}`);
+  logActivity(`${currentUser.name} a fixé les objectifs de ${name}`);
 }
 
-// OUVRIR FICHE LEAD (NOUVEAU)
+function editObjectif(secteur){
+  const obj=getLeadObjectifs();const s=obj[secteur]||{leads:0,ca:0};
+  const label=secteur==='nimes'?'Nîmes':'Avignon';
+  const newLeads=prompt(`Objectif leads/mois — ${label} :`,s.leads);if(newLeads===null)return;
+  const newCA=prompt(`Objectif CA/mois (€ HT) — ${label} :`,s.ca);if(newCA===null)return;
+  obj[secteur]={leads:parseInt(newLeads)||0,ca:parseInt(newCA)||0};
+  saveLeadObjectifs(obj);renderLeadsDashboard();
+}
+
+// OUVRIR NOUVEAU LEAD
 function openNewLead(){
-  currentLeadId=null;currentLeadStatut='gris';
+  currentLeadId=null;currentLeadStatut='gris';currentLeadSource='MAG';
   document.getElementById('modal-lead-nom').textContent='Nouveau lead';
-  document.getElementById('modal-lead-sub').textContent='';
+  document.getElementById('modal-lead-sub').innerHTML='';
   resetLeadForm();
-  // Assistante ne voit pas le statut ni attribution commercial
   const role=currentUser?.role;
-  document.getElementById('modal-statut-section').style.display=(role==='admin'||role==='directeur_co'||role==='commercial')?'block':'none';
+  // Statut visible seulement si attribué (commercial) ou dir co / admin
+  document.getElementById('modal-statut-section').style.display='none';
   const commWrap=document.getElementById('lead-commercial-wrap');
   if(commWrap)commWrap.style.display=(role==='admin'||role==='directeur_co')?'block':'none';
-  fillCommercialAssign();
-  fillProjetsSuggestions();
+  fillCommercialAssign();fillProjetsSuggestions();
   document.getElementById('btn-delete-lead').style.display='none';
-  document.getElementById('modal-historique').style.display='none';
+  document.getElementById('lead-timeline').style.display='none';
   document.getElementById('lead-modal').classList.add('open');
 }
 
 // OUVRIR FICHE LEAD EXISTANT
 function openLead(id){
-  const leads=getLeads();
-  const l=leads.find(x=>x.id===id);if(!l)return;
-  currentLeadId=id;currentLeadStatut=l.statut||'gris';
+  const leads=getLeads();const l=leads.find(x=>x.id===id);if(!l)return;
+  currentLeadId=id;currentLeadStatut=l.statut||'gris';currentLeadSource=l.source||'MAG';
+  // Marquer comme vu
+  const role=currentUser?.role;
+  if(role!=='admin'&&role!=='directeur_co'&&!l.vu_date){
+    const idx=leads.findIndex(x=>x.id===id);
+    const dateStr=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    leads[idx].vu_date=dateStr;
+    leads[idx].vu_par=currentUser.name;
+    addLeadTimelineEntry(leads[idx],`Lead ouvert pour la première fois`,currentUser.name);
+    saveLeads(leads);
+  }
   document.getElementById('modal-lead-nom').textContent=l.nom;
-  document.getElementById('modal-lead-sub').textContent=(l.secteur==='avignon'?'Avignon':'Nîmes')+' · '+getLeadAge(l);
+  document.getElementById('modal-lead-sub').innerHTML=`
+    <span class="lead-secteur">${l.secteur==='avignon'?'Avignon':'Nîmes'}</span>
+    <span>${getLeadAge(l)}</span>
+    ${l.vu_date?`<span class="lead-vu">👁️ Vu le ${l.vu_date}</span>`:(role==='admin'||role==='directeur_co')?'<span class="lead-non-vu">👁️ Non ouvert</span>':''}
+  `;
   resetLeadForm();
-  // Remplir les champs
+  // Remplir champs
   document.getElementById('lead-nom').value=l.nom||'';
   document.getElementById('lead-tel').value=l.telephone||'';
   document.getElementById('lead-adresse').value=l.adresse||'';
+  document.getElementById('lead-ville').value=l.ville||'';
+  document.getElementById('lead-cp').value=l.cp||'';
   document.getElementById('lead-projet').value=l.type_projet||'';
   document.getElementById('lead-secteur').value=l.secteur||'nimes';
-  document.getElementById('lead-note').value=l.note||'';
-  // Statut
-  const role=currentUser?.role;
-  document.getElementById('modal-statut-section').style.display=(role==='admin'||role==='directeur_co'||role==='commercial')?'block':'none';
-  if(role==='admin'||role==='directeur_co'||role==='commercial'){
+  document.getElementById('lead-suivi').value=l.suivi||'';
+  document.getElementById('lead-commentaire').value=l.commentaire||'';
+  // Source
+  selectSourceByVal(l.source||'MAG');
+  // Statut — visible si lead attribué OU si admin/directeur_co
+  const canChangeStatut=(l.commercial&&(role==='commercial'||role==='admin'||role==='directeur_co'))||(role==='admin'||role==='directeur_co');
+  document.getElementById('modal-statut-section').style.display=canChangeStatut?'block':'none';
+  if(canChangeStatut){
     selectStatut(l.statut||'gris',null,true);
     document.getElementById('lead-sous-statut').value=l.sous_statut||'a_rappeler';
     if(l.rappel)document.getElementById('lead-rappel').value=l.rappel;
+    if(l.rdv_type)document.getElementById('lead-rdv-type').value=l.rdv_type;
+    if(l.date_rdv)document.getElementById('lead-date-rdv').value=l.date_rdv;
     if(l.montant_devis)document.getElementById('lead-montant-devis').value=l.montant_devis;
     if(l.date_devis)document.getElementById('lead-date-devis').value=l.date_devis;
-    if(l.type_devis)document.getElementById('lead-type-devis').value=l.type_devis;
+    if(l.rappel_devis)document.getElementById('lead-rappel-devis').value=l.rappel_devis;
     if(l.prix_vendu)document.getElementById('lead-prix-vendu').value=l.prix_vendu;
     if(l.date_signature)document.getElementById('lead-date-signature').value=l.date_signature;
     if(l.produit_vendu)document.getElementById('lead-produit-vendu').value=l.produit_vendu;
     if(l.raison_mort)document.getElementById('lead-raison-mort').value=l.raison_mort;
   }
+  // Attribution
   const commWrap=document.getElementById('lead-commercial-wrap');
   if(commWrap)commWrap.style.display=(role==='admin'||role==='directeur_co')?'block':'none';
   fillCommercialAssign(l.commercial);
   fillProjetsSuggestions();
-  // Bouton supprimer (admin seulement)
-  document.getElementById('btn-delete-lead').style.display=role==='admin'?'block':'none';
-  // Historique
-  if(l.historique&&l.historique.length>0){
-    document.getElementById('modal-historique').style.display='block';
-    document.getElementById('historique-list').innerHTML=l.historique.slice().reverse().map(h=>`
-      <div class="historique-item">
-        <div class="historique-date">${h.date} · ${h.user}</div>
-        <div class="historique-txt">${esc(h.action)}</div>
+  // Suppression — Benjamin uniquement
+  document.getElementById('btn-delete-lead').style.display=currentUser.id==='benjamin'?'block':'none';
+  // Timeline
+  if(l.timeline&&l.timeline.length>0){
+    document.getElementById('lead-timeline').style.display='block';
+    document.getElementById('timeline-list').innerHTML=l.timeline.slice().reverse().map(t=>`
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-content">
+          <div class="timeline-action">${esc(t.action)}</div>
+          <div class="timeline-meta">${t.date} · ${esc(t.user)}</div>
+        </div>
       </div>`).join('');
   } else {
-    document.getElementById('modal-historique').style.display='none';
+    document.getElementById('lead-timeline').style.display='none';
   }
   document.getElementById('lead-modal').classList.add('open');
 }
@@ -3841,16 +4090,33 @@ function openLead(id){
 function closeLeadModal(){
   document.getElementById('lead-modal').classList.remove('open');
   currentLeadId=null;
+  document.getElementById('adresse-suggestions').style.display='none';
 }
 
 function resetLeadForm(){
-  ['lead-nom','lead-tel','lead-adresse','lead-projet','lead-note','lead-montant-devis','lead-date-devis','lead-type-devis','lead-prix-vendu','lead-date-signature','lead-produit-vendu','lead-rappel'].forEach(id=>{
+  ['lead-nom','lead-tel','lead-adresse','lead-ville','lead-cp','lead-projet','lead-suivi','lead-commentaire','lead-action',
+   'lead-rappel','lead-date-rdv','lead-montant-devis','lead-date-devis','lead-rappel-devis',
+   'lead-prix-vendu','lead-date-signature','lead-produit-vendu'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
   });
   document.getElementById('lead-secteur').value='nimes';
   document.getElementById('lead-sous-statut').value='a_rappeler';
   document.getElementById('lead-raison-mort').value='';
+  document.getElementById('lead-rdv-type').value='TEL';
   selectStatut('gris',null,true);
+  selectSourceByVal('MAG');
+}
+
+function selectSource(btn){
+  document.querySelectorAll('.src-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  currentLeadSource=btn.dataset.src;
+}
+function selectSourceByVal(val){
+  document.querySelectorAll('.src-btn').forEach(b=>{
+    b.classList.toggle('selected',b.dataset.src===val);
+  });
+  currentLeadSource=val;
 }
 
 function selectStatut(statut,btn,silent=false){
@@ -3863,53 +4129,114 @@ function selectStatut(statut,btn,silent=false){
   });
 }
 
+// AJOUTER ACTION MANUELLE
+function addLeadAction(){
+  const input=document.getElementById('lead-action');
+  const txt=input?.value.trim();if(!txt||!currentLeadId)return;
+  const leads=getLeads();
+  const l=leads.find(x=>x.id===currentLeadId);if(!l)return;
+  addLeadTimelineEntry(l,txt,currentUser.name);
+  saveLeads(leads);
+  input.value='';
+  // Refresh timeline
+  document.getElementById('timeline-list').innerHTML=(l.timeline||[]).slice().reverse().map(t=>`
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-content">
+        <div class="timeline-action">${esc(t.action)}</div>
+        <div class="timeline-meta">${t.date} · ${esc(t.user)}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('lead-timeline').style.display='block';
+  showDriveNotif('Action enregistrée');
+}
+
+function addLeadTimelineEntry(lead,action,user){
+  if(!lead.timeline)lead.timeline=[];
+  const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  lead.timeline.push({date:dateStr,user,action});
+}
+
+// SAUVEGARDER LEAD
 function saveLead(){
   const nom=document.getElementById('lead-nom').value.trim();
   const tel=document.getElementById('lead-tel').value.trim();
   const adresse=document.getElementById('lead-adresse').value.trim();
+  const ville=document.getElementById('lead-ville').value.trim();
+  const cp=document.getElementById('lead-cp').value.trim();
   const projet=document.getElementById('lead-projet').value.trim();
-  if(!nom||!tel||!adresse||!projet){alert('Remplissez les champs obligatoires (*)');return;}
+  if(!nom||!tel||!projet){alert('Remplissez les champs obligatoires : Nom, Téléphone, Projet');return;}
+  if(!ville&&!adresse){alert('Saisissez une adresse');return;}
   if(currentLeadStatut==='rouge'&&!document.getElementById('lead-raison-mort').value){alert('Indiquez la raison du refus');return;}
+  if(currentLeadStatut==='vert'&&!document.getElementById('lead-prix-vendu').value){alert('Indiquez le prix vendu');return;}
   const leads=getLeads();
   const now=new Date().toISOString();
   const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const commercial=document.getElementById('lead-commercial-assign')?.value||null;
   const data={
-    nom,telephone:tel,adresse,type_projet:projet,
+    nom,telephone:tel,adresse,ville,cp,type_projet:projet,
     secteur:document.getElementById('lead-secteur').value,
+    source:currentLeadSource,
     statut:currentLeadStatut,
     sous_statut:document.getElementById('lead-sous-statut').value,
     rappel:document.getElementById('lead-rappel').value||null,
+    rdv_type:document.getElementById('lead-rdv-type').value||null,
+    date_rdv:document.getElementById('lead-date-rdv').value||null,
     montant_devis:document.getElementById('lead-montant-devis').value||null,
     date_devis:document.getElementById('lead-date-devis').value||null,
-    type_devis:document.getElementById('lead-type-devis').value||null,
+    rappel_devis:document.getElementById('lead-rappel-devis').value||null,
     prix_vendu:document.getElementById('lead-prix-vendu').value||null,
     date_signature:document.getElementById('lead-date-signature').value||null,
     produit_vendu:document.getElementById('lead-produit-vendu').value||null,
     raison_mort:document.getElementById('lead-raison-mort').value||null,
-    commercial:document.getElementById('lead-commercial-assign')?.value||null,
-    note:document.getElementById('lead-note').value.trim(),
+    commercial:currentLeadSource==='ACTIF'?currentUser.id:(commercial||null),
+    suivi:document.getElementById('lead-suivi').value.trim(),
+    commentaire:document.getElementById('lead-commentaire').value.trim(),
   };
   if(currentLeadId){
-    // Mise à jour
     const idx=leads.findIndex(l=>l.id===currentLeadId);
     if(idx!==-1){
       const old=leads[idx];
-      if(!old.historique)old.historique=[];
-      if(old.statut!==data.statut)old.historique.push({date:dateStr,user:currentUser.name,action:`Statut : ${old.statut} → ${data.statut}`});
-      if(data.note&&data.note!==old.note)old.historique.push({date:dateStr,user:currentUser.name,action:'Note : '+data.note});
+      // Archive auto si vert ou rouge
+      if((data.statut==='vert'||data.statut==='rouge')&&old.statut!==data.statut){
+        data.archive=false;// On garde actif, archive manuelle
+      }
+      if(old.statut!==data.statut){
+        addLeadTimelineEntry(old,`Statut : ${old.statut} → ${data.statut}`,currentUser.name);
+      }
+      if(old.commercial!==data.commercial&&data.commercial){
+        const newComm=getAllUsers().find(u=>u.id===data.commercial);
+        addLeadTimelineEntry(old,`Attribué à ${newComm?.name||data.commercial}`,currentUser.name);
+        // Notifier le commercial
+        pushNotif('Lead attribué',`${nom} — ${projet}`,data.source==='ACTIF'?'🏃':'📋',data.commercial);
+      }
       leads[idx]={...old,...data,id:currentLeadId,date_creation:old.date_creation,date_modification:now};
     }
-    logActivity(`${currentUser.name} a mis à jour le lead : ${nom}`);
+    logActivity(`${currentUser.name} a mis à jour : ${nom}`);
   } else {
-    // Nouveau
-    const newLead={...data,id:Date.now(),date_creation:now,historique:[{date:dateStr,user:currentUser.name,action:'Lead créé'}]};
+    // Nouveau lead
+    const newLead={...data,id:Date.now(),date_creation:now,timeline:[]};
+    addLeadTimelineEntry(newLead,'Lead créé',currentUser.name);
+    if(data.commercial){
+      const c=getAllUsers().find(u=>u.id===data.commercial);
+      addLeadTimelineEntry(newLead,`Attribué à ${c?.name||data.commercial}`,currentUser.name);
+    }
+    // ACTIF : commercial crée pour lui-même, dir co alerté
+    if(currentLeadSource==='ACTIF'){
+      getAllUsers().filter(u=>u.role==='directeur_co').forEach(u=>{
+        pushNotif('Lead ACTIF créé',`${nom} par ${currentUser.name}`,newLead.secteur==='avignon'?'📍':'📍',u.id);
+      });
+    } else {
+      // Lead entrant : alerter dir co si pas attribué
+      if(!data.commercial){
+        getAllUsers().filter(u=>u.role==='directeur_co').forEach(u=>{
+          pushNotif('Nouveau lead à attribuer',`${nom} — ${projet}`,srcIcons()[data.source]||'📋',u.id);
+        });
+      }
+    }
     leads.unshift(newLead);
-    logActivity(`${currentUser.name} a créé un lead : ${nom}`);
-    // Notifier le directeur co uniquement (pas Benjamin)
-    getAllUsers().filter(u=>u.role==='directeur_co').forEach(u=>{
-      pushNotif('Nouveau lead',`${nom} — ${projet}`,newLead.secteur==='avignon'?'📍':'📍',u.id);
-    });
     updateProjetSuggestion(projet);
+    logActivity(`${currentUser.name} a créé un lead : ${nom}`);
   }
   saveLeads(leads);
   closeLeadModal();
@@ -3917,15 +4244,61 @@ function saveLead(){
   refreshLeadsBadge();
 }
 
+function srcIcons(){return{MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'};}
+
 function deleteLead(){
+  if(currentUser.id!=='benjamin'){alert('Suppression réservée à Benjamin');return;}
   if(!confirm('Supprimer ce lead définitivement ?'))return;
-  const leads=getLeads().filter(l=>l.id!==currentLeadId);
-  saveLeads(leads);
-  closeLeadModal();
-  renderLeads();
-  refreshLeadsBadge();
-  logActivity(`${currentUser.name} a supprimé un lead`);
+  saveLeads(getLeads().filter(l=>l.id!==currentLeadId));
+  closeLeadModal();renderLeads();refreshLeadsBadge();
+  logActivity('Benjamin a supprimé un lead');
 }
+
+// AUTOCOMPLÉTION ADRESSE (API adresse.data.gouv.fr)
+let adresseTimeout=null;
+async function searchAdresse(val){
+  clearTimeout(adresseTimeout);
+  const sugg=document.getElementById('adresse-suggestions');
+  if(!val||val.length<4){sugg.style.display='none';return;}
+  adresseTimeout=setTimeout(async()=>{
+    try{
+      const res=await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(val)}&limit=6&autocomplete=1`);
+      const data=await res.json();
+      const features=data.features||[];
+      if(!features.length){sugg.style.display='none';return;}
+      sugg.innerHTML=features.map(f=>{
+        const p=f.properties;
+        return `<div class="addr-suggestion" onclick="selectAdresse('${esc(p.label)}','${esc(p.city||p.municipality||'')}','${esc(p.postcode||'')}','${esc(p.context?.split(',')[0]||'')}')">
+          <strong>${esc(p.name||'')}</strong> ${esc(p.postcode||'')} ${esc(p.city||'')}
+        </div>`;
+      }).join('');
+      sugg.style.display='block';
+    }catch(e){sugg.style.display='none';}
+  },350);
+}
+
+function selectAdresse(label,ville,cp,context){
+  document.getElementById('lead-adresse').value=label;
+  document.getElementById('lead-ville').value=ville;
+  document.getElementById('lead-cp').value=cp;
+  document.getElementById('adresse-suggestions').style.display='none';
+  // Détection secteur auto par code postal
+  detectSecteurByCP(cp);
+}
+
+function detectSecteurByCP(cp){
+  const NIMES=['30000','30900','30100','30130','30132','30133','30190','30128','30320','30310','30200','30600','30210','30980','30330','30800','30140','30150','30400','30420','30430','30440','30460','30500','30510','30520','30530','30560','30610','30620','30630','30640','30650','30660','30670','30680','30700','30730','30740','30750','30760','30820','30830','30840','30870','30960','30970'];
+  const AVIGNON=['84000','84100','84130','84140','84300','84310','84320','84420','84700','84200','84240','84260','84270','84330','84340','84350','84360','84370','84380','84390','84400','84410','84430','84440','84450','84460','84470','84480','84490','84510','84530','84550','84570','84580','84600','84610','84800','84820','84830','84850','84860','84870','84880'];
+  if(AVIGNON.some(c=>cp.startsWith(c.substring(0,4))))document.getElementById('lead-secteur').value='avignon';
+  else if(NIMES.some(c=>cp.startsWith(c.substring(0,3))))document.getElementById('lead-secteur').value='nimes';
+}
+
+// Fermer suggestions si clic ailleurs
+document.addEventListener('click',e=>{
+  const sugg=document.getElementById('adresse-suggestions');
+  const input=document.getElementById('lead-adresse');
+  if(sugg&&input&&!sugg.contains(e.target)&&e.target!==input)sugg.style.display='none';
+});
 
 // SUGGESTIONS PROJETS
 function getProjetsSuggestions(){try{return JSON.parse(localStorage.getItem('benai_projets_sugg'))||[];}catch{return[];}}
@@ -3941,17 +4314,6 @@ function fillProjetsSuggestions(){
   dl.innerHTML=getProjetsSuggestions().map(s=>`<option value="${esc(s.t)}">`).join('');
 }
 
-// DETECTION SECTEUR (codes postaux à compléter plus tard)
-const CODES_NIMES=['30000','30900','30100','30130','30132','30133','30190','30128','30900'];
-const CODES_AVIGNON=['84000','84100','84130','84140','84300','84310','84320','84420'];
-function detectSecteur(adresse){
-  const cp=adresse.match(/\b([0-9]{5})\b/);
-  if(!cp)return;
-  const code=cp[1];
-  if(CODES_AVIGNON.includes(code))document.getElementById('lead-secteur').value='avignon';
-  else if(CODES_NIMES.includes(code))document.getElementById('lead-secteur').value='nimes';
-}
-
 // FILTRE COMMERCIAL
 function fillCommercialFilter(){
   const sel=document.getElementById('crm-filter-commercial');if(!sel)return;
@@ -3960,33 +4322,465 @@ function fillCommercialFilter(){
 }
 function fillCommercialAssign(selected=''){
   const sel=document.getElementById('lead-commercial-assign');if(!sel)return;
-  const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
-  sel.innerHTML='<option value="">Non attribué</option>'+commerciaux.map(c=>`<option value="${c.id}"${c.id===selected?' selected':''}>${esc(c.name)}</option>`).join('');
+  const users=getAllUsers().filter(u=>u.role==='commercial'||u.role==='directeur_co');
+  sel.innerHTML='<option value="">⏳ Non attribué</option>'+users.map(c=>`<option value="${c.id}"${c.id===selected?' selected':''}>${esc(c.name)} (${c.role==='directeur_co'?'Dir.co':'Commercial'})</option>`).join('');
 }
 
-// ALERTES 24H
+// ALERTES & RAPPELS
+function isLeadAlerte(l){
+  if(l.statut==='vert'||l.statut==='rouge'||l.archive)return false;
+  if(!l.date_creation)return false;
+  const h=getHeuresOuvrees(new Date(l.date_creation));
+  if(!l.commercial)return h>2;
+  if(!l.vu_date)return h>4;
+  return h>24;
+}
+
+function getLeadAge(l){
+  if(!l.date_creation)return '';
+  const h=(Date.now()-new Date(l.date_creation).getTime())/3600000;
+  if(h<1)return 'À l\'instant';if(h<24)return Math.floor(h)+'h';
+  return Math.floor(h/24)+'j';
+}
+
 function checkLeadsAlertes(){
-  // Benjamin ne reçoit pas les alertes leads — directeur co uniquement
   if(currentUser?.role!=='directeur_co')return;
-  const alertes=getLeads().filter(l=>isLeadAlerte24(l));
-  if(alertes.length>0){
-    pushNotif('⏰ Leads en attente',`${alertes.length} lead(s) sans contact depuis +24h`,'🚨',currentUser.id);
-  }
+  const alertes=getLeads().filter(l=>isLeadAlerte(l));
+  if(alertes.length>0)pushNotif('⏰ Leads en attente',`${alertes.length} lead(s) nécessitent une action`,'🚨',currentUser.id);
 }
 
-// BADGE SIDEBAR
+function checkRappelsLeads(){
+  if(!currentUser)return;
+  const now=new Date();
+  const leads=getLeads().filter(l=>l.rappel&&(l.commercial===currentUser.id||currentUser.role==='directeur_co'||currentUser.id==='benjamin'));
+  leads.forEach(l=>{
+    const rappel=new Date(l.rappel);
+    const diff=Math.abs(rappel-now)/60000;// en minutes
+    if(diff<=5&&!localStorage.getItem('benai_rappel_done_'+l.id+'_'+l.rappel)){
+      pushNotif('📞 Rappel lead',`${l.nom} — ${l.type_projet}`,l.rappel_devis?'📋':'📞',currentUser.id);
+      localStorage.setItem('benai_rappel_done_'+l.id+'_'+l.rappel,'1');
+    }
+  });
+}
+
 function refreshLeadsBadge(){
   const badge=document.getElementById('leads-badge');if(!badge)return;
   const role=currentUser?.role;
-  // Benjamin : pas de badge leads
   if(role==='admin'){badge.style.display='none';return;}
-  let leads=getLeads();
+  let leads=getLeads().filter(l=>!l.archive);
   if(role==='commercial')leads=leads.filter(l=>l.commercial===currentUser.id);
-  const alertes=leads.filter(l=>isLeadAlerte24(l)).length;
+  const alertes=leads.filter(l=>isLeadAlerte(l)).length;
   if(alertes>0){badge.style.display='flex';badge.textContent=alertes;badge.style.background='var(--r)';}
-  else{const nouveaux=leads.filter(l=>l.statut==='gris').length;
-    if(nouveaux>0){badge.style.display='flex';badge.textContent=nouveaux;badge.style.background='var(--a)';}
+  else{const n=leads.filter(l=>l.statut==='gris').length;
+    if(n>0){badge.style.display='flex';badge.textContent=n;badge.style.background='var(--a)';}
     else badge.style.display='none';}
+}
+
+// EXPORT EXCEL
+function exportLeadsExcel(){
+  const leads=getLeads();
+  const header='Date,Source,Nom,Téléphone,Ville,CP,Projet,Statut,Commercial,Secteur,Devis (€),CA (€),Suivi,Commentaire\n';
+  const rows=leads.map(l=>{
+    const comm=getAllUsers().find(u=>u.id===l.commercial);
+    return[
+      new Date(l.date_creation||0).toLocaleDateString('fr-FR'),
+      l.source||'',csv(l.nom),csv(l.telephone),csv(l.ville),l.cp||'',
+      csv(l.type_projet),l.statut,comm?.name||'',
+      l.secteur==='avignon'?'Avignon':'Nîmes',
+      l.montant_devis||'',l.prix_vendu||'',
+      csv(l.suivi),csv(l.commentaire)
+    ].join(',');
+  }).join('\n');
+  download('Leads_BenAI_'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.csv',header+rows,'text/csv;charset=utf-8');
+  logActivity('Export leads Excel');
+}
+
+// ══════════════════════════════════════════
+// 🐛 BUGS
+// ══════════════════════════════════════════
+function getBugs(){try{return JSON.parse(localStorage.getItem('benai_bugs'))||[];}catch{return[];}}
+function saveBugs(b){localStorage.setItem('benai_bugs',JSON.stringify(b));}
+
+let currentBugFilter='tous';
+
+function openNewBug(){
+  document.getElementById('bug-form-wrap').style.display='block';
+  document.getElementById('bug-desc').value='';
+}
+
+function saveBug(){
+  const desc=document.getElementById('bug-desc').value.trim();
+  if(!desc){alert('Décrivez le bug');return;}
+  const bugs=getBugs();
+  const now=new Date();
+  bugs.unshift({
+    id:Date.now(),
+    page:document.getElementById('bug-page').value,
+    gravite:document.getElementById('bug-gravite').value,
+    desc,
+    user:currentUser.name,
+    userId:currentUser.id,
+    date:now.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+    statut:'ouvert'
+  });
+  saveBugs(bugs);
+  document.getElementById('bug-form-wrap').style.display='none';
+  document.getElementById('bug-desc').value='';
+  renderBugsList();
+  refreshBugsBadge();
+  // Notifier Benjamin
+  pushNotif('🐛 Nouveau bug signalé',`${currentUser.name} — ${document.getElementById('bug-page').value}`,'🐛','benjamin');
+  logActivity(`${currentUser.name} a signalé un bug`);
+  showDriveNotif('✅ Bug signalé — merci !');
+}
+
+function filterBugs(f,btn){
+  currentBugFilter=f;
+  document.querySelectorAll('#bug-filter-bar .crm-filter').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderBugsList();
+}
+
+function initBugsPage(){
+  const role=currentUser?.role;
+  const filterBar=document.getElementById('bug-filter-bar');
+  if(filterBar)filterBar.style.display=role==='admin'?'flex':'none';
+  renderBugsList();
+  refreshBugsBadge();
+}
+
+function renderBugsList(){
+  const list=document.getElementById('bugs-list');if(!list)return;
+  const role=currentUser?.role;
+  let bugs=getBugs();
+  // Non-admin voit seulement ses bugs
+  if(role!=='admin')bugs=bugs.filter(b=>b.userId===currentUser.id);
+  // Filtres admin
+  if(currentBugFilter==='ouvert')bugs=bugs.filter(b=>b.statut==='ouvert');
+  else if(currentBugFilter==='resolu')bugs=bugs.filter(b=>b.statut==='resolu');
+  else if(currentBugFilter==='bloquant')bugs=bugs.filter(b=>b.gravite==='bloquant');
+  if(!bugs.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun bug signalé 🎉</div>';return;}
+  const graviteIcon={bloquant:'🔴',important:'🟡',mineur:'🟢'};
+  list.innerHTML=bugs.map(b=>`
+    <div style="background:var(--s2);border:1px solid ${b.statut==='resolu'?'var(--g)':'var(--b1)'};border-radius:12px;padding:13px 15px;margin-bottom:8px;${b.statut==='resolu'?'opacity:.7':''}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+        <span>${graviteIcon[b.gravite]||'🟡'}</span>
+        <span style="font-size:12px;font-weight:700">${esc(b.page)}</span>
+        <span style="font-size:10px;background:var(--s3);padding:2px 8px;border-radius:10px;color:var(--t2)">${b.gravite}</span>
+        ${b.statut==='resolu'?'<span style="background:var(--g2);color:var(--g);padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">✅ Résolu</span>':''}
+        <span style="margin-left:auto;font-size:10px;color:var(--t3)">${b.date}</span>
+      </div>
+      <div style="font-size:13px;color:var(--t1);margin-bottom:6px">${esc(b.desc)}</div>
+      <div style="font-size:10px;color:var(--t3)">Signalé par ${esc(b.user)}</div>
+      ${role==='admin'&&b.statut==='ouvert'?`
+        <div style="margin-top:8px;display:flex;gap:6px">
+          <input type="text" id="bug-rep-${b.id}" placeholder="Réponse / solution..." style="flex:1;padding:7px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-family:inherit;font-size:12px;outline:none">
+          <button onclick="resolveBug(${b.id})" style="padding:7px 12px;background:var(--g);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">✅ Résoudre</button>
+        </div>`:
+      b.reponse?`<div style="margin-top:6px;padding:6px 10px;background:var(--g2);border-radius:6px;font-size:11px;color:var(--g)">✅ ${esc(b.reponse)}</div>`:''}
+    </div>`).join('');
+}
+
+function resolveBug(id){
+  const bugs=getBugs();
+  const b=bugs.find(x=>x.id===id);if(!b)return;
+  const rep=document.getElementById('bug-rep-'+id)?.value.trim()||'Corrigé';
+  b.statut='resolu';b.reponse=rep;b.date_resolution=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  saveBugs(bugs);
+  renderBugsList();refreshBugsBadge();
+  // Notifier l'auteur du bug
+  if(b.userId!=='benjamin')pushNotif('🐛 Bug résolu',`"${b.page}" — ${rep}`,b.userId);
+  logActivity(`Benjamin a résolu un bug : ${b.page}`);
+}
+
+function refreshBugsBadge(){
+  const badge=document.getElementById('bugs-badge');if(!badge)return;
+  const role=currentUser?.role;
+  let bugs=getBugs();
+  if(role!=='admin')bugs=bugs.filter(b=>b.userId===currentUser.id&&b.statut==='resolu'&&!b.notif_seen);
+  else bugs=bugs.filter(b=>b.statut==='ouvert');
+  if(bugs.length>0){badge.style.display='flex';badge.textContent=bugs.length;}
+  else badge.style.display='none';
+}
+
+// ══════════════════════════════════════════
+// 📅 JOURS FÉRIÉS FRANCE (hors weekend)
+// ══════════════════════════════════════════
+function getJoursFeries(year){
+  const y=year||new Date().getFullYear();
+  // Calcul Pâques (algorithme de Meeus)
+  const a=y%19,b=Math.floor(y/100),c=y%100;
+  const d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
+  const h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
+  const l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+  const month=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1;
+  const paques=new Date(y,month-1,day);
+  const jf=[
+    new Date(y,0,1),   // 1er janvier
+    new Date(y,4,1),   // Fête du travail
+    new Date(y,4,8),   // Victoire 1945
+    new Date(y,6,14),  // Bastille
+    new Date(y,7,15),  // Assomption
+    new Date(y,10,1),  // Toussaint
+    new Date(y,10,11), // Armistice
+    new Date(y,11,25), // Noël
+  ];
+  // Jours liés à Pâques
+  const lundi_paques=new Date(paques);lundi_paques.setDate(paques.getDate()+1);
+  const ascension=new Date(paques);ascension.setDate(paques.getDate()+39);
+  const pentecote=new Date(paques);pentecote.setDate(paques.getDate()+50);
+  jf.push(lundi_paques,ascension,pentecote);
+  return jf.map(d=>d.toDateString());
+}
+
+function isJourOuvre(date){
+  const d=date||new Date();
+  const day=d.getDay();
+  if(day===0||day===6)return false; // weekend
+  const feries=getJoursFeries(d.getFullYear());
+  return !feries.includes(d.toDateString());
+}
+
+function addJoursOuvres(date,jours){
+  const d=new Date(date);let added=0;
+  while(added<jours){
+    d.setDate(d.getDate()+1);
+    if(isJourOuvre(d))added++;
+  }
+  return d;
+}
+
+function getHeuresOuvrees(since){
+  // Compte les heures ouvrées depuis une date
+  const now=new Date();
+  const start=new Date(since);
+  let heures=0;let d=new Date(start);
+  while(d<now){
+    if(isJourOuvre(d)){
+      const h=d.getHours();
+      if(h>=8&&h<19)heures++;
+    }
+    d.setHours(d.getHours()+1);
+  }
+  return heures;
+}
+
+// ══════════════════════════════════════════
+// 🎯 OBJECTIFS COMMERCIAUX
+// ══════════════════════════════════════════
+function getObjectifsCommerciaux(){
+  try{return JSON.parse(localStorage.getItem('benai_obj_comm'))||{};}catch{return{};}
+}
+function saveObjectifsCommerciaux(o){localStorage.setItem('benai_obj_comm',JSON.stringify(o));}
+
+function setObjectifCommercial(uid,mensuel,hebdo){
+  const obj=getObjectifsCommerciaux();
+  obj[uid]={mensuel:Number(mensuel)||0,hebdo:Number(hebdo)||0};
+  saveObjectifsCommerciaux(obj);
+}
+
+function getProgressionCommercial(uid){
+  const leads=getLeads().filter(l=>l.statut==='vert'&&l.commercial===uid);
+  const now=new Date();
+  const month=now.getMonth(),year=now.getFullYear();
+  const week=getWeekNumber(now);
+  const mensuel=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getMonth()===month&&d.getFullYear()===year;});
+  const hebdo=leads.filter(l=>{const d=new Date(l.date_creation||0);return getWeekNumber(d)===week&&d.getFullYear()===year;});
+  const caMensuel=mensuel.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
+  const caHebdo=hebdo.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
+  const obj=getObjectifsCommerciaux()[uid]||{mensuel:0,hebdo:0};
+  return{ventes_mois:mensuel.length,ventes_semaine:hebdo.length,ca_mois:caMensuel,ca_semaine:caHebdo,obj};
+}
+
+function getWeekNumber(d){
+  const date=new Date(d);date.setHours(0,0,0,0);
+  date.setDate(date.getDate()+3-(date.getDay()+6)%7);
+  const week1=new Date(date.getFullYear(),0,4);
+  return 1+Math.round(((date.getTime()-week1.getTime())/86400000-3+(week1.getDay()+6)%7)/7);
+}
+
+// Message motivation BenAI automatique
+async function genererMessageMotivation(uid,contexte){
+  const apiKey=getApiKey();if(!apiKey)return;
+  const prog=getProgressionCommercial(uid);
+  const user=getAllUsers().find(u=>u.id===uid);if(!user)return;
+  const pctMois=prog.obj.mensuel>0?Math.round(prog.ca_mois/prog.obj.mensuel*100):0;
+  const prompt=`Tu es BenAI, assistant du directeur commercial. Génère un message de motivation court (2-3 phrases max) et TRÈS personnalisé pour ${user.name}. 
+Contexte : ${contexte}
+Données réelles : ${prog.ventes_mois} ventes ce mois, CA ${prog.ca_mois.toLocaleString('fr-FR')}€, objectif ${prog.obj.mensuel.toLocaleString('fr-FR')}€ (${pctMois}% atteint), ${prog.ventes_semaine} ventes cette semaine.
+Le message doit mentionner ses vrais chiffres. Tutoie-le. Sois enthousiaste mais authentique. Pas de formule générique.`;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:200,messages:[{role:'user',content:prompt}]})
+    });
+    const data=await res.json();
+    if(data.content?.[0]?.text){
+      const msg=data.content[0].text.trim();
+      pushNotif('💪 Message de motivation',msg,'🤖',uid);
+      // Aussi dans la messagerie
+      const mem=getMem();
+      const convId='benjamin_'+uid;
+      if(!mem.messages[convId])mem.messages[convId]=[];
+      const now=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+      mem.messages[convId].push({from:'benjamin',text:'🤖 BenAI : '+msg,time:now,ts:Date.now()});
+      saveMem(mem);
+    }
+  }catch(e){}
+}
+
+// Vérifier motivations automatiques
+function checkMotivationsAuto(){
+  if(!currentUser||currentUser.role!=='commercial')return;
+  const uid=currentUser.id;
+  const prog=getProgressionCommercial(uid);
+  const pct=prog.obj.mensuel>0?prog.ca_mois/prog.obj.mensuel:0;
+  const lastMotiv=localStorage.getItem('benai_last_motiv_'+uid)||'';
+  const today=new Date().toDateString();
+  if(lastMotiv===today)return;
+  let contexte='';
+  if(pct>=1)contexte='Objectif mensuel dépassé ! Encourage-le à se surpasser encore.';
+  else if(pct>=0.75)contexte='Presque à l\'objectif mensuel, dans la dernière ligne droite.';
+  else if(new Date().getDay()===1)contexte='C\'est lundi, début de semaine, donne-lui de l\'élan.';
+  else if(prog.ventes_semaine===0&&new Date().getDay()>=3)contexte='Pas encore de vente cette semaine, encourage-le à relancer.';
+  else return;
+  localStorage.setItem('benai_last_motiv_'+uid,today);
+  setTimeout(()=>genererMessageMotivation(uid,contexte),3000);
+}
+
+// ══════════════════════════════════════════
+// 📊 TABLEAU DE VENTES MENSUEL
+// ══════════════════════════════════════════
+function renderTableauVentes(container){
+  const leads=getLeads().filter(l=>l.statut==='vert');
+  const now=new Date();
+  // Sélecteur mois
+  const moisDispos=[...new Set(leads.map(l=>{const d=new Date(l.date_creation||0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}))].sort().reverse();
+  const selectedMois=localStorage.getItem('benai_ventes_mois')||`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const [yr,mo]=selectedMois.split('-').map(Number);
+  const leadsFiltered=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;});
+  const total=leadsFiltered.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
+  const srcIcons2={MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'};
+  const html=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:15px;font-weight:700">📈 Tableau de ventes</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select onchange="localStorage.setItem('benai_ventes_mois',this.value);renderLeadsDashboard()" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--t1);outline:none;font-family:'Outfit',sans-serif">
+          ${moisDispos.map(m=>`<option value="${m}"${m===selectedMois?' selected':''}>${formatMois(m)}</option>`).join('')}
+        </select>
+        <button onclick="exportTableauVentes()" style="padding:6px 12px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📥 Export</button>
+      </div>
+    </div>
+    <div style="font-size:22px;font-weight:800;color:var(--g);margin-bottom:12px">${total.toLocaleString('fr-FR')} € HT <span style="font-size:12px;color:var(--t3);font-weight:400">${leadsFiltered.length} ventes</span></div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--s3)">
+          <th style="padding:7px 10px;text-align:left;color:var(--t3);font-size:10px;text-transform:uppercase">Src</th>
+          <th style="padding:7px 10px;text-align:left;color:var(--t3);font-size:10px;text-transform:uppercase">Commercial</th>
+          <th style="padding:7px 10px;text-align:left;color:var(--t3);font-size:10px;text-transform:uppercase">Client</th>
+          <th style="padding:7px 10px;text-align:left;color:var(--t3);font-size:10px;text-transform:uppercase">Produit</th>
+          <th style="padding:7px 10px;text-align:right;color:var(--t3);font-size:10px;text-transform:uppercase">HT (€)</th>
+        </tr></thead>
+        <tbody>
+          ${leadsFiltered.map(l=>{
+            const comm=getAllUsers().find(u=>u.id===l.commercial);
+            return `<tr style="border-top:1px solid var(--b1)">
+              <td style="padding:8px 10px">${srcIcons2[l.source]||'📋'}</td>
+              <td style="padding:8px 10px;font-weight:500">${esc(comm?.name||'—')}</td>
+              <td style="padding:8px 10px">${esc(l.nom)}</td>
+              <td style="padding:8px 10px;color:var(--t2)">${esc(l.produit_vendu||l.type_projet||'—')}</td>
+              <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--g)">${Number(l.prix_vendu||0).toLocaleString('fr-FR')}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+        <tfoot><tr style="background:var(--a3);border-top:2px solid var(--a)">
+          <td colspan="4" style="padding:8px 10px;font-weight:700;color:var(--a)">TOTAL</td>
+          <td style="padding:8px 10px;text-align:right;font-weight:800;font-size:14px;color:var(--a)">${total.toLocaleString('fr-FR')}</td>
+        </tr></tfoot>
+      </table>
+    </div>`;
+  if(container)container.innerHTML=html;
+}
+
+function formatMois(str){
+  if(!str)return '';const[y,m]=str.split('-');
+  const mois=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  return `${mois[Number(m)-1]} ${y}`;
+}
+
+function exportTableauVentes(){
+  const leads=getLeads().filter(l=>l.statut==='vert');
+  const selectedMois=localStorage.getItem('benai_ventes_mois')||'';
+  const [yr,mo]=selectedMois?selectedMois.split('-').map(Number):[new Date().getFullYear(),new Date().getMonth()+1];
+  const filtered=selectedMois?leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;}):leads;
+  const header='Source,Commercial,Client,Téléphone,Ville,Produit,HT (€),Date signature\n';
+  const rows=filtered.map(l=>{
+    const comm=getAllUsers().find(u=>u.id===l.commercial);
+    return[l.source||'',csv(comm?.name||''),csv(l.nom),csv(l.telephone),csv(l.ville),csv(l.produit_vendu||l.type_projet),l.prix_vendu||'',l.date_signature||''].join(',');
+  }).join('\n');
+  download(`Ventes_${selectedMois||'export'}.csv`,header+rows,'text/csv;charset=utf-8');
+}
+
+// ══════════════════════════════════════════
+// 📞 TEL + GPS
+// ══════════════════════════════════════════
+function makeCallLink(tel){
+  if(!tel)return '';
+  const clean=tel.replace(/\s/g,'');
+  return `<a href="tel:${clean}" onclick="event.stopPropagation()" style="color:var(--bl);font-size:11px;text-decoration:none;background:var(--bl2);padding:2px 7px;border-radius:6px;font-weight:600">📞 Appeler</a>`;
+}
+
+function makeGPSLink(adresse,ville,cp){
+  const q=encodeURIComponent([adresse,cp,ville].filter(Boolean).join(' '));
+  return `<a href="https://maps.google.com/?q=${q}" target="_blank" onclick="event.stopPropagation()" style="color:var(--g);font-size:11px;text-decoration:none;background:var(--g2);padding:2px 7px;border-radius:6px;font-weight:600">🗺️ GPS</a>`;
+}
+
+// ══════════════════════════════════════════
+// 🚨 RAPPORT ALERTES DIRECTEUR CO
+// ══════════════════════════════════════════
+function genererRapportAlertes(){
+  const leads=getLeads().filter(l=>!l.archive&&l.statut!=='vert'&&l.statut!=='rouge');
+  const now=new Date();
+  const nonAttrib=leads.filter(l=>!l.commercial);
+  const nonOuverts=leads.filter(l=>l.commercial&&!l.vu_date);
+  const enRetard=leads.filter(l=>l.commercial&&l.vu_date&&isLeadAlerte(l));
+  const devisSansReponse=getLeads().filter(l=>l.statut==='jaune'&&l.rappel_devis&&new Date(l.rappel_devis)<now);
+  return{nonAttrib,nonOuverts,enRetard,devisSansReponse,total:nonAttrib.length+nonOuverts.length+enRetard.length+devisSansReponse.length};
+}
+
+// ══════════════════════════════════════════
+// 🔒 BLOQUER COMMERCIAL
+// ══════════════════════════════════════════
+function toggleBlockCommercial(uid){
+  const access=getAccess();
+  const u=getAllUsers().find(x=>x.id===uid);
+  const isBlocked=access[uid]===false;
+  if(!confirm(`${isBlocked?'Débloquer':'Bloquer'} ${u?.name||uid} du CRM ?`))return;
+  access[uid]=isBlocked?true:false;
+  saveAccess(access);
+  renderUsersList();
+  pushNotif(isBlocked?'✅ Accès rétabli':'🔒 Accès bloqué',`${u?.name||uid} — CRM`,'🔒','benjamin');
+  logActivity(`${currentUser.name} a ${isBlocked?'débloqué':'bloqué'} ${u?.name||uid}`);
+  showDriveNotif(isBlocked?`✅ ${u?.name} débloqué`:`🔒 ${u?.name} bloqué`);
+}
+
+// ══════════════════════════════════════════
+// 📊 COMPTEUR CONTACTS PAR COMMERCIAL
+// ══════════════════════════════════════════
+function getContactsParCommercial(){
+  const leads=getLeads();
+  const result={};
+  leads.forEach(l=>{
+    if(!l.commercial)return;
+    if(!result[l.commercial])result[l.commercial]={total:0,cette_semaine:0,ce_mois:0};
+    result[l.commercial].total++;
+    const d=new Date(l.date_creation||0);
+    const now=new Date();
+    if(d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear())result[l.commercial].ce_mois++;
+    if(getWeekNumber(d)===getWeekNumber(now)&&d.getFullYear()===now.getFullYear())result[l.commercial].cette_semaine++;
+  });
+  return result;
 }
 
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
