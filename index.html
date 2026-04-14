@@ -860,7 +860,8 @@ input[type=file]{display:none;}
           <div class="dash-card accordion-card" style="margin-bottom:12px">
             <div class="dc-label accordion-header" onclick="toggleAccordion('users-wrap')">👥 Gestion des utilisateurs <span class="accordion-arrow">▾</span><button onclick="event.stopPropagation();showAddUser()" style="padding:4px 10px;background:var(--a);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;margin-left:8px">+ Ajouter</button></div>
             <div id="users-wrap" class="accordion-body">
-              <div id="users-list" style="margin-top:10px"></div>
+              <input type="text" id="user-search" placeholder="🔍 Rechercher un utilisateur..." oninput="renderUsersList()" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;outline:none;margin-bottom:8px;margin-top:8px">
+              <div id="users-list" style="margin-top:4px"></div>
               <div id="add-user-form" style="display:none;margin-top:12px;background:var(--s3);border-radius:10px;padding:12px">
                 <div style="font-size:12px;font-weight:600;margin-bottom:10px">➕ Créer un accès BenAI</div>
                 <div style="font-size:11px;color:var(--t3);margin-bottom:10px">Sélectionnez un salarié de l'annuaire pour lui créer un accès BenAI.</div>
@@ -898,6 +899,12 @@ input[type=file]{display:none;}
           <div class="dash-card accordion-card">
             <div class="dc-label accordion-header" onclick="toggleAccordion('activity-wrap')">⚡ Activité récente <span class="accordion-arrow">▾</span></div>
             <div id="activity-wrap" class="accordion-body"><div id="activity-list" style="margin-top:8px"><div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div></div></div>
+            <div class="dc-label accordion-header" onclick="toggleAccordion('connexions-wrap')" style="margin-top:8px">🔐 Historique connexions <span class="accordion-arrow">▾</span></div>
+            <div id="connexions-wrap" class="accordion-body collapsed"><div id="connexions-list" style="margin-top:8px"></div></div>
+            <div class="dc-label accordion-header" onclick="toggleAccordion('deletions-wrap')" style="margin-top:8px">🗑️ Journal des suppressions <span class="accordion-arrow">▾</span></div>
+            <div id="deletions-wrap" class="accordion-body collapsed"><div id="deletions-list" style="margin-top:8px"></div></div>
+            <div class="dc-label accordion-header" style="margin-top:10px" onclick="toggleAccordion('connexions-wrap')">🔑 Historique connexions <span class="accordion-arrow">▾</span></div>
+            <div id="connexions-wrap" class="accordion-body collapsed"><div id="connexions-history" style="margin-top:8px"></div></div>
           </div>
         </div>
       </div>
@@ -957,7 +964,8 @@ input[type=file]{display:none;}
               <div style="font-size:11px;color:var(--t3);display:flex;gap:8px;margin-top:2px" id="modal-lead-sub"></div>
             </div>
             <div style="display:flex;gap:6px;align-items:center">
-              <button id="btn-export-lead" onclick="exportLeadsExcel()" style="background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:none">📥 Export</button>
+              <button id="btn-agenda-lead" onclick="ouvrirAgenda()" style="display:none;background:var(--bl2);color:var(--bl);border:1px solid rgba(96,165,250,.3);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📅 Agenda</button>
+              <button id="btn-export-lead" onclick="exportLeadParEmail(currentLeadId)" style="display:none;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📧 Email</button>
               <button onclick="closeLeadModal()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:20px">✕</button>
             </div>
           </div>
@@ -1171,8 +1179,12 @@ input[type=file]{display:none;}
               <div class="form-group"><div class="form-label">Nom</div><input type="text" class="form-input" id="emp-nom" placeholder="Nom"></div>
             </div>
             <div class="form-row">
-              <div class="form-group"><div class="form-label">Email</div><input type="email" class="form-input" id="emp-email" placeholder="email@exemple.fr"></div>
+              <div class="form-group"><div class="form-label">Email perso <span style="color:var(--t3)">(fiches de paie)</span></div><input type="email" class="form-input" id="emp-email" placeholder="email.perso@gmail.com"></div>
+              <div class="form-group"><div class="form-label">Email pro</div><input type="email" class="form-input" id="emp-email-pro" placeholder="prenom@nemausus.fr"></div>
+            </div>
+            <div class="form-row">
               <div class="form-group"><div class="form-label">Téléphone</div><input type="text" class="form-input" id="emp-tel" placeholder="06..."></div>
+              <div class="form-group"><div class="form-label">Date de naissance <span style="color:var(--t3)">(anniversaire)</span></div><input type="date" class="form-input" id="emp-naissance"></div>
             </div>
             <div class="form-row">
               <div class="form-group"><div class="form-label">Fonction</div>
@@ -1243,7 +1255,7 @@ input[type=file]{display:none;}
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const BENAI_VERSION = '3.11';
+const BENAI_VERSION = '3.13';
 
 // ══════════════════════════════════════════
 // UTILISATEURS
@@ -1343,13 +1355,37 @@ function validatePassword(pwd){
   return null;
 }
 
+// ══ TIMEOUT 6H ══
+let lastActivityTime=Date.now();
+const SESSION_TIMEOUT=6*60*60*1000; // 6h
+function resetActivityTimer(){lastActivityTime=Date.now();}
+function checkSessionTimeout(){
+  if(!currentUser||currentUser.id==='benjamin')return;
+  if(Date.now()-lastActivityTime>SESSION_TIMEOUT){
+    showDriveNotif('⏰ Session expirée après 6h d\'inactivité');
+    logout();
+  }
+}
+['click','keydown','touchstart'].forEach(e=>document.addEventListener(e,resetActivityTimer,{passive:true}));
+setInterval(checkSessionTimeout,60000);
+
+// ══ VÉRIF ACCÈS EN TEMPS RÉEL ══
+function checkAccessRealtime(){
+  if(!currentUser||currentUser.id==='benjamin')return;
+  const access=getAccess();
+  if(access[currentUser.id]===false){
+    showDriveNotif('🔒 Votre accès a été révoqué');
+    setTimeout(()=>logout(),1500);
+  }
+}
+setInterval(checkAccessRealtime,15000);
+
 function login(){
   const uid=normalizeId(document.getElementById('login-user').value);
   const pwd=document.getElementById('login-pwd').value;
   const err=document.getElementById('login-err');
   if(!uid){err.textContent='Entrez votre identifiant';return;}
 
-  // Benjamin ne peut jamais être bloqué
   if(uid!=='benjamin'){
     const attempts=getLoginAttempts();
     const now=Date.now();
@@ -1362,8 +1398,6 @@ function login(){
 
   const now=Date.now();
   const attempts=uid!=='benjamin'?getLoginAttempts():{count:0,blockedUntil:0};
-
-  // Vérif utilisateur existe
   const userFound=findUserById(uid);
   const resolvedUid=userFound?normalizeId(userFound.id):uid;
 
@@ -1392,30 +1426,45 @@ function login(){
     }
     return;
   }
-  // Vérif accès bloqué par admin
   const access=getAccess();
   if(access[resolvedUid]===false&&resolvedUid!=='benjamin'){err.textContent='Accès bloqué par l\'administrateur';return;}
-  // Succès
   resetLoginAttempts();
   currentUser={id:resolvedUid,...(USERS[resolvedUid]||getExtraUserById(resolvedUid))};
-  // Vérif si mot de passe par défaut
+  // Log connexion
+  logConnexion(resolvedUid);
+  lastActivityTime=Date.now();
   if(pwd==='1234'){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('force-pwd-screen').style.display='flex';
     return;
   }
-  // Sauvegarder la session
   sessionStorage.setItem('benai_session',resolvedUid);
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').classList.add('visible');
   initApp();
 }
+
+function logConnexion(uid){
+  try{
+    const key='benai_connexions';
+    const logs=JSON.parse(localStorage.getItem(key)||'[]');
+    logs.unshift({uid,date:new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})});
+    if(logs.length>200)logs.splice(200);
+    localStorage.setItem(key,JSON.stringify(logs));
+  }catch(e){}
+}
+
+function getConnexions(uid){
+  try{
+    const logs=JSON.parse(localStorage.getItem('benai_connexions')||'[]');
+    return uid?logs.filter(l=>l.uid===uid):logs;
+  }catch{return[];}
+}
+
 function logout(){
-  // Stopper le polling
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
   sessionStorage.removeItem('benai_session');
   currentUser=null;chatHistory=[];currentConv=null;
-  // Réinitialiser la sidebar
   ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
@@ -1429,6 +1478,7 @@ function logout(){
 
 // Pile de sessions — pour revenir à Benjamin sans mot de passe
 let sessionStack=[];
+const ROLE_LABELS={admin:'Admin',assistante:'Assistante',metreur:'Métreur',commercial:'Commercial',directeur_co:'Dir. commercial'};
 
 function toggleSwitchPanel(){
   const panel=document.getElementById('switch-panel');
@@ -1436,27 +1486,33 @@ function toggleSwitchPanel(){
   panel.style.display=isOpen?'none':'block';
   if(!isOpen){
     const list=document.getElementById('switch-user-list');
+    // Seul Benjamin peut switcher de session
+    if(currentUser.id!=='benjamin'&&sessionStack.length===0){
+      list.innerHTML='<div style="font-size:12px;color:var(--t3)">Réservé à Benjamin</div>';
+      return;
+    }
     const users=getAllUsers().filter(u=>u.id!==currentUser.id);
-    // Si on est pas Benjamin et qu'il y a une session Benjamin dans la pile → proposer retour
     const canGoBack=sessionStack.length>0&&currentUser.id!=='benjamin';
     let html='';
     if(canGoBack){
       const prev=sessionStack[sessionStack.length-1];
       const pu=USERS[prev]||getExtraUserById(prev);
-      if(pu)html+=`<div onclick="switchBack()" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;background:var(--a3);margin-bottom:6px" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
+      if(pu)html+=`<div onclick="switchBack()" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;background:var(--a3);margin-bottom:6px">
         <div style="width:32px;height:32px;border-radius:9px;background:${pu.color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">${pu.initial}</div>
         <div><div style="font-size:13px;font-weight:600;color:var(--a)">↩️ Retour ${pu.name}</div><div style="font-size:10px;color:var(--t3)">Sans ressaisir les identifiants</div></div>
       </div>`;
     }
-    html+=users.map(u=>`
-      <div onclick="switchToUser('${u.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;transition:.12s" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">
-        <div style="width:32px;height:32px;border-radius:9px;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">${u.initial}</div>
-        <div>
-          <div style="font-size:13px;font-weight:600">${esc(u.name)}</div>
-          <div style="font-size:10px;color:var(--t3)">${u.role==='admin'?'Admin':'Assistante'}</div>
-        </div>
-      </div>`).join('');
-    list.innerHTML=html;
+    if(currentUser.id==='benjamin'){
+      html+=users.map(u=>`
+        <div onclick="switchToUser('${u.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;transition:.12s" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">
+          <div style="width:32px;height:32px;border-radius:9px;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">${u.initial}</div>
+          <div>
+            <div style="font-size:13px;font-weight:600">${esc(u.name)}</div>
+            <div style="font-size:10px;color:var(--t3)">${ROLE_LABELS[u.role]||u.role}</div>
+          </div>
+        </div>`).join('');
+    }
+    list.innerHTML=html||'<div style="font-size:12px;color:var(--t3)">Aucune session disponible</div>';
   }
 }
 
@@ -1469,33 +1525,27 @@ function switchBack(){
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
   chatHistory=[];currentConv=null;
   document.getElementById('chat-area').innerHTML='';
-  ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
-    const el=document.getElementById(id);if(el)el.style.display='none';
-  });
   currentUser={id:prevUid,...u};
   sessionStorage.setItem('benai_session',prevUid);
   logActivity(`Retour sur la session de ${u.name}`);
-  initApp();
+  initApp(true);
 }
 
 function switchToUser(uid){
+  if(currentUser.id!=='benjamin'){return;}// Seul Benjamin peut switcher
   document.getElementById('switch-panel').style.display='none';
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
   const u=USERS[uid]||getExtraUserById(uid);
   if(!u){alert('Utilisateur introuvable');return;}
   const access=getAccess();
   if(access[uid]===false){alert(`Accès bloqué pour ${u.name}`);return;}
-  // Empiler la session actuelle pour pouvoir y revenir
   if(currentUser)sessionStack.push(currentUser.id);
   chatHistory=[];currentConv=null;
   document.getElementById('chat-area').innerHTML='';
-  ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
-    const el=document.getElementById(id);if(el)el.style.display='none';
-  });
   currentUser={id:uid,...u};
   sessionStorage.setItem('benai_session',uid);
-  logActivity(`${sessionStack.length>0?USERS[sessionStack[sessionStack.length-1]]?.name||'Benjamin':'Benjamin'} a basculé vers ${u.name}`);
-  initApp();
+  logActivity(`Benjamin a basculé vers ${u.name}`);
+  initApp(true);
 }
 
 function switchSession(){toggleSwitchPanel();}
@@ -1566,6 +1616,8 @@ function initApp(silent=false){
   requestNotifPermission();
   // Motivations automatiques pour commerciaux
   if(u.role==='commercial')setTimeout(()=>checkMotivationsAuto(),5000);
+  // Rappel anniversaires pour Benjamin
+  if(u.id==='benjamin')setTimeout(()=>checkAnniversaires(),3000);
   // Initialiser Google Drive client si configuré
   if(u.id==='benjamin')setTimeout(()=>initGDriveClient(),1000);
   // Briefing quotidien intelligent (une seule fois par jour)
@@ -1976,22 +2028,35 @@ function makeConvId(uid1,uid2){return [uid1,uid2].sort().join('_');}
 function getConvsForUser(uid){
   const allUsers=getAllUsers();
   const convs={};
+  const me=allUsers.find(u=>u.id===uid);
+  const role=me?.role||'assistante';
+
+  // CRM only roles (commercial, directeur_co) — voient uniquement les autres CRM + Benjamin
+  const crmOnly=['commercial','directeur_co'];
+  const isCRMOnly=crmOnly.includes(role);
+
   if(uid==='benjamin'){
     // Benjamin voit tout le monde
     allUsers.filter(u=>u.id!=='benjamin').forEach(u=>{
       const cid=makeConvId('benjamin',u.id);
-      convs[cid]={name:u.name,other:u.id,color:u.color,initial:u.initial};
+      convs[cid]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
     });
-  } else {
-    // Les autres voient Benjamin
+  } else if(isCRMOnly){
+    // Commercial/directeur co → Benjamin + autres CRM uniquement
     const ben=allUsers.find(u=>u.id==='benjamin');
     if(ben)convs[makeConvId(uid,'benjamin')]={name:'Benjamin',other:'benjamin',color:ben.color,initial:ben.initial};
-    // Et les autres collègues
+    allUsers.filter(u=>u.id!==uid&&u.id!=='benjamin'&&crmOnly.includes(u.role)).forEach(u=>{
+      convs[makeConvId(uid,u.id)]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
+    });
+  } else {
+    // Assistante/métreur → Benjamin + toute l'équipe
+    const ben=allUsers.find(u=>u.id==='benjamin');
+    if(ben)convs[makeConvId(uid,'benjamin')]={name:'Benjamin',other:'benjamin',color:ben.color,initial:ben.initial};
     allUsers.filter(u=>u.id!==uid&&u.id!=='benjamin').forEach(u=>{
-      convs[makeConvId(uid,u.id)]={name:u.name,other:u.id,color:u.color,initial:u.initial};
+      convs[makeConvId(uid,u.id)]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
     });
   }
-  // Groupe toujours présent
+  // Groupe équipe visible pour tous
   convs['groupe']={name:'Groupe équipe',group:true,color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'👥'};
   return convs;
 }
@@ -2055,13 +2120,15 @@ function sendMsg(){
 }
 
 function deleteMsg(cid,idx){
-  if(!confirm('Supprimer ce message ?'))return;
+  if(currentUser.id!=='benjamin'){showDriveNotif('⚠️ Suppression réservée à Benjamin');return;}
+  if(!confirm('Supprimer ce message définitivement ?'))return;
   const mem=getMem();if(mem.messages[cid])mem.messages[cid].splice(idx,1);
   saveMem(mem);renderThread(cid);renderConvList();
 }
 
 function editMsg(cid,idx){
   const mem=getMem();const msg=mem.messages[cid]?.[idx];if(!msg)return;
+  if(msg.from!==currentUser.id&&currentUser.id!=='benjamin'){showDriveNotif('⚠️ Vous ne pouvez modifier que vos messages');return;}
   const nouveau=prompt('Modifier le message :',msg.text);
   if(!nouveau||!nouveau.trim())return;
   msg.text=nouveau.trim();msg.edited=true;
@@ -2532,14 +2599,16 @@ function addEmploye(){
   const prenom=document.getElementById('emp-prenom').value.trim();
   const nom=document.getElementById('emp-nom').value.trim();
   const email=document.getElementById('emp-email').value.trim();
+  const emailPro=document.getElementById('emp-email-pro').value.trim();
   const tel=document.getElementById('emp-tel').value.trim();
+  const naissance=document.getElementById('emp-naissance').value;
   const fonction=document.getElementById('emp-fonction').value;
   const soc=document.getElementById('emp-soc').value;
   if(!prenom||!nom){alert('Prénom et Nom sont obligatoires');return;}
   const ann=getAnnuaire();
-  ann.push({id:Date.now(),prenom,nom,email,tel,fonction,societe:soc});
+  ann.push({id:Date.now(),prenom,nom,email,emailPro,tel,naissance,fonction,societe:soc});
   saveAnnuaire(ann);
-  ['emp-prenom','emp-nom','emp-email','emp-tel'].forEach(id=>document.getElementById(id).value='');
+  ['emp-prenom','emp-nom','emp-email','emp-email-pro','emp-tel','emp-naissance'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const ok=document.getElementById('emp-ok');ok.textContent='✅ Enregistré !';
   setTimeout(()=>{ok.textContent='';toggleEmpForm();},1200);
   renderAnnuaire();logActivity(`Benjamin a ajouté ${prenom} ${nom} dans l'annuaire`);
@@ -2547,23 +2616,23 @@ function addEmploye(){
 
 function deleteEmploye(id){
   if(!confirm('Supprimer cet employé de l\'annuaire ?'))return;
+  logDeletion('Employé annuaire',getAnnuaire().find(e=>e.id===id)?.prenom+' '+getAnnuaire().find(e=>e.id===id)?.nom);
   saveAnnuaire(getAnnuaire().filter(e=>e.id!==id));renderAnnuaire();
 }
 
 function editEmploye(id){
   const ann=getAnnuaire();
   const e=ann.find(x=>x.id===id);if(!e)return;
-  // Pré-remplir le formulaire
   document.getElementById('emp-prenom').value=e.prenom||'';
   document.getElementById('emp-nom').value=e.nom||'';
   document.getElementById('emp-email').value=e.email||'';
+  const epro=document.getElementById('emp-email-pro');if(epro)epro.value=e.emailPro||'';
   document.getElementById('emp-tel').value=e.tel||'';
+  const enais=document.getElementById('emp-naissance');if(enais)enais.value=e.naissance||'';
   document.getElementById('emp-fonction').value=e.fonction||'Autre';
   document.getElementById('emp-soc').value=e.societe||'nemausus';
-  // Changer le bouton Enregistrer en mode édition
   const btn=document.querySelector('#emp-form-wrap .btn-primary');
   if(btn){btn.textContent='💾 Modifier';btn.onclick=()=>saveEditEmploye(id);}
-  // Ouvrir le formulaire
   document.getElementById('emp-form-wrap').style.display='block';
   document.getElementById('emp-form-wrap').scrollIntoView({behavior:'smooth'});
 }
@@ -2575,18 +2644,18 @@ function saveEditEmploye(id){
   const ann=getAnnuaire();
   const idx=ann.findIndex(e=>e.id===id);if(idx===-1)return;
   ann[idx]={
-    ...ann[idx],
-    prenom,nom,
+    ...ann[idx],prenom,nom,
     email:document.getElementById('emp-email').value.trim(),
+    emailPro:document.getElementById('emp-email-pro')?.value.trim()||'',
     tel:document.getElementById('emp-tel').value.trim(),
+    naissance:document.getElementById('emp-naissance')?.value||'',
     fonction:document.getElementById('emp-fonction').value,
     societe:document.getElementById('emp-soc').value
   };
   saveAnnuaire(ann);
-  // Remettre le bouton en mode ajout
   const btn=document.querySelector('#emp-form-wrap .btn-primary');
   if(btn){btn.textContent='Enregistrer';btn.onclick=addEmploye;}
-  ['emp-prenom','emp-nom','emp-email','emp-tel'].forEach(i=>document.getElementById(i).value='');
+  ['emp-prenom','emp-nom','emp-email','emp-email-pro','emp-tel','emp-naissance'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   document.getElementById('emp-form-wrap').style.display='none';
   const ok=document.getElementById('emp-ok');ok.textContent='✅ Modifié !';
   setTimeout(()=>ok.textContent='',1500);
@@ -2597,13 +2666,10 @@ function renderAnnuaire(search){
   if(search===undefined)search=document.getElementById('ann-search')?.value||'';
   const list=document.getElementById('annuaire-list');if(!list)return;
   let emps=getAnnuaire();
-  // Filtre
   if(annFilter==='nemausus')emps=emps.filter(e=>e.societe==='nemausus'||e.societe==='les-deux');
   else if(annFilter==='lambert')emps=emps.filter(e=>e.societe==='lambert'||e.societe==='les-deux');
   else if(annFilter!=='tous')emps=emps.filter(e=>e.fonction===annFilter);
-  // Recherche
-  if(search)emps=emps.filter(e=>`${e.prenom} ${e.nom} ${e.email||''} ${e.fonction||''} ${e.tel||''}`.toLowerCase().includes(search.toLowerCase()));
-  // Compteur
+  if(search)emps=emps.filter(e=>`${e.prenom} ${e.nom} ${e.email||''} ${e.emailPro||''} ${e.fonction||''} ${e.tel||''}`.toLowerCase().includes(search.toLowerCase()));
   const all=getAnnuaire();
   const nem=all.filter(e=>e.societe==='nemausus'||e.societe==='les-deux').length;
   const lam=all.filter(e=>e.societe==='lambert'||e.societe==='les-deux').length;
@@ -2611,7 +2677,7 @@ function renderAnnuaire(search){
   if(sub)sub.textContent=`${all.length} employé(s) — Nemausus: ${nem} · Lambert: ${lam}`;
   if(!emps.length){list.innerHTML=`<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">${search||annFilter!=='tous'?'Aucun résultat':'Aucun employé — cliquez sur + Ajouter'}</div>`;return;}
   const fc={'Technicien':'#60A5FA','Métreur':'#A78BFA','Commercial':'#E8943A','Assistante':'#22C55E','Comptable':'#FBBF24','Autre':'#888'};
-  // Grouper par fonction
+  const today=new Date();
   const byFonction={};
   emps.forEach(e=>{const f=e.fonction||'Autre';if(!byFonction[f])byFonction[f]=[];byFonction[f].push(e);});
   list.innerHTML=Object.entries(byFonction).map(([fonction,groupe])=>`
@@ -2619,17 +2685,29 @@ function renderAnnuaire(search){
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${fc[fonction]||'#888'};padding:6px 0;display:flex;align-items:center;gap:6px">
         <span style="flex:1">${fonction}</span><span style="background:${fc[fonction]||'#888'}22;color:${fc[fonction]||'#888'};padding:2px 8px;border-radius:10px;font-size:11px">${groupe.length}</span>
       </div>
-      ${groupe.map(e=>`
-        <div class="emp-card">
-          <div class="emp-avatar">${e.prenom[0].toUpperCase()}${e.nom[0].toUpperCase()}</div>
+      ${groupe.map(e=>{
+        // Anniversaire aujourd'hui ?
+        let annivToday='';let annivInfo='';
+        if(e.naissance){
+          const d=new Date(e.naissance);
+          if(d.getDate()===today.getDate()&&d.getMonth()===today.getMonth()){
+            annivToday='🎂';
+          }
+          annivInfo=`<div style="font-size:10px;color:var(--t3)">🎂 ${new Date(e.naissance).toLocaleDateString('fr-FR',{day:'2-digit',month:'long'})}</div>`;
+        }
+        return`<div class="emp-card" style="${annivToday?'border-color:var(--g);background:var(--g2)':''}">
+          <div class="emp-avatar">${e.prenom[0].toUpperCase()}${e.nom[0].toUpperCase()}${annivToday}</div>
           <div style="flex:1">
-            <div class="emp-name">${esc(e.prenom)} ${esc(e.nom)} <span style="background:${fc[e.societe==='nemausus'?'Commercial':e.societe==='lambert'?'Technicien':'Métreur']||'var(--s3)'}11;color:var(--t3);padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600">${e.societe==='nemausus'?'Nemausus':e.societe==='lambert'?'Lambert':'Les deux'}</span></div>
+            <div class="emp-name">${esc(e.prenom)} ${esc(e.nom)} <span style="background:var(--s3);color:var(--t3);padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600">${e.societe==='nemausus'?'Nemausus':e.societe==='lambert'?'Lambert':'Les deux'}</span></div>
             <div class="emp-detail">${e.tel?'📞 '+esc(e.tel):''}</div>
-            ${e.email?`<div class="emp-email" onclick="navigator.clipboard.writeText('${esc(e.email)}').then(()=>{this.style.color='var(--g)';setTimeout(()=>this.style.color='',1000)})" title="Copier l'email">✉️ ${esc(e.email)}</div>`:'<div class="emp-detail" style="color:var(--r)">⚠️ Pas d\'email</div>'}
+            ${e.email?`<div class="emp-email" onclick="navigator.clipboard.writeText('${esc(e.email)}');showDriveNotif('📋 Email copié')" title="Email perso — cliquer pour copier">✉️ ${esc(e.email)} <span style="font-size:9px;color:var(--t3)">(perso)</span></div>`:''}
+            ${e.emailPro?`<div class="emp-email" style="color:var(--bl)" onclick="navigator.clipboard.writeText('${esc(e.emailPro)}');showDriveNotif('📋 Email pro copié')" title="Email pro — cliquer pour copier">✉️ ${esc(e.emailPro)} <span style="font-size:9px;color:var(--t3)">(pro)</span></div>`:''}
+            ${annivInfo}
           </div>
           <button onclick="editEmploye(${e.id})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:16px;padding:4px" title="Modifier">✏️</button>
           <button onclick="deleteEmploye(${e.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:16px;padding:4px" title="Supprimer">🗑️</button>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     </div>`).join('');
 }
 
@@ -2987,15 +3065,11 @@ function renderEvolution(){
     const no=Object.values(eVotes).filter(v=>v==='no').length;
     const myVote=currentUser?eVotes[currentUser.id]:null;
     const voteSummary=isBenjamin&&(yes+no>0)?`<div style="font-size:11px;color:var(--t2);margin-top:8px;padding:6px 10px;background:var(--s3);border-radius:8px">👍 ${yes} intéressé(s) · 👎 ${no} pas intéressé(s)</div>`:'';
+    const yStyle=myVote==='yes'?'border:1px solid var(--g);background:var(--g2);color:var(--g)':'border:1px solid var(--b1);background:var(--s3);color:var(--t2)';
+    const nStyle=myVote==='no'?'border:1px solid var(--r);background:var(--r2);color:var(--r)':'border:1px solid var(--b1);background:var(--s3);color:var(--t2)';
     const actions=isBenjamin
-      ?`<div class="evol-actions">
-          <button class="evol-btn-ok" onclick="validateEvol(${e.id})">✅ À développer</button>
-          <button class="evol-btn-later" onclick="dismissEvol(${e.id})">Plus tard</button>
-        </div>`
-      :`<div class="evol-actions">
-          <button onclick="voteEvol(${e.id},'yes')" style="padding:6px 14px;border-radius:6px;border:1px solid ${myVote==='yes'?'var(--g)':'var(--b1)'};background:${myVote==='yes'?'var(--g2)':'var(--s3)'};color:${myVote==='yes'?'var(--g)':'var(--t2)'};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">👍 Intéressé</button>
-          <button onclick="voteEvol(${e.id},'no')" style="padding:6px 14px;border-radius:6px;border:1px solid ${myVote==='no'?'var(--r)':'var(--b1)'};background:${myVote==='no'?'var(--r2)':'var(--s3)'};color:${myVote==='no'?'var(--r)':'var(--t2)'};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">👎 Pas intéressé</button>
-        </div>`;
+      ?`<div class="evol-actions"><button class="evol-btn-ok" onclick="validateEvol(${e.id})">✅ À développer</button><button class="evol-btn-later" onclick="dismissEvol(${e.id})">Plus tard</button></div>`
+      :`<div class="evol-actions"><button onclick="voteEvol(${e.id},'yes')" style="padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;${yStyle}">👍 Intéressé</button><button onclick="voteEvol(${e.id},'no')" style="padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;${nStyle}">👎 Pas intéressé</button></div>`;
     return `<div class="evol-card">
       <span class="evol-tag" style="background:${e.tagColor}22;color:${e.tagColor}">${e.tag}</span>
       <div class="evol-title">${e.title}</div>
@@ -3026,10 +3100,30 @@ function refreshAdmin(){
   const el=document.getElementById('admin-msgs');if(el)el.textContent=tot;
   const notesEl=document.getElementById('admin-notes');if(notesEl)notesEl.textContent=(mem.notes||[]).length;
   renderTokenStats();renderSAVStatsAdmin();renderPwdList();renderUsersList();
+  // Activité récente
   const actList=document.getElementById('activity-list');
   if(actList&&mem.activity?.length){
     actList.innerHTML=mem.activity.slice(-10).reverse().map(a=>`<div class="act-item"><div class="act-av" style="background:${getUserColor(a.user)}">${getUserInitial(a.user)}</div><div class="act-txt">${esc(a.txt)}</div><div class="act-time">${a.time}</div></div>`).join('');
   }
+  // Historique connexions
+  renderConnexionsHistory();
+  // Journal suppressions
+  renderDeletionsList();
+}
+
+function renderDeletionsList(){
+  const el=document.getElementById('deletions-list');if(!el)return;
+  const logs=getDeletions().slice(0,30);
+  if(!logs.length){el.innerHTML='<div style="color:var(--t3);font-size:12px">Aucune suppression enregistrée</div>';return;}
+  el.innerHTML=logs.map(l=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--b1)">
+      <span style="font-size:14px">🗑️</span>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:500">${esc(l.nom)}</div>
+        <div style="font-size:10px;color:var(--t3)">${esc(l.type)} · Par ${esc(l.user)}</div>
+      </div>
+      <div style="font-size:10px;color:var(--t3)">${l.date}</div>
+    </div>`).join('');
 }
 
 function renderTokenStats(){
@@ -3170,21 +3264,60 @@ function toggleAccess(uid){
   logActivity(`Benjamin a ${access[uid]===false?'bloqué':'réactivé'} l'accès de ${uid}`);
 }
 
+function renderConnexionsHistory(){
+  const el=document.getElementById('connexions-list');if(!el)return;
+  const logs=getConnexions().slice(0,20);
+  if(!logs.length){el.innerHTML='<div style="color:var(--t3);font-size:12px">Aucune connexion enregistrée</div>';return;}
+  el.innerHTML='';
+  logs.forEach(l=>{
+    const u=getAllUsers().find(x=>x.id===l.uid);
+    const d=document.createElement('div');
+    d.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--b1)';
+    const av=document.createElement('div');
+    av.style.cssText='width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;background:'+(u?u.color:'#555');
+    av.textContent=u?u.initial:'?';
+    const nm=document.createElement('div');nm.style.cssText='flex:1;font-size:12px;font-weight:500';nm.textContent=u?u.name:l.uid;
+    const rl=document.createElement('div');rl.style.cssText='font-size:10px;color:var(--t3)';rl.textContent=u?(ROLE_LABELS[u.role]||''):'';
+    const dt=document.createElement('div');dt.style.cssText='font-size:10px;color:var(--t3)';dt.textContent=l.date;
+    d.append(av,nm,rl,dt);el.appendChild(d);
+  });
+}
+
 function renderUsersList(){
   const list=document.getElementById('users-list');if(!list)return;
-  const users=getAllUsers();const access=getAccess();
-  const roleLabel={admin:'Admin',assistante:'Assistante',commercial:'Commercial',directeur_co:'Dir. commercial'};
-  list.innerHTML=users.map(u=>`
-    <div class="user-row">
+  const search=(document.getElementById('user-search')?.value||'').toLowerCase();
+  let users=getAllUsers();
+  if(search)users=users.filter(u=>(u.name||'').toLowerCase().includes(search)||(u.role||'').includes(search));
+  const access=getAccess();
+  list.innerHTML='';
+  users.forEach(u=>{
+    const isBlocked=access[u.id]===false;
+    const isCRM=(u.role==='commercial'||u.role==='directeur_co');
+    const derniereConnexion=getConnexions(u.id)[0]?.date||null;
+    const div=document.createElement('div');div.className='user-row';
+    let actionsHtml='';
+    if(u.id!=='benjamin'){
+      actionsHtml+=`<button onclick="editUser('${u.id}')" style="padding:4px 8px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">✏️</button>`;
+      actionsHtml+=`<div onclick="toggleAccess('${u.id}')" class="toggle ${isBlocked?'':'on'}" title="${isBlocked?'Bloqué':'Actif'}"></div>`;
+      if(isCRM){
+        const bStyle=isBlocked?'background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3)':'background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3)';
+        const bText=isBlocked?'🔓 Débloquer':'🔒 Bloquer';
+        actionsHtml+=`<button onclick="toggleBlockCommercial('${u.id}')" style="padding:4px 8px;${bStyle};border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">${bText}</button>`;
+      }
+      actionsHtml+=`<button onclick="supprimerUtilisateur('${u.id}')" style="padding:4px 8px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">🗑️</button>`;
+    } else {
+      actionsHtml='<span style="font-size:10px;color:var(--t3)">Admin</span>';
+    }
+    div.innerHTML=`
       <div class="user-av" style="background:${u.color}">${u.initial}</div>
-      <div class="user-info"><div class="user-name">${esc(u.name)}</div><div class="user-role">${roleLabel[u.role]||u.role} · ${u.societe==='les-deux'?'Nemausus & Lambert':u.societe==='nemausus'?'Nemausus':'Lambert'}</div></div>
-      ${u.id==='benjamin'?'<span style="font-size:10px;color:var(--t3)">Admin</span>':`
-        <button onclick="editUser('${u.id}')" style="padding:4px 8px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">✏️</button>
-        <div onclick="toggleAccess('${u.id}')" class="toggle ${access[u.id]===false?'':'on'}" title="${access[u.id]===false?'Accès bloqué':'Accès actif'}"></div>
-        ${(u.role==='commercial'||u.role==='directeur_co')?`<button onclick="toggleBlockCommercial('${u.id}')" style="padding:4px 8px;background:${access[u.id]===false?'var(--g2)':'var(--r2)'};color:${access[u.id]===false?'var(--g)':'var(--r)'};border:1px solid ${access[u.id]===false?'rgba(34,197,94,.3)':'rgba(248,113,113,.3)'};border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">${access[u.id]===false?'🔓':'🔒'}</button>`:''}
-        <button onclick="supprimerUtilisateur('${u.id}')" style="padding:4px 8px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">🗑️</button>
-      `}
-    </div>`).join('');
+      <div class="user-info">
+        <div class="user-name">${esc(u.name)}</div>
+        <div class="user-role">${ROLE_LABELS[u.role]||u.role} · ${u.societe==='les-deux'?'Nemausus & Lambert':u.societe==='nemausus'?'Nemausus':'Lambert'}</div>
+        <div style="font-size:10px;color:var(--t3)">${derniereConnexion?'Dernière connexion : '+derniereConnexion:'Jamais connecté'}</div>
+      </div>
+      ${actionsHtml}`;
+    list.appendChild(div);
+  });
 }
 
 function editUser(uid){
@@ -3689,6 +3822,7 @@ const CRM_PAGES_ONLY=['directeur_co','commercial'];
 const ROLE_PAGES={
   admin:['benai','notes','messages','sav','leads','absences','annuaire','paie','admin','evolution','bugs'],
   assistante:['benai','notes','messages','sav','leads','evolution','bugs'],
+  metreur:['benai','notes','messages','evolution','bugs'],
   directeur_co:['leads','messages','bugs'],
   commercial:['leads','messages','bugs']
 };
@@ -3791,15 +3925,21 @@ function filterLeads(f,btn){
   renderLeads();
 }
 
+// Statuts renommés
+const STATUT_LABELS={gris:'📞 À contacter',jaune:'🟡 En cours',vert:'🟢 Vendu',rouge:'🔴 Perdu'};
+const STATUT_CLS={gris:'ls-gris',jaune:'ls-jaune',vert:'ls-vert',rouge:'ls-rouge'};
+
 function getFilteredLeads(){
   const role=currentUser?.role;
   const search=(document.getElementById('crm-search')?.value||'').toLowerCase();
   const secteurFilter=document.getElementById('crm-filter-secteur')?.value||'';
   const commFilter=document.getElementById('crm-filter-commercial')?.value||'';
   let leads=getLeads();
-  // Filtre rôle
+  // RÈGLE STRICTE : commercial voit UNIQUEMENT ses leads assignés
   if(role==='commercial')leads=leads.filter(l=>l.commercial===currentUser.id);
-  // Filtre archive
+  // Assistante voit uniquement les leads qu'elle a créés
+  if(role==='assistante')leads=leads.filter(l=>l.cree_par===currentUser.id||l.cree_par===currentUser.name);
+  // Archive
   if(currentLeadFilter!=='archive')leads=leads.filter(l=>!l.archive);
   // Filtres UI
   if(secteurFilter)leads=leads.filter(l=>l.secteur===secteurFilter);
@@ -3817,7 +3957,6 @@ function getFilteredLeads(){
     (l.ville||'').toLowerCase().includes(search)||
     (l.type_projet||'').toLowerCase().includes(search)
   );
-  // Tri : alertes d'abord puis date desc
   leads.sort((a,b)=>{
     const aa=isLeadAlerte(a)?1:0,bb=isLeadAlerte(b)?1:0;
     if(aa!==bb)return bb-aa;
@@ -3828,14 +3967,107 @@ function getFilteredLeads(){
 
 function renderLeads(){
   if(currentCRMView==='kanban'){renderKanban();return;}
-  const list=document.getElementById('leads-list');if(!list)return;
-  const leads=getFilteredLeads();
   const role=currentUser?.role;
-  if(!leads.length){
-    list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:24px;text-align:center">Aucun lead</div>';
+  const list=document.getElementById('leads-list');if(!list)return;
+
+  // VUE DIRECTEUR CO — deux sections
+  if(role==='directeur_co'||role==='admin'){
+    const allLeads=getLeads().filter(l=>!l.archive);
+    const nonAttrib=allLeads.filter(l=>!l.commercial&&l.statut==='gris');
+    const attrib=getFilteredLeads().filter(l=>l.commercial||l.statut!=='gris');
+    let html='';
+    // Section À ATTRIBUER
+    if(nonAttrib.length>0){
+      html+=`<div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--r);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          ⚠️ À ATTRIBUER <span style="background:var(--r);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px">${nonAttrib.length}</span>
+        </div>`;
+      html+=nonAttrib.map(l=>renderDispatchCard(l)).join('');
+      html+='</div><div style="border-top:1px solid var(--b1);margin-bottom:12px"></div>';
+    }
+    // Section LEADS EN COURS
+    html+=`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px">📋 Leads (${attrib.length})</div>`;
+    html+=attrib.map(l=>renderLeadCard(l,role)).join('');
+    list.innerHTML=html||'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead</div>';
     return;
   }
+
+  // VUE ASSISTANTE — ses leads uniquement, sans statuts
+  if(role==='assistante'){
+    const leads=getFilteredLeads();
+    if(!leads.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead saisi</div>';return;}
+    list.innerHTML=leads.map(l=>renderLeadCardAssistante(l)).join('');
+    return;
+  }
+
+  // VUE COMMERCIAL — ses leads assignés
+  const leads=getFilteredLeads();
+  if(!leads.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead assigné</div>';return;}
   list.innerHTML=leads.map(l=>renderLeadCard(l,role)).join('');
+}
+
+// CARTE DISPATCH (directeur co — attribution rapide)
+function renderDispatchCard(l){
+  const srcIcon={MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'}[l.source]||'📋';
+  const commerciaux=getAllUsers().filter(u=>u.role==='commercial'||u.role==='directeur_co');
+  const selectOptions=commerciaux.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  return `<div class="lead-card" style="border-left:4px solid var(--r);background:rgba(248,113,113,.05)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span>${srcIcon}</span>
+      <div class="lead-nom">${esc(l.nom)}</div>
+      <span style="margin-left:auto;font-size:10px;color:var(--t3)">${getLeadAge(l)}</span>
+    </div>
+    <div class="lead-info">${esc(l.ville||'')}${l.cp?' ('+l.cp+')':''} · ${esc(l.type_projet||'')}</div>
+    <div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      ${makeCallLink(l.telephone)}
+      ${makeGPSLink(l.adresse,l.ville,l.cp)}
+      <select id="dispatch-${l.id}" class="form-input" style="flex:1;padding:6px 8px;font-size:12px;min-width:120px">
+        <option value="">Choisir un commercial...</option>
+        ${selectOptions}
+      </select>
+      <button onclick="dispatchLead(${l.id})" style="padding:6px 12px;background:var(--a);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✓ Attribuer</button>
+      <button onclick="openLead(${l.id})" style="padding:6px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">👁️</button>
+    </div>
+  </div>`;
+}
+
+// ATTRIBUTION RAPIDE
+function dispatchLead(id){
+  const sel=document.getElementById('dispatch-'+id);
+  const commId=sel?.value;
+  if(!commId){showDriveNotif('⚠️ Choisissez un commercial');return;}
+  const leads=getLeads();
+  const idx=leads.findIndex(l=>l.id===id);if(idx===-1)return;
+  const l=leads[idx];
+  const comm=getAllUsers().find(u=>u.id===commId);
+  const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  leads[idx].commercial=commId;
+  addLeadTimelineEntry(leads[idx],`Attribué à ${comm?.name||commId}`,currentUser.name);
+  saveLeads(leads);
+  renderLeads();
+  refreshLeadsBadge();
+  pushNotif('📋 Lead assigné',`${l.nom} — ${l.type_projet}`,{MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'}[l.source]||'📋',commId);
+  logActivity(`${currentUser.name} a attribué ${l.nom} à ${comm?.name}`);
+  showDriveNotif(`✅ ${l.nom} attribué à ${comm?.name}`);
+}
+
+// CARTE ASSISTANTE (sans statuts)
+function renderLeadCardAssistante(l){
+  const srcIcon={MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'}[l.source]||'📋';
+  const age=getLeadAge(l);
+  return `<div class="lead-card statut-gris" onclick="openLead(${l.id})">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+      <span>${srcIcon}</span>
+      <div class="lead-nom">${esc(l.nom)}</div>
+      <span style="margin-left:auto;font-size:10px;color:var(--t3)">${age}</span>
+    </div>
+    <div class="lead-info">${esc(l.ville||'')} · ${esc(l.type_projet||'')}</div>
+    <div class="lead-meta" style="margin-top:4px">
+      ${makeCallLink(l.telephone)}
+      ${makeGPSLink(l.adresse,l.ville,l.cp)}
+    </div>
+    ${l.commentaire?`<div style="font-size:11px;color:var(--t2);margin-top:4px;padding:4px 8px;background:var(--s3);border-radius:6px">${esc(l.commentaire)}</div>`:''}
+  </div>`;
 }
 
 function renderLeadCard(l,role){
@@ -3843,31 +4075,30 @@ function renderLeadCard(l,role){
   const age=getLeadAge(l);
   const comm=getAllUsers().find(u=>u.id===l.commercial);
   const secteurLabel=l.secteur==='avignon'?'Avignon':'Nîmes';
-  const statLabel={gris:'⚪ Gris',jaune:'🟡 En cours',vert:'🟢 Vendu',rouge:'🔴 Perdu'}[l.statut]||'⚪';
-  const statCls={gris:'ls-gris',jaune:'ls-jaune',vert:'ls-vert',rouge:'ls-rouge'}[l.statut]||'';
+  const statLabel=STATUT_LABELS[l.statut]||'📞 À contacter';
+  const statCls=STATUT_CLS[l.statut]||'ls-gris';
   const srcIcon={MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'}[l.source]||'📋';
   const montant=l.statut==='vert'&&l.prix_vendu?` · 💰 ${Number(l.prix_vendu).toLocaleString('fr-FR')} €`:l.statut==='jaune'&&l.montant_devis?` · 📋 ${Number(l.montant_devis).toLocaleString('fr-FR')} €`:'';
-  // Lead vu
   const vuBy=(role==='admin'||role==='directeur_co');
-  const vuInfo=vuBy?(l.vu_date?`<span class="lead-vu">👁️ Vu le ${l.vu_date}</span>`:`<span class="lead-non-vu">👁️ Non ouvert</span>`):'';
-  // Non attribué
-  const nonAttrib=!l.commercial&&(role==='admin'||role==='directeur_co')?'<span style="background:var(--y2);color:var(--y);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">⚠️ À attribuer</span>':'';
-  return `<div class="lead-card statut-${l.statut}${alerte?' alerte24':''}${l.archive?' opacity:0.6':''}" onclick="openLead(${l.id})">
+  const vuInfo=vuBy?(l.vu_date?`<span class="lead-vu">👁️ ${l.vu_date}</span>`:`<span class="lead-non-vu">👁️ Jamais ouvert</span>`):'';
+  const dernAction=l.timeline?.length?l.timeline[l.timeline.length-1]:null;
+  const dernContact=dernAction?`<div style="font-size:10px;color:var(--t2);margin-top:3px">🕐 ${dernAction.date} — ${esc(dernAction.action)}</div>`:'';
+  return `<div class="lead-card statut-${l.statut}${alerte?' alerte24':''}${l.archive?';opacity:.6':''}" onclick="openLead(${l.id})" style="position:relative">
     ${alerte?'<div class="lead-alerte" style="position:absolute;top:10px;right:10px">⏰ Alerte</div>':''}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
       <span style="font-size:14px">${srcIcon}</span>
       <div class="lead-nom">${esc(l.nom)}</div>
-      ${nonAttrib}
       <span style="margin-left:auto;font-size:10px;color:var(--t3)">${age}</span>
     </div>
     <div class="lead-info">${esc(l.ville||'')}${l.cp?' ('+l.cp+')':''} · ${esc(l.type_projet||'')}${montant}</div>
-    <div class="lead-meta">
+    <div class="lead-meta" style="margin-top:5px">
       <span class="lead-statut ${statCls}">${statLabel}</span>
       <span class="lead-secteur">${secteurLabel}</span>
       ${comm?`<span class="lead-commercial">${esc(comm.name)}</span>`:''}
       ${vuInfo}
-      <span style="margin-left:auto;display:flex;gap:4px">${makeCallLink(l.telephone)}${makeGPSLink(l.adresse,l.ville,l.cp)}</span>
+      <span style="margin-left:auto;display:flex;gap:4px" onclick="event.stopPropagation()">${makeCallLink(l.telephone)}${makeGPSLink(l.adresse,l.ville,l.cp)}</span>
     </div>
+    ${dernContact}
     ${l.suivi?`<div style="font-size:11px;color:var(--t2);margin-top:4px;padding:4px 8px;background:var(--s3);border-radius:6px">📌 ${esc(l.suivi)}</div>`:''}
   </div>`;
 }
@@ -3957,7 +4188,7 @@ function renderLeadsDashboard(){
   // Perf commerciaux
   const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
   if(role==='admin'||role==='directeur_co'){
-    html+=`<button onclick="exportLeadsExcel()" style="margin-top:0;margin-bottom:12px;width:100%;padding:8px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">📥 Exporter tous les leads</button>`;
+    html+=`<div style="display:flex;gap:8px;margin-bottom:12px"><button onclick="exportLeadsExcel()" style="flex:1;padding:8px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">📥 Exporter tous les leads</button><button onclick="ouvrirFusion()" style="flex:1;padding:8px;background:var(--bl2);color:var(--bl);border:1px solid rgba(96,165,250,.3);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">🔀 Fusionner leads en double</button></div>`;
   }
 
   // RAPPORT ALERTES
@@ -4097,6 +4328,21 @@ function openLead(id){
   fillProjetsSuggestions();
   // Suppression — Benjamin uniquement
   document.getElementById('btn-delete-lead').style.display=currentUser.id==='benjamin'?'block':'none';
+  // Lead orphelin (commercial supprimé) → remettre en attente d'attribution
+  if(l.commercial&&!getAllUsers().find(u=>u.id===l.commercial)){
+    const idx2=leads.findIndex(x=>x.id===id);
+    if(idx2!==-1){leads[idx2].commercial=null;saveLeads(leads);}
+    showDriveNotif('⚠️ Commercial introuvable — lead remis en attente');
+  }
+  // Bouton réouvrir si archivé
+  const btnSave=document.getElementById('btn-save-lead');
+  if(l.archive&&btnSave){
+    btnSave.textContent='🔄 Réouvrir ce lead';
+    btnSave.onclick=()=>rouvrirLead(id);
+  } else if(btnSave){
+    btnSave.textContent='Enregistrer';
+    btnSave.onclick=()=>saveLead();
+  }
   // Timeline
   if(l.timeline&&l.timeline.length>0){
     document.getElementById('lead-timeline').style.display='block';
@@ -4112,6 +4358,11 @@ function openLead(id){
     document.getElementById('lead-timeline').style.display='none';
   }
   document.getElementById('lead-modal').classList.add('open');
+  // Boutons contextuels
+  const btnAgenda=document.getElementById('btn-agenda-lead');
+  const btnEmail=document.getElementById('btn-export-lead');
+  if(btnAgenda)btnAgenda.style.display=l.date_rdv?'inline-block':'none';
+  if(btnEmail)btnEmail.style.display='inline-block';
 }
 
 function closeLeadModal(){
@@ -4242,7 +4493,10 @@ function saveLead(){
     logActivity(`${currentUser.name} a mis à jour : ${nom}`);
   } else {
     // Nouveau lead
-    const newLead={...data,id:Date.now(),date_creation:now,timeline:[]};
+    const societe=getSocieteFromUser(currentUser.id);
+    // Auto-attribution si un seul commercial sur cette société
+    const autoComm=getAutoAttribution(societe);
+    const newLead={...data,id:Date.now(),date_creation:now,timeline:[],cree_par:currentUser.id,societe_crm:societe,commercial:data.commercial||autoComm||null};
     addLeadTimelineEntry(newLead,'Lead créé',currentUser.name);
     if(data.commercial){
       const c=getAllUsers().find(u=>u.id===data.commercial);
@@ -4273,12 +4527,28 @@ function saveLead(){
 
 function srcIcons(){return{MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'};}
 
+function rouvrirLead(id){
+  if(!confirm('Réouvrir ce lead ?'))return;
+  const leads=getLeads();
+  const idx=leads.findIndex(l=>l.id===id);if(idx===-1)return;
+  leads[idx].archive=false;
+  leads[idx].statut='gris';
+  const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  addLeadTimelineEntry(leads[idx],'Lead réouvert',currentUser.name);
+  saveLeads(leads);
+  closeLeadModal();renderLeads();refreshLeadsBadge();
+  showDriveNotif('✅ Lead réouvert');
+  logActivity(`${currentUser.name} a réouvert le lead : ${leads[idx].nom}`);
+}
+
 function deleteLead(){
   if(currentUser.id!=='benjamin'){alert('Suppression réservée à Benjamin');return;}
   if(!confirm('Supprimer ce lead définitivement ?'))return;
-  saveLeads(getLeads().filter(l=>l.id!==currentLeadId));
+  const l=getLeads().find(x=>x.id===currentLeadId);
+  logDeletion('Lead',l?.nom||'?');
+  saveLeads(getLeads().filter(x=>x.id!==currentLeadId));
   closeLeadModal();renderLeads();refreshLeadsBadge();
-  logActivity('Benjamin a supprimé un lead');
+  logActivity('Benjamin a supprimé le lead : '+(l?.nom||'?'));
 }
 
 // AUTOCOMPLÉTION ADRESSE (API adresse.data.gouv.fr)
@@ -4578,14 +4848,22 @@ function addJoursOuvres(date,jours){
 }
 
 function getHeuresOuvrees(since){
-  // Compte les heures ouvrées depuis une date
+  // Calcul rapide sans boucle — math direct
   const now=new Date();
   const start=new Date(since);
-  let heures=0;let d=new Date(start);
-  while(d<now){
-    if(isJourOuvre(d)){
-      const h=d.getHours();
-      if(h>=8&&h<19)heures++;
+  if(start>=now)return 0;
+  const feries=new Set(getJoursFeries(start.getFullYear()).concat(getJoursFeries(now.getFullYear())));
+  let heures=0;
+  let d=new Date(start);
+  // Aller au prochain créneau ouvré
+  let iterations=0;
+  while(d<now&&iterations<10000){
+    iterations++;
+    const day=d.getDay();
+    const h=d.getHours();
+    const dateStr=d.toDateString();
+    if(day!==0&&day!==6&&!feries.has(dateStr)&&h>=8&&h<19){
+      heures++;
     }
     d.setHours(d.getHours()+1);
   }
@@ -4808,6 +5086,198 @@ function getContactsParCommercial(){
     if(getWeekNumber(d)===getWeekNumber(now)&&d.getFullYear()===now.getFullYear())result[l.commercial].cette_semaine++;
   });
   return result;
+}
+
+// ══════════════════════════════════════════
+// 🗑️ JOURNAL DES SUPPRESSIONS
+// ══════════════════════════════════════════
+function logDeletion(type,nom){
+  try{
+    const key='benai_deletions';
+    const logs=JSON.parse(localStorage.getItem(key)||'[]');
+    logs.unshift({
+      type,nom:nom||'?',
+      user:currentUser?.name||'?',
+      date:new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
+    });
+    localStorage.setItem(key,JSON.stringify(logs));
+  }catch(e){}
+}
+
+function getDeletions(){
+  try{return JSON.parse(localStorage.getItem('benai_deletions'))||[];}catch{return[];}
+}
+
+// ══════════════════════════════════════════
+// 🎂 RAPPEL ANNIVERSAIRES
+// ══════════════════════════════════════════
+function checkAnniversaires(){
+  if(currentUser?.id!=='benjamin')return;
+  const today=new Date();
+  const ann=getAnnuaire();
+  const today_key=`${today.getDate()}-${today.getMonth()}`;
+  const seen=localStorage.getItem('benai_anniv_seen_'+today_key);
+  if(seen)return;
+  const anniversaires=ann.filter(e=>{
+    if(!e.naissance)return false;
+    const d=new Date(e.naissance);
+    return d.getDate()===today.getDate()&&d.getMonth()===today.getMonth();
+  });
+  if(anniversaires.length>0){
+    anniversaires.forEach(e=>{
+      const age=today.getFullYear()-new Date(e.naissance).getFullYear();
+      pushNotif(`🎂 Anniversaire`,`${e.prenom} ${e.nom} a ${age} ans aujourd'hui !`,'🎂','benjamin');
+    });
+    localStorage.setItem('benai_anniv_seen_'+today_key,'1');
+  }
+}
+
+// ══════════════════════════════════════════
+// 📅 GOOGLE AGENDA LEAD
+// ══════════════════════════════════════════
+function makeGoogleAgendaLink(l){
+  if(!l.date_rdv)return '';
+  const start=new Date(l.date_rdv);
+  const end=new Date(start.getTime()+60*60*1000);
+  const fmt=d=>d.toISOString().replace(/-|:|\.\d{3}/g,'');
+  const titre=encodeURIComponent('RDV '+l.nom+' — '+(l.type_projet||''));
+  const details=encodeURIComponent('Client: '+l.nom+'\nTél: '+(l.telephone||'')+'\nProjet: '+(l.type_projet||'')+'\nCommentaire: '+(l.commentaire||''));
+  const lieu=encodeURIComponent([l.adresse,l.cp,l.ville].filter(Boolean).join(' '));
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+titre+'&dates='+fmt(start)+'/'+fmt(end)+'&details='+details+'&location='+lieu;
+}
+
+function ouvrirAgenda(){
+  if(!currentLeadId)return;
+  const l=getLeads().find(x=>x.id===currentLeadId);
+  if(!l||!l.date_rdv){showDriveNotif('⚠️ Aucun RDV programmé sur ce lead');return;}
+  const url=makeGoogleAgendaLink(l);
+  window.open(url,'_blank');
+  logActivity(currentUser.name+' a ajouté le RDV de '+l.nom+' à Google Agenda');
+}
+
+// ══════════════════════════════════════════
+// 📧 EXPORT LEAD PAR EMAIL
+// ══════════════════════════════════════════
+function exportLeadParEmail(id){
+  const l=getLeads().find(x=>x.id===id);if(!l)return;
+  const srcLabel={MAG:'Magasin',TEL:'Téléphone',WEB:'Web',PARRAINAGE:'Parrainage',ACTIF:'Actif'}[l.source]||'';
+  const sujet=encodeURIComponent(`Lead CRM — ${l.nom} — ${l.type_projet||''}`);
+  const corps=encodeURIComponent(`Bonjour,
+
+Voici un lead à traiter :
+
+Client : ${l.nom}
+Téléphone : ${l.telephone||'—'}
+Adresse : ${[l.adresse,l.cp,l.ville].filter(Boolean).join(', ')||'—'}
+Projet : ${l.type_projet||'—'}
+Source : ${srcLabel}
+Secteur : ${l.secteur==='avignon'?'Avignon':'Nîmes'}
+${l.commentaire?'Commentaire : '+l.commentaire:''}
+
+Bonne chance !
+BenAI — Nemausus Fermetures`);
+  window.location.href=`mailto:?subject=${sujet}&body=${corps}`;
+  logActivity(`${currentUser.name} a exporté le lead ${l.nom} par email`);
+}
+
+// ══════════════════════════════════════════
+// 🔀 FUSION DE LEADS EN DOUBLE
+// ══════════════════════════════════════════
+let fusionSelectIds=[];
+
+function ouvrirFusion(){
+  // Ouvrir un mini panel de fusion
+  const leads=getLeads().filter(l=>!l.archive);
+  const panel=document.createElement('div');
+  panel.id='fusion-panel';
+  panel.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px';
+  panel.innerHTML=`
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto;padding:20px">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🔀 Fusionner deux leads</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:14px">Sélectionnez 2 leads à fusionner. Le premier sera conservé avec toutes les données du second.</div>
+      <input type="text" id="fusion-search" placeholder="🔍 Rechercher..." oninput="renderFusionList()" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;outline:none;margin-bottom:10px">
+      <div id="fusion-list" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto"></div>
+      <div id="fusion-selected" style="margin-top:10px;font-size:12px;color:var(--a);min-height:20px"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button onclick="confirmerFusion()" class="btn-primary" style="flex:1">🔀 Fusionner</button>
+        <button onclick="document.getElementById('fusion-panel').remove();fusionSelectIds=[]" style="padding:10px 16px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+      </div>
+    </div>`;
+  document.body.appendChild(panel);
+  fusionSelectIds=[];
+  renderFusionList();
+}
+
+function renderFusionList(){
+  const list=document.getElementById('fusion-list');if(!list)return;
+  const search=(document.getElementById('fusion-search')?.value||'').toLowerCase();
+  let leads=getLeads().filter(l=>!l.archive);
+  if(search)leads=leads.filter(l=>(l.nom||'').toLowerCase().includes(search)||(l.telephone||'').includes(search));
+  list.innerHTML=leads.map(l=>{
+    const sel=fusionSelectIds.includes(l.id);
+    return`<div onclick="toggleFusionSelect(${l.id})" style="padding:9px 12px;background:${sel?'var(--a3)':'var(--s2)'};border:1px solid ${sel?'var(--a)':'var(--b1)'};border-radius:8px;cursor:pointer;transition:.12s">
+      <div style="font-size:13px;font-weight:600">${esc(l.nom)}</div>
+      <div style="font-size:11px;color:var(--t2)">${esc(l.telephone||'')} · ${esc(l.ville||'')} · ${esc(l.type_projet||'')}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleFusionSelect(id){
+  if(fusionSelectIds.includes(id)){
+    fusionSelectIds=fusionSelectIds.filter(x=>x!==id);
+  } else if(fusionSelectIds.length<2){
+    fusionSelectIds.push(id);
+  }
+  const info=document.getElementById('fusion-selected');
+  if(info)info.textContent=fusionSelectIds.length===2?'✅ 2 leads sélectionnés — prêt à fusionner':fusionSelectIds.length===1?'1 lead sélectionné — choisissez le doublon':'';
+  renderFusionList();
+}
+
+function confirmerFusion(){
+  if(fusionSelectIds.length!==2){showDriveNotif('⚠️ Sélectionnez exactement 2 leads');return;}
+  if(!confirm('Fusionner ces 2 leads ? Le premier sera conservé, le second supprimé.'))return;
+  const leads=getLeads();
+  const [id1,id2]=fusionSelectIds;
+  const l1=leads.find(l=>l.id===id1);
+  const l2=leads.find(l=>l.id===id2);
+  if(!l1||!l2)return;
+  // Fusionner : l1 garde la priorité, compléter avec l2 si champs vides
+  ['telephone','adresse','ville','cp','commentaire','suivi','commercial','source'].forEach(k=>{
+    if(!l1[k]&&l2[k])l1[k]=l2[k];
+  });
+  // Fusionner les timelines
+  l1.timeline=[...(l1.timeline||[]),...(l2.timeline||[])];
+  const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  addLeadTimelineEntry(l1,`Fusionné avec ${l2.nom}`,currentUser.name);
+  // Supprimer l2
+  logDeletion('Lead (fusion)',l2.nom);
+  const newLeads=leads.filter(l=>l.id!==id2);
+  const idx=newLeads.findIndex(l=>l.id===id1);
+  if(idx!==-1)newLeads[idx]=l1;
+  saveLeads(newLeads);
+  document.getElementById('fusion-panel')?.remove();
+  fusionSelectIds=[];
+  renderLeads();
+  showDriveNotif(`✅ ${l1.nom} et ${l2.nom} fusionnés`);
+  logActivity(`${currentUser.name} a fusionné ${l1.nom} + ${l2.nom}`);
+}
+
+// ══════════════════════════════════════════
+// 🏢 CRM LAMBERT SAS
+// ══════════════════════════════════════════
+function getSocieteFromUser(uid){
+  const u=getAllUsers().find(x=>x.id===uid);
+  if(!u)return 'nemausus';
+  if(u.societe==='lambert')return'lambert';
+  if(u.id==='benjamin')return'les-deux';
+  return u.societe||'nemausus';
+}
+
+function getAutoAttribution(societe){
+  // Attribution automatique si un seul commercial sur la société
+  const commerciaux=getAllUsers().filter(u=>u.role==='commercial'&&(u.societe===societe||u.societe==='les-deux'));
+  if(commerciaux.length===1)return commerciaux[0].id;
+  return null;
 }
 
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -5039,11 +5509,18 @@ async function checkUpdate(){
     if(!res.ok)return;
     const data=await res.json();
     if(data.version&&isNewerVersion(data.version,BENAI_VERSION)){
-      // Afficher popup avec notes de version
-      document.getElementById('update-version').textContent=`BenAI v${data.version}`;
+      // Filtrer les notes selon le rôle
+      const role=currentUser?.role||'assistante';
+      let notes=[];
+      if(data.notes_admin&&role==='admin')notes=notes.concat(data.notes_admin);
+      if(data.notes_directeur_co&&role==='directeur_co')notes=notes.concat(data.notes_directeur_co);
+      if(data.notes_commercial&&role==='commercial')notes=notes.concat(data.notes_commercial);
+      if(data.notes_assistante&&(role==='assistante'||role==='metreur'))notes=notes.concat(data.notes_assistante);
+      // Fallback si pas de notes filtrées
+      if(!notes.length)notes=Array.isArray(data.notes)?data.notes:[data.notes||'Améliorations et corrections'];
+      document.getElementById('update-version').textContent='BenAI v'+data.version;
       const notesList=document.getElementById('update-notes');
-      const notes=Array.isArray(data.notes)?data.notes:[data.notes||'Améliorations et corrections'];
-      notesList.innerHTML=notes.map(n=>`<li>✅ ${esc(n)}</li>`).join('');
+      notesList.innerHTML=notes.map(n=>'<li>✅ '+esc(n)+'</li>').join('');
       window._pendingUpdate={version:data.version,notes:data.notes};
       document.getElementById('update-popup').style.display='flex';
     }
