@@ -1,19 +1,24 @@
 {
-  "version": "3.14",
+  "version": "3.15",
   "notes_admin": [
-    "🔄 Switch session corrigé — bouton Retour apparaît automatiquement",
-    "🚫 Auto-attribution supprimée — tous les leads passent par le directeur co"
+    "🔔 Notifications — badge avec le nombre bien visible et animé",
+    "📱 Téléphone formaté automatiquement : 06 17 16 05 33",
+    "🎨 Fond de la fiche lead change selon le statut"
   ],
   "notes_directeur_co": [
-    "⚠️ Tous les leads arrivent chez vous sans exception",
-    "🔄 Retour session corrigé"
-  ],
-  "notes_assistante": [
-    "👤 Vos leads affichent maintenant à qui ils ont été attribués",
-    "📅 Date de RDV visible directement sur la carte",
-    "📞 Rappel visible si programmé"
+    "🔔 Notifications — badge avec le nombre bien visible",
+    "📋 Formulaire lead simplifié et progressif",
+    "🎨 Fond de la fiche change selon l'état du lead"
   ],
   "notes_commercial": [
-    "🔄 Retour session corrigé"
+    "📋 Formulaire progressif — chaque étape débloque les champs suivants",
+    "🔵 Non traité → date RDV si besoin",
+    "🟡 En cours → montant devis + relance",
+    "🟢 Vendu → prix + date signature",
+    "🎨 Fond de la fiche change selon le statut"
+  ],
+  "notes_assistante": [
+    "📱 Téléphone formaté automatiquement",
+    "🔔 Notifications plus visibles"
   ]
 }
