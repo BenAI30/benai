@@ -543,7 +543,7 @@ input[type=file]{display:none;}
       <span class="tb-username" id="tb-username"></span>
       <button class="tb-icon-btn" onclick="toggleSettings()" title="Paramètres">⚙️</button>
       <button class="tb-logout" id="btn-switch-session" onclick="toggleSwitchPanel()" title="Changer d'utilisateur" style="display:none;margin-right:4px">🔄 Changer</button>
-      <button class="tb-icon-btn" id="btn-notif" onclick="toggleNotifPanel()" title="Notifications" style="position:relative">🔔<span id="notif-dot" style="position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--r);border:2px solid var(--s1);display:none"></span></button>
+      <button class="tb-icon-btn" id="btn-notif" onclick="toggleNotifPanel()" title="Notifications" style="position:relative;font-size:18px">🔔<span id="notif-dot" style="position:absolute;top:-8px;right:-8px;min-width:18px;height:18px;border-radius:9px;background:var(--r);border:2px solid var(--s1);display:none;font-size:10px;font-weight:800;color:#fff;align-items:center;justify-content:center;padding:0 3px;animation:pulse-notif .8s infinite"></span></button>
       <button class="tb-logout" onclick="logout()">Déconnexion</button>
     </div>
   </div>
@@ -995,7 +995,7 @@ input[type=file]{display:none;}
               <div class="lead-modal-section-title">Informations client</div>
               <div class="form-row">
                 <div class="form-group"><div class="form-label">Nom *</div><input type="text" class="form-input" id="lead-nom" placeholder="Nom du prospect"></div>
-                <div class="form-group"><div class="form-label">Téléphone *</div><input type="tel" class="form-input" id="lead-tel" placeholder="06 00 00 00 00"></div>
+                <div class="form-group"><div class="form-label">Téléphone *</div><input type="tel" class="form-input" id="lead-tel" placeholder="06 00 00 00 00" oninput="formatTel(this)"></div>
               </div>
               <!-- ADRESSE INTELLIGENTE -->
               <div class="form-group" style="margin-bottom:10px;position:relative">
@@ -1029,57 +1029,58 @@ input[type=file]{display:none;}
               </select>
             </div>
 
-            <!-- STATUT (après attribution) -->
+            <!-- STATUT PROGRESSIF -->
             <div class="lead-modal-section" id="modal-statut-section" style="display:none">
               <div class="lead-modal-section-title">Résultat du contact</div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
                 <button class="statut-btn sb-gris selected" onclick="selectStatut('gris',this)">🔵 Non traité</button>
                 <button class="statut-btn sb-jaune" onclick="selectStatut('jaune',this)">🟡 En cours</button>
                 <button class="statut-btn sb-vert" onclick="selectStatut('vert',this)">🟢 Vendu</button>
                 <button class="statut-btn sb-rouge" onclick="selectStatut('rouge',this)">🔴 Perdu</button>
               </div>
-              <!-- PANEL GRIS -->
+
+              <!-- PANEL NON TRAITÉ -->
               <div id="panel-gris">
-                <select class="form-input" id="lead-sous-statut" style="margin-bottom:8px">
-                  <option value="a_rappeler">🔘 À rappeler</option>
-                  <option value="injoignable">⭕ Injoignable / Ne répond pas</option>
-                  <option value="rdv_programme">📞 RDV programmé</option>
-                  <option value="pas_budget">💸 Pas de budget</option>
-                  <option value="pas_interesse">❌ Pas intéressé</option>
-                </select>
-                <div class="form-group"><div class="form-label">Date/heure de rappel</div>
+                <div class="form-group" style="margin-bottom:8px">
+                  <div class="form-label">Situation</div>
+                  <select class="form-input" id="lead-sous-statut" onchange="toggleRdvDate()">
+                    <option value="a_rappeler">🔘 À rappeler</option>
+                    <option value="injoignable">⭕ Injoignable / Ne répond pas</option>
+                    <option value="rdv_programme">📅 RDV programmé</option>
+                  </select>
+                </div>
+                <div id="rdv-date-wrap" style="display:none">
+                  <div class="form-label">Date du RDV</div>
                   <input type="datetime-local" class="form-input" id="lead-rappel">
                 </div>
               </div>
-              <!-- PANEL JAUNE -->
+
+              <!-- PANEL EN COURS — RDV a eu lieu → devis -->
               <div id="panel-jaune" style="display:none">
-                <div class="form-row">
-                  <div class="form-group"><div class="form-label">RDV</div>
-                    <select class="form-input" id="lead-rdv-type">
-                      <option value="TEL">📞 TEL</option>
-                      <option value="DEVIS_TEL">📋 Devis TEL</option>
-                      <option value="RDV_DATE">📅 RDV date</option>
-                      <option value="MESSAGERIE">💬 Messagerie</option>
-                    </select>
-                  </div>
-                  <div class="form-group"><div class="form-label">Date RDV</div><input type="datetime-local" class="form-input" id="lead-date-rdv"></div>
-                </div>
+                <div style="background:var(--y2);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--y);font-weight:600;margin-bottom:10px">📋 Le RDV a eu lieu — renseigner le devis</div>
                 <div class="form-row">
                   <div class="form-group"><div class="form-label">Montant devis HT (€)</div><input type="number" class="form-input" id="lead-montant-devis" placeholder="0" step="100"></div>
                   <div class="form-group"><div class="form-label">Date envoi devis</div><input type="date" class="form-input" id="lead-date-devis"></div>
                 </div>
-                <div class="form-group"><div class="form-label">Rappel relance devis</div><input type="date" class="form-input" id="lead-rappel-devis"></div>
+                <div class="form-group">
+                  <div class="form-label">Relance automatique</div>
+                  <input type="date" class="form-input" id="lead-rappel-devis" placeholder="Date relance si pas de réponse">
+                </div>
               </div>
-              <!-- PANEL VERT -->
+
+              <!-- PANEL VENDU -->
               <div id="panel-vert" style="display:none">
+                <div style="background:var(--g2);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--g);font-weight:600;margin-bottom:10px">🎉 Vente signée — renseigner les détails</div>
                 <div class="form-row">
                   <div class="form-group"><div class="form-label">Prix vendu HT (€) *</div><input type="number" class="form-input" id="lead-prix-vendu" placeholder="0" step="100"></div>
                   <div class="form-group"><div class="form-label">Date signature</div><input type="date" class="form-input" id="lead-date-signature"></div>
                 </div>
                 <div class="form-group"><div class="form-label">Produit vendu</div><input type="text" class="form-input" id="lead-produit-vendu" placeholder="Ex: 3 volets roulants alu..."></div>
               </div>
-              <!-- PANEL ROUGE -->
+
+              <!-- PANEL PERDU -->
               <div id="panel-rouge" style="display:none">
+                <div style="background:var(--r2);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--r);font-weight:600;margin-bottom:10px">❌ Lead perdu — indiquer la raison</div>
                 <select class="form-input" id="lead-raison-mort">
                   <option value="">Raison obligatoire *</option>
                   <option value="concurrent">Concurrent choisi</option>
@@ -1256,7 +1257,7 @@ input[type=file]{display:none;}
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const BENAI_VERSION = '3.14';
+const BENAI_VERSION = '3.15';
 
 // ══════════════════════════════════════════
 // UTILISATEURS
@@ -4414,14 +4415,18 @@ function closeLeadModal(){
 
 function resetLeadForm(){
   ['lead-nom','lead-tel','lead-adresse','lead-ville','lead-cp','lead-projet','lead-suivi','lead-commentaire','lead-action',
-   'lead-rappel','lead-date-rdv','lead-montant-devis','lead-date-devis','lead-rappel-devis',
+   'lead-rappel','lead-montant-devis','lead-date-devis','lead-rappel-devis',
    'lead-prix-vendu','lead-date-signature','lead-produit-vendu'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
   });
   document.getElementById('lead-secteur').value='nimes';
   document.getElementById('lead-sous-statut').value='a_rappeler';
   document.getElementById('lead-raison-mort').value='';
-  document.getElementById('lead-rdv-type').value='TEL';
+  const rdvWrap=document.getElementById('rdv-date-wrap');
+  if(rdvWrap)rdvWrap.style.display='none';
+  // Reset fond modale
+  const box=document.querySelector('.lead-modal-box');
+  if(box){box.style.background='var(--s1)';box.style.borderColor='var(--b1)';}
   selectStatut('gris',null,true);
   selectSourceByVal('MAG');
 }
@@ -4446,6 +4451,32 @@ function selectStatut(statut,btn,silent=false){
   ['gris','jaune','vert','rouge'].forEach(s=>{
     const p=document.getElementById('panel-'+s);if(p)p.style.display=s===statut?'block':'none';
   });
+  // Fond de la modale selon statut
+  const box=document.querySelector('.lead-modal-box');
+  if(box){
+    const bgs={gris:'var(--s1)',jaune:'rgba(251,191,36,.06)',vert:'rgba(34,197,94,.06)',rouge:'rgba(248,113,113,.06)'};
+    const borders={gris:'var(--b1)',jaune:'rgba(251,191,36,.4)',vert:'rgba(34,197,94,.4)',rouge:'rgba(248,113,113,.4)'};
+    box.style.background=bgs[statut]||'var(--s1)';
+    box.style.borderColor=borders[statut]||'var(--b1)';
+  }
+  // Afficher/masquer date RDV selon sous-statut
+  if(statut==='gris')toggleRdvDate();
+}
+
+function toggleRdvDate(){
+  const sel=document.getElementById('lead-sous-statut');
+  const wrap=document.getElementById('rdv-date-wrap');
+  if(wrap)wrap.style.display=(sel&&sel.value==='rdv_programme')?'block':'none';
+}
+
+function formatTel(input){
+  let v=input.value.replace(/\D/g,'').substring(0,10);
+  let formatted='';
+  for(let i=0;i<v.length;i++){
+    if(i>0&&i%2===0)formatted+=' ';
+    formatted+=v[i];
+  }
+  input.value=formatted;
 }
 
 // AJOUTER ACTION MANUELLE
@@ -5388,7 +5419,13 @@ function refreshNotifBadge(){
   const notifs=getNotifs();
   const unread=notifs.filter(n=>!n.read).length;
   const dot=document.getElementById('notif-dot');
-  if(dot)dot.style.display=unread>0?'block':'none';
+  if(!dot)return;
+  if(unread>0){
+    dot.style.display='flex';
+    dot.textContent=unread>9?'9+':unread;
+  } else {
+    dot.style.display='none';
+  }
 }
 
 function toggleNotifPanel(){
