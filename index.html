@@ -353,6 +353,7 @@ body.light .bubble{color:var(--t1);}
 .lead-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:13px 15px;cursor:pointer;transition:.12s;position:relative;}
 .lead-card:hover{border-color:var(--a);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.2);}
 .lead-card.statut-gris{border-left:4px solid #888;}
+.lead-card.statut-rdv{border-left:4px solid var(--bl);background:rgba(96,165,250,.07);}
 .lead-card.statut-jaune{border-left:4px solid var(--y);background:rgba(251,191,36,.07);}
 .lead-card.statut-vert{border-left:4px solid var(--g);background:rgba(34,197,94,.07);}
 .lead-card.statut-rouge{border-left:4px solid var(--r);background:rgba(248,113,113,.07);}
@@ -362,6 +363,7 @@ body.light .bubble{color:var(--t1);}
 .lead-meta{font-size:10px;color:var(--t3);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
 .lead-statut{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
 .ls-gris{background:#88888820;color:#888;}
+.ls-rdv{background:var(--bl2);color:var(--bl);}
 .ls-jaune{background:var(--y2);color:var(--y);}
 .ls-vert{background:var(--g2);color:var(--g);}
 .ls-rouge{background:var(--r2);color:var(--r);}
@@ -389,6 +391,7 @@ body.light .bubble{color:var(--t1);}
 .statut-btn:hover{opacity:.8;}
 .statut-btn.selected{border-color:currentColor;box-shadow:0 0 0 2px currentColor;}
 .sb-gris{background:#88888820;color:#888;}
+.sb-rdv{background:var(--bl2);color:var(--bl);}
 .sb-jaune{background:var(--y2);color:var(--y);}
 .sb-vert{background:var(--g2);color:var(--g);}
 .sb-rouge{background:var(--r2);color:var(--r);}
@@ -934,7 +937,8 @@ input[type=file]{display:none;}
             <div class="crm-filters" id="crm-filters" style="display:none">
               <button class="crm-filter active" onclick="filterLeads('tous',this)">Tous</button>
               <button class="crm-filter f-gris" onclick="filterLeads('gris',this)">🔵 Non traité</button>
-              <button class="crm-filter f-jaune" onclick="filterLeads('jaune',this)">🟡 En cours</button>
+              <button class="crm-filter" onclick="filterLeads('rdv',this)" style="color:var(--bl)">📞 RDV pris</button>
+              <button class="crm-filter f-jaune" onclick="filterLeads('jaune',this)">🟡 Devis envoyé</button>
               <button class="crm-filter f-vert" onclick="filterLeads('vert',this)">🟢 Vendu</button>
               <button class="crm-filter f-rouge" onclick="filterLeads('rouge',this)">🔴 Perdu</button>
               <button class="crm-filter" onclick="filterLeads('archive',this)">📁 Archives</button>
@@ -1034,7 +1038,8 @@ input[type=file]{display:none;}
               <div class="lead-modal-section-title">Résultat du contact</div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
                 <button class="statut-btn sb-gris selected" onclick="selectStatut('gris',this)">🔵 Non traité</button>
-                <button class="statut-btn sb-jaune" onclick="selectStatut('jaune',this)">🟡 En cours</button>
+                <button class="statut-btn sb-rdv" onclick="selectStatut('rdv',this)">📞 RDV pris</button>
+                <button class="statut-btn sb-jaune" onclick="selectStatut('jaune',this)">🟡 Devis envoyé</button>
                 <button class="statut-btn sb-vert" onclick="selectStatut('vert',this)">🟢 Vendu</button>
                 <button class="statut-btn sb-rouge" onclick="selectStatut('rouge',this)">🔴 Perdu</button>
               </div>
@@ -1055,7 +1060,15 @@ input[type=file]{display:none;}
                 </div>
               </div>
 
-              <!-- PANEL EN COURS — RDV a eu lieu → devis -->
+              <!-- PANEL RDV PRIS -->
+              <div id="panel-rdv" style="display:none">
+                <div class="form-row">
+                  <div class="form-group"><div class="form-label">Date du RDV effectué</div><input type="date" class="form-input" id="lead-date-rdv-fait"></div>
+                  <div class="form-group"><div class="form-label">Montant devis estimé (€)</div><input type="number" class="form-input" id="lead-montant-rdv" placeholder="0" step="100"></div>
+                </div>
+              </div>
+
+              <!-- PANEL DEVIS ENVOYÉ -->
               <div id="panel-jaune" style="display:none">
                 
                 <div class="form-row">
@@ -1614,15 +1627,13 @@ function initApp(silent=false){
   if(u.id==='benjamin')setTimeout(()=>checkAnniversaires(),3000);
   // Initialiser Google Drive client si configuré
   if(u.id==='benjamin')setTimeout(()=>initGDriveClient(),1000);
-  // Briefing quotidien intelligent (une seule fois par jour)
-  if(!silent&&!CRM_PAGES_ONLY.includes(u.role))setTimeout(()=>generateDailyBriefing(),600);
   // Tuto première utilisation
   if(shouldShowTuto()&&!CRM_PAGES_ONLY.includes(u.role))setTimeout(()=>startTuto(),1200);
   // Bouton tuto dans paramètres
   const tutoSection=document.getElementById('tuto-settings-section');
   if(tutoSection)tutoSection.style.display=currentUser.id==='benjamin'?'none':'block';
-  // Sauvegarde automatique Google Drive (Benjamin uniquement)
-  if(u.id==='benjamin')setTimeout(()=>autoBackupToDrive(),2000);
+  // Briefing quotidien intelligent (une seule fois par jour)
+  if(!silent&&!CRM_PAGES_ONLY.includes(u.role))setTimeout(()=>generateDailyBriefing(),600);
 }
 
 // ══════════════════════════════════════════
@@ -3946,8 +3957,8 @@ function filterLeads(f,btn){
 }
 
 // Statuts renommés
-const STATUT_LABELS={gris:'🔵 Non traité',jaune:'🟡 En cours',vert:'🟢 Vendu',rouge:'🔴 Perdu'};
-const STATUT_CLS={gris:'ls-gris',jaune:'ls-jaune',vert:'ls-vert',rouge:'ls-rouge'};
+const STATUT_LABELS={gris:'🔵 Non traité',rdv:'📞 RDV pris',jaune:'🟡 Devis envoyé',vert:'🟢 Vendu',rouge:'🔴 Perdu'};
+const STATUT_CLS={gris:'ls-gris',rdv:'ls-rdv',jaune:'ls-jaune',vert:'ls-vert',rouge:'ls-rouge'};
 
 function getFilteredLeads(){
   const role=currentUser?.role;
@@ -3972,6 +3983,7 @@ function getFilteredLeads(){
   if(secteurFilter)leads=leads.filter(l=>l.secteur===secteurFilter);
   if(commFilter)leads=leads.filter(l=>l.commercial===commFilter);
   if(currentLeadFilter==='gris')leads=leads.filter(l=>l.statut==='gris');
+  else if(currentLeadFilter==='rdv')leads=leads.filter(l=>l.statut==='rdv');
   else if(currentLeadFilter==='jaune')leads=leads.filter(l=>l.statut==='jaune');
   else if(currentLeadFilter==='vert')leads=leads.filter(l=>l.statut==='vert');
   else if(currentLeadFilter==='rouge')leads=leads.filter(l=>l.statut==='rouge');
@@ -4152,7 +4164,8 @@ function renderKanban(){
   const leads=getFilteredLeads();
   const cols=[
     {id:'gris',label:'🔵 Non traité',cls:'ls-gris'},
-    {id:'jaune',label:'🟡 En cours',cls:'ls-jaune'},
+    {id:'rdv',label:'📞 RDV pris',cls:'ls-rdv'},
+    {id:'jaune',label:'🟡 Devis envoyé',cls:'ls-jaune'},
     {id:'vert',label:'🟢 Vendu',cls:'ls-vert'},
     {id:'rouge',label:'🔴 Perdu',cls:'ls-rouge'},
   ];
@@ -4354,6 +4367,8 @@ function openLead(id){
     if(l.sous_statut)document.getElementById('lead-sous-statut').value=l.sous_statut;
     if(l.rappel)document.getElementById('lead-rappel').value=l.rappel;
     toggleRdvDate();
+    if(l.date_rdv_fait){const el=document.getElementById('lead-date-rdv-fait');if(el)el.value=l.date_rdv_fait;}
+    if(l.montant_rdv){const el=document.getElementById('lead-montant-rdv');if(el)el.value=l.montant_rdv;}
     if(l.montant_devis)document.getElementById('lead-montant-devis').value=l.montant_devis;
     if(l.date_devis)document.getElementById('lead-date-devis').value=l.date_devis;
     if(l.rappel_devis)document.getElementById('lead-rappel-devis').value=l.rappel_devis;
@@ -4420,6 +4435,8 @@ function resetLeadForm(){
   });
   document.getElementById('lead-secteur').value='nimes';
   document.getElementById('lead-sous-statut').value='a_rappeler';
+  const dateRdvFait=document.getElementById('lead-date-rdv-fait');if(dateRdvFait)dateRdvFait.value='';
+  const montantRdv=document.getElementById('lead-montant-rdv');if(montantRdv)montantRdv.value='';
   document.getElementById('lead-raison-mort').value='';
   const rdvWrap=document.getElementById('rdv-date-wrap');
   if(rdvWrap)rdvWrap.style.display='none';
@@ -4447,7 +4464,7 @@ function selectStatut(statut,btn,silent=false){
   document.querySelectorAll('.statut-btn').forEach(b=>b.classList.remove('selected'));
   if(btn)btn.classList.add('selected');
   else document.querySelectorAll('.statut-btn').forEach(b=>{if(b.classList.contains('sb-'+statut))b.classList.add('selected');});
-  ['gris','jaune','vert','rouge'].forEach(s=>{
+  ['gris','rdv','jaune','vert','rouge'].forEach(s=>{
     const p=document.getElementById('panel-'+s);if(p)p.style.display=s===statut?'block':'none';
   });
   // Bordure modale selon statut — aucun fond coloré
@@ -4467,10 +4484,8 @@ function toggleRdvDate(){
   const wrap=document.getElementById('rdv-date-wrap');
   const isRdv=sel&&sel.value==='rdv_programme';
   if(wrap)wrap.style.display=isRdv?'block':'none';
-  // RDV programmé → passer automatiquement en "En cours"
-  if(isRdv&&currentLeadStatut==='gris'){
-    selectStatut('jaune',null,false);
-  }
+  // RDV programmé reste en Non traité — on attend que le RDV ait lieu
+  // C'est APRÈS le RDV que le commercial passe en "En cours" manuellement
 }
 
 function formatTel(input){
@@ -4538,8 +4553,8 @@ function saveLead(){
     statut:currentLeadStatut,
     sous_statut:document.getElementById('lead-sous-statut')?.value||'a_rappeler',
     rappel:document.getElementById('lead-rappel')?.value||null,
-    date_rdv:null, // Supprimé — maintenant intégré dans rappel
-    rdv_type:null,
+    date_rdv_fait:document.getElementById('lead-date-rdv-fait')?.value||null,
+    montant_rdv:document.getElementById('lead-montant-rdv')?.value||null,
     montant_devis:document.getElementById('lead-montant-devis')?.value||null,
     date_devis:document.getElementById('lead-date-devis')?.value||null,
     rappel_devis:document.getElementById('lead-rappel-devis')?.value||null,
@@ -4707,6 +4722,7 @@ function fillCommercialAssign(selected=''){
 // ALERTES & RAPPELS
 function isLeadAlerte(l){
   if(l.statut==='vert'||l.statut==='rouge'||l.archive)return false;
+  if(l.statut==='rdv')return false;// RDV pris = traité
   if(!l.date_creation)return false;
   const h=getHeuresOuvrees(new Date(l.date_creation));
   if(!l.commercial)return h>2;
