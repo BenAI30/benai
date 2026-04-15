@@ -406,6 +406,44 @@ body.light .bubble{color:var(--t1);}
 .stat-box-val{font-size:22px;font-weight:800;margin-bottom:2px;}
 .stat-box-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;}
 .stat-box-obj{font-size:10px;color:var(--t2);margin-top:2px;}
+.objectif-bar{height:6px;background:var(--s1);border-radius:3px;overflow:hidden;margin-top:6px;}
+.objectif-bar-fill{height:100%;border-radius:3px;transition:width .5s;}
+.perf-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--s3);border-radius:8px;margin-bottom:6px;}
+.perf-name{flex:1;font-size:13px;font-weight:500;}
+.perf-stats{font-size:11px;color:var(--t2);}
+.perf-ca{font-size:12px;font-weight:700;color:var(--g);}
+/* SOURCE BUTTONS */
+.src-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:.12s;}
+.src-btn:hover{border-color:var(--a);color:var(--a);}
+.src-btn.selected{background:var(--a3);border-color:var(--a);color:var(--a);}
+/* ADRESSE SUGGESTIONS */
+.addr-suggestion{padding:9px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--b1);transition:.1s;}
+.addr-suggestion:hover{background:var(--s3);}
+.addr-suggestion strong{color:var(--a);}
+/* TIMELINE */
+.timeline-item{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--b1);position:relative;}
+.timeline-dot{width:8px;height:8px;border-radius:50%;background:var(--a);flex-shrink:0;margin-top:4px;}
+.timeline-content{flex:1;}
+.timeline-action{font-size:12px;font-weight:500;color:var(--t1);}
+.timeline-meta{font-size:10px;color:var(--t3);margin-top:1px;}
+/* KANBAN */
+.kanban-col{flex:1;min-width:180px;background:var(--s2);border:1px solid var(--b1);border-radius:12px;overflow:hidden;}
+.kanban-col-header{padding:10px 12px;font-size:12px;font-weight:700;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;}
+.kanban-col-body{padding:8px;display:flex;flex-direction:column;gap:6px;min-height:60px;max-height:calc(100vh - 280px);overflow-y:auto;}
+.kanban-card{background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:10px;cursor:pointer;transition:.12s;font-size:12px;}
+.kanban-card:hover{border-color:var(--a);transform:translateY(-1px);}
+.kanban-card-nom{font-weight:700;margin-bottom:3px;}
+.kanban-card-info{color:var(--t2);font-size:11px;}
+/* VU indicator */
+.lead-vu{font-size:10px;color:var(--g);font-weight:600;}
+.lead-non-vu{font-size:10px;color:var(--r);font-weight:600;}
+input[type=file]{display:none;}
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
@@ -414,13 +452,26 @@ body.light .bubble{color:var(--t1);}
       <p>Nemausus Fermetures · Lambert SAS</p>
     </div>
     <div class="login-label">Identifiant</div>
-    <input type="text" class="login-input" id="login-user" placeholder="Votre identifiant" autocomplete="off">
+    <input type="text" class="login-input" id="login-user" placeholder="Votre identifiant" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter')document.getElementById('login-pwd').focus()">
     <div class="login-label">Mot de passe</div>
     <input type="password" class="login-input" id="login-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
     <button class="login-btn" onclick="login()">Se connecter →</button>
     <div class="login-err" id="login-err"></div>
   </div>
 </div>
+
+<!-- ══ CHANGEMENT MOT DE PASSE OBLIGATOIRE ══ -->
+<div id="force-pwd-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:999;display:none;align-items:center;justify-content:center;background-image:radial-gradient(ellipse at 30% 20%,rgba(232,148,58,.06) 0%,transparent 60%)">
+  <div style="width:400px;padding:40px 36px;background:var(--s1);border:1px solid var(--b1);border-radius:20px;box-shadow:0 40px 80px rgba(0,0,0,.6)">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--r),#DC2626);display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px;box-shadow:0 8px 24px rgba(248,113,113,.4)">🔑</div>
+      <h2 style="font-size:20px;font-weight:700;margin-bottom:6px">Changement de mot de passe</h2>
+      <p style="font-size:12px;color:var(--t3)">Première connexion — vous devez choisir un mot de passe sécurisé</p>
+    </div>
+    <div style="background:var(--r2);border:1px solid rgba(248,113,113,.3);border-radius:10px;padding:12px 14px;margin-bottom:20px;font-size:12px;color:var(--r)">
+      ⚠️ Le mot de passe par défaut <strong>1234</strong> doit être remplacé avant de continuer.
+    </div>
+    <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:6px">Nouveau mot de passe</div>
     <input type="password" id="force-pwd-input" class="login-input" placeholder="••••••••" style="margin-bottom:8px">
     <div style="font-size:11px;color:var(--t3);margin-bottom:14px;line-height:1.6">
       ✅ Minimum 6 caractères &nbsp;·&nbsp; ✅ 1 majuscule &nbsp;·&nbsp; ✅ 1 caractère spécial
@@ -5696,165 +5747,4 @@ async function installUpdate(version,notes){
 }
 </script>
 </body>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-  const _sbUrl = 'https://wwrdnvvjdfxkzzqbwlzy.supabase.co'; 
-  const _sbKey = 'sb_publishable_jd--ZbBaMhayWA8nvZlB-A_LFBhnvgD';
-  const _client = window.supabase.createClient(_sbUrl, _sbKey);
-
-  // FONCTION SPÉCIALE : ALLUMER TOUS LES BOUTONS
-  function debloquerToutLeLogiciel() {
-    // On affiche tous les éléments du menu qui pourraient être cachés
-    const menus = ['nav-benai', 'nav-notes', 'nav-messages', 'nav-sav', 'nav-leads', 'nav-absences', 'nav-annuaire', 'nav-paie', 'nav-admin', 'nav-evolution', 'nav-bugs'];
-    menus.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.style.display = 'flex'; // On force l'affichage
-        el.style.visibility = 'visible';
-      }
-    });
-    console.log("🚀 MODE BOSS : Tous les menus sont débloqués.");
-  }
-
-  window.login = async function() {
-    const userVal = document.getElementById('login-user').value.toLowerCase().trim();
-    const passVal = document.getElementById('login-pwd').value;
-    const err = document.getElementById('login-err');
-
-    try {
-      const { data, error } = await _client.from('employes').select('*').eq('nom', userVal).eq('mot_de_passe', passVal).single();
-      
-      if (error || !data) {
-        if(err) err.textContent = "❌ Identifiant ou mot de passe incorrect.";
-        return;
-      }
-
-      // IDENTITÉ BOSS FORCÉE
-      const monRole = (data.nom.toLowerCase() === 'benjamin') ? 'admin' : (data.role || 'assistante');
-      
-      window.currentUser = { 
-        id: data.nom, nom: data.nom, 
-        name: data.nom.charAt(0).toUpperCase() + data.nom.slice(1), 
-        role: monRole, 
-        color: '#E8943A', initial: 'B' 
-      };
-      window.currentRole = monRole;
-
-      localStorage.setItem('benai_tutorial_finished', 'true');
-      localStorage.setItem('benai_onboarding_step', '99');
-
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('app').classList.add('visible');
-      
-      // On lance le démarrage
-      if (typeof initApp === "function") initApp(); 
-      
-      // APPEL DU MODE BOSS (on force l'affichage des menus après le démarrage)
-      setTimeout(debloquerToutLeLogiciel, 500);
-
-    } catch (e) { console.error(e); }
-  };
-
-  // Synchronisation des données (Leads et SAV)
-  const originalShowPage = window.showPage;
-  window.showPage = async function(page) {
-    if (page === 'leads') {
-        const { data } = await _client.from('leads').select('*');
-        if (data) localStorage.setItem('benai_leads', JSON.stringify(data));
-    }
-    if (page === 'sav') {
-        const { data } = await _client.from('sav').select('*');
-        if (data) {
-            let mem = JSON.parse(localStorage.getItem('benai_v3') || '{}');
-            mem.sav = data;
-            localStorage.setItem('benai_v3', JSON.stringify(mem));
-        }
-    }
-    if (typeof originalShowPage === "function") originalShowPage(page);
-  };
-</script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-  // 1. CONFIGURATION DÉFINITIVE
-  const _sbUrl = 'https://wwrdnvvjdfxkzzqbwlzy.supabase.co'; 
-  const _sbKey = 'sb_publishable_jd--ZbBaMhayWA8nvZlB-A_LFBhnvgD';
-  const _claudeKey = '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';
-  
-  const _client = window.supabase.createClient(_sbUrl, _sbKey);
-
-  // Forcer la clé Claude en mémoire
-  if (_claudeKey && _claudeKey !== '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') {
-      localStorage.setItem('benai_api', _claudeKey);
-  }
-
-  // 2. MODE BOSS : ACCÈS TOTAL AUX MENUS
-  function activerModeBoss() {
-    const menus = ['nav-benai', 'nav-notes', 'nav-messages', 'nav-sav', 'nav-leads', 'nav-absences', 'nav-annuaire', 'nav-paie', 'nav-admin', 'nav-evolution', 'nav-bugs'];
-    menus.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) { el.style.display = 'flex'; el.style.visibility = 'visible'; }
-    });
-    // On s'assure que Benjamin est ADMIN partout
-    if (window.currentUser && window.currentUser.nom === 'benjamin') {
-        window.currentUser.role = 'admin';
-        window.currentRole = 'admin';
-    }
-  }
-
-  // 3. LOGIQUE DE CONNEXION SUPABASE
-  window.login = async function() {
-    const userVal = document.getElementById('login-user').value.toLowerCase().trim();
-    const passVal = document.getElementById('login-pwd').value;
-    const err = document.getElementById('login-err');
-
-    try {
-      const { data, error } = await _client.from('employes').select('*').eq('nom', userVal).eq('mot_de_passe', passVal).single();
-      if (error || !data) {
-        if(err) err.textContent = "❌ Identifiant ou mot de passe incorrect.";
-        return;
-      }
-
-      window.currentUser = { 
-        id: data.nom, nom: data.nom, 
-        name: data.nom.charAt(0).toUpperCase() + data.nom.slice(1), 
-        role: (data.nom === 'benjamin') ? 'admin' : (data.role || 'assistante'), 
-        color: '#E8943A', initial: 'B' 
-      };
-      window.currentRole = window.currentUser.role;
-
-      // On désactive le tutoriel pour Benjamin
-      localStorage.setItem('benai_tutorial_finished', 'true');
-      localStorage.setItem('benai_tuto_done_benjamin', '1');
-
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('app').classList.add('visible');
-      
-      if (typeof initApp === "function") initApp(); 
-      setTimeout(activerModeBoss, 500);
-
-    } catch (e) { console.error(e); }
-  };
-
-  // 4. RÉPARATION CRM ET SAV (SYNCHRO CLOUD)
-  const originalShowPage = window.showPage;
-  window.showPage = async function(page) {
-    if (page === 'leads') {
-        const { data } = await _client.from('leads').select('*');
-        if (data) {
-            localStorage.setItem('benai_leads', JSON.stringify(data));
-            if (typeof renderLeads === "function") renderLeads();
-        }
-    }
-    if (page === 'sav') {
-        const { data } = await _client.from('sav').select('*');
-        if (data) {
-            let mem = JSON.parse(localStorage.getItem('benai_v3') || '{}');
-            mem.sav = data;
-            localStorage.setItem('benai_v3', JSON.stringify(mem));
-            if (typeof renderSAV === "function") renderSAV();
-        }
-    }
-    if (typeof originalShowPage === "function") originalShowPage(page);
-  };
-</script>
 </html>
