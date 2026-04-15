@@ -444,21 +444,48 @@ input[type=file]{display:none;}
 <body>
 
 <!-- ══ LOGIN ══ -->
-<div id="login-screen">
-  <div class="login-box">
-    <div class="login-logo">
-      <div class="logo-mark">B</div>
-      <h1>BenAI</h1>
-      <p>Nemausus Fermetures · Lambert SAS</p>
-    </div>
-    <div class="login-label">Identifiant</div>
-    <input type="text" class="login-input" id="login-user" placeholder="Votre identifiant" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter')document.getElementById('login-pwd').focus()">
-    <div class="login-label">Mot de passe</div>
-    <input type="password" class="login-input" id="login-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
-    <button class="login-btn" onclick="login()">Se connecter →</button>
-    <div class="login-err" id="login-err"></div>
-  </div>
-</div>
+async function login() {
+  const userEl = document.getElementById('login-user');
+  const passEl = document.getElementById('login-pwd');
+  const errEl = document.getElementById('login-err');
+  const user = userEl.value.toLowerCase().trim();
+  const pass = passEl.value;
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('employes')
+      .select('*')
+      .eq('nom', user)
+      .eq('mot_de_passe', pass)
+      .single();
+
+    if (error || !data) {
+      if(errEl) errEl.textContent = "❌ Identifiant ou mot de passe incorrect.";
+      return;
+    }
+
+    // ON CREE LE BADGE COMPLET ICI
+    currentUser = {
+      id: data.nom,
+      nom: data.nom,
+      name: data.nom.charAt(0).toUpperCase() + data.nom.slice(1),
+      role: data.role,
+      color: data.nom === 'benjamin' ? '#E8943A' : '#22C55E',
+      initial: data.nom.charAt(0).toUpperCase()
+    };
+    currentRole = data.role;
+    
+    document.getElementById('login-screen').style.display = 'none';
+    const appEl = document.getElementById('app');
+    if(appEl) appEl.classList.add('visible');
+    
+    // On lance l'app
+    if (typeof initApp === "function") initApp(); 
+
+  } catch (err) {
+    console.error("Erreur login:", err);
+  }
+}
 
 <!-- ══ CHANGEMENT MOT DE PASSE OBLIGATOIRE ══ -->
 <div id="force-pwd-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:999;display:none;align-items:center;justify-content:center;background-image:radial-gradient(ellipse at 30% 20%,rgba(232,148,58,.06) 0%,transparent 60%)">
