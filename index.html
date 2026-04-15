@@ -5753,7 +5753,7 @@ async function installUpdate(version,notes){
   const supabaseKey = 'sb_publishable_jd--ZbBaMhayWA8nvZlB-A_LFBhnvgD';
   
   // 2. Allumage du moteur
-  const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+  const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
   console.log("Supabase est connecté !");
 </script>
