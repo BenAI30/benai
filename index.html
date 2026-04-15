@@ -5747,4 +5747,53 @@ async function installUpdate(version,notes){
 }
 </script>
 </body>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // 1. Connexion au moteur Supabase
+  const _sbUrl = 'https://wwrdnvvjdfxkzzqbwlzy.supabase.co'; 
+  const _sbKey = 'sb_publishable_jd--ZbBaMhayWA8nvZlB-A_LFBhnvgD';
+  const _client = window.supabase.createClient(_sbUrl, _sbKey);
+
+  // 2. On remplace la fonction login par celle-ci (automatiquement)
+  window.login = async function() {
+    const user = document.getElementById('login-user').value.toLowerCase().trim();
+    const pass = document.getElementById('login-pwd').value;
+    const err = document.getElementById('login-err');
+
+    try {
+      const { data, error } = await _client.from('employes').select('*').eq('nom', user).eq('mot_de_passe', pass).single();
+
+      if (error || !data) {
+        if(err) err.textContent = "❌ Identifiant ou mot de passe incorrect.";
+        return;
+      }
+
+      // ON FORCE TES MENUS ET TON RÔLE ADMIN
+      currentUser = {
+        id: data.nom,
+        nom: data.nom,
+        name: data.nom.charAt(0).toUpperCase() + data.nom.slice(1),
+        role: data.role || 'admin',
+        color: data.nom === 'benjamin' ? '#E8943A' : '#22C55E',
+        initial: data.nom.charAt(0).toUpperCase()
+      };
+      currentRole = currentUser.role;
+
+      // ON DESACTIVE LE TUTORIEL
+      localStorage.setItem('benai_tutorial_finished', 'true');
+      localStorage.setItem('benai_onboarding_step', '99');
+      localStorage.setItem('benai_tuto_done_' + data.nom, '1');
+
+      // AFFICHAGE
+      document.getElementById('login-screen').style.display = 'none';
+      const appEl = document.getElementById('app');
+      if(appEl) appEl.classList.add('visible');
+      
+      if (typeof initApp === "function") initApp(); 
+
+      console.log("🔓 Connecté via Supabase (Système de secours)");
+
+    } catch (e) { console.error(e); }
+  };
+</script>
 </html>
