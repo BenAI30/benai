@@ -5746,5 +5746,16 @@ async function installUpdate(version,notes){
   }catch(e){alert('❌ Erreur : '+e.message);}
 }
 </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // 1. Tes clés d'accès (Remplace par tes vraies infos)
+  const supabaseUrl = 'https://wwrdnvvjdfxkzzqbwlzy.supabase.co'; 
+  const supabaseKey = 'sb_publishable_jd--ZbBaMhayWA8nvZlB-A_LFBhnvgD';
+  
+  // 2. Allumage du moteur
+  const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+  console.log("Supabase est connecté !");
+</script>
 </body>
 </html>
