@@ -5773,4 +5773,88 @@ async function installUpdate(version,notes){
     if (typeof originalShowPage === "function") originalShowPage(page);
   };
 </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // 1. CONFIGURATION DÉFINITIVE
+  const _sbUrl = 'https://wwrdnvvjdfxkzzqbwlzy.supabase.co'; 
+  const _sbKey = 'sb_publishable_jd--ZbBaMhayWA8nvZlB-A_LFBhnvgD';
+  const _claudeKey = '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';
+  
+  const _client = window.supabase.createClient(_sbUrl, _sbKey);
+
+  // Forcer la clé Claude en mémoire
+  if (_claudeKey && _claudeKey !== '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') {
+      localStorage.setItem('benai_api', _claudeKey);
+  }
+
+  // 2. MODE BOSS : ACCÈS TOTAL AUX MENUS
+  function activerModeBoss() {
+    const menus = ['nav-benai', 'nav-notes', 'nav-messages', 'nav-sav', 'nav-leads', 'nav-absences', 'nav-annuaire', 'nav-paie', 'nav-admin', 'nav-evolution', 'nav-bugs'];
+    menus.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.style.display = 'flex'; el.style.visibility = 'visible'; }
+    });
+    // On s'assure que Benjamin est ADMIN partout
+    if (window.currentUser && window.currentUser.nom === 'benjamin') {
+        window.currentUser.role = 'admin';
+        window.currentRole = 'admin';
+    }
+  }
+
+  // 3. LOGIQUE DE CONNEXION SUPABASE
+  window.login = async function() {
+    const userVal = document.getElementById('login-user').value.toLowerCase().trim();
+    const passVal = document.getElementById('login-pwd').value;
+    const err = document.getElementById('login-err');
+
+    try {
+      const { data, error } = await _client.from('employes').select('*').eq('nom', userVal).eq('mot_de_passe', passVal).single();
+      if (error || !data) {
+        if(err) err.textContent = "❌ Identifiant ou mot de passe incorrect.";
+        return;
+      }
+
+      window.currentUser = { 
+        id: data.nom, nom: data.nom, 
+        name: data.nom.charAt(0).toUpperCase() + data.nom.slice(1), 
+        role: (data.nom === 'benjamin') ? 'admin' : (data.role || 'assistante'), 
+        color: '#E8943A', initial: 'B' 
+      };
+      window.currentRole = window.currentUser.role;
+
+      // On désactive le tutoriel pour Benjamin
+      localStorage.setItem('benai_tutorial_finished', 'true');
+      localStorage.setItem('benai_tuto_done_benjamin', '1');
+
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').classList.add('visible');
+      
+      if (typeof initApp === "function") initApp(); 
+      setTimeout(activerModeBoss, 500);
+
+    } catch (e) { console.error(e); }
+  };
+
+  // 4. RÉPARATION CRM ET SAV (SYNCHRO CLOUD)
+  const originalShowPage = window.showPage;
+  window.showPage = async function(page) {
+    if (page === 'leads') {
+        const { data } = await _client.from('leads').select('*');
+        if (data) {
+            localStorage.setItem('benai_leads', JSON.stringify(data));
+            if (typeof renderLeads === "function") renderLeads();
+        }
+    }
+    if (page === 'sav') {
+        const { data } = await _client.from('sav').select('*');
+        if (data) {
+            let mem = JSON.parse(localStorage.getItem('benai_v3') || '{}');
+            mem.sav = data;
+            localStorage.setItem('benai_v3', JSON.stringify(mem));
+            if (typeof renderSAV === "function") renderSAV();
+        }
+    }
+    if (typeof originalShowPage === "function") originalShowPage(page);
+  };
+</script>
 </html>
