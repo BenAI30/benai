@@ -406,53 +406,59 @@ body.light .bubble{color:var(--t1);}
 .stat-box-val{font-size:22px;font-weight:800;margin-bottom:2px;}
 .stat-box-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;}
 .stat-box-obj{font-size:10px;color:var(--t2);margin-top:2px;}
+.objectif-bar{height:6px;background:var(--s1);border-radius:3px;overflow:hidden;margin-top:6px;}
+.objectif-bar-fill{height:100%;border-radius:3px;transition:width .5s;}
+.perf-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--s3);border-radius:8px;margin-bottom:6px;}
+.perf-name{flex:1;font-size:13px;font-weight:500;}
+.perf-stats{font-size:11px;color:var(--t2);}
+.perf-ca{font-size:12px;font-weight:700;color:var(--g);}
+/* SOURCE BUTTONS */
+.src-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:.12s;}
+.src-btn:hover{border-color:var(--a);color:var(--a);}
+.src-btn.selected{background:var(--a3);border-color:var(--a);color:var(--a);}
+/* ADRESSE SUGGESTIONS */
+.addr-suggestion{padding:9px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--b1);transition:.1s;}
+.addr-suggestion:hover{background:var(--s3);}
+.addr-suggestion strong{color:var(--a);}
+/* TIMELINE */
+.timeline-item{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--b1);position:relative;}
+.timeline-dot{width:8px;height:8px;border-radius:50%;background:var(--a);flex-shrink:0;margin-top:4px;}
+.timeline-content{flex:1;}
+.timeline-action{font-size:12px;font-weight:500;color:var(--t1);}
+.timeline-meta{font-size:10px;color:var(--t3);margin-top:1px;}
+/* KANBAN */
+.kanban-col{flex:1;min-width:180px;background:var(--s2);border:1px solid var(--b1);border-radius:12px;overflow:hidden;}
+.kanban-col-header{padding:10px 12px;font-size:12px;font-weight:700;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;}
+.kanban-col-body{padding:8px;display:flex;flex-direction:column;gap:6px;min-height:60px;max-height:calc(100vh - 280px);overflow-y:auto;}
+.kanban-card{background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:10px;cursor:pointer;transition:.12s;font-size:12px;}
+.kanban-card:hover{border-color:var(--a);transform:translateY(-1px);}
+.kanban-card-nom{font-weight:700;margin-bottom:3px;}
+.kanban-card-info{color:var(--t2);font-size:11px;}
+/* VU indicator */
+.lead-vu{font-size:10px;color:var(--g);font-weight:600;}
+.lead-non-vu{font-size:10px;color:var(--r);font-weight:600;}
+input[type=file]{display:none;}
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
       <div class="logo-mark">B</div>
       <h1>BenAI</h1>
-      <p>Assistant Nemausus & Lambert</p>
+      <p>Nemausus Fermetures · Lambert SAS</p>
     </div>
     <div class="login-label">Identifiant</div>
-    <input type="text" id="login-user" class="login-input" placeholder="Benjamin, Aurélie...">
+    <input type="text" class="login-input" id="login-user" placeholder="Votre identifiant" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter')document.getElementById('login-pwd').focus()">
     <div class="login-label">Mot de passe</div>
-    <input type="password" id="login-pwd" class="login-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
-    <button onclick="login()" class="login-btn">Se connecter →</button>
-    <div id="login-err" class="login-err"></div>
+    <input type="password" class="login-input" id="login-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
+    <button class="login-btn" onclick="login()">Se connecter →</button>
+    <div class="login-err" id="login-err"></div>
   </div>
 </div>
-    // ON AFFICHE LE LOGICIEL
-    document.getElementById('login-screen').style.display = 'none';
-    if(document.getElementById('app')) document.getElementById('app').classList.add('visible');
-    
-    // ON RELANCE TOUT
-    if (typeof initApp === "function") initApp(); 
-
-  } catch (err) { console.error(err); }
-}
-
-    // ON CREE LE BADGE COMPLET ICI
-    currentUser = {
-      id: data.nom,
-      nom: data.nom,
-      name: data.nom.charAt(0).toUpperCase() + data.nom.slice(1),
-      role: data.role,
-      color: data.nom === 'benjamin' ? '#E8943A' : '#22C55E',
-      initial: data.nom.charAt(0).toUpperCase()
-    };
-    currentRole = data.role;
-    
-    document.getElementById('login-screen').style.display = 'none';
-    const appEl = document.getElementById('app');
-    if(appEl) appEl.classList.add('visible');
-    
-    // On lance l'app
-    if (typeof initApp === "function") initApp(); 
-
-  } catch (err) {
-    console.error("Erreur login:", err);
-  }
-}
 
 <!-- ══ CHANGEMENT MOT DE PASSE OBLIGATOIRE ══ -->
 <div id="force-pwd-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:999;display:none;align-items:center;justify-content:center;background-image:radial-gradient(ellipse at 30% 20%,rgba(232,148,58,.06) 0%,transparent 60%)">
@@ -1389,14 +1395,69 @@ function checkAccessRealtime(){
 }
 setInterval(checkAccessRealtime,15000);
 
+function login(){
+  const uid=normalizeId(document.getElementById('login-user').value);
+  const pwd=document.getElementById('login-pwd').value;
+  const err=document.getElementById('login-err');
+  if(!uid){err.textContent='Entrez votre identifiant';return;}
 
+  if(uid!=='benjamin'){
+    const attempts=getLoginAttempts();
+    const now=Date.now();
+    if(attempts.blockedUntil>now){
+      const remaining=Math.ceil((attempts.blockedUntil-now)/1000);
+      err.textContent=`Trop de tentatives. Réessayez dans ${remaining}s.`;
+      return;
+    }
   }
-}
-// VERIFIE BIEN QU'IL N'Y A RIEN JUSTE EN DESSOUS DE CETTE LIGNE QUI N'EST PAS UNE AUTRE FONCTION
 
-  
+  const now=Date.now();
+  const attempts=uid!=='benjamin'?getLoginAttempts():{count:0,blockedUntil:0};
+  const userFound=findUserById(uid);
+  const resolvedUid=userFound?normalizeId(userFound.id):uid;
+
+  if(!userFound){
+    if(uid!=='benjamin'){
+      attempts.count++;
+      if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;}
+      saveLoginAttempts(attempts);
+      err.textContent=`Identifiant ou mot de passe incorrect (${Math.min(attempts.count,3)}/3)`;
+    } else {
+      err.textContent='Identifiant incorrect';
+    }
+    return;
+  }
+
+  const pwds=getPwds();
+  const validPwd=pwds[resolvedUid]||USERS[resolvedUid]?.pwd||'1234';
+  if(pwd!==validPwd){
+    if(uid!=='benjamin'){
+      attempts.count++;
+      if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;err.textContent='Accès bloqué 5 minutes.';saveLoginAttempts(attempts);return;}
+      saveLoginAttempts(attempts);
+      err.textContent=`Mot de passe incorrect — tentative ${attempts.count}/3`;
+    } else {
+      err.textContent='Mot de passe incorrect';
+    }
+    return;
+  }
+  const access=getAccess();
+  if(access[resolvedUid]===false&&resolvedUid!=='benjamin'){err.textContent='Accès bloqué par l\'administrateur';return;}
+  resetLoginAttempts();
+  currentUser={id:resolvedUid,...(USERS[resolvedUid]||getExtraUserById(resolvedUid))};
   // Log connexion
-  
+  logConnexion(resolvedUid);
+  lastActivityTime=Date.now();
+  if(pwd==='1234'){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('force-pwd-screen').style.display='flex';
+    return;
+  }
+  sessionStorage.setItem('benai_session',resolvedUid);
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').classList.add('visible');
+  initApp();
+}
 
 function logConnexion(uid){
   try{
@@ -5684,17 +5745,6 @@ async function installUpdate(version,notes){
     document.open();document.write(html);document.close();
   }catch(e){alert('❌ Erreur : '+e.message);}
 }
-</script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-  // 1. Tes clés d'accès (Remplace par tes vraies infos)
-  const supabaseUrl = 'https://wwrdnvvjdfxkzzqbwlzy.supabase.co'; 
-  const supabaseKey = 'sb_publishable_jd--ZbBaMhayWA8nvZlB-A_LFBhnvgD';
-  
-  // 2. Allumage du moteur
-  const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
-
-  console.log("Supabase est connecté !");
 </script>
 </body>
 </html>
