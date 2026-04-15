@@ -406,73 +406,21 @@ body.light .bubble{color:var(--t1);}
 .stat-box-val{font-size:22px;font-weight:800;margin-bottom:2px;}
 .stat-box-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;}
 .stat-box-obj{font-size:10px;color:var(--t2);margin-top:2px;}
-.objectif-bar{height:6px;background:var(--s1);border-radius:3px;overflow:hidden;margin-top:6px;}
-.objectif-bar-fill{height:100%;border-radius:3px;transition:width .5s;}
-.perf-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--s3);border-radius:8px;margin-bottom:6px;}
-.perf-name{flex:1;font-size:13px;font-weight:500;}
-.perf-stats{font-size:11px;color:var(--t2);}
-.perf-ca{font-size:12px;font-weight:700;color:var(--g);}
-/* SOURCE BUTTONS */
-.src-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:.12s;}
-.src-btn:hover{border-color:var(--a);color:var(--a);}
-.src-btn.selected{background:var(--a3);border-color:var(--a);color:var(--a);}
-/* ADRESSE SUGGESTIONS */
-.addr-suggestion{padding:9px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--b1);transition:.1s;}
-.addr-suggestion:hover{background:var(--s3);}
-.addr-suggestion strong{color:var(--a);}
-/* TIMELINE */
-.timeline-item{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--b1);position:relative;}
-.timeline-dot{width:8px;height:8px;border-radius:50%;background:var(--a);flex-shrink:0;margin-top:4px;}
-.timeline-content{flex:1;}
-.timeline-action{font-size:12px;font-weight:500;color:var(--t1);}
-.timeline-meta{font-size:10px;color:var(--t3);margin-top:1px;}
-/* KANBAN */
-.kanban-col{flex:1;min-width:180px;background:var(--s2);border:1px solid var(--b1);border-radius:12px;overflow:hidden;}
-.kanban-col-header{padding:10px 12px;font-size:12px;font-weight:700;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;}
-.kanban-col-body{padding:8px;display:flex;flex-direction:column;gap:6px;min-height:60px;max-height:calc(100vh - 280px);overflow-y:auto;}
-.kanban-card{background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:10px;cursor:pointer;transition:.12s;font-size:12px;}
-.kanban-card:hover{border-color:var(--a);transform:translateY(-1px);}
-.kanban-card-nom{font-weight:700;margin-bottom:3px;}
-.kanban-card-info{color:var(--t2);font-size:11px;}
-/* VU indicator */
-.lead-vu{font-size:10px;color:var(--g);font-weight:600;}
-.lead-non-vu{font-size:10px;color:var(--r);font-weight:600;}
-input[type=file]{display:none;}
-</style>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-</head>
-<body>
-
-<!-- ══ LOGIN ══ -->
-async function login() {
-  const user = document.getElementById('login-user').value.toLowerCase().trim();
-  const pass = document.getElementById('login-pwd').value;
-  const err = document.getElementById('login-err');
-
-  try {
-    const { data, error } = await supabaseClient
-      .from('employes').select('*').eq('nom', user).eq('mot_de_passe', pass).single();
-
-    if (error || !data) {
-      if(err) err.textContent = "❌ Identifiant ou mot de passe incorrect.";
-      return;
-    }
-
-    // ON LUI REDONNE SA MÉMOIRE (MENUS + COULEUR + RÔLE)
-    currentUser = {
-      id: data.nom,
-      nom: data.nom,
-      name: data.nom.charAt(0).toUpperCase() + data.nom.slice(1),
-      role: data.role || 'admin',
-      color: data.nom === 'benjamin' ? '#E8943A' : '#22C55E',
-      initial: data.nom.charAt(0).toUpperCase()
-    };
-    currentRole = currentUser.role;
-
-    // ON TUE LE TUTORIEL DÉFINITIVEMENT
-    localStorage.setItem('benai_tutorial_finished', 'true');
-    localStorage.setItem('benai_onboarding_step', '99');
-
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="logo-mark">B</div>
+      <h1>BenAI</h1>
+      <p>Assistant Nemausus & Lambert</p>
+    </div>
+    <div class="login-label">Identifiant</div>
+    <input type="text" id="login-user" class="login-input" placeholder="Benjamin, Aurélie...">
+    <div class="login-label">Mot de passe</div>
+    <input type="password" id="login-pwd" class="login-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
+    <button onclick="login()" class="login-btn">Se connecter →</button>
+    <div id="login-err" class="login-err"></div>
+  </div>
+</div>
     // ON AFFICHE LE LOGICIEL
     document.getElementById('login-screen').style.display = 'none';
     if(document.getElementById('app')) document.getElementById('app').classList.add('visible');
