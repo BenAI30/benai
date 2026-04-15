@@ -1409,7 +1409,6 @@ async function login() {
   }
 
   try {
-    // On vérifie sur ton nouveau serveur Supabase
     const { data, error } = await supabaseClient
       .from('employes')
       .select('*')
@@ -1422,27 +1421,20 @@ async function login() {
       return;
     }
 
-    // Si c'est bon, on définit l'utilisateur actuel
     currentUser = data.nom;
     currentRole = data.role;
     
-    // On cache l'écran de login et on affiche l'app (on utilise tes IDs : login-screen et app)
     document.getElementById('login-screen').style.display = 'none';
     const appEl = document.getElementById('app');
     if(appEl) appEl.classList.add('visible');
     
-    console.log("🔓 Connecté avec succès via Supabase !");
-    
-    // On lance l'initialisation du reste
     if (typeof initApp === "function") initApp(); 
 
   } catch (err) {
     console.error("Erreur critique login:", err);
-    if(errEl) errEl.textContent = "Erreur de connexion au serveur.";
   }
 }
-    return;
-  }
+// VERIFIE BIEN QU'IL N'Y A RIEN JUSTE EN DESSOUS DE CETTE LIGNE QUI N'EST PAS UNE AUTRE FONCTION
 
   const pwds=getPwds();
   const validPwd=pwds[resolvedUid]||USERS[resolvedUid]?.pwd||'1234';
