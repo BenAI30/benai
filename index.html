@@ -2773,3 +2773,4 @@ function downloadPlanningAbsences(societe){
     const compAbs=absences.filter(a=>{const s=getEmpSociete(a.employe);return s===societe||s==='les-deux';});
     if(!compAbs.length)return'<p style="color:#9CA3AF;padding:20px;text-align:center">Aucune absence enregistrée</p>';
     const emps=[...new Set(compAbs.map(a=>a.employe))].sort();
+  
