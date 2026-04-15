@@ -442,6 +442,49 @@ input[type=file]{display:none;}
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+  // ==========================================
+// PONT DE DONNÉES : LEADS (CRM)
+// ==========================================
+
+// 1. Fonction pour CHARGER les leads depuis Supabase
+async function chargerLeadsDepuisCloud() {
+    console.log("☁️ Récupération des leads sur Supabase...");
+    const { data, error } = await _client.from('leads').select('*');
+    
+    if (!error && data) {
+        // On remplit la mémoire locale avec les données du Cloud
+        localStorage.setItem('benai_leads', JSON.stringify(data));
+        // On demande au logiciel de rafraîchir l'affichage
+        if (typeof renderLeads === "function") renderLeads();
+        console.log("✅ Leads synchronisés !");
+    }
+}
+
+// 2. On détourne la fonction "showPage" pour qu'elle synchronise quand tu cliques sur CRM
+const originalShowPage = window.showPage;
+window.showPage = function(page) {
+    if (page === 'leads') {
+        chargerLeadsDepuisCloud();
+    }
+    if (typeof originalShowPage === "function") originalShowPage(page);
+};
+
+// 3. On détourne la fonction "saveLead" pour qu'elle ENVOIE aussi au Cloud
+const originalSaveLead = window.saveLead;
+window.saveLead = async function() {
+    // On laisse l'ancien code faire son travail (sauvegarde locale + fermeture modale)
+    if (typeof originalSaveLead === "function") originalSaveLead();
+    
+    // JUSTE APRÈS, on récupère ce qui vient d'être mis dans la mémoire locale
+    const localLeads = JSON.parse(localStorage.getItem('benai_leads') || '[]');
+    
+    // Et on envoie TOUT sur Supabase (ça met à jour les existants et ajoute les nouveaux)
+    console.log("🚀 Envoi des modifications au Cloud...");
+    const { error } = await _client.from('leads').upsert(localLeads);
+    
+    if (error) console.error("Erreur de sauvegarde Cloud :", error);
+    else console.log("✅ Cloud à jour !");
+};
 
 <!-- ══ LOGIN ══ -->
 <div id="login-screen">
