@@ -3,7 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BenAI v3.16</title>
+<meta name="theme-color" content="#E8943A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BenAI">
+<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;BenAI&quot;,&quot;short_name&quot;:&quot;BenAI&quot;,&quot;start_url&quot;:&quot;/&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23080808&quot;,&quot;theme_color&quot;:&quot;%23E8943A&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%23E8943A'/><text x='96' y='140' text-anchor='middle' font-size='120' font-weight='bold' fill='white'>B</text></svg>&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/svg+xml&quot;}]}">
+<meta name="theme-color" content="#E8943A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BenAI">
+<meta name="description" content="BenAI — Assistant Nemausus Fermetures & Lambert SAS">
+<title>BenAI</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
@@ -18,348 +30,2576 @@
   --nem:#E8943A;--lam:#60A5FA;
 }
 html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);}
-#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;background-image:radial-gradient(ellipse at 30% 20%,rgba(232,148,58,.06) 0%,transparent 60%);}
+/* LOGIN */
+#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;background-image:radial-gradient(ellipse at 30% 20%,rgba(232,148,58,.06) 0%,transparent 60%),radial-gradient(ellipse at 70% 80%,rgba(96,165,250,.04) 0%,transparent 60%);}
 .login-box{width:380px;padding:40px 36px;background:var(--s1);border:1px solid var(--b1);border-radius:20px;box-shadow:0 40px 80px rgba(0,0,0,.6);}
-.login-input{width:100%;padding:11px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;color:var(--t1);font-size:14px;outline:none;margin-bottom:14px;}
-.login-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;}
+.login-logo{text-align:center;margin-bottom:28px;}
+.login-logo .logo-mark{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#fff;margin:0 auto 12px;box-shadow:0 8px 24px rgba(232,148,58,.4);}
+.login-logo h1{font-size:22px;font-weight:700;letter-spacing:-.02em;}
+.login-logo p{font-size:12px;color:var(--t3);margin-top:3px;}
+.login-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:6px;}
+.login-select,.login-input{width:100%;padding:11px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:14px;outline:none;margin-bottom:14px;transition:.15s;}
+.login-select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
+.login-select option{background:var(--s2);}
+.login-select:focus,.login-input:focus{border-color:var(--a);}
+.login-input::placeholder{color:var(--t3);}
+.login-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:.15s;letter-spacing:.02em;}
+.login-btn:hover{opacity:.9;transform:translateY(-1px);}
+.login-err{font-size:12px;color:var(--r);text-align:center;margin-top:8px;min-height:16px;}
+/* APP LAYOUT */
 #app{display:none;height:100%;flex-direction:column;}
 #app.visible{display:flex;}
-.topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 16px;gap:12px;}
+/* TOPBAR */
+.topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;}
+.tb-logo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;}
+.tb-name{font-size:15px;font-weight:700;letter-spacing:-.01em;}
+.tb-user{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.tb-avatar{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;}
+.tb-username{font-size:13px;font-weight:500;color:var(--t2);}
+.tb-icon-btn{background:none;border:1px solid var(--b1);border-radius:7px;padding:4px 8px;cursor:pointer;font-size:15px;transition:.15s;position:relative;}
+.tb-icon-btn:hover{border-color:var(--a);}
+.tb-logout{background:none;border:1px solid var(--b1);border-radius:6px;padding:4px 9px;color:var(--t3);font-size:11px;cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
+.tb-logout:hover{border-color:var(--r);color:var(--r);}
+.notif-dot{position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;background:var(--r);border:2px solid var(--s1);display:none;animation:pulse-notif .8s infinite;}
+@keyframes pulse-notif{0%,100%{transform:scale(1);}50%{transform:scale(1.3);box-shadow:0 0 0 4px rgba(248,113,113,.4);}}
+/* MAIN */
 .main{display:flex;flex:1;overflow:hidden;}
-.sidebar{width:220px;background:var(--s1);border-right:1px solid var(--b1);display:flex;flex-direction:column;overflow-y:auto;}
-.content{flex:1;overflow:hidden;display:flex;flex-direction:column;}
-.sb-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;margin:2px 8px;}
+/* SIDEBAR */
+.sidebar{width:220px;background:var(--s1);border-right:1px solid var(--b1);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
+.sb-section{padding:10px 8px 4px;}
+.sb-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);padding:0 8px;margin-bottom:4px;}
+.sb-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:.12s;margin-bottom:2px;position:relative;}
+.sb-item:hover{background:var(--s3);}
 .sb-item.active{background:var(--a3);color:var(--a);}
-.lead-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:13px 15px;cursor:pointer;margin-bottom:8px;position:relative;}
+.sb-item.active .sb-icon{color:var(--a);}
+.sb-icon{font-size:16px;flex-shrink:0;}
+.sb-txt{font-size:13px;font-weight:500;}
+.sb-badge{margin-left:auto;background:var(--a);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;}
+.sb-badge-r{margin-left:auto;background:var(--r);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;}
+/* CONTENT */
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+/* CHAT */
+.chat-area{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;}
+.chat-area::-webkit-scrollbar{width:3px;}
+.chat-area::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px;}
+.msg{display:flex;gap:10px;}
+.msg.user{flex-direction:row-reverse;align-self:flex-end;max-width:72%;}
+.msg.ai{align-self:flex-start;max-width:85%;}
+.msg-avatar{width:30px;height:30px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;}
+.msg.ai .msg-avatar{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;}
+.bubble{padding:11px 14px;border-radius:14px;font-size:13.5px;line-height:1.65;}
+.msg.ai .bubble{background:var(--s2);border:1px solid var(--b1);border-radius:14px 14px 14px 3px;}
+.msg.user .bubble{border-radius:14px 14px 3px 14px;color:#fff;}
+.typing{display:flex;gap:4px;padding:3px 0;}
+.typing span{width:6px;height:6px;border-radius:50%;background:var(--t3);animation:bounce .8s infinite;}
+.typing span:nth-child(2){animation-delay:.15s;}
+.typing span:nth-child(3){animation-delay:.3s;}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+/* CHAT INPUT */
+.chat-input-area{padding:12px 16px;border-top:1px solid var(--b1);background:var(--s1);flex-shrink:0;}
+.chat-input-row{display:flex;gap:8px;align-items:flex-end;}
+.chat-textarea{flex:1;background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:10px 13px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;resize:none;outline:none;min-height:42px;max-height:100px;line-height:1.5;transition:border-color .15s;}
+.chat-textarea:focus{border-color:var(--a);}
+.chat-textarea::placeholder{color:var(--t3);}
+.chat-tools{display:flex;gap:6px;margin-bottom:8px;align-items:center;}
+.tool-btn{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:5px 9px;cursor:pointer;color:var(--t3);transition:.15s;font-size:13px;font-family:'Outfit',sans-serif;}
+.tool-btn:hover{border-color:var(--a);color:var(--a);}
+.btn-send{background:linear-gradient(135deg,var(--a),var(--a2));border:none;border-radius:10px;padding:9px 16px;cursor:pointer;color:#fff;font-weight:700;font-family:'Outfit',sans-serif;font-size:13px;flex-shrink:0;transition:.15s;}
+.btn-send:hover{opacity:.88;}
+.btn-send:disabled{opacity:.3;cursor:not-allowed;}
+/* EMOJI PICKER */
+.emoji-picker{position:absolute;bottom:115px;left:16px;background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:10px;width:280px;display:none;z-index:100;box-shadow:0 8px 32px rgba(0,0,0,.5);}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;}
+.emoji-btn{background:none;border:none;font-size:18px;cursor:pointer;padding:4px;border-radius:6px;transition:.1s;text-align:center;}
+.emoji-btn:hover{background:var(--s3);}
+/* MESSAGERIE */
+.msg-layout{display:flex;flex:1;overflow:hidden;}
+.conv-list{width:200px;border-right:1px solid var(--b1);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;}
+.conv-header{padding:14px 14px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);}
+.conv-item{padding:11px 14px;cursor:pointer;transition:.12s;border-bottom:1px solid var(--b1);position:relative;}
+.conv-item:hover{background:var(--s2);}
+.conv-item.active{background:var(--a3);}
+.conv-name{font-size:13px;font-weight:600;}
+.conv-preview{font-size:11px;color:var(--t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.conv-unread-badge{position:absolute;top:50%;right:12px;transform:translateY(-50%);background:var(--a);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;}
+.conv-group .conv-name{color:var(--a);}
+.msg-thread{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.thread-header{padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:10px;background:var(--s1);}
+.thread-avatar{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;}
+.thread-name{font-size:14px;font-weight:600;}
+.thread-status{font-size:11px;color:var(--t3);}
+.thread-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;}
+.thread-msgs::-webkit-scrollbar{width:3px;}
+.thread-msgs::-webkit-scrollbar-thumb{background:var(--b2);}
+.tmsg{display:flex;gap:8px;max-width:78%;}
+.tmsg.mine{align-self:flex-end;flex-direction:row-reverse;}
+.tmsg.theirs{align-self:flex-start;}
+.tmsg-av{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+.tmsg-body{display:flex;flex-direction:column;}
+.tmsg-bubble{padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.5;cursor:pointer;position:relative;}
+.tmsg.mine .tmsg-bubble{border-radius:12px 12px 3px 12px;color:#fff;}
+.tmsg.theirs .tmsg-bubble{background:var(--s3);border:1px solid var(--b1);border-radius:12px 12px 12px 3px;}
+.tmsg-time{font-size:10px;color:var(--t3);margin-top:3px;}
+.tmsg.mine .tmsg-time{text-align:right;}
+.tmsg-actions{display:none;position:absolute;top:-28px;right:0;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:3px 6px;gap:4px;white-space:nowrap;z-index:10;}
+.tmsg-bubble:hover .tmsg-actions{display:flex;}
+.tmsg-act-btn{background:none;border:none;font-size:11px;cursor:pointer;color:var(--t2);padding:2px 4px;border-radius:4px;font-family:'Outfit',sans-serif;}
+.tmsg-act-btn:hover{color:var(--a);}
+.thread-input{padding:12px 14px;border-top:1px solid var(--b1);display:flex;gap:8px;background:var(--s1);}
+.thread-input input{flex:1;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:9px 12px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;outline:none;transition:.15s;}
+.thread-input input:focus{border-color:var(--a);}
+.thread-input input::placeholder{color:var(--t3);}
+.thread-send{background:var(--a);border:none;border-radius:9px;padding:9px 14px;color:#fff;cursor:pointer;font-size:16px;transition:.15s;}
+.thread-send:hover{background:var(--a2);}
+/* DASHBOARD */
+.dashboard{flex:1;overflow-y:auto;padding:20px;}
+.dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+.dash-card{background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:16px;}
+.dc-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
+.dc-val{font-size:28px;font-weight:800;color:var(--t1);}
+.dc-sub{font-size:11px;color:var(--t3);margin-top:3px;}
+.dc-icon{font-size:24px;margin-bottom:8px;}
+.act-item{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--s3);border-radius:8px;margin-bottom:6px;}
+.act-av{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+.act-txt{flex:1;font-size:12px;color:var(--t2);}
+.act-time{font-size:10px;color:var(--t3);}
+/* SAV */
+.sav-area{flex:1;overflow-y:auto;padding:16px;}
+.sav-form{background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:16px;margin-bottom:16px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+.form-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);}
+.form-input{padding:9px 11px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;outline:none;transition:.15s;}
+.form-input:focus{border-color:var(--a);}
+.form-input::placeholder{color:var(--t3);}
+.btn-primary{padding:10px 20px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:8px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;}
+.btn-primary:hover{opacity:.88;}
+.sav-list{display:flex;flex-direction:column;gap:8px;}
+.sav-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:13px 15px;}
+.sav-card.urgent{border-color:var(--r);box-shadow:0 0 0 1px rgba(248,113,113,.2);}
+.sav-client{font-size:13px;font-weight:600;}
+.sav-pb{font-size:12px;color:var(--t2);margin-top:3px;}
+.sav-meta{font-size:10px;color:var(--t3);margin-top:3px;}
+.badge{display:inline-block;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;}
+.badge-nem{background:rgba(232,148,58,.15);color:var(--nem);}
+.badge-lam{background:var(--bl2);color:var(--lam);}
+.badge-urgent{background:var(--r2);color:var(--r);}
+.sav-filter{background:var(--s3);border:1px solid var(--b1);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
+.sav-filter:hover{border-color:var(--a);color:var(--a);}
+.sav-filter.active{background:var(--a3);border-color:var(--a);color:var(--a);}
+.sav-search{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 12px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;outline:none;width:200px;transition:.15s;}
+.sav-search:focus{border-color:var(--a);}
+.sav-search::placeholder{color:var(--t3);}
+.sav-action-input{flex:1;padding:7px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;outline:none;}
+.sav-action-input:focus{border-color:var(--a);}
+.state-new{background:rgba(248,113,113,.15);color:var(--r);display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+.state-progress{background:rgba(251,191,36,.15);color:#FBBF24;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+.state-done{background:var(--g2);color:var(--g);display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+.btn-resolve{background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
+.btn-resolve:hover{background:var(--g);color:#fff;}
+.sav-reminder-badge{background:var(--y2);color:var(--y);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:600;display:inline-flex;align-items:center;gap:4px;}
+/* PAGE HEADER */
+.page-header{padding:16px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.page-title{font-size:17px;font-weight:700;letter-spacing:-.02em;}
+.page-sub{font-size:12px;color:var(--t3);margin-top:2px;}
+/* NOTES */
+.notes-area{flex:1;overflow-y:auto;padding:16px;}
+.note-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:14px;margin-bottom:10px;position:relative;}
+.note-card textarea{width:100%;background:transparent;border:none;outline:none;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;line-height:1.6;resize:vertical;min-height:60px;max-height:400px;}
+.note-meta{font-size:10px;color:var(--t3);margin-top:6px;display:flex;justify-content:space-between;}
+.note-del{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;transition:.15s;}
+.note-del:hover{color:var(--r);}
+.note-new{width:100%;padding:11px;background:var(--s2);border:1px dashed var(--b2);border-radius:12px;color:var(--t3);font-family:'Outfit',sans-serif;font-size:13px;cursor:pointer;text-align:left;transition:.15s;margin-bottom:10px;}
+.note-new:hover{border-color:var(--a);color:var(--a);}
+/* ABSENCES */
+.absence-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:13px 15px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.absence-icon{font-size:22px;flex-shrink:0;}
+.absence-info{flex:1;}
+.absence-name{font-size:13px;font-weight:600;}
+.absence-dates{font-size:12px;color:var(--t2);margin-top:2px;}
+.absence-type{font-size:11px;color:var(--t3);margin-top:2px;}
+.absence-status{font-size:11px;font-weight:600;padding:3px 8px;border-radius:12px;}
+.abs-future{background:var(--bl2);color:var(--bl);}
+.abs-today{background:var(--r2);color:var(--r);}
+.abs-past{background:var(--s3);color:var(--t3);}
+/* EVOLUTION */
+.evol-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:14px;margin-bottom:10px;}
+.evol-tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-bottom:8px;}
+.evol-title{font-size:13px;font-weight:600;margin-bottom:6px;}
+.evol-desc{font-size:12px;color:var(--t2);line-height:1.6;}
+.evol-actions{display:flex;gap:8px;margin-top:10px;}
+.evol-btn-ok{background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;}
+.evol-btn-later{background:var(--s3);color:var(--t3);border:1px solid var(--b1);border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;}
+/* STATS */
+.stat-bar-wrap{margin-bottom:8px;}
+.stat-bar-label{display:flex;justify-content:space-between;font-size:11px;color:var(--t2);margin-bottom:4px;}
+.stat-bar{height:6px;background:var(--s3);border-radius:3px;overflow:hidden;}
+.stat-bar-fill{height:100%;border-radius:3px;transition:width .5s ease;}
+/* TOKEN */
+.token-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--s3);border-radius:8px;margin-bottom:6px;}
+.token-name{flex:1;font-size:13px;font-weight:500;}
+.token-val{font-size:11px;color:var(--t2);font-family:'JetBrains Mono',monospace;}
+.token-cost{font-size:11px;color:var(--a);font-weight:600;}
+/* TOGGLE */
+.toggle{width:36px;height:20px;border-radius:10px;background:var(--s3);border:1px solid var(--b1);cursor:pointer;position:relative;transition:.15s;flex-shrink:0;}
+.toggle.on{background:var(--a);border-color:var(--a);}
+.toggle::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.15s;}
+.toggle.on::after{left:18px;}
+/* USER CARD */
+.user-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s3);border-radius:8px;margin-bottom:6px;}
+.user-av{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
+.user-info{flex:1;}
+.user-name{font-size:13px;font-weight:500;}
+.user-role{font-size:10px;color:var(--t3);}
+/* SETTINGS PANEL */
+#settings-panel{display:none;position:fixed;top:52px;right:12px;width:300px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.6);z-index:999;padding:16px;font-family:'Outfit',sans-serif;max-height:calc(100vh - 70px);overflow-y:auto;}
+.sp-title{font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
+.sp-section{margin-bottom:14px;}
+.sp-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px;}
+/* REMINDER ALERT */
+.reminder-alert{background:var(--y2);border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:var(--y);display:flex;align-items:center;gap:8px;}
+/* HISTOG CLIENT */
+.hist-item{padding:8px 10px;background:var(--s3);border-radius:8px;margin-bottom:5px;}
+.hist-date{font-size:10px;color:var(--t3);}
+.hist-pb{font-size:12px;color:var(--t2);margin-top:2px;}
+/* CORRECTION AUTO */
+.correction-bubble{margin-top:5px;padding:5px 10px;background:var(--g2);border:1px solid rgba(34,197,94,.2);border-radius:8px;font-size:11px;color:var(--g);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.correction-use{background:var(--g);color:#fff;border:none;border-radius:5px;padding:2px 8px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;}
+/* ATTACH */
+.btn-attach-plus{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:9px 12px;cursor:pointer;color:var(--a);font-size:20px;font-weight:700;transition:.15s;flex-shrink:0;line-height:1;}
+.btn-attach-plus:hover{border-color:var(--a);background:var(--a3);}
+/* ANNUAIRE FILTERS */
+.ann-filter{background:var(--s3);border:1px solid var(--b1);border-radius:16px;padding:4px 10px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:inherit;transition:.15s;}
+.ann-filter:hover{border-color:var(--a);color:var(--a);}
+.ann-filter.active{background:var(--a3);border-color:var(--a);color:var(--a);}
+.ann-counter{font-size:11px;font-weight:600;color:var(--t3);padding:4px 10px;}
+.emp-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:13px 15px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.emp-avatar{width:40px;height:40px;border-radius:10px;background:var(--a3);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:var(--a);flex-shrink:0;}
+.emp-name{font-size:13px;font-weight:600;}
+.emp-detail{font-size:11px;color:var(--t2);margin-top:2px;}
+.emp-email{font-size:11px;color:var(--bl);margin-top:2px;cursor:pointer;}
+.emp-email:hover{text-decoration:underline;}
+.fonction-tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:var(--a3);color:var(--a);margin-left:6px;}
+/* PAIE */
+.paie-item{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.paie-status{font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;}
+.paie-ok{background:var(--g2);color:var(--g);}
+.paie-warn{background:var(--y2);color:var(--y);}
+.paie-err{background:var(--r2);color:var(--r);}
+/* SAV VU */
+.sav-vu{font-size:10px;color:var(--g);display:inline-flex;align-items:center;gap:3px;}
+/* LIGHT */
+/* TUTO */
+#tuto-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.tuto-box{width:480px;background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:36px;box-shadow:0 40px 80px rgba(0,0,0,.6);position:relative;}
+.tuto-progress{display:flex;gap:6px;margin-bottom:24px;justify-content:center;}
+.tuto-dot{width:8px;height:8px;border-radius:50%;background:var(--b2);transition:.2s;}
+.tuto-dot.active{background:var(--a);width:20px;border-radius:4px;}
+.tuto-icon{font-size:48px;text-align:center;margin-bottom:16px;}
+.tuto-title{font-size:18px;font-weight:700;text-align:center;margin-bottom:10px;}
+.tuto-desc{font-size:13px;color:var(--t2);text-align:center;line-height:1.7;margin-bottom:24px;}
+.tuto-highlight{background:var(--a3);border:1px solid rgba(232,148,58,.3);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--a);text-align:center;margin-bottom:20px;}
+.tuto-actions{display:flex;gap:10px;justify-content:center;}
+.tuto-btn{padding:10px 24px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;}
+.tuto-btn-primary{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;}
+.tuto-btn-primary:hover{opacity:.88;}
+.tuto-btn-skip{background:transparent;color:var(--t3);border:1px solid var(--b1);}
+.tuto-btn-skip:hover{color:var(--t2);border-color:var(--b2);}
+/* UPDATE POPUP */
+#update-popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2001;align-items:center;justify-content:center;}
+.update-box{width:420px;background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.update-badge{display:inline-block;background:var(--a3);color:var(--a);border-radius:20px;padding:3px 12px;font-size:11px;font-weight:700;margin-bottom:12px;}
+.update-version{font-size:20px;font-weight:800;margin-bottom:6px;}
+.update-notes{font-size:12px;color:var(--t2);line-height:1.8;margin-bottom:20px;max-height:200px;overflow-y:auto;}
+.update-notes li{margin-bottom:4px;}
+/* OFFLINE */
+#offline-banner{display:none;position:fixed;top:0;left:0;right:0;background:#1a1a1a;color:#fff;text-align:center;padding:8px;font-size:12px;font-weight:600;z-index:9999;align-items:center;justify-content:center;gap:8px;}
+.shortcut{font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace;background:var(--s3);padding:1px 5px;border-radius:4px;border:1px solid var(--b1);}
+body.light{--bg:#F5F5F0;--s1:#FFFFFF;--s2:#F0EFE9;--s3:#E8E7E0;--b1:#D8D6CE;--b2:#C8C6BE;--t1:#1A1917;--t2:#4A4845;--t3:#8A8880;}
+body.light .login-box{background:#fff;border-color:#E0DDD5;}
+body.light .msg.ai .bubble{background:#fff;border-color:#E0DDD5;}
+body.light .bubble{color:var(--t1);}
+/* ACCORDION DASHBOARD */
+.accordion-header{cursor:pointer;user-select:none;display:flex;align-items:center;}
+.accordion-header:hover{opacity:.8;}
+.accordion-arrow{margin-left:auto;font-size:12px;transition:transform .2s;color:var(--t3);}
+.accordion-body{overflow:hidden;transition:max-height .25s ease;}
+.accordion-body.collapsed{display:none;}
+/* NOTIFICATION POPUP */
+.notif-popup{position:fixed;top:60px;right:12px;width:340px;background:var(--s1);border:2px solid var(--a);border-radius:16px;box-shadow:0 12px 48px rgba(0,0,0,.6);z-index:9998;overflow:hidden;display:none;}
+.notif-popup-header{padding:12px 16px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:space-between;}
+.notif-popup-title{font-size:13px;font-weight:700;color:#fff;}
+.notif-popup-body{max-height:360px;overflow-y:auto;}
+.notif-item{padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;gap:10px;align-items:flex-start;cursor:pointer;transition:.12s;}
+.notif-item:hover{background:var(--s3);}
+.notif-item.unread{background:var(--a3);border-left:3px solid var(--a);}
+.notif-item-icon{font-size:22px;flex-shrink:0;}
+.notif-item-txt{flex:1;font-size:12px;color:var(--t1);line-height:1.4;font-weight:500;}
+.notif-item-time{font-size:10px;color:var(--t3);margin-top:2px;}
+/* DOWNLOAD CHAT */
+.download-chat-btn{background:none;border:1px solid var(--b1);border-radius:7px;padding:4px 8px;cursor:pointer;font-size:12px;transition:.15s;color:var(--t3);}
+.download-chat-btn:hover{border-color:var(--a);color:var(--a);}
+/* BADGE ABSENCES SIDEBAR */
+.sb-badge-abs{margin-left:auto;background:var(--bl);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;}
+/* ══════════════════════════════════════════
+   CRM LEADS
+══════════════════════════════════════════ */
+.crm-tabs{display:flex;gap:4px;padding:12px 16px 0;flex-shrink:0;}
+.crm-tab{padding:7px 16px;border-radius:8px 8px 0 0;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--b1);border-bottom:none;background:var(--s2);color:var(--t3);transition:.12s;}
+.crm-tab.active{background:var(--s1);color:var(--a);border-color:var(--a);}
+.crm-tab:hover{color:var(--t1);}
+.crm-body{flex:1;overflow:hidden;display:flex;flex-direction:column;border-top:1px solid var(--b1);}
+.leads-list{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;}
+.lead-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:13px 15px;cursor:pointer;transition:.12s;position:relative;}
+.lead-card:hover{border-color:var(--a);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.2);}
+.lead-card.statut-gris{border-left:4px solid #888;}
+.lead-card.statut-rdv{border-left:4px solid var(--bl);background:rgba(96,165,250,.07);}
+.lead-card.statut-jaune{border-left:4px solid var(--y);background:rgba(251,191,36,.07);}
+.lead-card.statut-vert{border-left:4px solid var(--g);background:rgba(34,197,94,.07);}
+.lead-card.statut-rouge{border-left:4px solid var(--r);background:rgba(248,113,113,.07);}
 .lead-card.alerte24{border-color:var(--r);box-shadow:0 0 0 2px rgba(248,113,113,.2);}
-.statut-btn{padding:7px 14px;border-radius:8px;border:2px solid transparent;font-size:12px;font-weight:700;cursor:pointer;}
-.selected{border-color:white!important;}
+.lead-nom{font-size:13px;font-weight:700;}
+.lead-info{font-size:11px;color:var(--t2);margin-top:3px;}
+.lead-meta{font-size:10px;color:var(--t3);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.lead-statut{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
+.ls-gris{background:#88888820;color:#888;}
+.ls-rdv{background:var(--bl2);color:var(--bl);}
+.ls-jaune{background:var(--y2);color:var(--y);}
+.ls-vert{background:var(--g2);color:var(--g);}
+.ls-rouge{background:var(--r2);color:var(--r);}
+.lead-commercial{background:var(--a3);color:var(--a);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;}
+.lead-secteur{background:var(--bl2);color:var(--bl);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;}
+.lead-alerte{background:var(--r2);color:var(--r);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;animation:pulse-r 1s infinite;}
+@keyframes pulse-r{0%,100%{opacity:1}50%{opacity:.6}}
+.crm-filters{padding:8px 16px;display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;border-bottom:1px solid var(--b1);}
+.crm-filter{background:var(--s3);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;transition:.12s;}
+.crm-filter:hover{border-color:var(--a);color:var(--a);}
+.crm-filter.active{background:var(--a3);border-color:var(--a);color:var(--a);}
+.crm-filter.f-gris.active{background:#88888820;border-color:#888;color:#888;}
+.crm-filter.f-jaune.active{background:var(--y2);border-color:var(--y);color:var(--y);}
+.crm-filter.f-vert.active{background:var(--g2);border-color:var(--g);color:var(--g);}
+.crm-filter.f-rouge.active{background:var(--r2);border-color:var(--r);color:var(--r);}
+/* FICHE LEAD MODALE */
+.lead-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;display:none;align-items:center;justify-content:center;padding:16px;}
+.lead-modal.open{display:flex;}
+.lead-modal-box{background:var(--s1);border:1px solid var(--b1);border-radius:18px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.6);}
+.lead-modal-header{padding:16px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--s1);z-index:1;}
+.lead-modal-body{padding:16px 20px;}
+.lead-modal-section{margin-bottom:16px;}
+.lead-modal-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px;}
+.statut-btn{padding:7px 14px;border-radius:8px;border:2px solid transparent;font-size:12px;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
+.statut-btn:hover{opacity:.8;}
+.statut-btn.selected{border-color:currentColor;box-shadow:0 0 0 2px currentColor;}
 .sb-gris{background:#88888820;color:#888;}
 .sb-rdv{background:var(--bl2);color:var(--bl);}
 .sb-jaune{background:var(--y2);color:var(--y);}
 .sb-vert{background:var(--g2);color:var(--g);}
 .sb-rouge{background:var(--r2);color:var(--r);}
-.stat-box{background:var(--s3);border-radius:10px;padding:12px;text-align:center;flex:1;}
-.stat-box-val{font-size:22px;font-weight:800;}
-/* TUTO */
-#tuto-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:2000;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
-.tuto-box{width:480px;background:var(--s1);padding:36px;border-radius:20px;text-align:center;}
+.historique-item{padding:8px 10px;background:var(--s3);border-radius:8px;margin-bottom:5px;}
+.historique-date{font-size:10px;color:var(--t3);}
+.historique-txt{font-size:12px;color:var(--t1);margin-top:2px;}
+/* DASHBOARD CRM */
+.secteur-card{background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:16px;margin-bottom:12px;}
+.secteur-title{font-size:15px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.secteur-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.stat-box{background:var(--s3);border-radius:10px;padding:12px;text-align:center;}
+.stat-box-val{font-size:22px;font-weight:800;margin-bottom:2px;}
+.stat-box-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;}
+.stat-box-obj{font-size:10px;color:var(--t2);margin-top:2px;}
+.objectif-bar{height:6px;background:var(--s1);border-radius:3px;overflow:hidden;margin-top:6px;}
+.objectif-bar-fill{height:100%;border-radius:3px;transition:width .5s;}
+.perf-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--s3);border-radius:8px;margin-bottom:6px;}
+.perf-name{flex:1;font-size:13px;font-weight:500;}
+.perf-stats{font-size:11px;color:var(--t2);}
+.perf-ca{font-size:12px;font-weight:700;color:var(--g);}
+/* SOURCE BUTTONS */
+.src-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:.12s;}
+.src-btn:hover{border-color:var(--a);color:var(--a);}
+.src-btn.selected{background:var(--a3);border-color:var(--a);color:var(--a);}
+/* ADRESSE SUGGESTIONS */
+.addr-suggestion{padding:9px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--b1);transition:.1s;}
+.addr-suggestion:hover{background:var(--s3);}
+.addr-suggestion strong{color:var(--a);}
+/* TIMELINE */
+.timeline-item{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--b1);position:relative;}
+.timeline-dot{width:8px;height:8px;border-radius:50%;background:var(--a);flex-shrink:0;margin-top:4px;}
+.timeline-content{flex:1;}
+.timeline-action{font-size:12px;font-weight:500;color:var(--t1);}
+.timeline-meta{font-size:10px;color:var(--t3);margin-top:1px;}
+/* KANBAN */
+.kanban-col{flex:1;min-width:180px;background:var(--s2);border:1px solid var(--b1);border-radius:12px;overflow:hidden;}
+.kanban-col-header{padding:10px 12px;font-size:12px;font-weight:700;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;}
+.kanban-col-body{padding:8px;display:flex;flex-direction:column;gap:6px;min-height:60px;max-height:calc(100vh - 280px);overflow-y:auto;}
+.kanban-card{background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:10px;cursor:pointer;transition:.12s;font-size:12px;}
+.kanban-card:hover{border-color:var(--a);transform:translateY(-1px);}
+.kanban-card-nom{font-weight:700;margin-bottom:3px;}
+.kanban-card-info{color:var(--t2);font-size:11px;}
+/* VU indicator */
+.lead-vu{font-size:10px;color:var(--g);font-weight:600;}
+.lead-non-vu{font-size:10px;color:var(--r);font-weight:600;}
+input[type=file]{display:none;}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
 <div id="login-screen">
   <div class="login-box">
-    <div style="text-align:center;margin-bottom:28px">
-      <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#fff;margin:0 auto 12px;">B</div>
-      <h1 style="font-size:22px;font-weight:700;">BenAI v3.16</h1>
+    <div class="login-logo">
+      <div class="logo-mark">B</div>
+      <h1>BenAI</h1>
+      <p>Nemausus Fermetures · Lambert SAS</p>
     </div>
-    <input type="text" class="login-input" id="login-user" placeholder="Identifiant">
-    <input type="password" class="login-input" id="login-pwd" placeholder="Mot de passe">
+    <div class="login-label">Identifiant</div>
+    <input type="text" class="login-input" id="login-user" placeholder="Votre identifiant" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter')document.getElementById('login-pwd').focus()">
+    <div class="login-label">Mot de passe</div>
+    <input type="password" class="login-input" id="login-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
     <button class="login-btn" onclick="login()">Se connecter →</button>
-    <div id="login-err" style="color:var(--r);font-size:12px;text-align:center;margin-top:10px"></div>
+    <div class="login-err" id="login-err"></div>
   </div>
 </div>
+
+<div id="force-pwd-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:999;display:none;align-items:center;justify-content:center;background-image:radial-gradient(ellipse at 30% 20%,rgba(232,148,58,.06) 0%,transparent 60%)">
+  <div style="width:400px;padding:40px 36px;background:var(--s1);border:1px solid var(--b1);border-radius:20px;box-shadow:0 40px 80px rgba(0,0,0,.6)">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--r),#DC2626);display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px;box-shadow:0 8px 24px rgba(248,113,113,.4)">🔑</div>
+      <h2 style="font-size:20px;font-weight:700;margin-bottom:6px">Changement de mot de passe</h2>
+      <p style="font-size:12px;color:var(--t3)">Première connexion — vous devez choisir un mot de passe sécurisé</p>
+    </div>
+    <div style="background:var(--r2);border:1px solid rgba(248,113,113,.3);border-radius:10px;padding:12px 14px;margin-bottom:20px;font-size:12px;color:var(--r)">
+      ⚠️ Le mot de passe par défaut <strong>1234</strong> doit être remplacé avant de continuer.
+    </div>
+    <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:6px">Nouveau mot de passe</div>
+    <input type="password" id="force-pwd-input" class="login-input" placeholder="••••••••" style="margin-bottom:8px">
+    <div style="font-size:11px;color:var(--t3);margin-bottom:14px;line-height:1.6">
+      ✅ Minimum 6 caractères  ·  ✅ 1 majuscule  ·  ✅ 1 caractère spécial
+    </div>
+    <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:6px">Confirmer le mot de passe</div>
+    <input type="password" id="force-pwd-confirm" class="login-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')forcePwdChange()">
+    <button onclick="forcePwdChange()" class="login-btn" style="margin-top:4px">Enregistrer et continuer →</button>
+    <div id="force-pwd-err" style="font-size:12px;color:var(--r);text-align:center;margin-top:8px;min-height:16px"></div>
+  </div>
+</div>
+
+<div id="offline-banner">📵 Mode hors-ligne — BenAI IA indisponible, les autres fonctionnalités restent actives</div>
 
 <div id="tuto-overlay">
   <div class="tuto-box">
-    <div id="tuto-icon" style="font-size:48px;margin-bottom:16px">👋</div>
-    <h2 id="tuto-title" style="margin-bottom:10px">Bienvenue !</h2>
-    <p id="tuto-desc" style="color:var(--t2);line-height:1.6;margin-bottom:24px"></p>
-    <button class="login-btn" id="tuto-next" onclick="nextTutoSlide()">Suivant →</button>
+    <div class="tuto-progress" id="tuto-progress"></div>
+    <div class="tuto-icon" id="tuto-icon"></div>
+    <div class="tuto-title" id="tuto-title"></div>
+    <div class="tuto-desc" id="tuto-desc"></div>
+    <div class="tuto-highlight" id="tuto-highlight" style="display:none"></div>
+    <div class="tuto-actions">
+      <button class="tuto-btn tuto-btn-skip" id="tuto-skip" onclick="closeTuto()">Passer</button>
+      <button class="tuto-btn tuto-btn-primary" id="tuto-next" onclick="nextTutoSlide()">Suivant →</button>
+    </div>
   </div>
+</div>
+
+<div id="update-popup">
+  <div class="update-box">
+    <div class="update-badge">⬆️ Nouvelle version disponible</div>
+    <div class="update-version" id="update-version"></div>
+    <div style="font-size:12px;color:var(--t3);margin-bottom:12px">Améliorations :</div>
+    <ul class="update-notes" id="update-notes"></ul>
+    <div style="display:flex;gap:10px">
+      <button onclick="confirmInstallUpdate()" style="flex:1;padding:11px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚀 Installer maintenant</button>
+      <button onclick="document.getElementById('update-popup').style.display='none'" style="padding:11px 16px;background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:10px;font-family:inherit;font-size:13px;cursor:pointer">Plus tard</button>
+    </div>
+  </div>
+</div>
+
+<div class="notif-popup" id="notif-panel">
+  <div class="notif-popup-header">
+    <span class="notif-popup-title">🔔 Notifications</span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="markAllNotifsRead()" style="background:none;border:none;color:var(--t3);font-size:10px;cursor:pointer;font-family:inherit">Tout marquer lu</button>
+      <button onclick="toggleNotifPanel()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px">✕</button>
+    </div>
+  </div>
+  <div class="notif-popup-body" id="notif-list"><div style="padding:16px;color:var(--t3);font-size:12px;text-align:center">Aucune notification</div></div>
+</div>
+
+<div id="switch-panel" style="display:none;position:fixed;top:52px;right:12px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.6);z-index:999;padding:14px;font-family:'Outfit',sans-serif;min-width:200px">
+  <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:10px">Passer à...</div>
+  <div id="switch-user-list"></div>
 </div>
 
 <div id="app">
+
   <div class="topbar">
-    <b style="color:var(--a);margin-right:15px">BenAI</b>
-    <div id="tb-user" style="margin-left:auto;display:flex;align-items:center;gap:12px">
-      <span id="tb-username" style="font-size:13px;color:var(--t2)"></span>
-      <button onclick="logout()" style="background:none;border:1px solid var(--b1);padding:4px 8px;border-radius:6px;color:var(--t3);cursor:pointer">Déconnexion</button>
+    <div class="tb-logo">B</div>
+    <div class="tb-name">BenAI</div>
+    <span id="tb-version" style="font-size:10px;color:var(--t3);margin-left:4px;">v3.0</span>
+    <div class="tb-user">
+      <div class="tb-avatar" id="tb-avatar"></div>
+      <span class="tb-username" id="tb-username"></span>
+      <button class="tb-icon-btn" onclick="toggleSettings()" title="Paramètres">⚙️</button>
+      <button class="tb-logout" id="btn-switch-session" onclick="toggleSwitchPanel()" title="Changer d'utilisateur" style="display:none;margin-right:4px">🔄 Changer</button>
+      <button class="tb-icon-btn" id="btn-notif" onclick="toggleNotifPanel()" title="Notifications" style="position:relative;font-size:18px">🔔<span id="notif-dot" style="position:absolute;top:-8px;right:-8px;min-width:18px;height:18px;border-radius:9px;background:var(--r);border:2px solid var(--s1);display:none;font-size:10px;font-weight:800;color:#fff;align-items:center;justify-content:center;padding:0 3px;animation:pulse-notif .8s infinite"></span></button>
+      <button class="tb-logout" onclick="logout()">Déconnexion</button>
     </div>
   </div>
+
+  <div id="settings-panel">
+    <div class="sp-title">⚙️ Paramètres <button onclick="toggleSettings()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px">✕</button></div>
+    <div class="sp-section">
+      <div class="sp-label">Affichage</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="setTheme('dark')" id="btn-dark" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">🌙 Sombre</button>
+        <button onclick="setTheme('light')" id="btn-light" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">☀️ Clair</button>
+      </div>
+    </div>
+    <div class="sp-section" id="tuto-settings-section" style="display:none">
+      <div class="sp-label">Aide</div>
+      <button onclick="startTuto();toggleSettings();" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer;text-align:left">🎓 Relancer le tutoriel</button>
+    </div>
+    <div class="sp-section">
+      <div class="sp-label">Mon mot de passe</div>
+      <div style="display:flex;gap:6px">
+        <input type="password" id="new-pwd" placeholder="Nouveau mot de passe" style="flex:1;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:inherit;font-size:12px;outline:none;">
+        <button onclick="changerMonMdp()" style="padding:8px 12px;background:var(--a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">OK</button>
+      </div>
+      <div id="pwd-msg" style="font-size:11px;margin-top:5px;min-height:14px"></div>
+    </div>
+    <div id="api-settings" style="display:none">
+      <div class="sp-section">
+        <div class="sp-label">Clé API Anthropic</div>
+        <div style="display:flex;gap:6px">
+          <input type="password" id="api-key-settings" placeholder="sk-ant-..." style="flex:1;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:inherit;font-size:12px;outline:none;">
+          <button onclick="saveApiKeySettings()" style="padding:8px 12px;background:var(--a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">OK</button>
+        </div>
+        <div id="api-msg" style="font-size:11px;margin-top:5px;color:var(--g);min-height:14px"></div>
+      </div>
+      <div class="sp-section">
+        <div class="sp-label">Mots de passe équipe</div>
+        <div id="team-pwd-list"></div>
+      </div>
+      <div class="sp-section">
+        <div class="sp-label">Sauvegarde données</div>
+        <div style="display:flex;gap:6px">
+          <button onclick="exportData()" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">💾 Local</button>
+          <button onclick="document.getElementById('import-file').click()" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">📂 Restaurer</button>
+          <button onclick="manualBackupToDrive()" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--g);background:var(--g2);color:var(--g);font-family:inherit;font-size:12px;cursor:pointer;font-weight:600">☁️ Drive</button>
+        </div>
+        <input type="file" id="import-file" accept=".json" onchange="importData(this)">
+        <div id="backup-msg" style="font-size:11px;margin-top:5px;min-height:14px"></div>
+      </div>
+      <div class="sp-section">
+        <div class="sp-label">Google Drive — Client ID</div>
+        <div style="font-size:10px;color:var(--t3);margin-bottom:6px">Créer un projet sur <a href="https://console.cloud.google.com" target="_blank" style="color:var(--a)">console.cloud.google.com</a> → API Drive → OAuth 2.0</div>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="gdrive-client-id" placeholder="xxxx.apps.googleusercontent.com" style="flex:1;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
+          <button onclick="saveGDriveClientIdSettings()" style="padding:8px 12px;background:var(--a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">OK</button>
+        </div>
+        <div id="gdrive-msg" style="font-size:11px;margin-top:5px;min-height:14px"></div>
+        <div id="gdrive-last-backup" style="font-size:10px;color:var(--t3);margin-top:4px"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="main">
     <div class="sidebar">
-       <div class="sb-item active" onclick="showPage('leads')">📋 CRM Leads</div>
-       <div class="sb-item" onclick="showPage('annuaire')">👥 Annuaire</div>
-       <div id="nav-admin" class="sb-item" onclick="showPage('admin')" style="display:none">📊 Dashboard</div>
-    </div>
-    <div class="content">
-      <div id="page-leads" style="padding:20px;overflow-y:auto">
-        <div style="display:flex;justify-content:space-between;margin-bottom:20px">
-          <h2>Leads CRM</h2>
-          <button class="login-btn" style="width:auto;padding:8px 16px" onclick="openNewLead()">+ Nouveau lead</button>
-        </div>
-        <div style="display:flex;gap:10px;margin-bottom:15px">
-           <button onclick="filterLeads('tous')" class="statut-btn sb-gris">Tous</button>
-           <button onclick="filterLeads('archive')" class="statut-btn" style="background:var(--s3);color:var(--t2)">📁 Archives</button>
-        </div>
-        <div id="leads-list"></div>
+      <div class="sb-section">
+        <div class="sb-label">Assistant</div>
+        <div class="sb-item active" onclick="showPage('benai')" id="nav-benai"><span class="sb-icon">🤖</span><span class="sb-txt">BenAI IA</span></div>
+        <div class="sb-item" onclick="showPage('notes')" id="nav-notes"><span class="sb-icon">📝</span><span class="sb-txt">Notes rapides</span></div>
+        <div class="sb-item" onclick="showPage('evolution')" id="nav-evolution"><span class="sb-icon">🚀</span><span class="sb-txt">Évolution</span></div>
       </div>
-      <div id="page-admin" style="display:none;padding:20px;overflow-y:auto"></div>
-      <div id="page-annuaire" style="display:none;padding:20px;overflow-y:auto"></div>
+      <div class="sb-section">
+        <div class="sb-label">Messages</div>
+        <div class="sb-item" onclick="showPage('messages')" id="nav-messages">
+          <span class="sb-icon">💬</span><span class="sb-txt">Messages</span>
+          <span class="sb-badge" id="msg-badge" style="display:none"></span>
+        </div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-label">Gestion</div>
+        <div class="sb-item" onclick="showPage('sav')" id="nav-sav">
+          <span class="sb-icon">🔧</span><span class="sb-txt">SAV</span>
+          <span class="sb-badge" id="sav-badge" style="display:none"></span>
+        </div>
+        <div class="sb-item" id="nav-leads" style="display:none" onclick="showPage('leads')">
+          <span class="sb-icon">📋</span><span class="sb-txt">Leads CRM</span>
+          <span class="sb-badge" id="leads-badge" style="display:none"></span>
+        </div>
+        <div class="sb-item" id="nav-bugs" onclick="showPage('bugs')">
+          <span class="sb-icon">🐛</span><span class="sb-txt">Bugs</span>
+          <span class="sb-badge" id="bugs-badge" style="display:none"></span>
+        </div>
+        <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span><span class="sb-badge-abs" id="abs-badge" style="display:none"></span></div>
+        <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')"><span class="sb-icon">👥</span><span class="sb-txt">Annuaire</span></div>
+        <div class="sb-item" id="nav-paie" style="display:none" onclick="showPage('paie')"><span class="sb-icon">💰</span><span class="sb-txt">Fiches de paie</span></div>
+        <div class="sb-item" id="nav-admin" style="display:none" onclick="showPage('admin')"><span class="sb-icon">📊</span><span class="sb-txt">Dashboard</span></div>
+      </div>
     </div>
-  </div>
-</div>
 
-<div id="lead-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:2000;align-items:center;justify-content:center">
-  <div class="login-box" style="width:500px;background:var(--s1)">
-    <h3 id="modal-title" style="margin-bottom:15px">Fiche Lead</h3>
-    <input type="text" id="lead-nom" class="login-input" placeholder="Nom">
-    <input type="text" id="lead-tel" class="login-input" placeholder="Téléphone">
-    <select id="lead-secteur" class="login-input">
-      <option value="nimes">Nîmes</option>
-      <option value="avignon">Avignon</option>
-    </select>
-    <div style="display:flex;gap:5px;margin-bottom:15px">
-       <button class="statut-btn sb-gris" onclick="setStatut('gris',this)">Gris</button>
-       <button class="statut-btn sb-vert" onclick="setStatut('vert',this)">Vendu</button>
-       <button class="statut-btn sb-rouge" onclick="setStatut('rouge',this)">Perdu</button>
-    </div>
-    <div id="vendu-fields" style="display:none">
-       <input type="number" id="lead-prix" class="login-input" placeholder="Prix Vendu HT (€)">
-    </div>
-    <div id="perdu-fields" style="display:none">
-       <select id="lead-raison" class="login-input">
-          <option value="">Raison de la perte...</option>
-          <option value="Concurrent">Concurrent choisi</option>
-          <option value="Budget">Budget insuffisant</option>
-          <option value="Annulé">Projet annulé</option>
-       </select>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="login-btn" style="flex:1" onclick="saveLead()">Enregistrer</button>
-      <button id="btn-archive" class="login-btn" style="background:var(--s3)" onclick="archiveCurrentLead()">Archiver</button>
-      <button class="login-btn" style="background:var(--r)" onclick="closeLeadModal()">Fermer</button>
-    </div>
-  </div>
-</div>
+    <div class="content">
 
+      <div id="page-benai" style="display:flex;flex-direction:column;height:100%;position:relative">
+        <div class="page-header" style="padding-bottom:10px">
+          <div>
+            <div class="page-title">🤖 BenAI IA</div>
+            <div class="page-sub">BenAI suggère — vous décidez toujours</div>
+          </div>
+          <button class="download-chat-btn" onclick="downloadMyChat()" title="Télécharger ma conversation">⬇️ Conversation</button>
+        </div>
+        <div class="chat-area" id="chat-area"></div>
+        <div id="emoji-picker" class="emoji-picker">
+          <div class="emoji-grid" id="emoji-grid"></div>
+        </div>
+        <div class="chat-input-area">
+          <div class="chat-tools">
+            <button class="tool-btn" onclick="toggleEmojiPicker()" title="Emojis">😊</button>
+            <button class="tool-btn" id="btn-correct" onclick="correctSpelling()" title="Corriger l'orthographe" style="display:none">✏️ Corriger</button>
+            <span id="token-info" style="font-size:11px;color:var(--t3);margin-left:auto"></span>
+          </div>
+          <div class="chat-input-row">
+            <button class="btn-attach-plus" onclick="document.getElementById('attach-file').click()" title="Joindre image ou PDF">+</button>
+            <textarea class="chat-textarea" id="chat-input" placeholder="Parlez à BenAI..." rows="1"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"
+              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+            <button class="btn-send" id="btn-send" onclick="sendChat()">Envoyer ↑</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="page-notes" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px">
+          <div><div class="page-title">📝 Notes rapides</div><div class="page-sub">Vos notes personnelles</div></div>
+          <button class="btn-primary" onclick="addNote()">+ Nouvelle note</button>
+        </div>
+        <div class="notes-area" id="notes-area"></div>
+      </div>
+
+      <div id="page-messages" style="display:none;flex:1;overflow:hidden;flex-direction:column">
+        <div class="page-header" style="padding-bottom:10px;flex-shrink:0">
+          <div><div class="page-title">💬 Messages internes</div><div class="page-sub">Communication privée entre l'équipe</div></div>
+        </div>
+        <div class="msg-layout">
+          <div class="conv-list" id="conv-list"></div>
+          <div class="msg-thread">
+            <div class="thread-header" id="thread-header"><div style="color:var(--t3);font-size:13px;margin:auto">Sélectionnez une conversation</div></div>
+            <div class="thread-msgs" id="thread-msgs"></div>
+            <div class="thread-input" id="thread-input" style="display:none">
+              <input type="text" id="msg-input" placeholder="Écrire un message..." onkeydown="if(event.key==='Enter')sendMsg()">
+              <button class="thread-send" onclick="sendMsg()">↑</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="page-sav" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+          <div><div class="page-title">🔧 Suivi SAV</div><div class="page-sub">Nemausus Fermetures & Lambert SAS</div></div>
+          <div style="display:flex;gap:8px">
+            <button onclick="exportSAVCSV()" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">📥 Export CSV</button>
+            <button class="btn-primary" onclick="toggleSavForm()">+ Nouveau SAV</button>
+          </div>
+        </div>
+
+        <div style="padding:0 16px;flex-shrink:0;display:none" id="sav-form-wrap">
+          <div class="sav-form">
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px">➕ Nouveau SAV</div>
+            <div id="sav-alerts"></div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Client</div><input type="text" class="form-input" id="sav-client" placeholder="Nom du client"></div>
+              <div class="form-group"><div class="form-label">Commercial</div><input type="text" class="form-input" id="sav-commercial" placeholder="Nom du commercial"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Problème</div><input type="text" class="form-input" id="sav-pb" placeholder="Ex: Volet roulant bloqué..."></div>
+            <div class="form-group"><div class="form-label">Société</div>
+                <select class="form-input" id="sav-soc">
+                  <option value="nemausus">Nemausus Fermetures</option>
+                  <option value="lambert">Lambert SAS</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Fournisseur</div><input type="text" class="form-input" id="sav-fourn" placeholder="Ex: Somfy, Bubendorff..."></div>
+              <div class="form-group"><div class="form-label">Date de rappel</div><input type="date" class="form-input" id="sav-rappel"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+                <input type="checkbox" id="sav-urgent" style="width:14px;height:14px;accent-color:var(--r)"> 🔴 SAV Urgent
+              </label>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="btn-primary" onclick="addSAV()">Enregistrer</button>
+              <button onclick="toggleSavForm()" style="background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+              <span id="sav-ok" style="font-size:12px;color:var(--g);margin-left:6px"></span>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:0 16px 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
+          <input type="text" class="sav-search" id="sav-search" placeholder="🔍 Rechercher un SAV..." oninput="renderSAV()">
+          <button class="sav-filter active" onclick="filterSAV('tous',this)">Tous</button>
+          <button class="sav-filter" onclick="filterSAV('nouveau',this)">🔴 Nouveaux</button>
+          <button class="sav-filter" onclick="filterSAV('en_cours',this)">🟡 En cours</button>
+          <button class="sav-filter" onclick="filterSAV('regle',this)">🟢 Réglés</button>
+          <button class="sav-filter" onclick="filterSAV('urgent',this)">🚨 Urgents</button>
+        </div>
+
+        <div class="sav-area" style="padding-top:0">
+          <div id="sav-reminders-area"></div>
+          <div id="sav-stats-area" style="margin-bottom:10px"></div>
+          <div class="sav-list" id="sav-list"></div>
+        </div>
+      </div>
+
+      <div id="page-absences" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:8px;flex-shrink:0">
+          <div><div class="page-title">🗓️ Absences & Congés</div><div class="page-sub">Rappels J-7 et la veille</div></div>
+          <div style="display:flex;gap:8px">
+            <button onclick="downloadPlanningAbsences('nemausus')" style="background:var(--a3);border:1px solid var(--a);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--a);font-family:inherit;font-weight:600">📥 Nemausus</button>
+            <button onclick="downloadPlanningAbsences('lambert')" style="background:var(--bl2);border:1px solid var(--bl);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--bl);font-family:inherit;font-weight:600">📥 Lambert</button>
+            <button class="btn-primary" onclick="toggleAbsForm()">+ Nouvelle absence</button>
+          </div>
+        </div>
+        <div style="padding:0 20px 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
+          <button class="sav-filter active" id="abs-sort-asc" onclick="setAbsSort('asc',this)">📅 Date ↑</button>
+          <button class="sav-filter" id="abs-sort-desc" onclick="setAbsSort('desc',this)">📅 Date ↓</button>
+          <button class="sav-filter" id="abs-sort-emp" onclick="setAbsSort('emp',this)">👤 Employé</button>
+          <select id="abs-filter-emp" onchange="renderAbsences()" style="background:var(--s2);border:1px solid var(--b1);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;outline:none">
+            <option value="">Tous les employés</option>
+          </select>
+        </div>
+        <div style="padding:0 16px;flex-shrink:0;display:none" id="abs-form-wrap">
+          <div class="sav-form">
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px">📅 Nouvelle absence</div>
+            <div class="form-row">
+              <div class="form-group">
+                <div class="form-label">Employé(e)</div>
+                <select class="form-input" id="abs-emp-select">
+                  <option value="">Sélectionner...</option>
+                </select>
+              </div>
+              <div class="form-group"><div class="form-label">Type</div>
+                <select class="form-input" id="abs-type">
+                  <option value="Congé">Congé</option>
+                  <option value="Maladie">Maladie</option>
+                  <option value="Autre">Autre</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Date de début</div><input type="date" class="form-input" id="abs-debut"></div>
+              <div class="form-group"><div class="form-label">Date de fin</div><input type="date" class="form-input" id="abs-fin"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Heure de début</div><input type="time" class="form-input" id="abs-heure-debut" placeholder="08:00"></div>
+              <div class="form-group"><div class="form-label">Heure de fin</div><input type="time" class="form-input" id="abs-heure-fin" placeholder="17:00"></div>
+            </div>
+            <div class="form-group" style="margin-bottom:12px"><div class="form-label">Note</div><input type="text" class="form-input" id="abs-note" placeholder="Optionnel..."></div>
+            <div style="margin-bottom:12px">
+              <div class="form-label" style="margin-bottom:8px">Notifier</div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap" id="abs-notif-list"></div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-primary" onclick="addAbsence()">Enregistrer</button>
+              <button onclick="toggleAbsForm()" style="background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+            </div>
+          </div>
+        </div>
+        <div style="padding:16px;flex:1;overflow-y:auto" id="abs-list"></div>
+      </div>
+
+      <div id="page-evolution" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+          <div><div class="page-title">🚀 BenAI Évolution</div><div class="page-sub">Suggestions à valider — vous décidez toujours</div></div>
+        </div>
+        <div style="padding:16px;flex:1;overflow-y:auto" id="evolution-list"></div>
+      </div>
+
+      <div id="page-admin" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+          <div><div class="page-title">📊 Dashboard Admin</div><div class="page-sub">Vue d'ensemble BenAI</div></div>
+        </div>
+        <div class="dashboard">
+          <div class="dash-grid">
+            <div class="dash-card"><div class="dc-icon">🔧</div><div class="dc-label">SAV ouverts</div><div class="dc-val" id="admin-sav">0</div><div class="dc-sub">Nouveaux + En cours</div></div>
+            <div class="dash-card"><div class="dc-icon">💬</div><div class="dc-label">Messages</div><div class="dc-val" id="admin-msgs">0</div><div class="dc-sub">Messages échangés</div></div>
+            <div class="dash-card"><div class="dc-icon">📝</div><div class="dc-label">Notes</div><div class="dc-val" id="admin-notes">0</div><div class="dc-sub">Notes actives</div></div>
+          </div>
+
+          <div class="dash-card accordion-card" style="margin-bottom:12px">
+            <div class="dc-label accordion-header" onclick="toggleAccordion('token-stats-wrap')">🔢 Consommation API <span class="accordion-arrow">▾</span></div>
+            <div id="token-stats-wrap" class="accordion-body"><div id="token-stats" style="margin-top:8px"></div></div>
+          </div>
+
+          <div class="dash-card accordion-card" style="margin-bottom:12px">
+            <div class="dc-label accordion-header" onclick="toggleAccordion('sav-stats-wrap')">📊 Statistiques SAV <span class="accordion-arrow">▾</span></div>
+            <div id="sav-stats-wrap" class="accordion-body"><div id="sav-stats-admin" style="margin-top:8px"></div></div>
+          </div>
+
+          <div class="dash-card accordion-card" style="margin-bottom:12px">
+            <div class="dc-label accordion-header" onclick="toggleAccordion('users-wrap')">👥 Gestion des utilisateurs <span class="accordion-arrow">▾</span><button onclick="event.stopPropagation();showAddUser()" style="padding:4px 10px;background:var(--a);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;margin-left:8px">+ Ajouter</button></div>
+            <div id="users-wrap" class="accordion-body">
+              <input type="text" id="user-search" placeholder="🔍 Rechercher un utilisateur..." oninput="renderUsersList()" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;outline:none;margin-bottom:8px;margin-top:8px">
+              <div id="users-list" style="margin-top:4px"></div>
+              <div id="add-user-form" style="display:none;margin-top:12px;background:var(--s3);border-radius:10px;padding:12px">
+                <div style="font-size:12px;font-weight:600;margin-bottom:10px">➕ Créer un accès BenAI</div>
+                <div style="font-size:11px;color:var(--t3);margin-bottom:10px">Sélectionnez un salarié de l'annuaire pour lui créer un accès BenAI.</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                  <div><div class="form-label">Salarié (annuaire)</div>
+                    <select class="form-input" id="new-user-ann-select">
+                      <option value="">Sélectionner...</option>
+                    </select>
+                  </div>
+                  <div><div class="form-label">Mot de passe</div><input type="text" class="form-input" id="new-user-pwd" placeholder="Mot de passe"></div>
+                </div>
+                <div style="margin-bottom:8px"><div class="form-label">Rôle BenAI</div>
+                  <select class="form-input" id="new-user-role">
+                    <option value="assistante">Assistante (BenAI complet)</option>
+                    <option value="commercial">Commercial (CRM uniquement)</option>
+                    <option value="directeur_co">Directeur commercial (CRM complet)</option>
+                  </select>
+                </div>
+                <div style="display:flex;gap:6px">
+                  <button onclick="creerUtilisateur()" class="btn-primary" style="flex:1">Créer l'accès</button>
+                  <button onclick="document.getElementById('add-user-form').style.display='none'" style="padding:9px 14px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+                </div>
+                <div id="add-user-status" style="font-size:11px;margin-top:6px;min-height:14px"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dash-card accordion-card" style="margin-bottom:12px">
+            <div class="dc-label accordion-header" onclick="toggleAccordion('pwd-wrap')">🔑 Mots de passe <span class="accordion-arrow">▾</span></div>
+            <div id="pwd-wrap" class="accordion-body"><div id="pwd-list" style="margin-top:8px"></div></div>
+          </div>
+
+          <div class="dash-card accordion-card">
+            <div class="dc-label accordion-header" onclick="toggleAccordion('activity-wrap')">⚡ Activité récente <span class="accordion-arrow">▾</span></div>
+            <div id="activity-wrap" class="accordion-body"><div id="activity-list" style="margin-top:8px"><div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div></div></div>
+            <div class="dc-label accordion-header" onclick="toggleAccordion('connexions-wrap')" style="margin-top:8px">🔐 Historique connexions <span class="accordion-arrow">▾</span></div>
+            <div id="connexions-wrap" class="accordion-body collapsed"><div id="connexions-list" style="margin-top:8px"></div></div>
+            <div class="dc-label accordion-header" onclick="toggleAccordion('deletions-wrap')" style="margin-top:8px">🗑️ Journal des suppressions <span class="accordion-arrow">▾</span></div>
+            <div id="deletions-wrap" class="accordion-body collapsed"><div id="deletions-list" style="margin-top:8px"></div></div>
+            <div class="dc-label accordion-header" style="margin-top:10px" onclick="toggleAccordion('connexions-wrap')">🔑 Historique connexions <span class="accordion-arrow">▾</span></div>
+            <div id="connexions-wrap" class="accordion-body collapsed"><div id="connexions-history" style="margin-top:8px"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="page-leads" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:0;flex-shrink:0">
+          <div>
+            <div class="page-title">📋 Leads CRM</div>
+            <div class="page-sub" id="leads-page-sub">Nemausus Fermetures</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="crm-search" placeholder="🔍 Nom, tél, ville..." oninput="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 12px;font-size:12px;color:var(--t1);outline:none;width:180px;font-family:'Outfit',sans-serif">
+            <button id="btn-view-list" onclick="setCRMView('list')" title="Vue liste" style="background:var(--a3);border:1px solid var(--a);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:14px">☰</button>
+            <button id="btn-view-kanban" onclick="setCRMView('kanban')" title="Vue kanban" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:14px">⊞</button>
+            <button class="btn-primary" id="btn-new-lead" onclick="openNewLead()" style="display:none">+ Nouveau lead</button>
+          </div>
+        </div>
+        <div class="crm-tabs" id="crm-tabs"></div>
+        <div class="crm-body">
+          <div id="crm-tab-content" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+            <div class="crm-filters" id="crm-filters" style="display:none">
+              <button class="crm-filter active" onclick="filterLeads('tous',this)">Tous</button>
+              <button class="crm-filter f-gris" onclick="filterLeads('gris',this)">🔵 Non traité</button>
+              <button class="crm-filter" onclick="filterLeads('rdv',this)" style="color:var(--bl)">📞 RDV pris</button>
+              <button class="crm-filter f-jaune" onclick="filterLeads('jaune',this)">🟡 Devis envoyé</button>
+              <button class="crm-filter f-vert" onclick="filterLeads('vert',this)">🟢 Vendu</button>
+              <button class="crm-filter f-rouge" onclick="filterLeads('rouge',this)">🔴 Perdu</button>
+              <button class="crm-filter" onclick="filterLeads('archive',this)">📁 Archives</button>
+              <button class="crm-filter" onclick="filterLeads('alerte',this)" style="color:var(--r)">🚨 Alertes</button>
+              <select id="crm-filter-secteur" onchange="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;outline:none">
+                <option value="">Tous secteurs</option>
+                <option value="nimes">Nîmes</option>
+                <option value="avignon">Avignon</option>
+              </select>
+              <select id="crm-filter-commercial" onchange="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;outline:none;display:none">
+                <option value="">Tous commerciaux</option>
+              </select>
+            </div>
+            <div id="leads-container" style="flex:1;overflow-y:auto;padding:12px 16px">
+              <div class="leads-list" id="leads-list"></div>
+              <div id="leads-kanban" style="display:none;gap:10px;align-items:flex-start"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lead-modal" id="lead-modal">
+        <div class="lead-modal-box">
+          <div class="lead-modal-header">
+            <div style="flex:1">
+              <div style="font-size:15px;font-weight:700" id="modal-lead-nom">Nouveau lead</div>
+              <div style="font-size:11px;color:var(--t3);display:flex;gap:8px;margin-top:2px" id="modal-lead-sub"></div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button id="btn-agenda-lead" onclick="ouvrirAgenda()" style="display:none;background:var(--bl2);color:var(--bl);border:1px solid rgba(96,165,250,.3);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📅 Agenda</button>
+              <button id="btn-export-lead" onclick="exportLeadParEmail(currentLeadId)" style="display:none;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📧 Email</button>
+              <button onclick="closeLeadModal()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:20px">✕</button>
+            </div>
+          </div>
+
+          <div id="lead-timeline" style="display:none;padding:12px 20px;border-bottom:1px solid var(--b1);max-height:180px;overflow-y:auto">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px">📍 Suivi du lead</div>
+            <div id="timeline-list"></div>
+          </div>
+
+          <div class="lead-modal-body">
+            <div class="lead-modal-section">
+              <div class="lead-modal-section-title">Source</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap" id="source-btns">
+                <button class="src-btn selected" data-src="MAG" onclick="selectSource(this)">📍 MAG</button>
+                <button class="src-btn" data-src="TEL" onclick="selectSource(this)">📞 TEL</button>
+                <button class="src-btn" data-src="WEB" onclick="selectSource(this)">🌐 WEB</button>
+                <button class="src-btn" data-src="PARRAINAGE" onclick="selectSource(this)">🤝 PARRAINAGE</button>
+                <button class="src-btn" data-src="ACTIF" onclick="selectSource(this)" id="src-actif-btn" style="display:none">🏃 ACTIF</button>
+              </div>
+            </div>
+
+            <div class="lead-modal-section">
+              <div class="lead-modal-section-title">Informations client</div>
+              <div class="form-row">
+                <div class="form-group"><div class="form-label">Nom *</div><input type="text" class="form-input" id="lead-nom" placeholder="Nom du prospect"></div>
+                <div class="form-group"><div class="form-label">Téléphone *</div><input type="tel" class="form-input" id="lead-tel" placeholder="06 00 00 00 00" oninput="formatTel(this)"></div>
+              </div>
+              <div class="form-group" style="margin-bottom:10px;position:relative">
+                <div class="form-label">Adresse complète * <span style="font-size:9px;color:var(--t3)">(numéro + rue + CP + ville)</span></div>
+                <input type="text" class="form-input" id="lead-adresse" placeholder="Ex: 12 rue de la Paix 30000 Nîmes" oninput="searchAdresse(this.value)" autocomplete="off">
+                <div id="adresse-suggestions" style="position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:0 0 8px 8px;z-index:100;display:none;max-height:160px;overflow-y:auto"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><div class="form-label">Ville *</div><input type="text" class="form-input" id="lead-ville" placeholder="Ville (auto ou manuel)"></div>
+                <div class="form-group"><div class="form-label">Code postal *</div><input type="text" class="form-input" id="lead-cp" placeholder="Code postal"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><div class="form-label">Type de projet *</div>
+                  <input type="text" class="form-input" id="lead-projet" placeholder="Ex: Volets roulants, pergola..." list="projets-list">
+                  <datalist id="projets-list"></datalist>
+                </div>
+                <div class="form-group"><div class="form-label">Secteur</div>
+                  <select class="form-input" id="lead-secteur">
+                    <option value="nimes">Nîmes</option>
+                    <option value="avignon">Avignon</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:14px;display:none" id="lead-commercial-wrap">
+              <div class="lead-modal-section-title">Attribution</div>
+              <select class="form-input" id="lead-commercial-assign">
+                <option value="">⏳ Non attribué</option>
+              </select>
+            </div>
+
+            <div class="lead-modal-section" id="modal-statut-section" style="display:none">
+              <div class="lead-modal-section-title">Résultat du contact</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+                <button class="statut-btn sb-gris selected" onclick="selectStatut('gris',this)">🔵 Non traité</button>
+                <button class="statut-btn sb-rdv" onclick="selectStatut('rdv',this)">📞 RDV pris</button>
+                <button class="statut-btn sb-jaune" onclick="selectStatut('jaune',this)">🟡 Devis envoyé</button>
+                <button class="statut-btn sb-vert" onclick="selectStatut('vert',this)">🟢 Vendu</button>
+                <button class="statut-btn sb-rouge" onclick="selectStatut('rouge',this)">🔴 Perdu</button>
+              </div>
+
+              <div id="panel-gris">
+                <div class="form-group" style="margin-bottom:8px">
+                  <div class="form-label">Situation</div>
+                  <select class="form-input" id="lead-sous-statut" onchange="toggleRdvDate()">
+                    <option value="a_rappeler">🔘 À rappeler</option>
+                    <option value="injoignable">⭕ Injoignable / Ne répond pas</option>
+                    <option value="rdv_programme">📅 RDV programmé</option>
+                  </select>
+                </div>
+                <div id="rdv-date-wrap" style="display:none">
+                  <div class="form-label">Date du RDV</div>
+                  <input type="datetime-local" class="form-input" id="lead-rappel">
+                </div>
+              </div>
+
+              <div id="panel-rdv" style="display:none">
+                <div class="form-row">
+                  <div class="form-group"><div class="form-label">Date du RDV effectué</div><input type="date" class="form-input" id="lead-date-rdv-fait"></div>
+                  <div class="form-group"><div class="form-label">Montant devis estimé (€)</div><input type="number" class="form-input" id="lead-montant-rdv" placeholder="0" step="100"></div>
+                </div>
+              </div>
+
+              <div id="panel-jaune" style="display:none">
+                
+                <div class="form-row">
+                  <div class="form-group"><div class="form-label">Montant devis HT (€)</div><input type="number" class="form-input" id="lead-montant-devis" placeholder="0" step="100"></div>
+                  <div class="form-group"><div class="form-label">Date envoi devis</div><input type="date" class="form-input" id="lead-date-devis"></div>
+                </div>
+                <div class="form-group">
+                  <div class="form-label">Relance automatique</div>
+                  <input type="date" class="form-input" id="lead-rappel-devis" placeholder="Date relance si pas de réponse">
+                </div>
+              </div>
+
+              <div id="panel-vert" style="display:none">
+                
+                <div class="form-row">
+                  <div class="form-group"><div class="form-label">Prix vendu HT (€) *</div><input type="number" class="form-input" id="lead-prix-vendu" placeholder="0" step="100"></div>
+                  <div class="form-group"><div class="form-label">Date signature</div><input type="date" class="form-input" id="lead-date-signature"></div>
+                </div>
+                <div class="form-group"><div class="form-label">Produit vendu</div><input type="text" class="form-input" id="lead-produit-vendu" placeholder="Ex: 3 volets roulants alu..."></div>
+              </div>
+
+              <div id="panel-rouge" style="display:none">
+                
+                <select class="form-input" id="lead-raison-mort">
+                  <option value="">Raison obligatoire *</option>
+                  <option value="concurrent">Concurrent choisi</option>
+                  <option value="budget">Budget insuffisant</option>
+                  <option value="annule">Projet annulé</option>
+                  <option value="injoignable_definitif">Injoignable définitif</option>
+                  <option value="autre">Autre</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="lead-modal-section">
+              <div class="form-row">
+                <div class="form-group"><div class="form-label">Suivi</div><input type="text" class="form-input" id="lead-suivi" placeholder="Budget 500€, Assurance expert..."></div>
+                <div class="form-group"><div class="form-label">Ajouter une action</div>
+                  <input type="text" class="form-input" id="lead-action" placeholder="Ex: Appel effectué, mail envoyé..." onkeydown="if(event.key==='Enter'){addLeadAction();event.preventDefault();}">
+                </div>
+              </div>
+              <div class="form-group"><div class="form-label">Commentaire</div>
+                <textarea class="form-input" id="lead-commentaire" rows="2" style="resize:vertical;width:100%" placeholder="Informations importantes, contexte..."></textarea>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px">
+              <button class="btn-primary" onclick="saveLead()" id="btn-save-lead" style="flex:1">Enregistrer</button>
+              <button id="btn-archive-lead" onclick="archiverLeadActuel()" style="display:none;padding:10px 12px;background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:8px;cursor:pointer;font-size:13px" title="Archiver">📁 Archiver</button>
+              <button onclick="closeLeadModal()" style="padding:10px 16px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+              <button id="btn-delete-lead" onclick="deleteLead()" style="padding:10px 12px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:8px;cursor:pointer;font-size:13px;display:none" title="Supprimer (Benjamin uniquement)">🗑️</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="page-bugs" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+          <div><div class="page-title">🐛 Signalement de bugs</div><div class="page-sub">Aidez-nous à améliorer BenAI</div></div>
+          <button class="btn-primary" onclick="openNewBug()">+ Signaler un bug</button>
+        </div>
+        <div style="padding:0 16px;flex-shrink:0;display:none" id="bug-form-wrap">
+          <div class="sav-form">
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px">🐛 Nouveau signalement</div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Page concernée</div>
+                <select class="form-input" id="bug-page">
+                  <option value="BenAI IA">BenAI IA</option>
+                  <option value="CRM Leads">CRM Leads</option>
+                  <option value="SAV">SAV</option>
+                  <option value="Messages">Messages</option>
+                  <option value="Notes">Notes</option>
+                  <option value="Absences">Absences</option>
+                  <option value="Autre">Autre</option>
+                </select>
+              </div>
+              <div class="form-group"><div class="form-label">Gravité</div>
+                <select class="form-input" id="bug-gravite">
+                  <option value="bloquant">🔴 Bloquant — impossible de travailler</option>
+                  <option value="important">🟡 Important — gêne le travail</option>
+                  <option value="mineur">🟢 Mineur — petit problème</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:10px"><div class="form-label">Description du bug *</div>
+              <textarea class="form-input" id="bug-desc" rows="3" style="resize:vertical;width:100%" placeholder="Décrivez précisément ce qui ne fonctionne pas, comment reproduire le problème..."></textarea>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-primary" onclick="saveBug()">Envoyer</button>
+              <button onclick="document.getElementById('bug-form-wrap').style.display='none'" style="padding:10px 16px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+            </div>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:16px">
+          <div id="bug-filter-bar" style="display:none;margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap">
+            <button class="crm-filter active" onclick="filterBugs('tous',this)">Tous</button>
+            <button class="crm-filter" onclick="filterBugs('ouvert',this)">🔴 Ouverts</button>
+            <button class="crm-filter" onclick="filterBugs('resolu',this)">🟢 Résolus</button>
+            <button class="crm-filter" onclick="filterBugs('bloquant',this)" style="color:var(--r)">🔴 Bloquants</button>
+          </div>
+          <div id="bugs-list"></div>
+        </div>
+      </div>
+
+      <div id="page-annuaire" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+          <div><div class="page-title">👥 Annuaire employés</div><div class="page-sub" id="ann-counter-sub">Chargement...</div></div>
+          <button class="btn-primary" onclick="toggleEmpForm()">+ Ajouter</button>
+        </div>
+        <div style="padding:0 16px;flex-shrink:0;display:none" id="emp-form-wrap">
+          <div class="sav-form">
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px">➕ Nouvel employé</div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Prénom</div><input type="text" class="form-input" id="emp-prenom" placeholder="Prénom"></div>
+              <div class="form-group"><div class="form-label">Nom</div><input type="text" class="form-input" id="emp-nom" placeholder="Nom"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Email perso <span style="color:var(--t3)">(fiches de paie)</span></div><input type="email" class="form-input" id="emp-email" placeholder="email.perso@gmail.com"></div>
+              <div class="form-group"><div class="form-label">Email pro</div><input type="email" class="form-input" id="emp-email-pro" placeholder="prenom@nemausus.fr"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Téléphone</div><input type="text" class="form-input" id="emp-tel" placeholder="06..."></div>
+              <div class="form-group"><div class="form-label">Date de naissance <span style="color:var(--t3)">(anniversaire)</span></div><input type="date" class="form-input" id="emp-naissance"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Fonction</div>
+                <select class="form-input" id="emp-fonction">
+                  <option value="Technicien">Technicien</option>
+                  <option value="Métreur">Métreur</option>
+                  <option value="Commercial">Commercial</option>
+                  <option value="Assistante">Assistante</option>
+                  <option value="Comptable">Comptable</option>
+                  <option value="Autre">Autre</option>
+                </select>
+              </div>
+              <div class="form-group"><div class="form-label">Société</div>
+                <select class="form-input" id="emp-soc">
+                  <option value="nemausus">Nemausus Fermetures</option>
+                  <option value="lambert">Lambert SAS</option>
+                  <option value="les-deux">Les deux</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Véhicule (Modèle)</div><input type="text" class="form-input" id="emp-vehicule-modele" placeholder="Ex: Renault Master"></div>
+              <div class="form-group"><div class="form-label">Immatriculation</div><input type="text" class="form-input" id="emp-vehicule-immat" placeholder="Ex: AA-123-BB"></div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-primary" onclick="addEmploye()">Enregistrer</button>
+              <button onclick="toggleEmpForm()" style="background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+              <span id="emp-ok" style="font-size:12px;color:var(--g);margin-left:6px"></span>
+            </div>
+          </div>
+        </div>
+        <div style="padding:0 16px 10px;flex-shrink:0;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <input type="text" placeholder="🔍 Rechercher..." id="ann-search" oninput="renderAnnuaire()" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 12px;color:var(--t1);font-family:inherit;font-size:13px;outline:none;width:180px">
+          <button class="ann-filter active" onclick="setAnnFilter('tous',this)">Tous</button>
+          <button class="ann-filter" onclick="setAnnFilter('nemausus',this)">Nemausus</button>
+          <button class="ann-filter" onclick="setAnnFilter('lambert',this)">Lambert</button>
+          <button class="ann-filter" onclick="setAnnFilter('Technicien',this)">Techniciens</button>
+          <button class="ann-filter" onclick="setAnnFilter('Métreur',this)">Métreurs</button>
+          <button class="ann-filter" onclick="setAnnFilter('Commercial',this)">Commerciaux</button>
+          <button class="ann-filter" onclick="setAnnFilter('Assistante',this)">Assistantes</button>
+        </div>
+        <div style="padding:0 16px;flex:1;overflow-y:auto" id="annuaire-list"></div>
+      </div>
+
+      <div id="page-paie" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+          <div><div class="page-title">💰 Fiches de paie</div><div class="page-sub">Déposez les PDF — BenAI prépare les emails Outlook</div></div>
+          <button onclick="document.getElementById('paie-files').click()" class="btn-primary">📎 Déposer les PDF</button>
+        </div>
+        <input type="file" id="paie-files" accept=".pdf" multiple onchange="processFichesPaie(this)">
+        <div style="padding:16px;flex:1;overflow-y:auto">
+          <div id="paie-progress" style="display:none;margin-bottom:12px">
+            <div style="font-size:12px;color:var(--t2);margin-bottom:6px" id="paie-progress-txt">Analyse en cours...</div>
+            <div style="height:4px;background:var(--s3);border-radius:2px"><div id="paie-progress-bar" style="height:100%;background:var(--a);border-radius:2px;transition:width .3s;width:0%"></div></div>
+          </div>
+          <div id="paie-list"></div>
+          <div id="paie-empty" style="color:var(--t3);font-size:13px;text-align:center;padding:40px 0">
+            Déposez les fiches de paie PDF ci-dessus.<br><span style="font-size:11px;margin-top:6px;display:block">BenAI détecte le nom et prépare l'email Outlook pour chaque employé.</span>
+          </div>
+        </div>
+      </div>
+
+    </div></div></div><input type="file" id="attach-file" accept=".pdf,image/*" multiple onchange="handleAttachment(this)">
+<input type="file" id="paie-files" accept=".pdf" multiple onchange="processFichesPaie(this)">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-// ══════════════════════════════════════════
-// LOGIQUE CORE v3.16
-// ══════════════════════════════════════════
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-let currentUser = null;
-let currentLeadId = null;
-let selectedStatut = 'gris';
-let leadFilter = 'tous';
+const BENAI_VERSION = '3.16';
 
-// 1. SÉCURITÉ : HACHAGE
-function hashPwd(p) {
+// ══════════════════════════════════════════
+// UTILISATEURS
+// ══════════════════════════════════════════
+const USERS = {
+  benjamin:{name:'Benjamin',pwd:'1234',role:'admin',color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B',
+    system:`Tu es BenAI, l'assistant personnel de Benjamin, gérant de Nemausus Fermetures et Lambert SAS. Benjamin gère tout : back-office, commandes fournisseurs, SAV, All Manager, emails, réseaux sociaux, comptabilité. Tu peux l'aider sur n'importe quel sujet, professionnel comme personnel. Tu lui proposes toujours — il décide toujours. Tutoie-le.`},
+  aurelie:{name:'Aurélie',pwd:'1234',role:'assistante',color:'linear-gradient(135deg,#22C55E,#15803D)',initial:'A',
+    system:`Tu es BenAI, l'assistant d'Aurélie chez Nemausus Fermetures. Tu réponds UNIQUEMENT aux questions professionnelles liées à : menuiserie, volets, fenêtres, portes, stores, pergolas, emails clients, SAV, All Manager, Hercule Pro, comptabilité. Pour toute question hors sujet, réponds poliment : "Je suis configuré pour les questions professionnelles de Nemausus Fermetures uniquement." Tu proposes toujours — elle décide toujours. Tutoie-la.`},
+  claudine:{name:'Claudine',pwd:'1234',role:'assistante',color:'linear-gradient(135deg,#60A5FA,#1D4ED8)',initial:'C',
+    system:`Tu es BenAI, l'assistant de Claudine chez Lambert SAS. Tu réponds UNIQUEMENT aux questions professionnelles liées à : menuiserie, volets, fenêtres, portes, stores, pergolas, emails clients, SAV, All Manager, Hercule Pro, comptabilité, réseaux sociaux professionnels. Pour toute question hors sujet, réponds poliment : "Je suis configuré pour les questions professionnelles de Lambert SAS uniquement." Tu proposes toujours — elle décide toujours. Tutoie-la.`}
+};
+
+const BENAI_CTX=`
+Contexte : Nemausus Fermetures (franchise Monsieur Store, Nîmes) + Lambert SAS (fermeture/menuiserie).
+Produits : menuiserie alu, volets roulants/battants, portes, fenêtres, coulissants, pergolas, stores, portails, protections solaires.
+Logiciels : Hercule Pro (devis), All Manager (ERP). Clientèle : particuliers uniquement.
+RÈGLE ABSOLUE : Tu proposes — l'utilisateur décide toujours. Jamais d'action automatique.`;
+
+// ══════════════════════════════════════════
+// ÉTAT
+// ══════════════════════════════════════════
+let currentUser=null, chatHistory=[], currentConv=null, busy=false, currentFilter='tous';
+
+function hashPwd(p){
     if (!p || p.startsWith('h_')) return p;
-    let h = 0; for (let i = 0; i < p.length; i++) h = ((h << 5) - h) + p.charCodeAt(i), h |= 0;
+    let h = 0;
+    for (let i = 0; i < p.length; i++) h = ((h << 5) - h) + p.charCodeAt(i), h |= 0;
     return 'h_' + Math.abs(h).toString(36);
 }
 
-// 2. DONNÉES
-function getLeads() { return JSON.parse(localStorage.getItem('benai_leads') || '[]'); }
-function saveLeads(l) { localStorage.setItem('benai_leads', JSON.stringify(l)); }
-function getPwds() { return JSON.parse(localStorage.getItem('benai_pwds') || '{"benjamin":"1234"}'); }
+// ══════════════════════════════════════════
+// MÉMOIRE
+// ══════════════════════════════════════════
+function getMem(){try{return JSON.parse(localStorage.getItem('benai_v3'))||{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}catch{return{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}}
+function saveMem(m){localStorage.setItem('benai_v3',JSON.stringify(m));}
+function getApiKey(){return localStorage.getItem('benai_api')||'';}
+function getPwds(){try{return JSON.parse(localStorage.getItem('benai_pwds'))||{benjamin:'1234',aurelie:'1234',claudine:'1234'};}catch{return{benjamin:'1234',aurelie:'1234',claudine:'1234'};}}
+function savePwds(p){localStorage.setItem('benai_pwds',JSON.stringify(p));}
+function getAccess(){try{return JSON.parse(localStorage.getItem('benai_access'))||{};}catch{return {};}}
+function saveAccess(a){localStorage.setItem('benai_access',JSON.stringify(a));}
 
-// 3. LOGIN & MIGRATION
-function login() {
-    const uid = document.getElementById('login-user').value.toLowerCase();
-    const pwd = document.getElementById('login-pwd').value;
-    const err = document.getElementById('login-err');
-    
-    const pwds = getPwds();
-    const stored = pwds[uid];
+// CHAT MEMORY par utilisateur
+function saveChatMem(uid,msgs){
+  const now=Date.now();
+  const cutoff=now-30*24*60*60*1000;
+  const pinned=msgs.filter(m=>m.pinned);
+  const recent=msgs.filter(m=>!m.pinned&&(m.ts||0)>cutoff);
+  const trimmed=[...pinned,...recent].slice(-60);
+  localStorage.setItem('benai_chat_'+uid,JSON.stringify(trimmed));
+}
+function loadChatMem(uid){try{return JSON.parse(localStorage.getItem('benai_chat_'+uid))||[];}catch{return [];}}
 
-    if (uid === 'benjamin' && (pwd === '1234' || stored === hashPwd(pwd))) {
-        currentUser = { id: 'benjamin', name: 'Benjamin', role: 'admin' };
+// TOKEN TRACKING
+function trackTokens(uid,inp,out){
+  const mem=getMem();
+  if(!mem.tokens)mem.tokens={};
+  if(!mem.tokens[uid])mem.tokens[uid]={input:0,output:0};
+  mem.tokens[uid].input+=inp||0;
+  mem.tokens[uid].output+=out||0;
+  saveMem(mem);
+}
+function estimateCost(inp,out){
+  // Claude Sonnet: ~$3/MTok input, ~$15/MTok output
+  return ((inp*0.000003)+(out*0.000015)).toFixed(4);
+}
+
+// MESSAGE UNREAD
+function getLastRead(uid){try{return JSON.parse(localStorage.getItem('benai_read_'+uid))||{};}catch{return {};}}
+function markRead(uid,cid){const r=getLastRead(uid);r[cid]=Date.now();localStorage.setItem('benai_read_'+uid,JSON.stringify(r));}
+function countUnread(uid,cid){
+  const mem=getMem();const msgs=mem.messages[cid]||[];
+  const lr=(getLastRead(uid)[cid]||0);
+  return msgs.filter(m=>m.from!==uid&&(m.ts||0)>lr).length;
+}
+function refreshMsgBadge(){
+  if(!currentUser)return;
+  const convs=getConvsForUser(currentUser.id);
+  let total=0;
+  Object.keys(convs).forEach(cid=>total+=countUnread(currentUser.id,cid));
+  const badge=document.getElementById('msg-badge');
+  if(badge){badge.style.display=total>0?'flex':'none';badge.textContent=total;}
+}
+
+// ══════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════
+function getLoginAttempts(){try{return JSON.parse(localStorage.getItem('benai_attempts'))||{count:0,blockedUntil:0};}catch{return{count:0,blockedUntil:0};}}
+function saveLoginAttempts(a){localStorage.setItem('benai_attempts',JSON.stringify(a));}
+function resetLoginAttempts(){saveLoginAttempts({count:0,blockedUntil:0});}
+
+// Normalise identifiant : minuscules + supprime accents (Aurélie = aurelie = AURELIE)
+function normalizeId(s){
+  return (s||'').toLowerCase().trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\s+/g,'_');
+}
+
+// Validation mot de passe fort
+function validatePassword(pwd){
+  if(pwd.length<6)return 'Minimum 6 caractères';
+  if(!/[A-Z]/.test(pwd))return 'Au moins 1 majuscule requise';
+  if(!/[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]/.test(pwd))return 'Au moins 1 caractère spécial requis (!@#$%...)';
+  return null;
+}
+
+// ══ TIMEOUT 6H ══
+let lastActivityTime=Date.now();
+const SESSION_TIMEOUT=6*60*60*1000; // 6h
+function resetActivityTimer(){lastActivityTime=Date.now();}
+function checkSessionTimeout(){
+  if(!currentUser||currentUser.id==='benjamin')return;
+  if(Date.now()-lastActivityTime>SESSION_TIMEOUT){
+    showDriveNotif('⏰ Session expirée après 6h d\'inactivité');
+    logout();
+  }
+}
+['click','keydown','touchstart'].forEach(e=>document.addEventListener(e,resetActivityTimer,{passive:true}));
+setInterval(checkSessionTimeout,60000);
+
+// ══ VÉRIF ACCÈS EN TEMPS RÉEL ══
+function checkAccessRealtime(){
+  if(!currentUser||currentUser.id==='benjamin')return;
+  const access=getAccess();
+  if(access[currentUser.id]===false){
+    showDriveNotif('🔒 Votre accès a été révoqué');
+    setTimeout(()=>logout(),1500);
+  }
+}
+setInterval(checkAccessRealtime,15000);
+
+function login(){
+  const uid=normalizeId(document.getElementById('login-user').value);
+  const pwd=document.getElementById('login-pwd').value;
+  const err=document.getElementById('login-err');
+  if(!uid){err.textContent='Entrez votre identifiant';return;}
+
+  if(uid!=='benjamin'){
+    const attempts=getLoginAttempts();
+    const now=Date.now();
+    if(attempts.blockedUntil>now){
+      const remaining=Math.ceil((attempts.blockedUntil-now)/1000);
+      err.textContent=`Trop de tentatives. Réessayez dans ${remaining}s.`;
+      return;
+    }
+  }
+
+  const now=Date.now();
+  const attempts=uid!=='benjamin'?getLoginAttempts():{count:0,blockedUntil:0};
+  const userFound=findUserById(uid);
+  const resolvedUid=userFound?normalizeId(userFound.id):uid;
+
+  if(!userFound){
+    if(uid!=='benjamin'){
+      attempts.count++;
+      if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;}
+      saveLoginAttempts(attempts);
+      err.textContent=`Identifiant ou mot de passe incorrect (${Math.min(attempts.count,3)}/3)`;
     } else {
-        const extras = JSON.parse(localStorage.getItem('benai_extra_users') || '[]');
-        const u = extras.find(x => x.id === uid);
-        if (u && (stored === pwd || stored === hashPwd(pwd))) {
-            currentUser = u;
-        }
+      err.textContent='Identifiant incorrect';
     }
+    return;
+  }
 
-    if (currentUser) {
-        // Migration auto vers hachage
-        if (pwds[uid] && !pwds[uid].startsWith('h_')) {
-            pwds[uid] = hashPwd(pwd);
-            localStorage.setItem('benai_pwds', JSON.stringify(pwds));
-        }
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('app').classList.add('visible');
-        document.getElementById('tb-username').textContent = currentUser.name;
-        if(currentUser.role === 'admin') document.getElementById('nav-admin').style.display = 'flex';
-        checkTuto();
-        renderLeads();
+  const pwds=getPwds();
+  const validPwd=pwds[resolvedUid]||USERS[resolvedUid]?.pwd||'1234';
+  const inputPwdHash=hashPwd(pwd);
+  const isMatch = (pwd === validPwd || inputPwdHash === validPwd);
+
+  if(!isMatch){
+    if(uid!=='benjamin'){
+      attempts.count++;
+      if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;err.textContent='Accès bloqué 5 minutes.';saveLoginAttempts(attempts);return;}
+      saveLoginAttempts(attempts);
+      err.textContent=`Mot de passe incorrect — tentative ${attempts.count}/3`;
     } else {
-        err.textContent = "Identifiant ou mot de passe incorrect";
+      err.textContent='Mot de passe incorrect';
     }
+    return;
+  }
+  
+  // Migration silencieuse du mot de passe vers le hachage s'il est en clair
+  if(pwd === validPwd && !validPwd.startsWith('h_') && validPwd !== '1234') {
+     pwds[resolvedUid] = inputPwdHash;
+     savePwds(pwds);
+     if(USERS[resolvedUid]) USERS[resolvedUid].pwd = inputPwdHash;
+  }
+
+  const access=getAccess();
+  if(access[resolvedUid]===false&&resolvedUid!=='benjamin'){err.textContent='Accès bloqué par l\'administrateur';return;}
+  resetLoginAttempts();
+  currentUser={id:resolvedUid,...(USERS[resolvedUid]||getExtraUserById(resolvedUid))};
+  // Log connexion
+  logConnexion(resolvedUid);
+  lastActivityTime=Date.now();
+  if(pwd==='1234'){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('force-pwd-screen').style.display='flex';
+    return;
+  }
+  sessionStorage.setItem('benai_session',resolvedUid);
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').classList.add('visible');
+  initApp();
 }
 
-// 4. CRM & ATTRIBUTION
-function getAutoAttribution(societe) {
-    const users = JSON.parse(localStorage.getItem('benai_extra_users') || '[]');
-    const hasDirCo = users.some(u => u.role === 'directeur_co' && (u.societe === societe || u.societe === 'les-deux'));
-    if (hasDirCo) return null;
-    const comms = users.filter(u => u.role === 'commercial' && (u.societe === societe || u.societe === 'les-deux'));
-    return comms.length === 1 ? comms[0].id : null;
+function logConnexion(uid){
+  try{
+    const key='benai_connexions';
+    const logs=JSON.parse(localStorage.getItem(key)||'[]');
+    logs.unshift({uid,date:new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})});
+    if(logs.length>200)logs.splice(200);
+    localStorage.setItem(key,JSON.stringify(logs));
+  }catch(e){}
 }
 
-function trackCall(id) {
-    const leads = getLeads();
-    const l = leads.find(x => x.id === id);
-    if (l) {
-        if (!l.timeline) l.timeline = [];
-        l.timeline.push({ date: new Date().toLocaleString(), action: "📞 Appel tracé", user: currentUser.name });
-        saveLeads(leads);
-        showDriveNotif("Appel enregistré dans l'historique");
+function getConnexions(uid){
+  try{
+    const logs=JSON.parse(localStorage.getItem('benai_connexions')||'[]');
+    return uid?logs.filter(l=>l.uid===uid):logs;
+  }catch{return[];}
+}
+
+function logout(){
+  if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
+  sessionStorage.removeItem('benai_session');
+  currentUser=null;chatHistory=[];currentConv=null;
+  ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.style.display='none';
+  });
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('login-user').value='';
+  document.getElementById('login-pwd').value='';
+  document.getElementById('login-err').textContent='';
+  document.getElementById('chat-area').innerHTML='';
+}
+
+// Pile de sessions — pour revenir à Benjamin sans mot de passe
+let sessionStack=[];
+const ROLE_LABELS={admin:'Admin',assistante:'Assistante',metreur:'Métreur',commercial:'Commercial',directeur_co:'Dir. commercial'};
+
+function toggleSwitchPanel(){
+  // Si pas Benjamin et qu'on peut revenir → retour direct sans panel
+  if(currentUser.id!=='benjamin'&&sessionStack.length>0){
+    switchBack();
+    return;
+  }
+  // Benjamin → ouvrir le panel
+  const panel=document.getElementById('switch-panel');
+  const isOpen=panel.style.display!=='none';
+  panel.style.display=isOpen?'none':'block';
+  if(!isOpen){
+    const list=document.getElementById('switch-user-list');
+    const users=getAllUsers().filter(u=>u.id!==currentUser.id);
+    list.innerHTML=users.map(u=>`
+      <div onclick="switchToUser('${u.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;transition:.12s" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">
+        <div style="width:32px;height:32px;border-radius:9px;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">${u.initial}</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">${esc(u.name)}</div>
+          <div style="font-size:10px;color:var(--t3)">${ROLE_LABELS[u.role]||u.role}</div>
+        </div>
+      </div>`).join('');
+  }
+}
+
+function switchBack(){
+  if(!sessionStack.length)return;
+  const prevUid=sessionStack.pop();
+  document.getElementById('switch-panel').style.display='none';
+  const u=USERS[prevUid]||getExtraUserById(prevUid);
+  if(!u)return;
+  if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
+  chatHistory=[];currentConv=null;
+  document.getElementById('chat-area').innerHTML='';
+  currentUser={id:prevUid,...u};
+  sessionStorage.setItem('benai_session',prevUid);
+  logActivity(`Retour sur la session de ${u.name}`);
+  initApp(true);
+}
+
+function switchToUser(uid){
+  if(currentUser.id!=='benjamin'){return;}// Seul Benjamin peut switcher
+  document.getElementById('switch-panel').style.display='none';
+  if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
+  const u=USERS[uid]||getExtraUserById(uid);
+  if(!u){alert('Utilisateur introuvable');return;}
+  const access=getAccess();
+  if(access[uid]===false){alert(`Accès bloqué pour ${u.name}`);return;}
+  if(currentUser)sessionStack.push(currentUser.id);
+  chatHistory=[];currentConv=null;
+  document.getElementById('chat-area').innerHTML='';
+  currentUser={id:uid,...u};
+  sessionStorage.setItem('benai_session',uid);
+  logActivity(`Benjamin a basculé vers ${u.name}`);
+  initApp(true);
+}
+
+function switchSession(){toggleSwitchPanel();}
+
+
+function initApp(silent=false){
+  const u=currentUser;
+  document.getElementById('tb-avatar').style.background=u.color;
+  document.getElementById('tb-avatar').textContent=u.initial;
+  document.getElementById('tb-username').textContent=u.name;
+  // Bouton changer de session — Benjamin uniquement OU retour si en mode switch
+  const btnSwitch=document.getElementById('btn-switch-session');
+  if(btnSwitch){
+    const showSwitch=u.id==='benjamin'||sessionStack.length>0;
+    btnSwitch.style.display=showSwitch?'inline-block':'none';
+    btnSwitch.textContent=sessionStack.length>0&&u.id!=='benjamin'?'↩️ Retour':'🔄 Changer';
+  }
+
+  // Réinitialiser TOUS les éléments admin avant d'appliquer les droits
+  ['nav-admin','nav-absences','nav-annuaire','nav-paie','nav-leads',
+   'nav-benai','nav-notes','nav-messages','nav-sav','nav-evolution'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.style.display='none';
+  });
+
+  // Afficher nav selon rôle
+  const allowed=ROLE_PAGES[u.role]||ROLE_PAGES['assistante'];
+  allowed.forEach(p=>{
+    const nav=document.getElementById('nav-'+p);
+    if(nav)nav.style.display='flex';
+  });
+  // Nav leads toujours visible si dans les droits
+  if(allowed.includes('leads')){
+    const navL=document.getElementById('nav-leads');
+    if(navL)navL.style.display='flex';
+  }
+
+  // Bouton correction : auto pour Benjamin, manuel pour les autres
+  const btnCorrect=document.getElementById('btn-correct');
+  if(btnCorrect)btnCorrect.style.display=u.id==='benjamin'?'none':'inline-flex';
+
+  // Page d'accueil selon rôle
+  const homePage=CRM_PAGES_ONLY.includes(u.role)?'leads':'benai';
+
+  const mem=loadChatMem(u.id);
+  chatHistory=mem.map(m=>({role:m.role,content:m.content}));
+  // Message d'accueil ou restauration silencieuse (seulement si pas CRM only)
+  if(!CRM_PAGES_ONLY.includes(u.role)){
+    if(silent){
+      restoreChatVisual();
+    } else {
+      const h=new Date().getHours();
+      const sal=h<18?'Bonjour':'Bonsoir';
+      addAIMsg(`${sal} **${u.name}** 👋\n\nJe suis BenAI v${BENAI_VERSION}, votre assistant.\n\n⚠️ Je propose toujours — vous décidez toujours.\n\nComment puis-je vous aider ?`);
     }
+  }
+  // Vérifier rappels absences pour tous les utilisateurs
+  if(u.role==='admin'){
+    checkAbsenceReminders();
+    refreshAdmin();
+  } else if(!CRM_PAGES_ONLY.includes(u.role)){
+    checkAbsenceRemindersForUser(u.id);
+  }
+  refreshSAVBadge();
+  refreshMsgBadge();
+  refreshLeadsBadge();
+  refreshBugsBadge();
+  showPage(homePage);
+  buildEmojiPicker();
+  startPolling();
+  refreshAbsBadge();
+  refreshNotifBadge();
+  requestNotifPermission();
+  // Motivations automatiques pour commerciaux
+  if(u.role==='commercial')setTimeout(()=>checkMotivationsAuto(),5000);
+  // Rappel anniversaires pour Benjamin
+  if(u.id==='benjamin')setTimeout(()=>checkAnniversaires(),3000);
+  // Initialiser Google Drive client si configuré
+  if(u.id==='benjamin')setTimeout(()=>initGDriveClient(),1000);
+  // Tuto première utilisation
+  if(shouldShowTuto()&&!CRM_PAGES_ONLY.includes(u.role))setTimeout(()=>startTuto(),1200);
+  // Bouton tuto dans paramètres
+  const tutoSection=document.getElementById('tuto-settings-section');
+  if(tutoSection)tutoSection.style.display=currentUser.id==='benjamin'?'none':'block';
+  // Briefing quotidien intelligent (une seule fois par jour)
+  if(!silent&&!CRM_PAGES_ONLY.includes(u.role))setTimeout(()=>generateDailyBriefing(),600);
 }
 
-function renderLeads() {
-    const list = document.getElementById('leads-list');
-    let leads = getLeads();
-    if (leadFilter === 'archive') leads = leads.filter(l => l.archive);
-    else leads = leads.filter(l => !l.archive);
-
-    list.innerHTML = leads.map(l => `
-        <div class="lead-card" onclick="openLead(${l.id})">
-            <div style="display:flex;justify-content:space-between">
-                <b>${l.nom}</b>
-                <span class="lead-secteur" style="font-size:10px;background:var(--s3);padding:2px 6px;border-radius:4px">${l.secteur}</span>
-            </div>
-            <div style="margin-top:10px">
-                <a href="tel:${l.telephone}" class="statut-btn sb-rdv" style="text-decoration:none;font-size:11px" onclick="event.stopPropagation(); trackCall(${l.id})">📞 Appeler</a>
-            </div>
-        </div>
-    `).join('');
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+function showPage(page){
+  const adminOnly=['admin','absences','annuaire','paie'];
+  if(adminOnly.includes(page)&&currentUser?.role!=='admin'){showPage('leads');return;}
+  // Vérifier accès selon rôle
+  const allowed=ROLE_PAGES[currentUser?.role]||ROLE_PAGES['assistante'];
+  if(!allowed.includes(page)){showPage(allowed[0]);return;}
+  ['benai','notes','messages','sav','leads','absences','evolution','admin','annuaire','paie','bugs'].forEach(p=>{
+    const el=document.getElementById('page-'+p);if(el)el.style.display='none';
+    const nav=document.getElementById('nav-'+p);if(nav)nav.classList.remove('active');
+  });
+  const el=document.getElementById('page-'+page);if(el)el.style.display='flex';
+  const nav=document.getElementById('nav-'+page);if(nav)nav.classList.add('active');
+  if(page==='sav'){renderSAV();markSAVVu();showPageContext('sav');}
+  if(page==='admin')refreshAdmin();
+  if(page==='messages'){renderConvList();showPageContext('messages');}
+  if(page==='notes')renderNotes();
+  if(page==='absences'){renderAbsences();fillAbsEmpList();}
+  if(page==='evolution')renderEvolution();
+  if(page==='annuaire')renderAnnuaire();
+  if(page==='paie')renderPaieList();
+  if(page==='leads')initLeadsPage();
+  if(page==='bugs')initBugsPage();
 }
 
-// 5. DASHBOARD & STATS
-function renderAdmin() {
-    const leads = getLeads().filter(l => !l.archive);
-    const ventes = leads.filter(l => l.statut === 'vert');
-    const caTotal = ventes.reduce((s, l) => s + (Number(l.prix_vendu) || 0), 0);
-    const panierMoyen = ventes.length > 0 ? (caTotal / ventes.length).toFixed(0) : 0;
+// ══════════════════════════════════════════
+// BENAI IA CHAT
+// ══════════════════════════════════════════
+function addAIMsg(txt,pinnable=false){
+  const div=document.createElement('div');div.className='msg ai';
+  div.innerHTML=`<div class="msg-avatar">B</div><div class="bubble">${md(txt)}</div>`;
+  document.getElementById('chat-area').appendChild(div);scrollChat();return div;
+}
+function addUserMsg(txt){
+  const div=document.createElement('div');div.className='msg user';
+  div.innerHTML=`<div class="msg-avatar" style="background:${currentUser.color}">${currentUser.initial}</div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+      <div class="bubble" style="background:${currentUser.color}">${esc(txt)}</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="editUserMsg(this,'${esc(txt).replace(/'/g,''')}')" style="background:none;border:none;color:var(--t3);font-size:10px;cursor:pointer;font-family:inherit;padding:0" title="Modifier">✏️ modifier</button>
+      </div>
+    </div>`;
+  document.getElementById('chat-area').appendChild(div);scrollChat();return div;
+}
+function addTyping(){
+  const div=document.createElement('div');div.className='msg ai';
+  div.innerHTML='<div class="msg-avatar">B</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>';
+  document.getElementById('chat-area').appendChild(div);scrollChat();return div;
+}
+function scrollChat(){const c=document.getElementById('chat-area');c.scrollTop=c.scrollHeight;}
 
-    const perdues = leads.filter(l => l.statut === 'rouge');
-    const raisons = perdues.reduce((acc, l) => {
-        const r = l.raison_mort || 'Autre';
-        acc[r] = (acc[r] || 0) + 1;
-        return acc;
-    }, {});
+async function sendChat(txtOverride){
+  const input=document.getElementById('chat-input');
+  let txt=txtOverride||input.value.trim();
+  if(!txt||busy)return;
+  if(!txtOverride){input.value='';input.style.height='auto';}
+  busy=true;document.getElementById('btn-send').disabled=true;
 
-    document.getElementById('page-admin').innerHTML = `
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:25px">
-            <div class="stat-box"><div class="stat-box-val">${caTotal.toLocaleString()} €</div><div style="font-size:10px;color:var(--t3)">CA TOTAL</div></div>
-            <div class="stat-box"><div class="stat-box-val" style="color:var(--g)">${panierMoyen.toLocaleString()} €</div><div style="font-size:10px;color:var(--t3)">PANIER MOYEN</div></div>
-            <div class="stat-box"><div class="stat-box-val">${ventes.length}</div><div style="font-size:10px;color:var(--t3)">VENTES</div></div>
-        </div>
-        <h3>Analyse des Pertes</h3>
-        <div style="margin-top:15px">
-            ${Object.entries(raisons).map(([r, n]) => `
-                <div style="margin-bottom:8px">
-                    <div style="font-size:12px;display:flex;justify-content:space-between"><span>${r}</span><span>${n} leads</span></div>
-                    <div style="height:6px;background:var(--s3);border-radius:3px;margin-top:4px"><div style="height:100%;background:var(--r);width:${(n/perdues.length*100)}%;border-radius:3px"></div></div>
-                </div>
-            `).join('')}
-        </div>
-    `;
+  // Correction auto avant envoi (tous utilisateurs)
+  if(!txtOverride){
+    const apiKey=getApiKey();
+    if(apiKey){
+      try{
+        const r=await fetch('https://api.anthropic.com/v1/messages',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+          body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:`Corrige uniquement les fautes d'orthographe et de grammaire françaises, sans changer le sens ni le style. Réponds UNIQUEMENT avec le texte corrigé, rien d'autre. Si pas de faute, réponds le texte exact tel quel :\n\n${txt}`}]})
+        });
+        const d=await r.json();
+        if(d.content?.[0]?.text){
+          const corrected=d.content[0].text.trim();
+          if(corrected&&corrected!==txt)txt=corrected;
+        }
+      }catch(e){}
+    }
+  }
+  const userMsgEl=addUserMsg(txt);const typing=addTyping();
+  const now=Date.now();
+  chatHistory.push({role:'user',content:txt,ts:now});
+  if(chatHistory.length>60)chatHistory=chatHistory.slice(-60);
+  try{
+    const apiKey=getApiKey();
+    if(!apiKey)throw new Error('Clé API manquante — demandez à Benjamin de la configurer');
+    const mem=getMem();
+    const ctx=`\nSAV ouverts: ${mem.sav.filter(s=>s.statut!=='regle').length}`;
+    // Contexte intelligent Benjamin : planning + rappels
+    const smartCtx=currentUser.id==='benjamin'?getBenjaminSmartContext():'';
+    const msgs=chatHistory.filter(m=>m.role).map(m=>({role:m.role,content:m.content}));
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,system:currentUser.system+BENAI_CTX+ctx+smartCtx,messages:msgs})
+    });
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error?.message||'Erreur API');
+    const reply=data.content[0].text;
+    const usage=data.usage||{};
+    trackTokens(currentUser.id,usage.input_tokens||0,usage.output_tokens||0);
+    updateTokenInfo(usage);
+    chatHistory.push({role:'assistant',content:reply,ts:Date.now()});
+    saveChatMem(currentUser.id,chatHistory);
+    typing.remove();addAIMsg(reply);
+    logActivity(`${currentUser.name} a consulté BenAI IA`);
+  }catch(e){typing.remove();addAIMsg('❌ '+e.message);}
+  busy=false;document.getElementById('btn-send').disabled=false;
 }
 
-// 6. ACTIONS UI
-function setStatut(s, btn) {
-    selectedStatut = s;
-    document.querySelectorAll('.statut-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-    document.getElementById('vendu-fields').style.display = s === 'vert' ? 'block' : 'none';
-    document.getElementById('perdu-fields').style.display = s === 'rouge' ? 'block' : 'none';
+function updateTokenInfo(usage){
+  const info=document.getElementById('token-info');
+  if(info&&usage.input_tokens){
+    const cost=estimateCost(usage.input_tokens,usage.output_tokens);
+    info.textContent=`${(usage.input_tokens||0)+(usage.output_tokens||0)} tokens · ~${cost}€`;
+  }
 }
 
-function openLead(id) {
-    const l = getLeads().find(x => x.id === id);
-    currentLeadId = id;
-    document.getElementById('modal-title').textContent = "Détails Lead";
-    document.getElementById('lead-nom').value = l.nom;
-    document.getElementById('lead-tel').value = l.telephone;
-    document.getElementById('btn-archive').style.display = "block";
-    document.getElementById('btn-archive').textContent = l.archive ? "🔄 Réouvrir" : "📁 Archiver";
-    document.getElementById('lead-modal').style.display = "flex";
+// CORRIGER ORTHOGRAPHE
+async function correctSpelling(){
+  const input=document.getElementById('chat-input');
+  const txt=input.value.trim();
+  if(!txt)return;
+  const apiKey=getApiKey();if(!apiKey)return;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:`Corrige uniquement les fautes d'orthographe et de grammaire du texte suivant, sans changer le sens ni le style. Réponds UNIQUEMENT avec le texte corrigé, rien d'autre :\n\n${txt}`}]})
+    });
+    const data=await res.json();
+    if(data.content&&data.content[0])input.value=data.content[0].text.trim();
+  }catch(e){}
 }
 
-function archiveCurrentLead() {
-    const leads = getLeads();
-    const idx = leads.findIndex(x => x.id === currentLeadId);
-    leads[idx].archive = !leads[idx].archive;
-    if (!leads[idx].archive) leads[idx].statut = 'gris';
-    saveLeads(leads);
-    closeLeadModal();
-    renderLeads();
+// CONTEXTE INTELLIGENT BENJAMIN
+function getBenjaminSmartContext(){
+  const days=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+  const schedule={1:'Nemausus Fermetures',3:'Nemausus Fermetures',5:'Nemausus Fermetures',2:'Lambert SAS',4:'Lambert SAS'};
+  const today=new Date().getDay();
+  const site=schedule[today];
+  const dayCtx=site?`\nAujourd'hui ${days[today]}, Benjamin est physiquement à ${site}.`:`\nAujourd'hui ${days[today]}, Benjamin travaille depuis chez lui pour les deux sociétés.`;
+  const reminders=getSmartReminders();
+  const reminderCtx=reminders.length>0?`\nRappels actifs de Benjamin (mentionne naturellement si pertinent) : ${reminders.slice(0,5).join(' | ')}`:'';
+  return dayCtx+reminderCtx;
 }
 
-function saveLead() {
-    const leads = getLeads();
-    const data = {
-        nom: document.getElementById('lead-nom').value,
-        telephone: document.getElementById('lead-tel').value,
-        secteur: document.getElementById('lead-secteur').value,
-        statut: selectedStatut,
-        prix_vendu: document.getElementById('lead-prix').value,
-        raison_mort: document.getElementById('lead-raison').value,
-        archive: false
+function getSmartReminders(){
+  const mem=getMem();
+  const notes=(mem.notes||[]).filter(n=>n.by==='benjamin'&&n.text);
+  const keywords=['rappelle','rappeler','rappel','oublie','pense à','à faire','appeler','contacter','envoyer','commander','relancer','vérifier','suivre'];
+  return notes.filter(n=>keywords.some(k=>n.text.toLowerCase().includes(k))).map(n=>n.text.substring(0,120));
+}
+
+// AUTO-CORRECTION BENJAMIN
+async function autoCorrectForBenjamin(txt,msgEl){
+  const apiKey=getApiKey();if(!apiKey||!msgEl)return;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:150,messages:[{role:'user',content:`Détecte les fautes d'orthographe et de grammaire. Si aucune faute : réponds uniquement "OK". Sinon : réponds uniquement le texte corrigé sans aucune explication.\n\n${txt}`}]})
+    });
+    const data=await res.json();if(!data.content)return;
+    const corrected=data.content[0].text.trim();
+    if(!corrected||corrected.toUpperCase()==='OK'||corrected===txt)return;
+    const corrDiv=document.createElement('div');
+    corrDiv.className='correction-bubble';
+    const safeCorrect=esc(corrected).replace(/'/g,''');
+    corrDiv.innerHTML=`📝 <span style="flex:1">${esc(corrected)}</span><button class="correction-use" onclick="useCorrection('${safeCorrect}',this)">Utiliser</button><button class="correction-use" style="background:var(--s3);color:var(--t3)" onclick="this.parentElement.remove()">✕</button>`;
+    const wrapper=msgEl.querySelector('[style*="flex-direction:column"]');
+    if(wrapper)wrapper.appendChild(corrDiv);
+    if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
+  }catch(e){}
+}
+
+function useCorrection(corrected,btn){
+  const input=document.getElementById('chat-input');
+  input.value=corrected.replace(/'/g,"'");
+  input.style.height='auto';input.style.height=Math.min(input.scrollHeight,100)+'px';
+  input.focus();
+  btn.closest('.correction-bubble').remove();
+}
+
+// MODIFIER MESSAGE UTILISATEUR
+function editUserMsg(btn,originalTxt){
+  const input=document.getElementById('chat-input');
+  input.value=originalTxt.replace(/'/g,"'");
+  input.style.height='auto';input.style.height=Math.min(input.scrollHeight,100)+'px';
+  input.focus();
+  const chatArea=document.getElementById('chat-area');
+  const msgs=chatArea.querySelectorAll('.msg');
+  const userMsg=btn.closest('.msg');
+  const userIdx=Array.from(msgs).indexOf(userMsg);
+  for(let i=msgs.length-1;i>=userIdx;i--)msgs[i].remove();
+  const lastUserIdx=chatHistory.map(m=>m.role).lastIndexOf('user');
+  if(lastUserIdx>-1)chatHistory=chatHistory.slice(0,lastUserIdx);
+  saveChatMem(currentUser.id,chatHistory);
+}
+
+// GESTION FICHIERS JOINTS
+async function handleAttachment(input){
+  const files=Array.from(input.files);if(!files.length)return;input.value='';
+  for(const file of files){
+    if(file.type.startsWith('image/'))await handleImageFile(file);
+    else if(file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')){
+      const isDevis=file.name.toLowerCase().includes('devis')||file.name.toLowerCase().includes('commande');
+      if(isDevis)await handleDevisPDF(file);
+      else await handleGenericPDF(file);
+    }
+  }
+}
+
+async function handleImageFile(file){
+  busy=true;document.getElementById('btn-send').disabled=true;
+  addUserMsg('🖼️ '+file.name);const typing=addTyping();
+  try{
+    const reader=new FileReader();
+    const base64=await new Promise((res,rej)=>{reader.onload=e=>res(e.target.result.split(',')[1]);reader.onerror=rej;reader.readAsDataURL(file);});
+    const userPrompt=document.getElementById('chat-input').value.trim()||'Décris et analyse cette image.';
+    document.getElementById('chat-input').value='';
+    const apiKey=getApiKey();
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,system:currentUser.system+BENAI_CTX,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},{type:'text',text:userPrompt}]}]})
+    });
+    const data=await res.json();if(!res.ok)throw new Error(data.error?.message||'Erreur API');
+    if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
+    typing.remove();addAIMsg(data.content[0].text);
+  }catch(e){typing.remove();addAIMsg('❌ '+e.message);}
+  busy=false;document.getElementById('btn-send').disabled=false;
+}
+
+async function handleGenericPDF(file){
+  busy=true;document.getElementById('btn-send').disabled=true;
+  addUserMsg('📄 '+file.name);const typing=addTyping();
+  try{
+    const ab=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:ab}).promise;
+    const maxPages=Math.min(pdf.numPages,3);let imgs=[];
+    for(let i=1;i<=maxPages;i++){
+      const p=await pdf.getPage(i);const vp=p.getViewport({scale:1.5});
+      const c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;
+      await p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+      imgs.push(c.toDataURL('image/jpeg',0.8).split(',')[1]);
+    }
+    const userPrompt=document.getElementById('chat-input').value.trim()||'Analyse et résume ce document.';
+    document.getElementById('chat-input').value='';
+    const apiKey=getApiKey();
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:currentUser.system+BENAI_CTX,messages:[{role:'user',content:[...imgs.map(img=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}})),{type:'text',text:userPrompt}]}]})
+    });
+    const data=await res.json();if(!res.ok)throw new Error(data.error?.message||'Erreur API');
+    if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
+    typing.remove();addAIMsg(data.content[0].text);
+  }catch(e){typing.remove();addAIMsg('❌ '+e.message);}
+  busy=false;document.getElementById('btn-send').disabled=false;
+}
+
+async function handleDevisPDF(file){
+  busy=true;document.getElementById('btn-send').disabled=true;
+  addUserMsg('📋 Devis : '+file.name);const typing=addTyping();
+  try{
+    const ab=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:ab}).promise;
+    let imgs=[];
+    for(let i=1;i<=pdf.numPages;i++){
+      const p=await pdf.getPage(i);const vp=p.getViewport({scale:1.8});
+      const c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;
+      await p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+      imgs.push(c.toDataURL('image/jpeg',0.82).split(',')[1]);
+    }
+    const apiKey=getApiKey();
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4000,system:`Tu es BenAI. Analyse ce devis Hercule Pro et réponds UNIQUEMENT en JSON valide :{"devis":{"numero":"","date":"","validite":"","type_prestation":"","contact_nom":"","contact_tel":"","contact_email":""},"client":{"nom_prenom":"","telephone":"","email":"","adresse_facturation":"","adresse_chantier":""},"produits":[{"designation":"","dimensions":"","quantite":1,"pu_ht":0.00,"total_ht":0.00,"tva_taux":""}],"totaux":{"montant_brut_ht":0.00,"remise_pct":"","remise_montant":0.00,"total_ht_net":0.00,"tva_montant":0.00,"total_ttc":0.00}}`,
+        messages:[{role:'user',content:[...imgs.map(img=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}})),{type:'text',text:'Extrais toutes les données de ce devis.'}]}]})
+    });
+    const data=await res.json();if(!res.ok)throw new Error(data.error?.message||'Erreur API');
+    if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
+    typing.remove();
+    try{const devis=JSON.parse(data.content[0].text.replace(/```json|```/g,'').trim());afficherDevis(devis,file.name);}
+    catch{addAIMsg(data.content[0].text);}
+  }catch(e){typing.remove();addAIMsg('❌ Erreur : '+e.message);}
+  busy=false;document.getElementById('btn-send').disabled=false;
+}
+
+// ANNUAIRE FILTRES
+let annFilter='tous';
+function setAnnFilter(filter,btn){
+  annFilter=filter;
+  document.querySelectorAll('.ann-filter').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderAnnuaire();
+}
+
+// EMOJI PICKER
+const EMOJIS=['😊','😄','😂','🙏','👍','👌','✅','❌','⚠️','📋','📎','📧','📞','🔧','🏠','🏢','📅','💰','🎯','✨','💡','🔑','📊','🚀','❤️','😅','🤔','👋','💪','🎉','📝','✏️','🗓️','⏰','📦','🚚','💬','🔔','⭐','🙂'];
+function buildEmojiPicker(){
+  const grid=document.getElementById('emoji-grid');
+  grid.innerHTML=EMOJIS.map(e=>`<button class="emoji-btn" onclick="insertEmoji('${e}')">${e}</button>`).join('');
+}
+function toggleEmojiPicker(){
+  const p=document.getElementById('emoji-picker');
+  p.style.display=p.style.display==='none'?'grid':'none';
+}
+function insertEmoji(e){
+  const input=document.getElementById('chat-input');
+  input.value+=e;input.focus();
+  document.getElementById('emoji-picker').style.display='none';
+}
+document.addEventListener('click',e=>{
+  const p=document.getElementById('emoji-picker');
+  if(p&&!p.contains(e.target)&&e.target.textContent!=='😊')p.style.display='none';
+});
+
+// PDF
+function afficherDevis(data,filename){
+  const d=data.devis||{},c=data.client||{},t=data.totaux||{},prods=data.produits||[];
+  const fmt=n=>n?Number(n).toFixed(2).replace('.',','):'—';
+  const fmtE=n=>fmt(n)!=='—'?fmt(n)+' €':'—';
+  const brutHT=t.montant_brut_ht||0,remMt=t.remise_montant||0,totalHT=t.total_ht_net||0,totalTVA=t.tva_montant||0,totalTTC=t.total_ttc||0;
+  const tvaTaux=totalHT>0?totalTVA/totalHT:0;
+  const div=document.createElement('div');div.className='msg ai';div.style.maxWidth='95%';
+  div.innerHTML='<div class="msg-avatar">B</div><div class="bubble" style="width:100%;padding:12px"></div>';
+  const bubble=div.querySelector('.bubble');
+  bubble.innerHTML=`<div style="font-size:13px;margin-bottom:12px">✅ <strong>${esc(filename)}</strong> — ${prods.length} produit(s) · <strong>${fmtE(totalTTC)}</strong> TTC<br><span style="font-size:11px;color:var(--t3)">Cliquez sur une valeur pour la copier</span></div>`;
+  const infoGrid=document.createElement('div');
+  infoGrid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--b1);border-radius:10px;overflow:hidden;margin-bottom:8px';
+  const fields=[{l:'N° Devis',v:d.numero},{l:'Date',v:d.date},{l:'Client',v:c.nom_prenom},{l:'Téléphone',v:c.telephone},{l:'Email',v:c.email,full:true},{l:'Adresse',v:c.adresse_facturation,full:true},{l:'Contact',v:d.contact_nom},{l:'Prestation',v:d.type_prestation}];
+  fields.forEach(f=>{
+    if(!f.v)return;
+    const cell=document.createElement('div');
+    cell.style.cssText=`background:var(--s3);padding:9px 11px${f.full?';grid-column:1/-1':''}`;
+    cell.innerHTML=`<div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:2px">${f.l}</div><div style="font-size:12px;font-weight:500;padding:4px 7px;border-radius:5px;cursor:pointer;border:1px solid transparent;transition:.12s" onmouseover="this.style.borderColor='var(--a)';this.style.background='var(--a3)'" onmouseout="this.style.borderColor='transparent';this.style.background='transparent'" onclick="cpClick(this,'${esc(f.v)}')">${esc(f.v)}</div>`;
+    infoGrid.appendChild(cell);
+  });
+  bubble.appendChild(infoGrid);
+  if(prods.length>0){
+    const tbl=document.createElement('div');tbl.style.cssText='background:var(--s3);border-radius:10px;overflow:hidden;margin-bottom:8px';
+    tbl.innerHTML='<div style="padding:8px 11px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);border-bottom:1px solid var(--b1)">📦 Produits</div>';
+    const table=document.createElement('table');table.style.cssText='width:100%;border-collapse:collapse;font-size:12px';
+    table.innerHTML=`<thead><tr style="background:var(--s2)"><th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Désignation</th><th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Dim.</th><th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Qté</th><th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">PU HT</th><th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">Total HT</th><th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">TVA</th><th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase">TTC</th></tr></thead>`;
+    const tbody=document.createElement('tbody');
+    prods.forEach(p=>{
+      const rm=(p.total_ht||0)*((remMt&&brutHT)?remMt/brutHT:0);
+      const hn=(p.total_ht||0)-rm;const ttc=hn*(1+tvaTaux);
+      const tr=document.createElement('tr');tr.style.cssText='border-top:1px solid var(--b1);cursor:pointer;transition:.1s';
+      tr.onmouseover=()=>tr.style.background='var(--a3)';tr.onmouseout=()=>tr.style.background='';
+      const mkTd=(val,right=false)=>`<td style="padding:8px 10px;${right?'text-align:right':''}" onclick="cpClick(this,'${esc(String(val||''))}')">${esc(String(val||'—'))}</td>`;
+      tr.innerHTML=`${mkTd(p.designation)}${mkTd(p.dimensions)}${mkTd(p.quantite,true)}${mkTd(fmtE(p.pu_ht),true)}${mkTd(fmtE(p.total_ht),true)}${mkTd(p.tva_taux,true)}<td style="padding:8px 10px;text-align:right;font-weight:600;color:var(--a)" onclick="cpClick(this,'${fmt(ttc)}')">${fmtE(ttc)}</td>`;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);tbl.appendChild(table);
+    const copyBtn=document.createElement('button');
+    copyBtn.style.cssText='width:100%;padding:8px;background:transparent;border:none;border-top:1px solid var(--b1);color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit;transition:.15s';
+    copyBtn.textContent='📋 Copier tout le tableau';
+    copyBtn.onclick=()=>{
+      let txt='Désignation\tDimensions\tQté\tPU HT\tTotal HT\tTVA\tTTC\n';
+      prods.forEach(p=>{const rm=(p.total_ht||0)*((remMt&&brutHT)?remMt/brutHT:0);const hn=(p.total_ht||0)-rm;const ttc=hn*(1+tvaTaux);txt+=`${p.designation||''}\t${p.dimensions||''}\t${p.quantite||1}\t${fmt(p.pu_ht)}\t${fmt(p.total_ht)}\t${p.tva_taux||''}\t${fmt(ttc)}\n`;});
+      navigator.clipboard.writeText(txt).then(()=>{copyBtn.textContent='✅ Copié !';setTimeout(()=>copyBtn.textContent='📋 Copier tout le tableau',1500);});
     };
-    if (currentLeadId) {
-        const idx = leads.findIndex(x => x.id === currentLeadId);
-        leads[idx] = { ...leads[idx], ...data };
-    } else {
-        data.id = Date.now();
-        data.commercial = getAutoAttribution(data.secteur);
-        leads.unshift(data);
-    }
-    saveLeads(leads);
-    closeLeadModal();
-    renderLeads();
+    tbl.appendChild(copyBtn);bubble.appendChild(tbl);
+  }
+  const totDiv=document.createElement('div');
+  totDiv.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--b1);border-radius:10px;overflow:hidden';
+  [{l:'Brut HT',v:fmtE(brutHT),raw:fmt(brutHT)},{l:'Remise',v:t.remise_pct?t.remise_pct+' = -'+fmtE(remMt):'—',raw:t.remise_pct||''},{l:'Total HT net',v:fmtE(totalHT),raw:fmt(totalHT)},{l:'TVA',v:fmtE(totalTVA),raw:fmt(totalTVA)}].forEach(tot=>{
+    const cell=document.createElement('div');cell.style.cssText='background:var(--s3);padding:10px;text-align:center;cursor:pointer;transition:.12s';
+    cell.innerHTML=`<div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:600">${tot.l}</div><div style="font-size:13px;font-weight:700;margin-top:3px">${tot.v}</div>`;
+    cell.onmouseover=()=>cell.style.background='var(--a3)';cell.onmouseout=()=>cell.style.background='var(--s3)';
+    cell.onclick=()=>{navigator.clipboard.writeText(tot.raw);cell.style.background='var(--g2)';setTimeout(()=>cell.style.background='var(--s3)',1200);};
+    totDiv.appendChild(cell);
+  });
+  const ttcCell=document.createElement('div');ttcCell.style.cssText='background:var(--a3);padding:12px;text-align:center;cursor:pointer;grid-column:1/-1;transition:.12s';
+  ttcCell.innerHTML=`<div style="font-size:10px;color:var(--a);text-transform:uppercase;font-weight:600">Total TTC</div><div style="font-size:1.4rem;font-weight:800;color:var(--a);margin-top:3px">${fmtE(totalTTC)}</div>`;
+  ttcCell.onclick=()=>{navigator.clipboard.writeText(fmt(totalTTC));ttcCell.style.background='var(--g2)';setTimeout(()=>ttcCell.style.background='var(--a3)',1200);};
+  totDiv.appendChild(ttcCell);bubble.appendChild(totDiv);
+  document.getElementById('chat-area').appendChild(div);scrollChat();
+}
+function cpClick(el,val){
+  if(!val||val==='—')return;
+  navigator.clipboard.writeText(val).then(()=>{const o=el.style.background;el.style.background='var(--g2)';el.style.color='var(--g)';setTimeout(()=>{el.style.background=o;el.style.color='';},1200);});
 }
 
-// [Gestion des Tutos par Rôle]
-const TUTO_DATA = {
-    commercial: [
-        { t: "Bienvenue !", c: "Tes leads sont centralisés ici. BenAI trace tes appels automatiquement pour ton suivi." },
-        { t: "Ventes HT", c: "Quand tu passes un lead en VERT (Vendu), pense à bien saisir le montant HT pour tes stats." }
-    ],
-    admin: [
-        { t: "Dashboard Benjamin", c: "Le dashboard calcule désormais ton panier moyen en temps réel." }
-    ]
-};
-let tutoIdx = 0;
-function checkTuto() {
-    if (currentUser.id === 'benjamin') return;
-    if (!localStorage.getItem('tuto_done_' + currentUser.id)) {
-        tutoIdx = 0; showTuto();
-    }
-}
-function showTuto() {
-    const steps = TUTO_DATA[currentUser.role] || TUTO_DATA.commercial;
-    document.getElementById('tuto-title').textContent = steps[tutoIdx].t;
-    document.getElementById('tuto-desc').textContent = steps[tutoIdx].c;
-    document.getElementById('tuto-overlay').style.display = 'flex';
-}
-function nextTutoSlide() {
-    const steps = TUTO_DATA[currentUser.role] || TUTO_DATA.commercial;
-    tutoIdx++;
-    if (tutoIdx >= steps.length) {
-        localStorage.setItem('tuto_done_' + currentUser.id, '1');
-        document.getElementById('tuto-overlay').style.display = 'none';
-    } else showTuto();
+// ══════════════════════════════════════════
+// MESSAGERIE INTERNE
+// ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// MESSAGERIE — SYSTÈME DYNAMIQUE
+// ══════════════════════════════════════════
+// Génère un ID de conversation cohérent entre deux utilisateurs
+function makeConvId(uid1,uid2){return [uid1,uid2].sort().join('_');}
+
+// Génère dynamiquement les conversations d'un utilisateur
+function getConvsForUser(uid){
+  const allUsers=getAllUsers();
+  const convs={};
+  const me=allUsers.find(u=>u.id===uid);
+  const role=me?.role||'assistante';
+
+  // CRM only roles (commercial, directeur_co) — voient uniquement les autres CRM + Benjamin
+  const crmOnly=['commercial','directeur_co'];
+  const isCRMOnly=crmOnly.includes(role);
+
+  if(uid==='benjamin'){
+    // Benjamin voit tout le monde
+    allUsers.filter(u=>u.id!=='benjamin').forEach(u=>{
+      const cid=makeConvId('benjamin',u.id);
+      convs[cid]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
+    });
+  } else if(isCRMOnly){
+    // Commercial/directeur co → Benjamin + autres CRM uniquement
+    const ben=allUsers.find(u=>u.id==='benjamin');
+    if(ben)convs[makeConvId(uid,'benjamin')]={name:'Benjamin',other:'benjamin',color:ben.color,initial:ben.initial};
+    allUsers.filter(u=>u.id!==uid&&u.id!=='benjamin'&&crmOnly.includes(u.role)).forEach(u=>{
+      convs[makeConvId(uid,u.id)]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
+    });
+  } else {
+    // Assistante/métreur → Benjamin + toute l'équipe
+    const ben=allUsers.find(u=>u.id==='benjamin');
+    if(ben)convs[makeConvId(uid,'benjamin')]={name:'Benjamin',other:'benjamin',color:ben.color,initial:ben.initial};
+    allUsers.filter(u=>u.id!==uid&&u.id!=='benjamin').forEach(u=>{
+      convs[makeConvId(uid,u.id)]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
+    });
+  }
+  // Groupe équipe visible pour tous
+  convs['groupe']={name:'Groupe équipe',group:true,color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'👥'};
+  return convs;
 }
 
-function showPage(p) {
-    document.getElementById('page-leads').style.display = p === 'leads' ? 'block' : 'none';
-    document.getElementById('page-admin').style.display = p === 'admin' ? 'block' : 'none';
-    if(p === 'admin') renderAdmin();
+function renderConvList(){
+  const list=document.getElementById('conv-list');
+  list.innerHTML='<div class="conv-header">Conversations</div>';
+  const convs=getConvsForUser(currentUser.id);
+  Object.entries(convs).forEach(([cid,conv])=>{
+    const mem=getMem();const msgs=mem.messages[cid]||[];const last=msgs[msgs.length-1];
+    const unread=countUnread(currentUser.id,cid);
+    const item=document.createElement('div');
+    item.className='conv-item'+(conv.group?' conv-group':'')+(currentConv===cid?' active':'');
+    item.innerHTML=`<div class="conv-name">${conv.name}</div><div class="conv-preview">${last?esc(last.text.substring(0,30)):'Aucun message'}</div>${unread>0?`<span class="conv-unread-badge">${unread}</span>`:''}`;
+    item.onclick=()=>openConv(cid,conv);
+    list.appendChild(item);
+  });
 }
-function filterLeads(f) { leadFilter = f; renderLeads(); }
-function closeLeadModal() { document.getElementById('lead-modal').style.display = "none"; }
-function showDriveNotif(m) { alert(m); }
-function logout() { location.reload(); }
-function openNewLead() { currentLeadId = null; document.getElementById('lead-modal').style.display = "flex"; }
-</script>
-</body>
-</html>
+
+function openConv(cid,conv){
+  currentConv=cid;markRead(currentUser.id,cid);refreshMsgBadge();
+  renderConvList();
+  const header=document.getElementById('thread-header');
+  const members=conv.group?getAllUsers().map(u=>u.name).join(', '):'Conversation privée';
+  header.innerHTML=`<div class="thread-avatar" style="background:${conv.color}">${conv.initial}</div><div><div class="thread-name">${conv.name}</div><div class="thread-status">${members}</div></div>`;
+  document.getElementById('thread-input').style.display='flex';
+  renderThread(cid);
+}
+
+function renderThread(cid){
+  const mem=getMem();const msgs=mem.messages[cid]||[];
+  const area=document.getElementById('thread-msgs');area.innerHTML='';
+  if(!msgs.length){area.innerHTML='<div style="color:var(--t3);font-size:12px;text-align:center;padding:20px">Aucun message — démarrez la conversation !</div>';return;}
+  msgs.forEach((m,idx)=>{
+    const mine=m.from===currentUser.id;
+    const sender=USERS[m.from]||getExtraUserById(m.from)||{color:'#666',initial:'?'};
+    const div=document.createElement('div');div.className='tmsg '+(mine?'mine':'theirs');
+    const actionsHtml=mine||currentUser.role==='admin'?`<div class="tmsg-actions"><button class="tmsg-act-btn" onclick="editMsg('${cid}',${idx})">✏️</button><button class="tmsg-act-btn" onclick="deleteMsg('${cid}',${idx})" style="color:var(--r)">🗑️</button></div>`:'';
+    div.innerHTML=`
+      ${!mine?`<div class="tmsg-av" style="background:${sender.color||'#666'}">${sender.initial||'?'}</div>`:''}
+      <div class="tmsg-body">
+        <div class="tmsg-bubble" style="${mine?'background:'+currentUser.color:''}">
+          ${actionsHtml}${esc(m.text)}
+        </div>
+        <div class="tmsg-time">${m.time||''}${m.edited?' (modifié)':''}</div>
+      </div>
+      ${mine?`<div class="tmsg-av" style="background:${currentUser.color}">${currentUser.initial}</div>`:''}`;
+    area.appendChild(div);
+  });
+  area.scrollTop=area.scrollHeight;
+}
+
+function sendMsg(){
+  const input=document.getElementById('msg-input');const txt=input.value.trim();
+  if(!txt||!currentConv)return;input.value='';input.focus();
+  const mem=getMem();if(!mem.messages[currentConv])mem.messages[currentConv]=[];
+  const now=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  mem.messages[currentConv].push({from:currentUser.id,text:txt,time:now,ts:Date.now()});
+  saveMem(mem);renderThread(currentConv);renderConvList();
+  logActivity(`${currentUser.name} a envoyé un message`);
+}
+
+function deleteMsg(cid,idx){
+  if(currentUser.id!=='benjamin'){showDriveNotif('⚠️ Suppression réservée à Benjamin');return;}
+  if(!confirm('Supprimer ce message définitivement ?'))return;
+  const mem=getMem();if(mem.messages[cid])mem.messages[cid].splice(idx,1);
+  saveMem(mem);renderThread(cid);renderConvList();
+}
+
+function editMsg(cid,idx){
+  const mem=getMem();const msg=mem.messages[cid]?.[idx];if(!msg)return;
+  if(msg.from!==currentUser.id&&currentUser.id!=='benjamin'){showDriveNotif('⚠️ Vous ne pouvez modifier que vos messages');return;}
+  const nouveau=prompt('Modifier le message :',msg.text);
+  if(!nouveau||!nouveau.trim())return;
+  msg.text=nouveau.trim();msg.edited=true;
+  saveMem(mem);renderThread(cid);
+}
+
+// ══════════════════════════════════════════
+// SAV
+// ══════════════════════════════════════════
+function toggleSavForm(){
+  const wrap=document.getElementById('sav-form-wrap');
+  const isOpen=wrap.style.display!=='none';
+  wrap.style.display=isOpen?'none':'block';
+  if(!isOpen){
+    const socSelect=document.getElementById('sav-soc');
+    if(socSelect){
+      if(currentUser.id==='aurelie'){
+        socSelect.value='nemausus';socSelect.disabled=true;
+      } else if(currentUser.id==='claudine'){
+        socSelect.value='lambert';socSelect.disabled=true;
+      } else {
+        socSelect.disabled=false;
+      }
+    }
+  }
+}
+
+function filterSAV(filter,btn){
+  currentFilter=filter;
+  document.querySelectorAll('.sav-filter').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');renderSAV();
+}
+
+function addSAV(){
+  const client=document.getElementById('sav-client').value.trim();
+  const pb=document.getElementById('sav-pb').value.trim();
+  const soc=document.getElementById('sav-soc').value;
+  const commercial=document.getElementById('sav-commercial').value.trim();
+  const fourn=document.getElementById('sav-fourn').value.trim();
+  const rappel=document.getElementById('sav-rappel').value;
+  const urgent=document.getElementById('sav-urgent').checked;
+  if(!client||!pb){alert('Remplissez le client et le problème');return;}
+  const mem=getMem();
+  mem.sav.unshift({id:Date.now(),client,probleme:pb,societe:soc,commercial,fournisseur:fourn,rappel,urgent,statut:'nouveau',date_creation:new Date().toLocaleDateString('fr-FR'),by:currentUser.name,actions:[]});
+  saveMem(mem);
+  updatePatterns(fourn,client);
+  ['sav-client','sav-pb','sav-commercial','sav-fourn','sav-rappel'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('sav-urgent').checked=false;
+  const ok=document.getElementById('sav-ok');ok.textContent='✅ SAV enregistré !';
+  setTimeout(()=>{ok.textContent='';toggleSavForm();},1500);
+  renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a ouvert un SAV : ${client}`);
+}
+
+function renderSAV(){
+  const mem=getMem();const list=document.getElementById('sav-list');
+  let savs=mem.sav||[];const isAdmin=currentUser.role==='admin';
+  const search=(document.getElementById('sav-search')?.value||'').toLowerCase();
+  // Filtre société
+  if(currentUser.id==='aurelie')savs=savs.filter(s=>s.societe==='nemausus');
+  else if(currentUser.id==='claudine')savs=savs.filter(s=>s.societe==='lambert');
+  // Filtre état
+  if(currentFilter==='nouveau')savs=savs.filter(s=>s.statut==='nouveau');
+  else if(currentFilter==='en_cours')savs=savs.filter(s=>s.statut==='en_cours');
+  else if(currentFilter==='regle')savs=savs.filter(s=>s.statut==='regle');
+  else if(currentFilter==='urgent')savs=savs.filter(s=>s.urgent&&s.statut!=='regle');
+  else savs=savs.filter(s=>s.statut!=='regle');
+  // Recherche
+  if(search)savs=savs.filter(s=>(s.client||'').toLowerCase().includes(search)||(s.probleme||'').toLowerCase().includes(search)||(s.commercial||'').toLowerCase().includes(search)||(s.fournisseur||'').toLowerCase().includes(search));
+
+  // Rappels SAV
+  const rappelArea=document.getElementById('sav-reminders-area');
+  if(rappelArea){
+    const today=new Date();today.setHours(0,0,0,0);
+    const rappels=(mem.sav||[]).filter(s=>{
+      if(!s.rappel||s.statut==='regle')return false;
+      const d=new Date(s.rappel);d.setHours(0,0,0,0);
+      const diff=Math.ceil((d-today)/(1000*60*60*24));
+      return diff<=7&&diff>=0;
+    });
+    rappelArea.innerHTML=rappels.map(s=>{
+      const d=new Date(s.rappel);d.setHours(0,0,0,0);
+      const diff=Math.ceil((d-today)/(1000*60*60*24));
+      const label=diff===0?'AUJOURD\'HUI':diff===1?'DEMAIN':`dans ${diff} jours`;
+      return `<div class="reminder-alert">🔔 Rappel SAV — <strong>${esc(s.client)}</strong> — ${label} (${formatDate(s.rappel)})</div>`;
+    }).join('');
+  }
+
+  if(!savs.length){list.innerHTML=`<div style="color:var(--t3);font-size:13px;padding:24px;text-align:center">${currentFilter==='regle'?'Aucun SAV réglé':'Aucun SAV en cours 🎉'}</div>`;return;}
+
+  // Trier par priorité (admin uniquement, vue normale)
+  if(isAdmin&&currentFilter==='tous'){
+    savs.sort((a,b)=>computeSAVPriority(b)-computeSAVPriority(a));
+  }
+
+  const stateLabel={nouveau:'<span class="state-new">🔴 Nouveau</span>',en_cours:'<span class="state-progress">🟡 En cours</span>',regle:'<span class="state-done">🟢 Réglé</span>'};
+
+  list.innerHTML=savs.map(s=>{
+    const derniereAction=s.actions&&s.actions.length>0?s.actions[s.actions.length-1]:null;
+    const hist=getClientHistory(s.client,s.id,mem);
+    const rappelBadge=s.rappel?`<span class="sav-reminder-badge">🔔 ${formatDate(s.rappel)}</span>`:'';
+    const priority=computeSAVPriority(s);
+    const priorityBadge=isAdmin?getPriorityBadge(priority):'';
+    const daysSinceCreation=getSAVAgeDays(s);
+    const proactiveSuggestion=isAdmin&&daysSinceCreation>=5&&s.statut!=='regle'&&s.fournisseur?
+      `<div style="margin-top:6px;padding:7px 10px;background:var(--bl2);border:1px solid rgba(96,165,250,.2);border-radius:8px;font-size:11px;color:var(--bl);display:flex;align-items:center;gap:8px">
+        💡 <span style="flex:1">Sans réponse depuis ${daysSinceCreation} jours — Veux-tu que je rédige l'email pour <strong>${esc(s.fournisseur)}</strong> ?</span>
+        <button onclick="suggestFournisseurEmail('${esc(s.id)}','${esc(s.client)}','${esc(s.probleme)}','${esc(s.fournisseur)}')" style="padding:4px 10px;background:var(--bl);color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">✍️ Rédiger</button>
+      </div>`:'';
+    return `<div class="sav-card${s.urgent?' urgent':''}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+        ${priorityBadge}
+        ${stateLabel[s.statut]||''}
+        <span class="badge ${s.societe==='nemausus'?'badge-nem':'badge-lam'}">${s.societe==='nemausus'?'Nemausus':'Lambert'}</span>
+        ${s.urgent?'<span class="badge badge-urgent">🚨 URGENT</span>':''}
+        ${rappelBadge}
+        <span style="font-size:10px;color:var(--t3);margin-left:auto">${s.date_creation||''}${daysSinceCreation>0?' · '+daysSinceCreation+'j':''}</span>
+        ${isAdmin?`<button onclick="editSAV(${s.id})" title="Modifier" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:14px;padding:2px 4px">✏️</button><button onclick="deleteSAV(${s.id})" title="Supprimer" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:14px;padding:2px 4px">🗑️</button>`:''}
+      </div>
+      <div class="sav-client">${esc(s.client)}</div>
+      <div class="sav-pb">${esc(s.probleme)}</div>
+      <div class="sav-meta">${s.commercial?'Commercial : '+esc(s.commercial)+' · ':''}${s.fournisseur?'Fournisseur : '+esc(s.fournisseur)+' · ':''}Créé par ${esc(s.by||'?')}</div>
+      ${derniereAction?`<div style="margin-top:6px;padding:6px 10px;background:var(--s3);border-radius:6px;font-size:11px;color:var(--t2)">✅ <strong>${esc(derniereAction.action)}</strong> — ${esc(derniereAction.date)}</div>`:''}
+      ${proactiveSuggestion}
+      ${currentUser.role!=='admin'?`<div style="margin-top:4px;font-size:10px;color:var(--g)">${getSAVVu(s.id)?'👁️ Vu par Benjamin le '+getSAVVu(s.id):'⏳ Pas encore vu par Benjamin'}</div>`:''}
+      ${hist.length>0?`<div style="margin-top:6px"><details><summary style="font-size:11px;color:var(--t3);cursor:pointer">🕐 Historique client (${hist.length} SAV précédent(s))</summary><div style="margin-top:6px">${hist.map(h=>`<div class="hist-item"><div class="hist-date">${h.date_creation||''} · ${h.statut}</div><div class="hist-pb">${esc(h.probleme)}</div></div>`).join('')}</div></details></div>`:''}
+      ${isAdmin&&s.statut!=='regle'?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        <input type="text" class="sav-action-input" id="action-${s.id}" placeholder="Ce que tu as fait (ex: Commandé chez Somfy le 12/04...)">
+        <button onclick="savAction(${s.id})" style="padding:7px 12px;background:var(--a);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">✓ Enregistrer</button>
+        <button onclick="changeStatut(${s.id},'regle')" class="btn-resolve">🟢 Réglé</button>
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function getClientHistory(client,excludeId,mem){
+  return (mem.sav||[]).filter(s=>s.client===client&&s.id!==excludeId).slice(0,5);
+}
+
+function deleteSAV(id){
+  if(!confirm('Supprimer ce SAV définitivement ?'))return;
+  const mem=getMem();mem.sav=mem.sav.filter(s=>s.id!==id);saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a supprimé un SAV`);
+}
+
+function editSAV(id){
+  const mem=getMem();const s=mem.sav.find(x=>x.id===id);if(!s)return;
+  document.getElementById('sav-client').value=s.client||'';
+  document.getElementById('sav-commercial').value=s.commercial||'';
+  document.getElementById('sav-pb').value=s.probleme||'';
+  document.getElementById('sav-soc').value=s.societe||'nemausus';
+  document.getElementById('sav-soc').disabled=false;
+  document.getElementById('sav-fourn').value=s.fournisseur||'';
+  document.getElementById('sav-rappel').value=s.rappel||'';
+  document.getElementById('sav-urgent').checked=s.urgent||false;
+  const btn=document.querySelector('#sav-form-wrap .btn-primary');
+  if(btn){btn.textContent='💾 Modifier';btn.onclick=()=>saveEditSAV(id);}
+  document.getElementById('sav-form-wrap').style.display='block';
+  document.getElementById('sav-form-wrap').scrollIntoView({behavior:'smooth'});
+}
+
+function saveEditSAV(id){
+  const client=document.getElementById('sav-client').value.trim();
+  const pb=document.getElementById('sav-pb').value.trim();
+  if(!client||!pb){alert('Client et problème obligatoires');return;}
+  const mem=getMem();const idx=mem.sav.findIndex(s=>s.id===id);if(idx===-1)return;
+  mem.sav[idx]={
+    ...mem.sav[idx],
+    client,probleme:pb,
+    commercial:document.getElementById('sav-commercial').value.trim(),
+    societe:document.getElementById('sav-soc').value,
+    fournisseur:document.getElementById('sav-fourn').value.trim(),
+    rappel:document.getElementById('sav-rappel').value,
+    urgent:document.getElementById('sav-urgent').checked
+  };
+  saveMem(mem);
+  const btn=document.querySelector('#sav-form-wrap .btn-primary');
+  if(btn){btn.textContent='Enregistrer';btn.onclick=addSAV;}
+  document.getElementById('sav-form-wrap').style.display='none';
+  ['sav-client','sav-pb','sav-commercial','sav-fourn','sav-rappel'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('sav-urgent').checked=false;
+  renderSAV();logActivity(`Benjamin a modifié le SAV de ${client}`);
+}
+
+function savAction(id){
+  const input=document.getElementById('action-'+id);const txt=input?.value.trim();if(!txt)return;
+  const mem=getMem();const sav=mem.sav.find(s=>s.id===id);if(!sav)return;
+  if(!sav.actions)sav.actions=[];
+  sav.actions.push({action:txt,date:new Date().toLocaleDateString('fr-FR'),by:currentUser.name});
+  sav.statut='en_cours';saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a traité SAV : ${sav.client}`);
+}
+
+function changeStatut(id,statut){
+  const mem=getMem();const sav=mem.sav.find(s=>s.id===id);
+  if(sav){sav.statut=statut;if(statut==='regle')sav.date_reglement=new Date().toLocaleDateString('fr-FR');saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a réglé SAV : ${sav.client}`);}
+}
+
+function refreshSAVBadge(){
+  const mem=getMem();
+  const nb=(mem.sav||[]).filter(s=>s.statut!=='regle').length;
+  const urgent=(mem.sav||[]).filter(s=>s.urgent&&s.statut!=='regle').length;
+  const badge=document.getElementById('sav-badge');
+  badge.style.display=nb>0?'flex':'none';badge.textContent=nb;
+  if(urgent>0)badge.style.background='var(--r)';else badge.style.background='var(--a)';
+}
+
+function exportSAVCSV(){
+  const mem=getMem();let savs=mem.sav||[];
+  if(currentUser.id==='aurelie')savs=savs.filter(s=>s.societe==='nemausus');
+  else if(currentUser.id==='claudine')savs=savs.filter(s=>s.societe==='lambert');
+  const header='Date,Client,Problème,Société,Commercial,Fournisseur,Statut,Urgent,Date rappel\n';
+  const rows=savs.map(s=>`${s.date_creation||''},${csv(s.client)},${csv(s.probleme)},${s.societe==='nemausus'?'Nemausus Fermetures':'Lambert SAS'},${csv(s.commercial)},${csv(s.fournisseur)},${s.statut},${s.urgent?'Oui':'Non'},${s.rappel||''}`).join('\n');
+  download('SAV_BenAI_'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.csv',header+rows,'text/csv');
+}
+
+// ══════════════════════════════════════════
+// NOTES RAPIDES
+// ══════════════════════════════════════════
+function addNote(){
+  const mem=getMem();if(!mem.notes)mem.notes=[];
+  mem.notes.unshift({id:Date.now(),text:'',date:new Date().toLocaleDateString('fr-FR'),by:currentUser.id});
+  saveMem(mem);renderNotes();setTimeout(()=>{const first=document.querySelector('.note-card textarea');if(first)first.focus();},50);
+}
+
+function renderNotes(){
+  const mem=getMem();const area=document.getElementById('notes-area');
+  const notes=(mem.notes||[]).filter(n=>n.by===currentUser.id||currentUser.role==='admin');
+  if(!notes.length){area.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune note — cliquez sur + Nouvelle note</div>';return;}
+  area.innerHTML=notes.map((n,i)=>`
+    <div class="note-card">
+      <button class="note-del" onclick="deleteNote(${n.id})">✕</button>
+      <textarea oninput="saveNote(${n.id},this.value)" onblur="correctNoteSpelling(${n.id},this)">${esc(n.text)}</textarea>
+      <div class="note-meta"><span>${n.date}</span><span>${USERS[n.by]?.name||n.by}</span></div>
+    </div>`).join('');
+}
+
+function saveNote(id,val){
+  const mem=getMem();const n=mem.notes?.find(x=>x.id===id);if(n)n.text=val;saveMem(mem);
+}
+
+async function correctNoteSpelling(id,el){
+  const txt=el.value.trim();
+  if(!txt||txt.split(' ').length<3)return;
+  const apiKey=getApiKey();if(!apiKey)return;
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:`Corrige uniquement les fautes d'orthographe et de grammaire françaises, sans changer le sens ni le style. Réponds UNIQUEMENT avec le texte corrigé, rien d'autre. Si aucune faute, réponds le texte exact :\n\n${txt}`}]})
+    });
+    const d=await r.json();
+    if(d.content?.[0]?.text){
+      const corrected=d.content[0].text.trim();
+      if(corrected&&corrected!==txt){
+        el.value=corrected;
+        saveNote(id,corrected);
+      }
+    }
+  }catch(e){}
+}
+
+
+function deleteNote(id){
+  if(!confirm('Supprimer cette note ?'))return;
+  const mem=getMem();mem.notes=(mem.notes||[]).filter(n=>n.id!==id);saveMem(mem);renderNotes();
+}
+
+// ══════════════════════════════════════════
+// ABSENCES (Benjamin uniquement)
+// ══════════════════════════════════════════
+function toggleAbsForm(){
+  const wrap=document.getElementById('abs-form-wrap');
+  wrap.style.display=wrap.style.display==='none'?'block':'none';
+}
+
+function addAbsence(){
+  const emp=document.getElementById('abs-emp-select')?.value||'';
+  const debut=document.getElementById('abs-debut').value;
+  const fin=document.getElementById('abs-fin').value;
+  const heureDebut=document.getElementById('abs-heure-debut')?.value||'';
+  const heureFin=document.getElementById('abs-heure-fin')?.value||'';
+  const type=document.getElementById('abs-type').value;
+  const note=document.getElementById('abs-note').value.trim();
+  if(!emp){alert('Sélectionnez un employé');return;}
+  if(!debut||!fin){alert('Remplissez les dates');return;}
+  if(new Date(fin)<new Date(debut)){alert('⚠️ La date de fin doit être après le début');return;}
+  const notifs=[...document.querySelectorAll('.abs-notif-cb:checked')].map(cb=>cb.dataset.uid);
+  const mem=getMem();
+  if(!mem.absences)mem.absences=[];
+  mem.absences.unshift({id:Date.now(),employe:emp,type,debut,fin,heureDebut,heureFin,note,notifs});
+  saveMem(mem);
+  ['abs-debut','abs-fin','abs-note','abs-heure-debut','abs-heure-fin'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  if(document.getElementById('abs-emp-select'))document.getElementById('abs-emp-select').value='';
+  toggleAbsForm();renderAbsences();logActivity(`Benjamin a enregistré une absence pour ${emp}`);
+}
+
+function deleteAbsence(id){
+  if(!confirm('Supprimer cette absence ?'))return;
+  const mem=getMem();mem.absences=(mem.absences||[]).filter(a=>a.id!==id);saveMem(mem);renderAbsences();
+}
+
+function editAbsence(id){
+  const mem=getMem();const a=(mem.absences||[]).find(x=>x.id===id);if(!a)return;
+  fillAbsEmpList();
+  setTimeout(()=>{
+    const sel=document.getElementById('abs-emp-select');
+    if(sel){sel.value=a.employe||'';}
+  },50);
+  document.getElementById('abs-debut').value=a.debut||'';
+  document.getElementById('abs-fin').value=a.fin||'';
+  if(document.getElementById('abs-heure-debut'))document.getElementById('abs-heure-debut').value=a.heureDebut||'';
+  if(document.getElementById('abs-heure-fin'))document.getElementById('abs-heure-fin').value=a.heureFin||'';
+  document.getElementById('abs-type').value=a.type||'Congé';
+  document.getElementById('abs-note').value=a.note||'';
+  // Restaurer les checkboxes notif
+  setTimeout(()=>{
+    document.querySelectorAll('.abs-notif-cb').forEach(cb=>{
+      cb.checked=(a.notifs||['benjamin']).includes(cb.dataset.uid);
+    });
+  },60);
+  const btn=document.querySelector('#abs-form-wrap .btn-primary');
+  if(btn){btn.textContent='💾 Modifier';btn.onclick=()=>saveEditAbsence(id);}
+  document.getElementById('abs-form-wrap').style.display='block';
+  document.getElementById('abs-form-wrap').scrollIntoView({behavior:'smooth'});
+}
+
+function saveEditAbsence(id){
+  const emp=document.getElementById('abs-emp-select')?.value||'';
+  const debut=document.getElementById('abs-debut').value;
+  const fin=document.getElementById('abs-fin').value;
+  if(!emp||!debut||!fin){alert('Remplissez tous les champs obligatoires');return;}
+  if(new Date(fin)<new Date(debut)){alert('⚠️ La date de fin doit être après le début');return;}
+  const notifs=[...document.querySelectorAll('.abs-notif-cb:checked')].map(cb=>cb.dataset.uid);
+  const mem=getMem();const idx=(mem.absences||[]).findIndex(a=>a.id===id);if(idx===-1)return;
+  mem.absences[idx]={...mem.absences[idx],employe:emp,debut,fin,
+    heureDebut:document.getElementById('abs-heure-debut')?.value||'',
+    heureFin:document.getElementById('abs-heure-fin')?.value||'',
+    type:document.getElementById('abs-type').value,
+    note:document.getElementById('abs-note').value.trim(),notifs};
+  saveMem(mem);
+  const btn=document.querySelector('#abs-form-wrap .btn-primary');
+  if(btn){btn.textContent='Enregistrer';btn.onclick=addAbsence;}
+  document.getElementById('abs-form-wrap').style.display='none';
+  renderAbsences();logActivity(`Benjamin a modifié l'absence de ${emp}`);
+}
+
+let currentAbsSort='asc';
+
+function setAbsSort(mode,btn){
+  currentAbsSort=mode;
+  document.querySelectorAll('#abs-sort-asc,#abs-sort-desc,#abs-sort-emp').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderAbsences();
+}
+
+function refreshAbsEmpFilter(){
+  const sel=document.getElementById('abs-filter-emp');if(!sel)return;
+  const mem=getMem();
+  const emps=[...new Set((mem.absences||[]).map(a=>a.employe))].sort((a,b)=>a.localeCompare(b,'fr'));
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Tous les employés</option>'+emps.map(e=>`<option value="${esc(e)}"${cur===e?' selected':''}>${esc(e)}</option>`).join('');
+}
+
+function renderAbsences(){
+  const mem=getMem();const list=document.getElementById('abs-list');
+  refreshAbsEmpFilter();
+  const filterEmp=(document.getElementById('abs-filter-emp')?.value||'').trim();
+  let absences=(mem.absences||[]).filter(a=>!filterEmp||a.employe===filterEmp);
+  if(!absences.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune absence enregistrée</div>';return;}
+  const today=new Date();today.setHours(0,0,0,0);
+
+  const getStatus=(a)=>{
+    const debut=new Date(a.debut);debut.setHours(0,0,0,0);
+    const fin=new Date(a.fin);fin.setHours(0,0,0,0);
+    if(today>fin)return{status:'Passée',statusClass:'abs-past'};
+    if(today>=debut)return{status:'En cours',statusClass:'abs-today'};
+    const diff=Math.ceil((debut-today)/(1000*60*60*24));
+    return{status:diff===1?'Demain':`Dans ${diff} jour(s)`,statusClass:'abs-future'};
+  };
+
+  const renderCard=(a)=>{
+    const {status,statusClass}=getStatus(a);
+    const notifIcons=(a.notifs||['benjamin']).map(n=>n==='benjamin'?'👨':'👩').join('');
+    const heures=a.heureDebut&&a.heureFin?` · ${a.heureDebut}→${a.heureFin}`:a.heureDebut?` · dès ${a.heureDebut}`:'';
+    const icon=a.type==='Congé'?'🏖️':a.type==='Maladie'?'🤒':a.type==='Formation'?'📚':'🗓️';
+    return `<div style="padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--b1)">
+      <span style="font-size:18px">${icon}</span>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:600">${esc(a.employe)} — ${a.type} <span style="font-size:10px;color:var(--t3)">${notifIcons}</span></div>
+        <div style="font-size:11px;color:var(--t2)">Du ${formatDate(a.debut)} au ${formatDate(a.fin)}${heures}</div>
+        ${a.note?`<div style="font-size:10px;color:var(--t3)">${esc(a.note)}</div>`:''}
+      </div>
+      <span class="absence-status ${statusClass}" style="font-size:10px">${status}</span>
+      <button onclick="editAbsence(${a.id})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:16px;padding:2px" title="Modifier">✏️</button>
+      <button onclick="deleteAbsence(${a.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:16px;padding:2px" title="Supprimer">🗑️</button>
+    </div>`;
+  };
+
+  if(currentAbsSort==='emp'){
+    // Grouper par employé alphabétique, puis date croissante dans chaque groupe
+    const byEmp={};
+    absences.forEach(a=>{
+      if(!byEmp[a.employe])byEmp[a.employe]=[];
+      byEmp[a.employe].push(a);
+    });
+    Object.keys(byEmp).forEach(e=>byEmp[e].sort((a,b)=>new Date(a.debut)-new Date(b.debut)));
+    const emps=Object.keys(byEmp).sort((a,b)=>a.localeCompare(b,'fr'));
+    list.innerHTML=emps.map(emp=>`
+      <div style="margin-bottom:14px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;overflow:hidden">
+        <div style="padding:10px 14px;background:var(--s3);border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:8px">
+          <span style="font-size:16px">👤</span>
+          <span style="font-size:13px;font-weight:700;flex:1">${esc(emp)}</span>
+          <span style="background:var(--a3);color:var(--a);border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700">${byEmp[emp].length} absence(s)</span>
+        </div>
+        ${byEmp[emp].map(renderCard).join('')}
+      </div>`).join('');
+  } else {
+    // Tri global par date
+    absences.sort((a,b)=>{
+      const da=new Date(a.debut),db=new Date(b.debut);
+      const fa=new Date(a.fin),fb=new Date(b.fin);
+      const aPast=today>fa,bPast=today>fb;
+      if(currentAbsSort==='asc'){
+        if(aPast&&!bPast)return 1;
+        if(!aPast&&bPast)return -1;
+        return da-db;
+      } else {
+        if(aPast&&!bPast)return 1;
+        if(!aPast&&bPast)return -1;
+        return db-da;
+      }
+    });
+    list.innerHTML=`<div style="background:var(--s2);border:1px solid var(--b1);border-radius:14px;overflow:hidden">
+      ${absences.map(renderCard).join('')}
+    </div>`;
+  }
+}
+
+function checkAbsenceReminders(){_checkRemindersFor('benjamin');}
+function checkAbsenceRemindersForUser(uid){_checkRemindersFor(uid);}
+function _checkRemindersFor(uid){
+  const mem=getMem();const absences=mem.absences||[];
+  const today=new Date();today.setHours(0,0,0,0);
+  const reminders=[];
+  absences.forEach(a=>{
+    const notifs=a.notifs||['benjamin'];
+    if(!notifs.includes(uid))return;
+    const debut=new Date(a.debut);debut.setHours(0,0,0,0);
+    const diff=Math.ceil((debut-today)/(1000*60*60*24));
+    if(diff===7)reminders.push(`📅 Dans 7 jours : **${a.employe}** absent(e) — ${a.type} (du ${formatDate(a.debut)} au ${formatDate(a.fin)})`);
+    if(diff===1)reminders.push(`⚠️ DEMAIN : **${a.employe}** sera absent(e) — ${a.type}`);
+    if(diff===0)reminders.push(`🔴 AUJOURD'HUI : **${a.employe}** est absent(e) (jusqu'au ${formatDate(a.fin)})`);
+  });
+  if(reminders.length>0)setTimeout(()=>{reminders.forEach(r=>addAIMsg('**Rappel absence** : '+r));},800);
+}
+
+// SAV VU PAR BENJAMIN
+function markSAVVu(){
+  if(currentUser?.role!=='admin')return;
+  const mem=getMem();if(!mem.sav_vu)mem.sav_vu={};
+  const today=new Date().toLocaleDateString('fr-FR');
+  (mem.sav||[]).forEach(s=>{if(!mem.sav_vu[s.id])mem.sav_vu[s.id]=today;});
+  saveMem(mem);
+}
+function getSAVVu(id){return((getMem().sav_vu)||{})[id]||null;}
+
+// ANNUAIRE
+function getAnnuaire(){try{return JSON.parse(localStorage.getItem('benai_annuaire'))||[];}catch{return[];}}
+function saveAnnuaire(a){localStorage.setItem('benai_annuaire',JSON.stringify(a));}
+function toggleEmpForm(){const w=document.getElementById('emp-form-wrap');w.style.display=w.style.display==='none'?'block':'none';}
+
+function addEmploye(){
+  const prenom=document.getElementById('emp-prenom').value.trim();
+  const nom=document.getElementById('emp-nom').value.trim();
+  const email=document.getElementById('emp-email').value.trim();
+  const emailPro=document.getElementById('emp-email-pro').value.trim();
+  const tel=document.getElementById('emp-tel').value.trim();
+  const naissance=document.getElementById('emp-naissance').value;
+  const fonction=document.getElementById('emp-fonction').value;
+  const soc=document.getElementById('emp-soc').value;
+  const vehicule_modele=document.getElementById('emp-vehicule-modele')?.value.trim()||'';
+  const vehicule_immat=document.getElementById('emp-vehicule-immat')?.value.trim()||'';
+  
+  if(!prenom||!nom){alert('Prénom et Nom sont obligatoires');return;}
+  const ann=getAnnuaire();
+  ann.push({id:Date.now(),prenom,nom,email,emailPro,tel,naissance,fonction,societe:soc,vehicule_modele,vehicule_immat});
+  saveAnnuaire(ann);
+  ['emp-prenom','emp-nom','emp-email','emp-email-pro','emp-tel','emp-naissance','emp-vehicule-modele','emp-vehicule-immat'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const ok=document.getElementById('emp-ok');ok.textContent='✅ Enregistré !';
+  setTimeout(()=>{ok.textContent='';toggleEmpForm();},1200);
+  renderAnnuaire();logActivity(`Benjamin a ajouté ${prenom} ${nom} dans l'annuaire`);
+}
+
+function deleteEmploye(id){
+  if(!confirm('Supprimer cet employé de l\'annuaire ?'))return;
+  logDeletion('Employé annuaire',getAnnuaire().find(e=>e.id===id)?.prenom+' '+getAnnuaire().find(e=>e.id===id)?.nom);
+  saveAnnuaire(getAnnuaire().filter(e=>e.id!==id));renderAnnuaire();
+}
+
+function editEmploye(id){
+  const ann=getAnnuaire();
+  const e=ann.find(x=>x.id===id);if(!e)return;
+  document.getElementById('emp-prenom').value=e.prenom||'';
+  document.getElementById('emp-nom').value=e.nom||'';
+  document.getElementById('emp-email').value=e.email||'';
+  const epro=document.getElementById('emp-email-
