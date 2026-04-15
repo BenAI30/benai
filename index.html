@@ -1395,36 +1395,52 @@ function checkAccessRealtime(){
 }
 setInterval(checkAccessRealtime,15000);
 
-function login(){
-  const uid=normalizeId(document.getElementById('login-user').value);
-  const pwd=document.getElementById('login-pwd').value;
-  const err=document.getElementById('login-err');
-  if(!uid){err.textContent='Entrez votre identifiant';return;}
+async function login() {
+  const userEl = document.getElementById('login-user');
+  const passEl = document.getElementById('login-pwd');
+  const errEl = document.getElementById('login-err');
 
-  if(uid!=='benjamin'){
-    const attempts=getLoginAttempts();
-    const now=Date.now();
-    if(attempts.blockedUntil>now){
-      const remaining=Math.ceil((attempts.blockedUntil-now)/1000);
-      err.textContent=`Trop de tentatives. Réessayez dans ${remaining}s.`;
-      return;
-    }
+  const user = userEl.value.toLowerCase().trim();
+  const pass = passEl.value;
+
+  if (!user || !pass) {
+    if(errEl) errEl.textContent = 'Entrez votre identifiant et mot de passe';
+    return;
   }
 
-  const now=Date.now();
-  const attempts=uid!=='benjamin'?getLoginAttempts():{count:0,blockedUntil:0};
-  const userFound=findUserById(uid);
-  const resolvedUid=userFound?normalizeId(userFound.id):uid;
+  try {
+    // On vérifie sur ton nouveau serveur Supabase
+    const { data, error } = await supabaseClient
+      .from('employes')
+      .select('*')
+      .eq('nom', user)
+      .eq('mot_de_passe', pass)
+      .single();
 
-  if(!userFound){
-    if(uid!=='benjamin'){
-      attempts.count++;
-      if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;}
-      saveLoginAttempts(attempts);
-      err.textContent=`Identifiant ou mot de passe incorrect (${Math.min(attempts.count,3)}/3)`;
-    } else {
-      err.textContent='Identifiant incorrect';
+    if (error || !data) {
+      if(errEl) errEl.textContent = "❌ Identifiant ou mot de passe incorrect.";
+      return;
     }
+
+    // Si c'est bon, on définit l'utilisateur actuel
+    currentUser = data.nom;
+    currentRole = data.role;
+    
+    // On cache l'écran de login et on affiche l'app (on utilise tes IDs : login-screen et app)
+    document.getElementById('login-screen').style.display = 'none';
+    const appEl = document.getElementById('app');
+    if(appEl) appEl.classList.add('visible');
+    
+    console.log("🔓 Connecté avec succès via Supabase !");
+    
+    // On lance l'initialisation du reste
+    if (typeof initApp === "function") initApp(); 
+
+  } catch (err) {
+    console.error("Erreur critique login:", err);
+    if(errEl) errEl.textContent = "Erreur de connexion au serveur.";
+  }
+}
     return;
   }
 
