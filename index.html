@@ -445,24 +445,43 @@ input[type=file]{display:none;}
 
 <!-- ══ LOGIN ══ -->
 async function login() {
-  const userEl = document.getElementById('login-user');
-  const passEl = document.getElementById('login-pwd');
-  const errEl = document.getElementById('login-err');
-  const user = userEl.value.toLowerCase().trim();
-  const pass = passEl.value;
+  const user = document.getElementById('login-user').value.toLowerCase().trim();
+  const pass = document.getElementById('login-pwd').value;
+  const err = document.getElementById('login-err');
 
   try {
     const { data, error } = await supabaseClient
-      .from('employes')
-      .select('*')
-      .eq('nom', user)
-      .eq('mot_de_passe', pass)
-      .single();
+      .from('employes').select('*').eq('nom', user).eq('mot_de_passe', pass).single();
 
     if (error || !data) {
-      if(errEl) errEl.textContent = "❌ Identifiant ou mot de passe incorrect.";
+      if(err) err.textContent = "❌ Identifiant ou mot de passe incorrect.";
       return;
     }
+
+    // ON LUI REDONNE SA MÉMOIRE (MENUS + COULEUR + RÔLE)
+    currentUser = {
+      id: data.nom,
+      nom: data.nom,
+      name: data.nom.charAt(0).toUpperCase() + data.nom.slice(1),
+      role: data.role || 'admin',
+      color: data.nom === 'benjamin' ? '#E8943A' : '#22C55E',
+      initial: data.nom.charAt(0).toUpperCase()
+    };
+    currentRole = currentUser.role;
+
+    // ON TUE LE TUTORIEL DÉFINITIVEMENT
+    localStorage.setItem('benai_tutorial_finished', 'true');
+    localStorage.setItem('benai_onboarding_step', '99');
+
+    // ON AFFICHE LE LOGICIEL
+    document.getElementById('login-screen').style.display = 'none';
+    if(document.getElementById('app')) document.getElementById('app').classList.add('visible');
+    
+    // ON RELANCE TOUT
+    if (typeof initApp === "function") initApp(); 
+
+  } catch (err) { console.error(err); }
+}
 
     // ON CREE LE BADGE COMPLET ICI
     currentUser = {
@@ -1422,43 +1441,7 @@ function checkAccessRealtime(){
 }
 setInterval(checkAccessRealtime,15000);
 
-async function login() {
-  const userEl = document.getElementById('login-user');
-  const passEl = document.getElementById('login-pwd');
-  const errEl = document.getElementById('login-err');
 
-  const user = userEl.value.toLowerCase().trim();
-  const pass = passEl.value;
-
-  if (!user || !pass) {
-    if(errEl) errEl.textContent = 'Entrez votre identifiant et mot de passe';
-    return;
-  }
-
-  try {
-    const { data, error } = await supabaseClient
-      .from('employes')
-      .select('*')
-      .eq('nom', user)
-      .eq('mot_de_passe', pass)
-      .single();
-
-    if (error || !data) {
-      if(errEl) errEl.textContent = "❌ Identifiant ou mot de passe incorrect.";
-      return;
-    }
-
-    currentUser = data.nom;
-    currentRole = data.role;
-    
-    document.getElementById('login-screen').style.display = 'none';
-    const appEl = document.getElementById('app');
-    if(appEl) appEl.classList.add('visible');
-    
-    if (typeof initApp === "function") initApp(); 
-
-  } catch (err) {
-    console.error("Erreur critique login:", err);
   }
 }
 // VERIFIE BIEN QU'IL N'Y A RIEN JUSTE EN DESSOUS DE CETTE LIGNE QUI N'EST PAS UNE AUTRE FONCTION
