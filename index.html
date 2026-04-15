@@ -1436,23 +1436,7 @@ async function login() {
 }
 // VERIFIE BIEN QU'IL N'Y A RIEN JUSTE EN DESSOUS DE CETTE LIGNE QUI N'EST PAS UNE AUTRE FONCTION
 
-  const pwds=getPwds();
-  const validPwd=pwds[resolvedUid]||USERS[resolvedUid]?.pwd||'1234';
-  if(pwd!==validPwd){
-    if(uid!=='benjamin'){
-      attempts.count++;
-      if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;err.textContent='Accès bloqué 5 minutes.';saveLoginAttempts(attempts);return;}
-      saveLoginAttempts(attempts);
-      err.textContent=`Mot de passe incorrect — tentative ${attempts.count}/3`;
-    } else {
-      err.textContent='Mot de passe incorrect';
-    }
-    return;
-  }
-  const access=getAccess();
-  if(access[resolvedUid]===false&&resolvedUid!=='benjamin'){err.textContent='Accès bloqué par l\'administrateur';return;}
-  resetLoginAttempts();
-  currentUser={id:resolvedUid,...(USERS[resolvedUid]||getExtraUserById(resolvedUid))};
+  
   // Log connexion
   logConnexion(resolvedUid);
   lastActivityTime=Date.now();
