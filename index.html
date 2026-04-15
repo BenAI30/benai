@@ -1438,18 +1438,7 @@ async function login() {
 
   
   // Log connexion
-  logConnexion(resolvedUid);
-  lastActivityTime=Date.now();
-  if(pwd==='1234'){
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('force-pwd-screen').style.display='flex';
-    return;
-  }
-  sessionStorage.setItem('benai_session',resolvedUid);
-  document.getElementById('login-screen').style.display='none';
-  document.getElementById('app').classList.add('visible');
-  initApp();
-}
+  
 
 function logConnexion(uid){
   try{
