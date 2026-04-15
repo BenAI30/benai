@@ -5,148 +5,348 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BenAI v3.16</title>
 <style>
-/* ... Tes styles CSS habituels ... */
-:root { --a: #E8943A; --s1: #101010; --b1: #242424; --t1: #F2EFE8; --r: #F87171; }
-body { background: #080808; color: var(--t1); font-family: 'Outfit', sans-serif; }
-.tuto-lock { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; }
-.btn-call { color: var(--a); text-decoration: none; font-weight: bold; border: 1px solid var(--a); padding: 2px 8px; border-radius: 4px; font-size: 12px; }
-.stat-card { background: var(--s1); border: 1px solid var(--b1); padding: 15px; border-radius: 12px; }
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+:root{
+  --bg:#080808;--s1:#101010;--s2:#161616;--s3:#1E1E1E;--b1:#242424;--b2:#2E2E2E;
+  --t1:#F2EFE8;--t2:#A8A49C;--t3:#5A5650;
+  --a:#E8943A;--a2:#C4711A;--a3:rgba(232,148,58,.12);
+  --g:#22C55E;--g2:rgba(34,197,94,.12);
+  --r:#F87171;--r2:rgba(248,113,113,.12);
+  --bl:#60A5FA;--bl2:rgba(96,165,250,.12);
+  --y:#FBBF24;--y2:rgba(251,191,36,.12);
+}
+html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);}
+#login-screen,#force-pwd-screen,#tuto-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;}
+.login-box{width:380px;padding:40px 36px;background:var(--s1);border:1px solid var(--b1);border-radius:20px;box-shadow:0 40px 80px rgba(0,0,0,.6);}
+.login-input{width:100%;padding:11px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;color:var(--t1);margin-bottom:14px;outline:none;font-family:inherit;}
+.login-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit;}
+#app{display:none;height:100%;flex-direction:column;}
+#app.visible{display:flex;}
+.topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 16px;gap:12px;}
+.main{display:flex;flex:1;overflow:hidden;}
+.sidebar{width:220px;background:var(--s1);border-right:1px solid var(--b1);display:flex;flex-direction:column;overflow-y:auto;}
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column;padding:20px;}
+.sb-item{padding:10px 16px;cursor:pointer;font-size:14px;display:flex;align-items:center;gap:10px;border-radius:8px;margin:2px 8px;}
+.sb-item.active{background:var(--a3);color:var(--a);}
+.lead-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:15px;margin-bottom:10px;cursor:pointer;transition:0.2s;}
+.lead-card:hover{border-color:var(--a);}
+.statut-btn{padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;border:2px solid transparent;font-family:inherit;}
+.selected{border-color:white;}
+.stat-box{background:var(--s3);border-radius:10px;padding:15px;text-align:center;flex:1;}
+.stat-box-val{font-size:24px;font-weight:800;color:var(--a);}
+.stat-box-lbl{font-size:10px;text-transform:uppercase;color:var(--t3);margin-top:5px;}
+.btn-call{color:var(--bl);text-decoration:none;font-weight:700;font-size:12px;background:var(--bl2);padding:4px 8px;border-radius:6px;}
 </style>
 </head>
 <body>
 
-<div id="tuto-blocker" class="tuto-lock" style="display:none">
-    <div style="max-width:400px">
-        <h2 id="tuto-title" style="color:var(--a);margin-bottom:15px"></h2>
-        <p id="tuto-text" style="margin-bottom:25px; line-height:1.5"></p>
-        <button onclick="nextTutoStep()" style="background:var(--a); border:none; padding:12px 30px; border-radius:8px; color:#fff; font-weight:bold; cursor:pointer">Suivant</button>
+<div id="login-screen">
+  <div class="login-box">
+    <h1 style="text-align:center;margin-bottom:20px">BenAI v3.16</h1>
+    <input type="text" id="login-user" class="login-input" placeholder="Identifiant">
+    <input type="password" id="login-pwd" class="login-input" placeholder="Mot de passe">
+    <button class="login-btn" onclick="login()">Se connecter</button>
+    <div id="login-err" style="color:var(--r);font-size:12px;margin-top:10px;text-align:center"></div>
+  </div>
+</div>
+
+<div id="tuto-overlay" style="display:none; background:rgba(0,0,0,0.95)">
+  <div class="login-box" style="text-align:center">
+    <h2 id="tuto-title" style="color:var(--a);margin-bottom:15px"></h2>
+    <p id="tuto-text" style="font-size:14px;line-height:1.6;margin-bottom:25px"></p>
+    <button class="login-btn" onclick="nextTutoStep()">Suivant</button>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <b style="color:var(--a)">BenAI</b>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:15px">
+      <span id="tb-username" style="font-size:13px;font-weight:600"></span>
+      <button onclick="logout()" style="background:none;border:1px solid var(--b1);color:var(--t3);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px">Déconnexion</button>
     </div>
+  </div>
+  <div class="main">
+    <div class="sidebar">
+      <div class="sb-item active" id="nav-leads" onclick="showPage('leads')">📋 CRM Leads</div>
+      <div class="sb-item" id="nav-admin" onclick="showPage('admin')">📊 Dashboard</div>
+    </div>
+    <div class="content">
+      <div id="page-leads">
+        <div style="display:flex;justify-content:space-between;margin-bottom:20px">
+          <h2>Gestion des Leads</h2>
+          <button class="login-btn" style="width:auto;padding:8px 16px" onclick="openNewLead()">+ Nouveau Lead</button>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:15px">
+           <button onclick="filterLeads('tous')" class="statut-btn" style="background:var(--s3);color:var(--t1)">Tous</button>
+           <button onclick="filterLeads('archive')" class="statut-btn" style="background:var(--b1);color:var(--t2)">📁 Archives</button>
+        </div>
+        <div id="leads-list"></div>
+      </div>
+      <div id="page-admin" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<div id="lead-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1500;align-items:center;justify-content:center">
+  <div class="login-box" style="width:450px">
+    <h3 id="modal-title" style="margin-bottom:20px">Détails Lead</h3>
+    <input type="text" id="lead-nom" class="login-input" placeholder="Nom">
+    <input type="text" id="lead-tel" class="login-input" placeholder="Téléphone">
+    <select id="lead-secteur" class="login-input">
+      <option value="nimes">Nîmes</option>
+      <option value="avignon">Avignon</option>
+    </select>
+    <div style="display:flex;gap:5px;margin-bottom:15px">
+      <button class="statut-btn" style="background:#88888820;color:#888" onclick="setStatut('gris',this)">Gris</button>
+      <button class="statut-btn" style="background:var(--g2);color:var(--g)" onclick="setStatut('vert',this)">Vendu</button>
+      <button class="statut-btn" style="background:var(--r2);color:var(--r)" onclick="setStatut('rouge',this)">Perdu</button>
+    </div>
+    <div id="vendu-fields" style="display:none">
+       <input type="number" id="lead-prix" class="login-input" placeholder="Prix Vendu HT">
+    </div>
+    <div id="perdu-fields" style="display:none">
+       <select id="lead-raison" class="login-input">
+          <option value="Budget">Budget</option>
+          <option value="Concurrent">Concurrent</option>
+          <option value="Annulé">Annulé</option>
+       </select>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button class="login-btn" onclick="saveLead()">Enregistrer</button>
+      <button id="btn-archive" class="login-btn" style="background:var(--s3)" onclick="archiveLead()">Archiver</button>
+      <button class="login-btn" style="background:var(--r)" onclick="closeModal()">Fermer</button>
+    </div>
+  </div>
 </div>
 
 <script>
-/* ================================================================
-   BENAI v3.16 - CORE LOGIC
-   ================================================================
-*/
+// --- LOGIQUE CORE v3.16 ---
+let currentUser = null;
+let currentLeadId = null;
+let selectedStatut = 'gris';
+let leadFilter = 'tous';
 
-// 1. GESTION DES MOTS DE PASSE (HACHAGE)
-function hashPwd(p) {
-    if (!p || p.startsWith('h_')) return p;
-    let h = 0; for (let i = 0; i < p.length; i++) h = ((h << 5) - h) + p.charCodeAt(i), h |= 0;
-    return 'h_' + Math.abs(h).toString(36);
+// 1. SÉCURITÉ : HACHAGE (Point 17)
+function hashPwd(pwd) {
+  if (!pwd || pwd.startsWith('h_')) return pwd;
+  let hash = 0;
+  for (let i = 0; i < pwd.length; i++) {
+    hash = ((hash << 5) - hash) + pwd.charCodeAt(i);
+    hash |= 0;
+  }
+  return 'h_' + Math.abs(hash).toString(36);
 }
 
-// 2. ATTRIBUTION AUTOMATIQUE ( Lambert / Nemausus )
-function getAutoAttribution(societeLead) {
-    const allUsers = JSON.parse(localStorage.getItem('benai_extra_users') || '[]');
-    // Si un Dir Co existe pour cette boîte, on ne fait rien (dispatch manuel)
-    const hasDirCo = allUsers.some(u => u.role === 'directeur_co' && (u.societe === societeLead || u.societe === 'les-deux'));
-    if (hasDirCo) return null;
+// 2. DONNÉES
+function getLeads() { return JSON.parse(localStorage.getItem('benai_leads') || '[]'); }
+function saveLeads(l) { localStorage.setItem('benai_leads', JSON.stringify(l)); }
 
-    // Sinon, on cherche s'il y a un commercial unique
-    const comms = allUsers.filter(u => u.role === 'commercial' && (u.societe === societeLead || u.societe === 'les-deux'));
-    return comms.length === 1 ? comms[0].id : null;
-}
+// 3. LOGIN & MIGRATION
+function login() {
+  const uid = document.getElementById('login-user').value.toLowerCase();
+  const pwd = document.getElementById('login-pwd').value;
+  const err = document.getElementById('login-err');
 
-// 3. TRACÉ AUTOMATIQUE DES APPELS
-function trackCall(leadId) {
-    let leads = JSON.parse(localStorage.getItem('benai_leads') || '[]');
-    let l = leads.find(x => x.id === leadId);
-    if (l) {
-        if (!l.timeline) l.timeline = [];
-        l.timeline.push({ 
-            date: new Date().toISOString(), 
-            user: currentUser.name, 
-            action: "📞 Appel tracé via l'application" 
-        });
-        localStorage.setItem('benai_leads', JSON.stringify(leads));
-        console.log("Appel tracé pour le lead " + leadId);
-    }
-}
-
-// 4. PANIER MOYEN & ANALYSE PERTES (DASHBOARD)
-function calculateDashboardStats() {
-    const leads = JSON.parse(localStorage.getItem('benai_leads') || '[]').filter(l => !l.archive);
-    const ventes = leads.filter(l => l.statut === 'vert');
-    const perdues = leads.filter(l => l.statut === 'rouge');
-
-    const caTotal = ventes.reduce((sum, l) => sum + (Number(l.prix_vendu) || 0), 0);
-    const panierMoyen = ventes.length > 0 ? (caTotal / ventes.length).toFixed(0) : 0;
-
-    const raisons = perdues.reduce((acc, l) => {
-        const r = l.raison_mort || "Non spécifiée";
-        acc[r] = (acc[r] || 0) + 1;
-        return acc;
-    }, {});
-
-    return { caTotal, panierMoyen, nbVentes: ventes.length, raisonsPerte: raisons };
-}
-
-// 5. ARCHIVAGE / RÉOUVERTURE
-function toggleArchive(id) {
-    let leads = JSON.parse(localStorage.getItem('benai_leads') || '[]');
-    let idx = leads.findIndex(l => l.id === id);
-    if (idx !== -1) {
-        leads[idx].archive = !leads[idx].archive;
-        // Si réouverture, on repasse en gris pour traitement
-        if (!leads[idx].archive) leads[idx].statut = 'gris'; 
-        localStorage.setItem('benai_leads', JSON.stringify(leads));
-        renderLeads(); 
-    }
-}
-
-// 6. TUTOS OBLIGATOIRES (Point 15)
-const TUTOS = {
-    'directeur_co': [
-        { t: "Bienvenue Directeur", c: "Ici vous gérez le dispatch des leads et surveillez les performances." },
-        { t: "Le Panier Moyen", c: "Nouveauté : Le dashboard calcule maintenant la valeur moyenne de vos ventes." },
-        { t: "Analyse des pertes", c: "Identifiez pourquoi les contrats sont perdus (Prix, Concurrence...)." }
-    ],
-    'commercial': [
-        { t: "Tes Missions", c: "Tes leads sont assignés ici. Pense à bien remplir le montant des devis." },
-        { t: "Appels", c: "Clique sur le numéro pour appeler, BenAI trace l'appel automatiquement." },
-        { t: "Vendu !", c: "Passe en vert uniquement quand le contrat est signé." }
-    ],
-    'assistante': [
-        { t: "Saisie Rapide", c: "Saisissez les leads, l'attribution se fait seule s'il n'y a pas de chef." },
-        { t: "Archives", c: "Ne supprimez rien, utilisez le bouton Archiver pour nettoyer la vue." }
-    ]
-};
-
-let currentStep = 0;
-function nextTutoStep() {
-    const steps = TUTOS[currentUser.role] || TUTOS['commercial'];
-    currentStep++;
-    if (currentStep >= steps.length) {
-        localStorage.setItem('benai_tuto_done_' + currentUser.id, '1');
-        document.getElementById('tuto-blocker').style.display = 'none';
-    } else {
-        renderTuto();
-    }
-}
-
-function renderTuto() {
-    const steps = TUTOS[currentUser.role] || TUTOS['commercial'];
-    document.getElementById('tuto-title').innerText = steps[currentStep].t;
-    document.getElementById('tuto-text').innerText = steps[currentStep].c;
-    document.getElementById('tuto-blocker').style.display = 'flex';
-}
-
-// Initialisation au login
-function onUserLogin() {
-    // 1. Sécuriser le MDP
-    currentUser.pwd = hashPwd(currentUser.pwd);
+  // Admin Benjamin par défaut
+  if (uid === 'benjamin' && pwd === '1234') {
+    currentUser = { id: 'benjamin', name: 'Benjamin', role: 'admin' };
+  } else {
+    // Vérification des autres utilisateurs (extras)
+    const extras = JSON.parse(localStorage.getItem('benai_extra_users') || '[]');
+    const pwds = JSON.parse(localStorage.getItem('benai_pwds') || '{}');
+    const u = extras.find(x => x.id === uid);
     
-    // 2. Vérifier Tuto (sauf pour Benjamin)
-    if (currentUser.id !== 'benjamin' && !localStorage.getItem('benai_tuto_done_' + currentUser.id)) {
-        renderTuto();
+    if (u && (pwds[uid] === pwd || pwds[uid] === hashPwd(pwd))) {
+        currentUser = u;
+        // Migration auto du mot de passe
+        if (!pwds[uid].startsWith('h_')) {
+            pwds[uid] = hashPwd(pwd);
+            localStorage.setItem('benai_pwds', JSON.stringify(pwds));
+        }
     }
+  }
+
+  if (currentUser) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').classList.add('visible');
+    document.getElementById('tb-username').textContent = currentUser.name;
+    document.getElementById('nav-admin').style.display = currentUser.role === 'admin' ? 'flex' : 'none';
+    checkTuto();
+    renderLeads();
+  } else {
+    err.textContent = "Identifiant ou mot de passe incorrect";
+  }
 }
 
-/* REMARQUE : Pour les véhicules dans l'annuaire, 
-   ajoute simplement ces deux clés dans ton objet employé :
-   { vehicule_modele: "Master", vehicule_immat: "AA-123-BB" }
-*/
+// 4. TUTOS OBLIGATOIRES (Point 15)
+const TUTOS = {
+  admin: [
+    { t: "Bienvenue Benjamin", c: "Ici vous contrôlez tout. Le dashboard affiche maintenant le panier moyen." },
+    { t: "Gestion d'équipe", c: "Vous pouvez voir les performances de chaque commercial et gérer leurs accès." }
+  ],
+  commercial: [
+    { t: "Vos Leads", c: "Traitez vos contacts ici. Cliquez sur 'Appeler' pour tracer l'appel automatiquement." },
+    { t: "Vendu !", c: "Pensez à bien saisir le montant HT quand vous passez un lead en Vert." }
+  ]
+};
+let tutoStep = 0;
+function checkTuto() {
+  if (currentUser.id === 'benjamin') return;
+  if (!localStorage.getItem('tuto_done_' + currentUser.id)) {
+    tutoStep = 0;
+    showTuto();
+  }
+}
+function showTuto() {
+  const steps = TUTOS[currentUser.role] || TUTOS.commercial;
+  document.getElementById('tuto-title').textContent = steps[tutoStep].t;
+  document.getElementById('tuto-text').textContent = steps[tutoStep].c;
+  document.getElementById('tuto-overlay').style.display = 'flex';
+}
+function nextTutoStep() {
+  const steps = TUTOS[currentUser.role] || TUTOS.commercial;
+  tutoStep++;
+  if (tutoStep >= steps.length) {
+    localStorage.setItem('tuto_done_' + currentUser.id, '1');
+    document.getElementById('tuto-overlay').style.display = 'none';
+  } else {
+    showTuto();
+  }
+}
+
+// 5. CRM & APPELS (Point 4)
+function trackCall(id) {
+  const leads = getLeads();
+  const l = leads.find(x => x.id === id);
+  if (l) {
+    if (!l.timeline) l.timeline = [];
+    l.timeline.push({ date: new Date().toLocaleString(), action: "📞 Appel tracé" });
+    saveLeads(leads);
+    renderLeads();
+    alert("Appel tracé dans l'historique.");
+  }
+}
+
+function renderLeads() {
+  const container = document.getElementById('leads-list');
+  let leads = getLeads();
+  
+  if (leadFilter === 'archive') leads = leads.filter(l => l.archive);
+  else leads = leads.filter(l => !l.archive);
+
+  container.innerHTML = leads.map(l => `
+    <div class="lead-card" onclick="openLead(${l.id})">
+      <div style="display:flex; justify-content:space-between">
+         <b>${l.nom}</b>
+         <span style="font-size:10px; color:var(--t3)">${l.secteur}</span>
+      </div>
+      <div style="margin-top:8px">
+         <a href="tel:${l.telephone}" class="btn-call" onclick="event.stopPropagation(); trackCall(${l.id})">📞 Appeler</a>
+      </div>
+    </div>
+  `).join('');
+}
+
+// 6. DASHBOARD : PANIER MOYEN (Point 10)
+function renderAdmin() {
+  const leads = getLeads().filter(l => !l.archive);
+  const ventes = leads.filter(l => l.statut === 'vert');
+  const caTotal = ventes.reduce((s, l) => s + (Number(l.prix_vendu) || 0), 0);
+  const panierMoyen = ventes.length > 0 ? (caTotal / ventes.length).toFixed(0) : 0;
+
+  const perdues = leads.filter(l => l.statut === 'rouge');
+  const raisons = perdues.reduce((acc, l) => {
+    const r = l.raison_mort || 'Non spécifié';
+    acc[r] = (acc[r] || 0) + 1;
+    return acc;
+  }, {});
+
+  document.getElementById('page-admin').innerHTML = `
+    <div style="display:flex; gap:15px; margin-bottom:20px">
+      <div class="stat-box"><div class="stat-box-val">${caTotal} €</div><div class="stat-box-lbl">CA Total</div></div>
+      <div class="stat-box"><div class="stat-box-val">${panierMoyen} €</div><div class="stat-box-lbl">Panier Moyen</div></div>
+      <div class="stat-box"><div class="stat-box-val">${ventes.length}</div><div class="stat-box-lbl">Ventes</div></div>
+    </div>
+    <h3>Analyse des Pertes</h3>
+    <div style="margin-top:10px">
+      ${Object.entries(raisons).map(([r, n]) => `<div>${r} : ${n} (${((n/perdues.length)*100).toFixed(0)}%)</div>`).join('')}
+    </div>
+  `;
+}
+
+// 7. ACTIONS LEAD
+function setStatut(s, btn) {
+    selectedStatut = s;
+    document.querySelectorAll('.statut-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    document.getElementById('vendu-fields').style.display = s === 'vert' ? 'block' : 'none';
+    document.getElementById('perdu-fields').style.display = s === 'rouge' ? 'block' : 'none';
+}
+
+function openNewLead() {
+    currentLeadId = null;
+    document.getElementById('modal-title').textContent = "Nouveau Lead";
+    document.getElementById('lead-nom').value = "";
+    document.getElementById('lead-tel').value = "";
+    document.getElementById('btn-archive').style.display = "none";
+    document.getElementById('lead-modal').style.display = "flex";
+}
+
+function openLead(id) {
+    const l = getLeads().find(x => x.id === id);
+    currentLeadId = id;
+    document.getElementById('modal-title').textContent = "Modifier Lead";
+    document.getElementById('lead-nom').value = l.nom;
+    document.getElementById('lead-tel').value = l.telephone;
+    document.getElementById('btn-archive').style.display = "block";
+    document.getElementById('btn-archive').textContent = l.archive ? "Réouvrir" : "Archiver";
+    document.getElementById('lead-modal').style.display = "flex";
+}
+
+function saveLead() {
+    const leads = getLeads();
+    const data = {
+        nom: document.getElementById('lead-nom').value,
+        telephone: document.getElementById('lead-tel').value,
+        secteur: document.getElementById('lead-secteur').value,
+        statut: selectedStatut,
+        prix_vendu: document.getElementById('lead-prix').value,
+        raison_mort: document.getElementById('lead-raison').value,
+        archive: false
+    };
+
+    if (currentLeadId) {
+        const idx = leads.findIndex(x => x.id === currentLeadId);
+        leads[idx] = { ...leads[idx], ...data };
+    } else {
+        data.id = Date.now();
+        leads.unshift(data);
+    }
+    saveLeads(leads);
+    closeModal();
+    renderLeads();
+}
+
+function archiveLead() {
+    const leads = getLeads();
+    const idx = leads.findIndex(x => x.id === currentLeadId);
+    leads[idx].archive = !leads[idx].archive;
+    if (!leads[idx].archive) leads[idx].statut = 'gris';
+    saveLeads(leads);
+    closeModal();
+    renderLeads();
+}
+
+function filterLeads(f) { leadFilter = f; renderLeads(); }
+function closeModal() { document.getElementById('lead-modal').style.display = "none"; }
+function showPage(p) {
+    document.getElementById('page-leads').style.display = p === 'leads' ? 'block' : 'none';
+    document.getElementById('page-admin').style.display = p === 'admin' ? 'block' : 'none';
+    if(p === 'admin') renderAdmin();
+}
+function logout() { location.reload(); }
 </script>
 </body>
 </html>
