@@ -5749,34 +5749,64 @@ async function installUpdate(version,notes){
 </body>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  // 1. Connexion au moteur Cloud
   const _sbUrl = 'https://wwrdnvvjdfxkzzqbwlzy.supabase.co'; 
   const _sbKey = 'sb_publishable_jd--ZbBaMhayWA8nvZlB-A_LFBhnvgD';
   const _client = window.supabase.createClient(_sbUrl, _sbKey);
 
-  // 2. Remplacement de la fonction Login (Moteur Supabase)
+  // FONCTION SPÉCIALE : ALLUMER TOUS LES BOUTONS
+  function debloquerToutLeLogiciel() {
+    // On affiche tous les éléments du menu qui pourraient être cachés
+    const menus = ['nav-benai', 'nav-notes', 'nav-messages', 'nav-sav', 'nav-leads', 'nav-absences', 'nav-annuaire', 'nav-paie', 'nav-admin', 'nav-evolution', 'nav-bugs'];
+    menus.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.display = 'flex'; // On force l'affichage
+        el.style.visibility = 'visible';
+      }
+    });
+    console.log("🚀 MODE BOSS : Tous les menus sont débloqués.");
+  }
+
   window.login = async function() {
-    const user = document.getElementById('login-user').value.toLowerCase().trim();
-    const pass = document.getElementById('login-pwd').value;
+    const userVal = document.getElementById('login-user').value.toLowerCase().trim();
+    const passVal = document.getElementById('login-pwd').value;
     const err = document.getElementById('login-err');
+
     try {
-      const { data, error } = await _client.from('employes').select('*').eq('nom', user).eq('mot_de_passe', pass).single();
+      const { data, error } = await _client.from('employes').select('*').eq('nom', userVal).eq('mot_de_passe', passVal).single();
+      
       if (error || !data) {
         if(err) err.textContent = "❌ Identifiant ou mot de passe incorrect.";
         return;
       }
-      currentUser = { id: data.nom, nom: data.nom, name: data.nom.charAt(0).toUpperCase() + data.nom.slice(1), role: data.role || 'admin', color: data.nom === 'benjamin' ? '#E8943A' : '#22C55E', initial: data.nom.charAt(0).toUpperCase() };
-      currentRole = currentUser.role;
+
+      // IDENTITÉ BOSS FORCÉE
+      const monRole = (data.nom.toLowerCase() === 'benjamin') ? 'admin' : (data.role || 'assistante');
+      
+      window.currentUser = { 
+        id: data.nom, nom: data.nom, 
+        name: data.nom.charAt(0).toUpperCase() + data.nom.slice(1), 
+        role: monRole, 
+        color: '#E8943A', initial: 'B' 
+      };
+      window.currentRole = monRole;
+
       localStorage.setItem('benai_tutorial_finished', 'true');
       localStorage.setItem('benai_onboarding_step', '99');
+
       document.getElementById('login-screen').style.display = 'none';
-      if(document.getElementById('app')) document.getElementById('app').classList.add('visible');
+      document.getElementById('app').classList.add('visible');
+      
+      // On lance le démarrage
       if (typeof initApp === "function") initApp(); 
+      
+      // APPEL DU MODE BOSS (on force l'affichage des menus après le démarrage)
+      setTimeout(debloquerToutLeLogiciel, 500);
+
     } catch (e) { console.error(e); }
   };
 
-  // 3. Branchement des données (Leads et SAV)
-  // Cette fonction s'exécute dès que tu changes de page dans le menu
+  // Synchronisation des données (Leads et SAV)
   const originalShowPage = window.showPage;
   window.showPage = async function(page) {
     if (page === 'leads') {
@@ -5792,21 +5822,6 @@ async function installUpdate(version,notes){
         }
     }
     if (typeof originalShowPage === "function") originalShowPage(page);
-  };
-
-  // 4. Envoi automatique au Cloud quand tu enregistres
-  const originalSaveLead = window.saveLead;
-  window.saveLead = async function() {
-    if (typeof originalSaveLead === "function") originalSaveLead();
-    const localLeads = JSON.parse(localStorage.getItem('benai_leads') || '[]');
-    await _client.from('leads').upsert(localLeads);
-  };
-
-  const originalAddSAV = window.addSAV;
-  window.addSAV = async function() {
-    if (typeof originalAddSAV === "function") originalAddSAV();
-    const mem = JSON.parse(localStorage.getItem('benai_v3') || '{}');
-    if (mem.sav) await _client.from('sav').upsert(mem.sav);
   };
 </script>
 </html>
