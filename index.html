@@ -4467,8 +4467,16 @@ function selectStatut(statut,btn,silent=false){
   ['gris','rdv','jaune','vert','rouge'].forEach(s=>{
     const p=document.getElementById('panel-'+s);if(p)p.style.display=s===statut?'block':'none';
   });
+  // Bordure modale selon statut — aucun fond coloré
   const box=document.querySelector('.lead-modal-box');
-  if(box){box.style.background='';const borders={gris:'var(--b1)',rdv:'rgba(96,165,250,.6)',jaune:'rgba(251,191,36,.6)',vert:'rgba(34,197,94,.6)',rouge:'rgba(248,113,113,.6)'};box.style.borderColor=borders[statut]||'var(--b1)';box.style.borderWidth='2px';}
+  if(box){
+    box.style.background='';
+    const borders={gris:'var(--b1)',jaune:'rgba(251,191,36,.6)',vert:'rgba(34,197,94,.6)',rouge:'rgba(248,113,113,.6)'};
+    box.style.borderColor=borders[statut]||'var(--b1)';
+    box.style.borderWidth='2px';
+  }
+  // Afficher/masquer date RDV selon sous-statut
+  if(statut==='gris')toggleRdvDate();
 }
 
 function toggleRdvDate(){
@@ -4476,15 +4484,8 @@ function toggleRdvDate(){
   const wrap=document.getElementById('rdv-date-wrap');
   const isRdv=sel&&sel.value==='rdv_programme';
   if(wrap)wrap.style.display=isRdv?'block':'none';
-  if(isRdv){
-    // Marquer comme RDV pris mais garder panel-gris ouvert pour la date
-    currentLeadStatut='rdv';
-    document.querySelectorAll('.statut-btn').forEach(b=>{
-      b.classList.toggle('selected',b.classList.contains('sb-rdv'));
-    });
-    const box=document.querySelector('.lead-modal-box');
-    if(box){box.style.background='';box.style.borderColor='rgba(96,165,250,.6)';box.style.borderWidth='2px';}
-  }
+  // RDV programmé → passe automatiquement dans "RDV pris"
+  if(isRdv)selectStatut('rdv',null,false);
 }
 
 function formatTel(input){
