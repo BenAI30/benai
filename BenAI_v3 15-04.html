@@ -1903,11 +1903,14 @@ function mapAnnuaireToSupabaseRows(items){
 function mapLeadsToSupabaseRows(items){
   const createdBy=currentSupabaseSession?.user?.id||null;
   return (items||[]).map(l=>{
+    const rawId=Number(l?.id);
+    const leadId=(Number.isFinite(rawId)&&rawId>0)?Math.trunc(rawId):Date.now()+Math.floor(Math.random()*1000);
     const societe=(l.societe_crm==='lambert'||l.societe==='lambert')?'lambert':'nemausus';
     const allowedStatuts=['gris','rdv','jaune','vert','rouge'];
     const statut=allowedStatuts.includes(l.statut)?l.statut:'gris';
+    const payload=(l&&typeof l==='object')?{...l,id:leadId}:l;
     return {
-      legacy_id:String(l.id),
+      id:leadId,
       societe_crm:societe,
       nom:l.nom||'',
       telephone:l.telephone||'',
@@ -1918,7 +1921,7 @@ function mapLeadsToSupabaseRows(items){
       raison_mort:l.raison_mort||null,
       created_by:createdBy,
       archive:!!l.archive,
-      payload:l
+      payload
     };
   });
 }
@@ -1931,7 +1934,8 @@ async function upsertSupabaseTable(table,rows){
     return false;
   }
   const payload=JSON.stringify(rows);
-  const upsertRes=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${table}?on_conflict=legacy_id`,{
+  const conflictCol=table==='leads'?'id':'legacy_id';
+  const upsertRes=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${table}?on_conflict=${conflictCol}`,{
     method:'POST',
     headers:{...headers,'Prefer':'resolution=merge-duplicates'},
     body:payload
