@@ -1409,6 +1409,7 @@ const SUPABASE_DEFAULT_URL='https://ipmbfbraadzyzncqbimn.supabase.co';
 const SUPABASE_DEFAULT_PUBLISHABLE_KEY='A_REMPLACER_PAR_TA_CLE_PUBLISHABLE';
 const SUPABASE_TABLES=['sav','notes','absences','annuaire'];
 const SUPABASE_TEST_ENDPOINT='/auth/v1/settings';
+const SHARED_AI_SETTING_KEY='shared_ai_api';
 let supabaseSyncTimer=null;
 // Préparation Supabase (phase ready): cette couche permet d'activer
 // une synchro distante sans casser le fonctionnement localStorage existant.
@@ -1449,9 +1450,23 @@ function getSupabaseHeaders(){
   const key=SUPABASE_CONFIG.publishableKey;
   if(!key)return null;
   const headers={'Content-Type':'application/json','apikey':key};
+  const accessToken=currentSupabaseSession?.access_token||'';
+  if(accessToken){
+    headers.Authorization='Bearer '+accessToken;
+    return headers;
+  }
   // Legacy anon keys are JWT and can still be sent as Bearer.
   if(/^eyJ/.test(key))headers.Authorization='Bearer '+key;
   return headers;
+}
+
+function normalizeAnthropicKey(raw){
+  return String(raw||'').trim().replace(/^["']|["']$/g,'');
+}
+
+function isLikelyAnthropicKey(raw){
+  const key=normalizeAnthropicKey(raw);
+  return key.startsWith('sk-ant-')&&key.length>=20;
 }
 
 function getSupabaseClient(){
@@ -1750,6 +1765,53 @@ async function loadCoreDataFromSupabase(){
   }
 }
 
+function extractSharedAIKey(value){
+  if(!value)return '';
+  if(typeof value==='string')return normalizeAnthropicKey(value);
+  return normalizeAnthropicKey(value.key||'');
+}
+
+async function loadSharedApiKeyFromSupabase(){
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentSupabaseSession?.access_token)return false;
+  const headers=getSupabaseHeaders();
+  if(!headers)return false;
+  try{
+    const res=await fetch(`${SUPABASE_CONFIG.url}/rest/v1/app_settings?key=eq.${SHARED_AI_SETTING_KEY}&select=value`,{headers});
+    if(!res.ok)return false;
+    const rows=await res.json();
+    const remoteKey=extractSharedAIKey(rows?.[0]?.value);
+    if(isLikelyAnthropicKey(remoteKey)){
+      localStorage.setItem(STORAGE_KEYS.api,remoteKey);
+      return true;
+    }
+    return false;
+  }catch(e){
+    return false;
+  }
+}
+
+async function saveSharedApiKeyToSupabase(rawKey){
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentSupabaseSession?.access_token)return false;
+  const headers=getSupabaseHeaders();
+  if(!headers)return false;
+  const key=normalizeAnthropicKey(rawKey);
+  if(!isLikelyAnthropicKey(key))return false;
+  try{
+    const res=await fetch(`${SUPABASE_CONFIG.url}/rest/v1/app_settings?on_conflict=key`,{
+      method:'POST',
+      headers:{...headers,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify([{
+        key:SHARED_AI_SETTING_KEY,
+        value:{provider:'anthropic',key},
+        updated_at:new Date().toISOString()
+      }])
+    });
+    return res.ok;
+  }catch(e){
+    return false;
+  }
+}
+
 // ══════════════════════════════════════════
 // UTILISATEURS
 // ══════════════════════════════════════════
@@ -1809,7 +1871,7 @@ function saveMem(m,sync=true){
   localStorage.setItem(STORAGE_KEYS.mem,JSON.stringify(m));
   if(sync)scheduleSupabaseSync(m,getAnnuaire());
 }
-function getApiKey(){return localStorage.getItem(STORAGE_KEYS.api)||'';}
+function getApiKey(){return normalizeAnthropicKey(localStorage.getItem(STORAGE_KEYS.api)||'');}
 function getPwds(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.pwds))||{benjamin:'1234',aurelie:'1234',claudine:'1234'};}catch{return{benjamin:'1234',aurelie:'1234',claudine:'1234'};}}
 function savePwds(p){localStorage.setItem(STORAGE_KEYS.pwds,JSON.stringify(p));}
 function getAccess(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.access))||{};}catch{return {};}}
@@ -1954,6 +2016,7 @@ async function login(){
       err.textContent='';
     }
     await loadCoreDataFromSupabase();
+    await loadSharedApiKeyFromSupabase();
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').classList.add('visible');
     initApp();
@@ -2020,6 +2083,7 @@ async function login(){
   sessionStorage.setItem('benai_session',resolvedUid);
   localStorage.setItem(STORAGE_KEYS.rememberedLogin,document.getElementById('login-user').value.trim());
   await loadCoreDataFromSupabase();
+  await loadSharedApiKeyFromSupabase();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').classList.add('visible');
   initApp();
@@ -4177,12 +4241,17 @@ function renderTeamPwdSettings(){
     </div>`).join('');
 }
 
-function saveApiKeySettings(){
-  const key=document.getElementById('api-key-settings').value.trim();const msg=document.getElementById('api-msg');
+async function saveApiKeySettings(){
+  const key=normalizeAnthropicKey(document.getElementById('api-key-settings').value);const msg=document.getElementById('api-msg');
   if(currentUser?.role!=='admin'){msg.style.color='var(--r)';msg.textContent='⚠️ Réservé à l’administrateur';return;}
-  if(!key||!key.startsWith('sk-')){msg.style.color='var(--r)';msg.textContent='⚠️ Clé invalide';return;}
+  if(!isLikelyAnthropicKey(key)){msg.style.color='var(--r)';msg.textContent='⚠️ Clé Anthropic invalide (format attendu: sk-ant-...)';return;}
   localStorage.setItem('benai_api',key);document.getElementById('api-key-settings').value='';
-  msg.style.color='var(--g)';msg.textContent='✅ Clé IA partagée enregistrée !';setTimeout(()=>msg.textContent='',2500);
+  const synced=await saveSharedApiKeyToSupabase(key);
+  msg.style.color=synced?'var(--g)':'var(--y)';
+  msg.textContent=synced
+    ?'✅ Clé IA enregistrée et synchronisée Supabase'
+    :'✅ Clé IA enregistrée localement (synchro Supabase non disponible)';
+  setTimeout(()=>msg.textContent='',3500);
 }
 
 function isLikelySupabasePublicKey(key){
@@ -6664,6 +6733,7 @@ window.addEventListener('load',async()=>{
           user.system=getSystemPromptForUser(user);
           currentUser=user;
           await loadCoreDataFromSupabase();
+          await loadSharedApiKeyFromSupabase();
           document.getElementById('login-screen').style.display='none';
           document.getElementById('app').classList.add('visible');
           initApp(true);
@@ -6695,6 +6765,7 @@ window.addEventListener('load',async()=>{
       }
       currentUser={id:uid,...userObj};
       await loadCoreDataFromSupabase();
+      await loadSharedApiKeyFromSupabase();
       document.getElementById('login-screen').style.display='none';
       document.getElementById('app').classList.add('visible');
       initApp(true); // true = restauration silencieuse (pas de message d'accueil)
