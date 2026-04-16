@@ -729,21 +729,20 @@ input[type=file]{display:none;}
     <!-- SIDEBAR -->
     <div class="sidebar">
       <div class="sb-section">
-        <div class="sb-label">Assistant</div>
+        <div class="sb-label">Accueil IA</div>
         <div class="sb-item active" onclick="showPage('benai')" id="nav-benai"><span class="sb-icon">🤖</span><span class="sb-txt">BenAI IA</span></div>
-        <div class="sb-item" onclick="showPage('notes')" id="nav-notes"><span class="sb-icon">📝</span><span class="sb-txt">Notes rapides</span></div>
-        <div class="sb-item" onclick="showPage('guide')" id="nav-guide"><span class="sb-icon">📘</span><span class="sb-txt">Guide</span></div>
-        <div class="sb-item" onclick="showPage('evolution')" id="nav-evolution"><span class="sb-icon">🚀</span><span class="sb-txt">Évolution</span></div>
+        <div class="sb-item" onclick="showPage('guide')" id="nav-guide"><span class="sb-icon">📘</span><span class="sb-txt">Guide & évolution</span></div>
       </div>
       <div class="sb-section">
-        <div class="sb-label">Messages</div>
+        <div class="sb-label">Communication</div>
         <div class="sb-item" onclick="showPage('messages')" id="nav-messages">
           <span class="sb-icon">💬</span><span class="sb-txt">Messages</span>
           <span class="sb-badge" id="msg-badge" style="display:none"></span>
         </div>
+        <div class="sb-item" onclick="showPage('notes')" id="nav-notes"><span class="sb-icon">📝</span><span class="sb-txt">Notes rapides</span></div>
       </div>
       <div class="sb-section">
-        <div class="sb-label">Gestion</div>
+        <div class="sb-label">Opérations</div>
         <div class="sb-item" onclick="showPage('sav')" id="nav-sav">
           <span class="sb-icon">🔧</span><span class="sb-txt">SAV</span>
           <span class="sb-badge" id="sav-badge" style="display:none"></span>
@@ -752,14 +751,20 @@ input[type=file]{display:none;}
           <span class="sb-icon">📋</span><span class="sb-txt">Leads CRM</span>
           <span class="sb-badge" id="leads-badge" style="display:none"></span>
         </div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-label">Équipe & RH</div>
+        <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')"><span class="sb-icon">👥</span><span class="sb-txt">Annuaire</span></div>
+        <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span><span class="sb-badge-abs" id="abs-badge" style="display:none"></span></div>
+        <div class="sb-item" id="nav-paie" style="display:none" onclick="showPage('paie')"><span class="sb-icon">💰</span><span class="sb-txt">Fiches de paie</span></div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-label">Pilotage</div>
+        <div class="sb-item" id="nav-admin" style="display:none" onclick="showPage('admin')"><span class="sb-icon">📊</span><span class="sb-txt">Dashboard</span></div>
         <div class="sb-item" id="nav-bugs" onclick="showPage('bugs')">
           <span class="sb-icon">🐛</span><span class="sb-txt">Bugs</span>
           <span class="sb-badge" id="bugs-badge" style="display:none"></span>
         </div>
-        <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span><span class="sb-badge-abs" id="abs-badge" style="display:none"></span></div>
-        <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')"><span class="sb-icon">👥</span><span class="sb-txt">Annuaire</span></div>
-        <div class="sb-item" id="nav-paie" style="display:none" onclick="showPage('paie')"><span class="sb-icon">💰</span><span class="sb-txt">Fiches de paie</span></div>
-        <div class="sb-item" id="nav-admin" style="display:none" onclick="showPage('admin')"><span class="sb-icon">📊</span><span class="sb-txt">Dashboard</span></div>
       </div>
     </div>
 
@@ -799,7 +804,10 @@ input[type=file]{display:none;}
       <div id="page-notes" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:12px">
           <div><div class="page-title">📝 Notes rapides</div><div class="page-sub">Vos notes personnelles</div></div>
-          <button class="btn-primary" onclick="addNote()">+ Nouvelle note</button>
+          <div style="display:flex;gap:8px">
+            <button id="notes-open-messages-btn" onclick="showPage('messages')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">💬 Messages</button>
+            <button class="btn-primary" onclick="addNote()">+ Nouvelle note</button>
+          </div>
         </div>
         <div class="notes-area" id="notes-area"></div>
       </div>
@@ -808,6 +816,7 @@ input[type=file]{display:none;}
       <div id="page-messages" style="display:none;flex:1;overflow:hidden;flex-direction:column">
         <div class="page-header" style="padding-bottom:10px;flex-shrink:0">
           <div><div class="page-title">💬 Messages internes</div><div class="page-sub">Communication privée entre l'équipe</div></div>
+          <button id="messages-open-notes-btn" onclick="showPage('notes')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">📝 Notes</button>
         </div>
         <div class="msg-layout">
           <div class="conv-list" id="conv-list"></div>
@@ -894,6 +903,7 @@ input[type=file]{display:none;}
         <div class="page-header" style="padding-bottom:8px;flex-shrink:0">
           <div><div class="page-title">🗓️ Absences & Congés</div><div class="page-sub">Rappels J-7 et la veille</div></div>
           <div style="display:flex;gap:8px">
+            <button onclick="showPage('annuaire')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">👥 Annuaire</button>
             <button onclick="downloadPlanningAbsences('nemausus')" style="background:var(--a3);border:1px solid var(--a);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--a);font-family:inherit;font-weight:600">📥 Nemausus</button>
             <button onclick="downloadPlanningAbsences('lambert')" style="background:var(--bl2);border:1px solid var(--bl);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--bl);font-family:inherit;font-weight:600">📥 Lambert</button>
             <button class="btn-primary" onclick="toggleAbsForm()">+ Nouvelle absence</button>
@@ -955,6 +965,7 @@ input[type=file]{display:none;}
       <div id="page-evolution" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
           <div><div class="page-title">🚀 BenAI Évolution</div><div class="page-sub">Suggestions à valider — vous décidez toujours</div></div>
+          <button onclick="showPage('guide')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">📘 Retour guide</button>
         </div>
         <div style="padding:16px;flex:1;overflow-y:auto" id="evolution-list"></div>
       </div>
@@ -963,6 +974,7 @@ input[type=file]{display:none;}
       <div id="page-guide" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
           <div><div class="page-title">📘 Guide BenAI</div><div class="page-sub">Mode d'emploi rapide par rôle</div></div>
+          <button id="guide-open-evolution-btn" onclick="showPage('evolution')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">🚀 Évolution</button>
         </div>
         <div style="padding:16px;flex:1;overflow-y:auto" id="guide-content"></div>
       </div>
@@ -1338,7 +1350,11 @@ input[type=file]{display:none;}
       <div id="page-annuaire" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
           <div><div class="page-title">👥 Annuaire employés</div><div class="page-sub" id="ann-counter-sub">Chargement...</div></div>
-          <button class="btn-primary" onclick="toggleEmpForm()">+ Ajouter</button>
+          <div style="display:flex;gap:8px">
+            <button onclick="showPage('absences')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">🗓️ Absences</button>
+            <button onclick="showPage('paie')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">💰 Paie</button>
+            <button class="btn-primary" onclick="toggleEmpForm()">+ Ajouter</button>
+          </div>
         </div>
         <div style="padding:0 16px;flex-shrink:0;display:none" id="emp-form-wrap">
           <div class="sav-form">
@@ -2895,7 +2911,7 @@ function initApp(silent=false){
 
   // Réinitialiser TOUS les éléments admin avant d'appliquer les droits
   ['nav-admin','nav-absences','nav-annuaire','nav-paie','nav-leads',
-   'nav-benai','nav-notes','nav-messages','nav-sav','nav-evolution','nav-guide'].forEach(id=>{
+   'nav-benai','nav-notes','nav-messages','nav-sav','nav-guide','nav-bugs'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
 
@@ -2975,7 +2991,16 @@ function showPage(page){
   if(adminOnly.includes(page)&&currentUser?.role!=='admin'){showPage('leads');return;}
   // Vérifier accès selon rôle
   const allowed=ROLE_PAGES[currentUser?.role]||ROLE_PAGES['assistante'];
+  const canOpenNotes=allowed.includes('notes');
+  const canOpenMessages=allowed.includes('messages');
+  const canOpenEvolution=allowed.includes('evolution');
   if(!allowed.includes(page)){showPage(allowed[0]);return;}
+  const notesToMsgBtn=document.getElementById('notes-open-messages-btn');
+  if(notesToMsgBtn)notesToMsgBtn.style.display=canOpenMessages?'inline-block':'none';
+  const msgToNotesBtn=document.getElementById('messages-open-notes-btn');
+  if(msgToNotesBtn)msgToNotesBtn.style.display=canOpenNotes?'inline-block':'none';
+  const guideToEvoBtn=document.getElementById('guide-open-evolution-btn');
+  if(guideToEvoBtn)guideToEvoBtn.style.display=canOpenEvolution?'inline-block':'none';
   ['benai','notes','messages','sav','leads','absences','evolution','guide','admin','annuaire','paie','bugs'].forEach(p=>{
     const el=document.getElementById('page-'+p);if(el)el.style.display='none';
     const nav=document.getElementById('nav-'+p);if(nav)nav.classList.remove('active');
