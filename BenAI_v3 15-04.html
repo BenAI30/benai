@@ -154,6 +154,10 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .dashboard{flex:1;overflow-y:auto;padding:20px;}
 .dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
 .dash-card{background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:16px;}
+.dash-section-title{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin:6px 2px 8px;}
+.dash-quick-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px;}
+.dash-quick-btn{padding:10px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;}
+.dash-quick-btn:hover{border-color:var(--a);color:var(--a);}
 .dc-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
 .dc-val{font-size:28px;font-weight:800;color:var(--t1);}
 .dc-sub{font-size:11px;color:var(--t3);margin-top:3px;}
@@ -519,6 +523,7 @@ body.light .bubble{color:var(--t1);}
   .btn-send,.btn-attach-plus,.thread-send,.tool-btn,.sav-filter,.crm-filter,.ann-filter,.btn-primary,.tb-icon-btn,.tb-logout{min-height:40px;}
   .chat-textarea,.thread-input input,.form-input,.sav-search{font-size:16px;}
   .dash-grid{grid-template-columns:1fr;}
+  .dash-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr));}
   .form-row{grid-template-columns:1fr;}
   .conv-list{display:none;}
   .thread-input{padding:10px;}
@@ -968,12 +973,22 @@ input[type=file]{display:none;}
           <div><div class="page-title">📊 Dashboard Admin</div><div class="page-sub">Vue d'ensemble BenAI</div></div>
         </div>
         <div class="dashboard">
+          <div class="dash-section-title">Pilotage rapide</div>
+          <div class="dash-quick-actions">
+            <button class="dash-quick-btn" onclick="showPage('leads')">📋 Ouvrir CRM</button>
+            <button class="dash-quick-btn" onclick="showPage('sav')">🔧 Ouvrir SAV</button>
+            <button class="dash-quick-btn" onclick="showPage('annuaire')">👥 Ouvrir annuaire</button>
+            <button class="dash-quick-btn" onclick="showPage('bugs')">🐛 Voir les bugs</button>
+          </div>
+
           <!-- STATS -->
           <div class="dash-grid">
             <div class="dash-card"><div class="dc-icon">🔧</div><div class="dc-label">SAV ouverts</div><div class="dc-val" id="admin-sav">0</div><div class="dc-sub">Nouveaux + En cours</div></div>
             <div class="dash-card"><div class="dc-icon">💬</div><div class="dc-label">Messages</div><div class="dc-val" id="admin-msgs">0</div><div class="dc-sub">Messages échangés</div></div>
             <div class="dash-card"><div class="dc-icon">📝</div><div class="dc-label">Notes</div><div class="dc-val" id="admin-notes">0</div><div class="dc-sub">Notes actives</div></div>
           </div>
+
+          <div class="dash-section-title">Performance & coûts</div>
 
           <!-- TOKENS -->
           <div class="dash-card accordion-card" style="margin-bottom:12px">
@@ -986,6 +1001,8 @@ input[type=file]{display:none;}
             <div class="dc-label accordion-header" onclick="toggleAccordion('sav-stats-wrap')">📊 Statistiques SAV <span class="accordion-arrow">▾</span></div>
             <div id="sav-stats-wrap" class="accordion-body"><div id="sav-stats-admin" style="margin-top:8px"></div></div>
           </div>
+
+          <div class="dash-section-title">Équipe & accès</div>
 
           <!-- UTILISATEURS -->
           <div class="dash-card accordion-card" style="margin-bottom:12px">
@@ -1026,6 +1043,8 @@ input[type=file]{display:none;}
             <div id="pwd-wrap" class="accordion-body"><div id="pwd-list" style="margin-top:8px"></div></div>
           </div>
 
+          <div class="dash-section-title">Historique & contrôle</div>
+
           <!-- ACTIVITÉ -->
           <div class="dash-card accordion-card">
             <div class="dc-label accordion-header" onclick="toggleAccordion('activity-wrap')">⚡ Activité récente <span class="accordion-arrow">▾</span></div>
@@ -1034,7 +1053,7 @@ input[type=file]{display:none;}
             <div id="connexions-wrap" class="accordion-body collapsed"><div id="connexions-list" style="margin-top:8px"></div></div>
             <div class="dc-label accordion-header" onclick="toggleAccordion('deletions-wrap')" style="margin-top:8px">🗑️ Journal des suppressions <span class="accordion-arrow">▾</span></div>
             <div id="deletions-wrap" class="accordion-body collapsed"><div id="deletions-list" style="margin-top:8px"></div></div>
-            <div class="dc-label accordion-header" style="margin-top:10px" onclick="toggleAccordion('connexions-history-wrap')">🔑 Historique connexions (legacy) <span class="accordion-arrow">▾</span></div>
+            <div class="dc-label accordion-header" style="margin-top:10px" onclick="toggleAccordion('connexions-history-wrap')">🧾 Historique connexions (legacy) <span class="accordion-arrow">▾</span></div>
             <div id="connexions-history-wrap" class="accordion-body collapsed"><div id="connexions-history" style="margin-top:8px"></div></div>
           </div>
         </div>
