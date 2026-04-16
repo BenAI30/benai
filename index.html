@@ -1593,6 +1593,20 @@ async function trySupabaseLogin(uid,pwd){
   }
 }
 
+async function trySupabaseSessionFromLocalCredentials(uid,pwd){
+  const email=getEmailCandidateForUid(uid);
+  const client=getSupabaseClient();
+  if(!client||!email||!pwd)return {ok:false,reason:'missing_credentials'};
+  try{
+    const {data,error}=await client.auth.signInWithPassword({email,password:pwd});
+    if(error||!data?.session)return {ok:false,reason:'invalid_credentials'};
+    currentSupabaseSession=data.session;
+    return {ok:true};
+  }catch(e){
+    return {ok:false,reason:'network'};
+  }
+}
+
 async function createSupabaseUserProvisioning(payload){
   const client=getSupabaseClient();
   if(!client||!currentSupabaseSession?.access_token)return {ok:false,error:'Session Supabase admin manquante'};
@@ -1977,6 +1991,52 @@ function saveMem(m,sync=true){
   if(sync)scheduleSupabaseSync(m,getAnnuaire());
 }
 function getApiKey(){return normalizeAnthropicKey(localStorage.getItem(STORAGE_KEYS.api)||'');}
+async function getApiKeyForChat(){
+  let key=getApiKey();
+  if(isLikelyAnthropicKey(key))return key;
+  await loadSharedApiKeyFromSupabase();
+  key=getApiKey();
+  return isLikelyAnthropicKey(key)?key:'';
+}
+
+function getAnthropicHeaders(apiKey){
+  return {
+    'Content-Type':'application/json',
+    'x-api-key':apiKey,
+    'anthropic-version':'2023-06-01',
+    'anthropic-dangerous-direct-browser-access':'true'
+  };
+}
+
+async function requestAnthropicMessages(body,retryOnInvalidKey=true){
+  let apiKey=await getApiKeyForChat();
+  if(!apiKey){
+    throw new Error('Clé API manquante — reconnectez-vous puis revalidez la clé IA dans Paramètres');
+  }
+  const callApi=async key=>{
+    const res=await fetchWithTimeout('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:getAnthropicHeaders(key),
+      body:JSON.stringify(body)
+    },15000);
+    let data={};
+    try{data=await res.json();}catch(e){}
+    return {res,data};
+  };
+  let {res,data}=await callApi(apiKey);
+  if(res.ok)return data;
+  const errorMessage=data?.error?.message||'Erreur API';
+  if(retryOnInvalidKey&&/invalid x-api-key/i.test(errorMessage)){
+    await loadSharedApiKeyFromSupabase();
+    apiKey=await getApiKeyForChat();
+    if(apiKey){
+      ({res,data}=await callApi(apiKey));
+      if(res.ok)return data;
+    }
+  }
+  throw new Error((data?.error?.message||errorMessage));
+}
+
 function getPwds(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.pwds))||{benjamin:'1234',aurelie:'1234',claudine:'1234'};}catch{return{benjamin:'1234',aurelie:'1234',claudine:'1234'};}}
 function savePwds(p){localStorage.setItem(STORAGE_KEYS.pwds,JSON.stringify(p));}
 function getAccess(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.access))||{};}catch{return {};}}
@@ -2176,6 +2236,7 @@ async function login(){
   if(access[resolvedUid]===false&&resolvedUid!=='benjamin'){err.textContent='Accès bloqué par l\'administrateur';return;}
   resetLoginAttempts();
   currentUser={id:resolvedUid,...(USERS[resolvedUid]||getExtraUserById(resolvedUid))};
+  const supabaseBootstrap=await trySupabaseSessionFromLocalCredentials(resolvedUid,pwd);
   // Log connexion
   logConnexion(resolvedUid);
   lastActivityTime=Date.now();
@@ -2189,6 +2250,11 @@ async function login(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').classList.add('visible');
   initApp();
+  if(!supabaseBootstrap.ok&&SUPABASE_CONFIG.enabled){
+    setTimeout(()=>{
+      showDriveNotif('⚠️ Connexion locale active, mais session Supabase absente. Connectez-vous avec email + mot de passe Supabase pour activer la synchro.');
+    },600);
+  }
   void syncSupabasePostLogin();
 }
 
@@ -2463,21 +2529,13 @@ async function sendChat(txtOverride){
   chatHistory.push({role:'user',content:txt,ts:now});
   if(chatHistory.length>60)chatHistory=chatHistory.slice(-60);
   try{
-    const apiKey=getApiKey();
-    if(!apiKey)throw new Error('Clé API manquante — demandez à Benjamin de la configurer');
     const mem=getMem();
     const ctx=`\nSAV ouverts: ${mem.sav.filter(s=>s.statut!=='regle').length}`;
     const crmCtx=getCRMContextForAI();
     // Contexte intelligent Benjamin : planning + rappels
     const smartCtx=currentUser.id==='benjamin'?getBenjaminSmartContext():'';
     const msgs=chatHistory.filter(m=>m.role).map(m=>({role:m.role,content:m.content}));
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,system:currentUser.system+BENAI_CTX+ctx+crmCtx+smartCtx,messages:msgs})
-    });
-    const data=await res.json();
-    if(!res.ok)throw new Error(data.error?.message||'Erreur API');
+    const data=await requestAnthropicMessages({model:'claude-sonnet-4-20250514',max_tokens:1500,system:currentUser.system+BENAI_CTX+ctx+crmCtx+smartCtx,messages:msgs});
     const reply=data.content[0].text;
     const usage=data.usage||{};
     trackTokens(currentUser.id,usage.input_tokens||0,usage.output_tokens||0);
@@ -2486,7 +2544,15 @@ async function sendChat(txtOverride){
     saveChatMem(currentUser.id,chatHistory);
     typing.remove();addAIMsg(reply);
     logActivity(`${currentUser.name} a consulté BenAI IA`);
-  }catch(e){typing.remove();addAIMsg('❌ '+e.message);}
+  }catch(e){
+    typing.remove();
+    const msg=String(e?.message||'Erreur inconnue');
+    if(/invalid x-api-key/i.test(msg)){
+      addAIMsg('❌ Clé IA invalide côté Anthropic. Recollez une clé valide dans Paramètres admin, puis reconnectez-vous.');
+    }else{
+      addAIMsg('❌ '+msg);
+    }
+  }
   busy=false;document.getElementById('btn-send').disabled=false;
 }
 
