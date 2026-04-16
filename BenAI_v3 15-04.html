@@ -6191,6 +6191,7 @@ function renderLeadsDashboard(){
     <div style="margin-top:8px;font-size:11px;color:var(--t3)">Consultez l’onglet filtre “📁 Archives” dans Leads pour le détail.</div>
   </div>`;
   // Perf commerciaux
+  const role=currentUser?.role||'assistante';
   const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
   if(role==='admin'||role==='directeur_co'){
     html+=`<div style="display:flex;gap:8px;margin-bottom:12px"><button onclick="exportLeadsExcel()" style="flex:1;padding:8px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">📥 Exporter tous les leads</button><button onclick="ouvrirFusion()" style="flex:1;padding:8px;background:var(--bl2);color:var(--bl);border:1px solid rgba(96,165,250,.3);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">🔀 Fusionner leads en double</button></div>`;
