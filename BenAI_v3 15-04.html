@@ -1877,7 +1877,7 @@ function mapSavToSupabaseRows(items){
 }
 
 function mapNotesToSupabaseRows(items){
-  return (items||[]).map(n=>({
+  return (items||[]).filter(n=>String(n?.text||n?.t||'').trim()).map(n=>({
     legacy_id:String(n.id),
     text:n.text||n.t||'',
     author_uid:n.by||n.from||currentUser?.id||'benjamin',
@@ -2126,7 +2126,7 @@ async function loadCoreDataFromSupabase(){
         to:n.target_uid||payload.to||'all',
         ts
       };
-    });
+    }).filter(n=>String(n.text||'').trim());
     mem.absences=(absRows||[]).map(a=>{
       const payload=(a&&typeof a.payload==='object'&&a.payload!==null)?a.payload:{};
       const parsedId=Number(a.legacy_id??payload.id??a.id);
@@ -2740,11 +2740,23 @@ function getConnexions(uid){
 async function logout(){
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
   const rememberedLogin=getRememberedLoginForForm();
-  const syncOk=await flushSupabaseSyncNow();
+  let syncOk=false;
+  try{
+    const timeoutMs=5000;
+    syncOk=await Promise.race([
+      flushSupabaseSyncNow(),
+      new Promise(resolve=>setTimeout(()=>resolve(false),timeoutMs))
+    ]);
+    if(!syncOk&&!lastSupabaseSyncError){
+      lastSupabaseSyncError='Timeout de synchronisation (>5s).';
+    }
+  }catch(e){
+    syncOk=false;
+    if(!lastSupabaseSyncError)lastSupabaseSyncError=e?.message||'Échec sync avant déconnexion.';
+  }
   if(!syncOk&&SUPABASE_CONFIG.enabled){
-    const detail=lastSupabaseSyncError?`\n\nDétail: ${String(lastSupabaseSyncError).slice(0,240)}`:'';
-    const proceed=confirm('⚠️ Synchronisation Supabase échouée. Si vous vous déconnectez maintenant, les dernières modifications peuvent être perdues.'+detail+'\n\nSe déconnecter quand même ?');
-    if(!proceed)return;
+    const shortDetail=lastSupabaseSyncError?` (${String(lastSupabaseSyncError).slice(0,120)})`:'';
+    showDriveNotif('⚠️ Déconnexion forcée : sync Supabase incomplète'+shortDetail);
   }
   if(currentUser?.id){
     const snapshot=serializeCloudAppStorage();
@@ -3696,24 +3708,46 @@ function exportSAVCSV(){
 // ══════════════════════════════════════════
 function addNote(){
   const mem=getMem();if(!mem.notes)mem.notes=[];
-  mem.notes.unshift({id:Date.now(),text:'',date:new Date().toLocaleDateString('fr-FR'),by:currentUser.id});
+  mem.notes.unshift({id:Date.now(),text:'',date:new Date().toLocaleDateString('fr-FR'),by:currentUser.id,draft:true});
   saveMem(mem);renderNotes();setTimeout(()=>{const first=document.querySelector('.note-card textarea');if(first)first.focus();},50);
 }
 
 function renderNotes(){
   const mem=getMem();const area=document.getElementById('notes-area');
-  const notes=(mem.notes||[]).filter(n=>n.by===currentUser.id||currentUser.role==='admin');
+  const notes=(mem.notes||[]).filter(n=>(n.by===currentUser.id||currentUser.role==='admin')&&(String(n.text||'').trim()||n.draft));
   if(!notes.length){area.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune note — cliquez sur + Nouvelle note</div>';return;}
   area.innerHTML=notes.map((n,i)=>`
     <div class="note-card">
       <button class="note-del" onclick="deleteNote(${n.id})">✕</button>
-      <textarea oninput="saveNote(${n.id},this.value)" onblur="correctNoteSpelling(${n.id},this)">${esc(n.text)}</textarea>
+      <textarea oninput="saveNote(${n.id},this.value)" onblur="finalizeNoteOnBlur(${n.id},this)">${esc(n.text)}</textarea>
       <div class="note-meta"><span>${n.date}</span><span>${USERS[n.by]?.name||n.by}</span></div>
     </div>`).join('');
 }
 
 function saveNote(id,val){
-  const mem=getMem();const n=mem.notes?.find(x=>x.id===id);if(n)n.text=val;saveMem(mem);
+  const mem=getMem();const n=mem.notes?.find(x=>x.id===id);
+  if(n){
+    n.text=val;
+    n.draft=!String(val||'').trim();
+  }
+  saveMem(mem);
+}
+
+function removeEmptyNoteSilent(id){
+  const mem=getMem();
+  mem.notes=(mem.notes||[]).filter(n=>n.id!==id);
+  saveMem(mem);
+  renderNotes();
+}
+
+function finalizeNoteOnBlur(id,el){
+  const txt=String(el?.value||'').trim();
+  if(!txt){
+    removeEmptyNoteSilent(id);
+    return;
+  }
+  saveNote(id,txt);
+  void correctNoteSpelling(id,el);
 }
 
 async function correctNoteSpelling(id,el){
