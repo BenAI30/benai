@@ -1405,6 +1405,8 @@ const STORAGE_KEYS = {
   sbEnabled:'benai_supabase_enabled'
 };
 const SUPABASE_DEFAULT_URL='https://ipmbfbraadzyzncqbimn.supabase.co';
+// Clé publique uniquement (Publishable key), jamais la service_role.
+const SUPABASE_DEFAULT_PUBLISHABLE_KEY='A_REMPLACER_PAR_TA_CLE_PUBLISHABLE';
 const SUPABASE_TABLES=['sav','notes','absences','annuaire'];
 const SUPABASE_TEST_ENDPOINT='/auth/v1/settings';
 let supabaseSyncTimer=null;
@@ -1412,7 +1414,7 @@ let supabaseSyncTimer=null;
 // une synchro distante sans casser le fonctionnement localStorage existant.
 const SUPABASE_CONFIG = {
   url:SUPABASE_DEFAULT_URL,
-  publishableKey:'',
+  publishableKey:SUPABASE_DEFAULT_PUBLISHABLE_KEY,
   enabled: (localStorage.getItem(STORAGE_KEYS.sbEnabled)??'1')==='1',
   table:'benai_state'
 };
@@ -1435,7 +1437,7 @@ function setStatusMessage(element,color,text){
 
 function applySupabaseConfigFromStorage(){
   const storedUrl=localStorage.getItem(STORAGE_KEYS.sbUrl)||SUPABASE_DEFAULT_URL;
-  const storedKey=localStorage.getItem(STORAGE_KEYS.sbPublishable)||localStorage.getItem(STORAGE_KEYS.sbAnonLegacy)||'';
+  const storedKey=localStorage.getItem(STORAGE_KEYS.sbPublishable)||localStorage.getItem(STORAGE_KEYS.sbAnonLegacy)||SUPABASE_DEFAULT_PUBLISHABLE_KEY;
   SUPABASE_CONFIG.url=normalizeSupabaseUrl(storedUrl)||SUPABASE_DEFAULT_URL;
   SUPABASE_CONFIG.publishableKey=storedKey.trim();
   SUPABASE_CONFIG.enabled=(localStorage.getItem(STORAGE_KEYS.sbEnabled)??'1')==='1';
@@ -1549,6 +1551,18 @@ async function trySupabaseLogin(uid,pwd){
     return {user,session:data.session};
   }catch(e){
     return null;
+  }
+}
+
+async function createSupabaseUserProvisioning(payload){
+  const client=getSupabaseClient();
+  if(!client||!currentSupabaseSession?.access_token)return {ok:false,error:'Session Supabase admin manquante'};
+  try{
+    const {data,error}=await client.functions.invoke('create-user',{body:payload});
+    if(error)return {ok:false,error:error.message||'Erreur fonction Supabase'};
+    return {ok:true,data};
+  }catch(e){
+    return {ok:false,error:e.message||'Erreur réseau'};
   }
 }
 
@@ -3896,9 +3910,32 @@ async function creerUtilisateur(){
   const name=`${prenom} ${nom}`.trim();
   const uid=normalizeId(prenom);
   if(getAllUsers().find(u=>u.id===uid)){status.style.color='var(--r)';status.textContent='⚠️ Cet accès existe déjà';return;}
+  const ann=getAnnuaire();
+  const annEntry=ann.find(e=>normalizeId(`${e.prenom} ${e.nom}`)===normalizeId(name)||normalizeId(e.prenom)===uid)||null;
+  const email=(annEntry?.emailPro||annEntry?.email||'').trim().toLowerCase();
+  if(!email||!email.includes('@')){
+    status.style.color='var(--r)';
+    status.textContent='⚠️ Email introuvable dans l’annuaire pour cet utilisateur';
+    return;
+  }
   const extras=getExtraUsers();
   const roleLabel={assistante:'Assistante',commercial:'Commercial',directeur_co:'Directeur commercial'}[role]||'Assistante';
-  const newUser={id:uid,name,role,societe:soc,fonction,color:COLORS[extras.length%COLORS.length],initial:prenom[0].toUpperCase(),builtin:false};
+  status.style.color='var(--a)';
+  status.textContent='⏳ Création du compte Supabase...';
+  const createResult=await createSupabaseUserProvisioning({
+    email,
+    password:pwd,
+    full_name:name,
+    role,
+    company:soc,
+    app_uid:uid
+  });
+  if(!createResult.ok){
+    status.style.color='var(--r)';
+    status.textContent='⚠️ '+createResult.error;
+    return;
+  }
+  const newUser={id:uid,name,email,role,societe:soc,fonction,color:COLORS[extras.length%COLORS.length],initial:prenom[0].toUpperCase(),builtin:false};
   extras.push(newUser);saveExtraUsers(extras);
   const pwds=getPwds();pwds[uid]=await hashPassword(uid,pwd);savePwds(pwds);
   const systemPrompt=CRM_PAGES_ONLY.includes(role)
@@ -3922,7 +3959,7 @@ async function creerUtilisateur(){
     ts:Date.now()
   });
   saveMem(mem);
-  status.style.color='var(--g)';status.textContent=`✅ Accès ${roleLabel} créé pour ${name} !`;
+  status.style.color='var(--g)';status.textContent=`✅ Accès ${roleLabel} créé pour ${name} (${email})`;
   document.getElementById('new-user-pwd').value='';
   setTimeout(()=>{document.getElementById('add-user-form').style.display='none';status.textContent='';},1500);
   renderUsersList();renderPwdList();logActivity(`Benjamin a créé l'accès BenAI (${roleLabel}) pour ${name}`);
