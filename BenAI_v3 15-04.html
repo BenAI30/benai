@@ -5320,7 +5320,8 @@ let lastAutoBugScanTs=0;
 let lastPollingHeartbeat=Date.now();
 let lastCloudRefreshTs=0;
 let cloudRefreshInFlight=false;
-const CLOUD_REFRESH_MIN_INTERVAL_MS=25000;
+const CLOUD_REFRESH_MIN_INTERVAL_MS=7000;
+const POLLING_INTERVAL_MS=10000;
 
 async function refreshCoreDataFromCloudIfNeeded(force=false){
   if(!SUPABASE_CONFIG.enabled||!currentUser)return;
@@ -5365,7 +5366,7 @@ function startPolling(){
       }
       if(area)area.dataset.count=count;
     }
-  },30000);
+  },POLLING_INTERVAL_MS);
 }
 
 // ══════════════════════════════════════════
