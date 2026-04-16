@@ -1399,7 +1399,6 @@ input[type=file]{display:none;}
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 const APP_STORAGE_SUPABASE_KEY_PREFIX='user_state_';
-const APP_STORAGE_SESSION_KEY='benai_app_storage_cache';
 const appStorageCache=Object.create(null);
 let appStorageHydratedForUid='';
 let appStoragePersistTimer=null;
@@ -1442,22 +1441,10 @@ function clearAppStorageCache(){
   Object.keys(appStorageCache).forEach(k=>delete appStorageCache[k]);
 }
 function persistAppStorageCacheToSession(){
-  try{
-    sessionStorage.setItem(APP_STORAGE_SESSION_KEY,JSON.stringify(appStorageCache));
-  }catch{}
+  // Mode cloud strict: pas de persistance locale.
 }
 function loadAppStorageCacheFromSession(){
-  try{
-    const raw=sessionStorage.getItem(APP_STORAGE_SESSION_KEY);
-    if(!raw)return;
-    const obj=JSON.parse(raw);
-    if(!obj||typeof obj!=='object'||Array.isArray(obj))return;
-    clearAppStorageCache();
-    Object.entries(obj).forEach(([k,v])=>{
-      if(v===null||v===undefined)return;
-      appStorageCache[String(k)]=typeof v==='string'?v:JSON.stringify(v);
-    });
-  }catch{}
+  // Mode cloud strict: pas de restauration locale.
 }
 
 function isAppStorageCloudKey(key){
@@ -1545,6 +1532,8 @@ const SUPABASE_CONFIG = {
 };
 let supabaseClient=null;
 let currentSupabaseSession=null;
+let runtimeMemState={sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};
+let runtimeLeadsState=[];
 
 function normalizeSupabaseUrl(url){
   let out=(url||'').trim();
@@ -1626,7 +1615,7 @@ function getSupabaseClient(){
   if(!window.supabase?.createClient)return null;
   if(!supabaseClient){
     supabaseClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.publishableKey,{
-      auth:{persistSession:true,autoRefreshToken:true}
+      auth:{persistSession:false,autoRefreshToken:true}
     });
   }
   return supabaseClient;
@@ -1711,11 +1700,9 @@ async function hydrateAppStorageFromSupabase(uid=currentUser?.id){
 }
 function resetAppStorageRuntime(preserveSessionCopy=false){
   clearAppStorageCache();
-  if(preserveSessionCopy){
-    persistAppStorageCacheToSession();
-  }else{
-    try{sessionStorage.removeItem(APP_STORAGE_SESSION_KEY);}catch{}
-  }
+  if(preserveSessionCopy)persistAppStorageCacheToSession();
+  runtimeMemState={sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};
+  runtimeLeadsState=[];
   appStorageHydratedForUid='';
 }
 
@@ -2351,9 +2338,23 @@ function getRoundRobinCommercial(societe){
 // ══════════════════════════════════════════
 // MÉMOIRE
 // ══════════════════════════════════════════
-function getMem(){try{return JSON.parse(appStorage.getItem(STORAGE_KEYS.mem))||{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}catch{return{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}}
+function createEmptyMemState(){
+  return {sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};
+}
+function getMem(){
+  if(!runtimeMemState||typeof runtimeMemState!=='object')runtimeMemState=createEmptyMemState();
+  if(!Array.isArray(runtimeMemState.sav))runtimeMemState.sav=[];
+  if(!runtimeMemState.messages||typeof runtimeMemState.messages!=='object')runtimeMemState.messages={};
+  if(!Array.isArray(runtimeMemState.activity))runtimeMemState.activity=[];
+  if(!Array.isArray(runtimeMemState.notes))runtimeMemState.notes=[];
+  if(!Array.isArray(runtimeMemState.absences))runtimeMemState.absences=[];
+  if(!runtimeMemState.tokens||typeof runtimeMemState.tokens!=='object')runtimeMemState.tokens={};
+  return runtimeMemState;
+}
 function saveMem(m,sync=true){
-  appStorage.setItem(STORAGE_KEYS.mem,JSON.stringify(m));
+  runtimeMemState=(m&&typeof m==='object')?m:createEmptyMemState();
+  // Mode cloud-first strict: aucune persistance locale durable pour la mémoire métier.
+  appStorage.removeItem(STORAGE_KEYS.mem);
   if(sync)scheduleSupabaseSync(m,getAnnuaire());
 }
 function getApiKey(){return normalizeAnthropicKey(appStorage.getItem(STORAGE_KEYS.api)||'');}
@@ -2560,7 +2561,6 @@ async function login(){
     await hydrateAppStorageFromSupabase(currentUser.id);
     logConnexion(currentUser.id);
     lastActivityTime=Date.now();
-    sessionStorage.setItem('benai_session',currentUser.id);
     appStorage.setItem(STORAGE_KEYS.rememberedLogin,document.getElementById('login-user').value.trim());
     if(err){
       err.style.color='var(--g)';
@@ -2657,7 +2657,6 @@ async function login(){
     document.getElementById('force-pwd-screen').style.display='flex';
     return;
   }
-  sessionStorage.setItem('benai_session',resolvedUid);
   appStorage.setItem(STORAGE_KEYS.rememberedLogin,document.getElementById('login-user').value.trim());
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').classList.add('visible');
@@ -2765,7 +2764,6 @@ async function logout(){
     await persistAppStorageToSupabaseNow(currentUser.id,snapshot);
   }
   resetAppStorageRuntime();
-  sessionStorage.removeItem('benai_session');
   const client=getSupabaseClient();
   if(client)client.auth.signOut().catch(()=>{});
   currentSupabaseSession=null;
@@ -2820,7 +2818,6 @@ function switchBack(){
   chatHistory=[];currentConv=null;
   document.getElementById('chat-area').innerHTML='';
   currentUser={id:prevUid,...u};
-  sessionStorage.setItem('benai_session',prevUid);
   logActivity(`Retour sur la session de ${u.name}`);
   void (async()=>{
     await hydrateAppStorageFromSupabase(prevUid);
@@ -2840,7 +2837,6 @@ function switchToUser(uid){
   chatHistory=[];currentConv=null;
   document.getElementById('chat-area').innerHTML='';
   currentUser={id:uid,...u};
-  sessionStorage.setItem('benai_session',uid);
   logActivity(`Benjamin a basculé vers ${u.name}`);
   void (async()=>{
     await hydrateAppStorageFromSupabase(uid);
@@ -4953,7 +4949,6 @@ async function forcePwdChange(){
   savePwds(pwds);
   if(USERS[currentUser.id])USERS[currentUser.id].pwd=pwds[currentUser.id];
   // Masquer l'écran et lancer l'app
-  sessionStorage.setItem('benai_session',currentUser.id);
   document.getElementById('force-pwd-screen').style.display='none';
   document.getElementById('app').classList.add('visible');
   logActivity(`${currentUser.name} a défini son mot de passe à la première connexion`);
@@ -5599,9 +5594,14 @@ const ROLE_PAGES={
   commercial:['leads','messages','guide','bugs']
 };
 
-function getLeads(){try{return JSON.parse(appStorage.getItem('benai_leads'))||[];}catch{return[];}}
+function getLeads(){
+  if(!Array.isArray(runtimeLeadsState))runtimeLeadsState=[];
+  return runtimeLeadsState;
+}
 function saveLeads(l,sync=true){
-  appStorage.setItem('benai_leads',JSON.stringify(l));
+  runtimeLeadsState=Array.isArray(l)?l:[];
+  // Mode cloud-first strict: aucune persistance locale durable pour les leads.
+  appStorage.removeItem('benai_leads');
   if(sync)scheduleSupabaseSync(getMem(),getAnnuaire());
 }
 function getLeadObjectifs(){try{return JSON.parse(appStorage.getItem('benai_lead_obj'))||{nimes:{leads:20,ca:50000},avignon:{leads:15,ca:40000}};}catch{return{nimes:{leads:20,ca:50000},avignon:{leads:15,ca:40000}};}}
@@ -7830,33 +7830,7 @@ window.addEventListener('load',async()=>{
       }
     }catch(e){}
   }
-  // Restaurer session si rechargement de page
-  const savedSession=sessionStorage.getItem('benai_session');
-  if(savedSession&&!client){
-    const uid=savedSession;
-    const userObj=USERS[uid]||getExtraUserById(uid);
-    if(userObj){
-      // Vérif accès non révoqué
-      const access=getAccess();
-      if(access[uid]===false&&uid!=='benjamin'){
-        sessionStorage.removeItem('benai_session');
-        checkUpdate();return;
-      }
-      // Vérif mot de passe pas encore 1234
-      const pwds=getPwds();
-      if(await verifyPassword(uid,'1234',pwds[uid]||'1234')){
-        sessionStorage.removeItem('benai_session');
-        checkUpdate();return;
-      }
-      currentUser={id:uid,...userObj};
-      document.getElementById('login-screen').style.display='none';
-      document.getElementById('app').classList.add('visible');
-      initApp(true); // true = restauration silencieuse (pas de message d'accueil)
-      void syncSupabasePostLogin();
-      checkUpdate();
-      return;
-    }
-  }
+  // Mode cloud strict : aucune restauration de session locale.
   // Vérif mise à jour
   checkUpdate();
   // Mode hors-ligne
