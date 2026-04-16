@@ -1,0 +1,39 @@
+Agis en tant que développeur expert JavaScript et améliore le fichier BenAI_v3 ci-joint en intégrant précisément les fonctionnalités suivantes, sans casser l'architecture existante :
+
+    CRM & Leads :
+
+        Ajoute une règle d'attribution automatique des leads entre commerciaux si aucun directeur commercial n'est défini.
+        * Assure la gestion complète de 'Lambert SAS' dans les onglets CRM au même titre que Nemausus.
+
+        Donne-moi et intègre la liste complète des codes postaux du secteur pour l'auto-complétion.
+
+        Implémente le traçage automatique des appels sur la fiche lead.
+
+        Ajoute les fonctions d'archivage/réouverture avec consultation de l'historique archivé.
+        * Crée un module d'analyse des leads perdus par motif obligatoire (prix, délai, etc.).
+
+        Ajoute des notifications à l'heure précise pour les rappels leads.
+        * Alerte automatique si un devis envoyé reste sans réponse après 7 jours.
+
+    Statistiques & Logistique :
+
+        Crée un dashboard de classement mensuel des commerciaux.
+
+        Ajoute un compteur de contacts (leads) par commercial.
+        * Génère des stats par source de lead (MAG, TEL, WEB, etc.).
+
+        Permets le rattachement de véhicules de société aux profils commerciaux.
+
+    Système & Tutos :
+    * Renforce la connexion de l'IA BenAI au CRM pour qu'elle puisse analyser les leads.
+    * Ajoute un système de tutoriels vidéo/interactifs obligatoires par rôle (Dir Co, Commercial, Assistante).
+
+        Déclenche un tuto automatique lors des mises à jour majeures de version.
+        * Chiffre les mots de passe stockés en localStorage.
+
+        Envoie un message automatique de bienvenue aux nouveaux utilisateurs.
+
+    RH & Outils :
+    * Ajoute une fonction d'envoi automatique de la fiche de paie PDF vers l'email perso de l'employé (via l'annuaire).
+
+        Prépare le dossier pour la soumission de l'extension Firefox sur le store Mozilla.

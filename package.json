@@ -1,0 +1,10 @@
+{
+  "name": "benai",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Workspace local pour BenAI et sa migration Supabase.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  }
+}
