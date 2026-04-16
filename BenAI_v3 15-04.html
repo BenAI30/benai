@@ -65,8 +65,11 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .main{display:flex;flex:1;overflow:hidden;}
 /* SIDEBAR */
 .sidebar{width:220px;background:var(--s1);border-right:1px solid var(--b1);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
-.sb-section{padding:10px 8px 4px;}
-.sb-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);padding:0 8px;margin-bottom:4px;}
+.sb-section{padding:10px 8px 6px;}
+@media (min-width:769px){
+  .sb-section+.sb-section{border-top:1px solid var(--b1);margin-top:2px;padding-top:12px;}
+}
+.sb-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);padding:0 8px;margin-bottom:6px;}
 .sb-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:.12s;margin-bottom:2px;position:relative;}
 .sb-item:hover{background:var(--s3);}
 .sb-item.active{background:var(--a3);color:var(--a);}
@@ -158,7 +161,16 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .dash-quick-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px;}
 .dash-quick-btn{padding:10px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;}
 .dash-quick-btn:hover{border-color:var(--a);color:var(--a);}
-.equipe-tab-row{display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 10px;flex-shrink:0;align-items:center;}
+.equipe-head-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end;}
+.equipe-link-btn{padding:7px 12px;background:transparent;border:1px solid var(--b1);border-radius:8px;color:var(--t2);font-family:'Outfit',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:.12s;}
+.equipe-link-btn:hover{border-color:var(--a);color:var(--a);}
+.equipe-seg-wrap{padding:0 16px 12px;flex-shrink:0;}
+.equipe-seg{display:flex;background:var(--s3);border:1px solid var(--b1);border-radius:10px;padding:3px;gap:2px;}
+.equipe-seg-btn{flex:1;padding:8px 10px;border:none;border-radius:8px;background:transparent;color:var(--t2);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:.12s;}
+.equipe-seg-btn:hover{color:var(--t1);}
+.equipe-seg-btn.active{background:var(--s2);color:var(--a);box-shadow:0 1px 3px rgba(0,0,0,.12);}
+.ann-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:0 16px 10px;flex-shrink:0;}
+.equipe-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:14px;}
 .dc-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
 .dc-val{font-size:28px;font-weight:800;color:var(--t1);}
 .dc-sub{font-size:11px;color:var(--t3);margin-top:3px;}
@@ -521,12 +533,14 @@ body.light .bubble{color:var(--t1);}
   .chat-input-row{gap:6px;}
   #page-benai .chat-input-area{display:none;}
   #page-benai .chat-area{padding-bottom:16px;}
-  .btn-send,.btn-attach-plus,.thread-send,.tool-btn,.sav-filter,.crm-filter,.ann-filter,.btn-primary,.tb-icon-btn,.tb-logout{min-height:40px;}
+  .btn-send,.btn-attach-plus,.thread-send,.tool-btn,.sav-filter,.crm-filter,.ann-filter,.equipe-seg-btn,.equipe-link-btn,.btn-primary,.tb-icon-btn,.tb-logout{min-height:40px;}
   .chat-textarea,.thread-input input,.form-input,.sav-search{font-size:16px;}
   .dash-grid{grid-template-columns:1fr;}
   .dash-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr));}
-  .equipe-tab-row{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;gap:8px;}
-  .equipe-tab-row .ann-filter{flex-shrink:0;}
+  .equipe-seg-wrap{padding:0 12px 10px;}
+  .equipe-seg-btn{font-size:11px;padding:9px 8px;}
+  .ann-chips{gap:5px;padding:0 12px 8px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;}
+  .ann-chips .ann-filter{flex-shrink:0;}
   .form-row{grid-template-columns:1fr;}
   .conv-list{display:none;}
   .thread-input{padding:10px;}
@@ -732,20 +746,17 @@ input[type=file]{display:none;}
     <!-- SIDEBAR -->
     <div class="sidebar">
       <div class="sb-section">
-        <div class="sb-label">Accueil IA</div>
+        <div class="sb-label">Quotidien</div>
         <div class="sb-item active" onclick="showPage('benai')" id="nav-benai"><span class="sb-icon">🤖</span><span class="sb-txt">BenAI IA</span></div>
-        <div class="sb-item" onclick="showPage('guide')" id="nav-guide"><span class="sb-icon">📘</span><span class="sb-txt">Guide & évolution</span></div>
-      </div>
-      <div class="sb-section">
-        <div class="sb-label">Communication</div>
+        <div class="sb-item" onclick="showPage('guide')" id="nav-guide"><span class="sb-icon">📘</span><span class="sb-txt">Guide</span></div>
         <div class="sb-item" onclick="showPage('messages')" id="nav-messages">
           <span class="sb-icon">💬</span><span class="sb-txt">Messages</span>
           <span class="sb-badge" id="msg-badge" style="display:none"></span>
         </div>
-        <div class="sb-item" onclick="showPage('notes')" id="nav-notes"><span class="sb-icon">📝</span><span class="sb-txt">Notes rapides</span></div>
+        <div class="sb-item" onclick="showPage('notes')" id="nav-notes"><span class="sb-icon">📝</span><span class="sb-txt">Notes</span></div>
       </div>
       <div class="sb-section">
-        <div class="sb-label">Opérations</div>
+        <div class="sb-label">Métier</div>
         <div class="sb-item" onclick="showPage('sav')" id="nav-sav">
           <span class="sb-icon">🔧</span><span class="sb-txt">SAV</span>
           <span class="sb-badge" id="sav-badge" style="display:none"></span>
@@ -756,13 +767,10 @@ input[type=file]{display:none;}
         </div>
       </div>
       <div class="sb-section">
-        <div class="sb-label">Personnel</div>
+        <div class="sb-label">Entreprise</div>
         <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')"><span class="sb-icon">👥</span><span class="sb-txt">Équipe</span></div>
         <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span><span class="sb-badge-abs" id="abs-badge" style="display:none"></span></div>
-        <div class="sb-item" id="nav-paie" style="display:none" onclick="showPage('paie')"><span class="sb-icon">💰</span><span class="sb-txt">Fiches de paie</span></div>
-      </div>
-      <div class="sb-section">
-        <div class="sb-label">Pilotage</div>
+        <div class="sb-item" id="nav-paie" style="display:none" onclick="showPage('paie')"><span class="sb-icon">💰</span><span class="sb-txt">Paie</span></div>
         <div class="sb-item" id="nav-admin" style="display:none" onclick="showPage('admin')"><span class="sb-icon">📊</span><span class="sb-txt">Dashboard</span></div>
         <div class="sb-item" id="nav-bugs" onclick="showPage('bugs')">
           <span class="sb-icon">🐛</span><span class="sb-txt">Bugs</span>
@@ -988,12 +996,19 @@ input[type=file]{display:none;}
           <div><div class="page-title">📊 Dashboard Admin</div><div class="page-sub">Vue d'ensemble BenAI</div></div>
         </div>
         <div class="dashboard">
-          <div class="dash-section-title">Pilotage rapide</div>
-          <div class="dash-quick-actions">
-            <button class="dash-quick-btn" onclick="showPage('leads')">📋 Ouvrir CRM</button>
-            <button class="dash-quick-btn" onclick="showPage('sav')">🔧 Ouvrir SAV</button>
-            <button class="dash-quick-btn" onclick="showAnnuaireTeamTab('annuaire')">👥 Ouvrir équipe</button>
-            <button class="dash-quick-btn" onclick="showPage('bugs')">🐛 Voir les bugs</button>
+          <div class="dash-section-title">Vue d’ensemble</div>
+          <div class="dash-card" style="margin-bottom:14px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:10px">Raccourcis</div>
+            <div class="dash-quick-actions" style="margin-bottom:0">
+              <button type="button" class="dash-quick-btn" onclick="showPage('leads')">📋 CRM</button>
+              <button type="button" class="dash-quick-btn" onclick="showPage('sav')">🔧 SAV</button>
+              <button type="button" class="dash-quick-btn" onclick="showAnnuaireTeamTab('annuaire')">👥 Équipe</button>
+              <button type="button" class="dash-quick-btn" onclick="showPage('bugs')">🐛 Bugs</button>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--b1)">
+              <button type="button" class="dash-quick-btn" style="flex:1;min-width:120px" onclick="showAnnuaireTeamTab('annuaire')">📇 Contacts annuaire</button>
+              <button type="button" class="dash-quick-btn" style="flex:1;min-width:120px" onclick="showAnnuaireTeamTab('acces')">🔐 Accès BenAI</button>
+            </div>
           </div>
 
           <!-- STATS -->
@@ -1007,24 +1022,14 @@ input[type=file]{display:none;}
 
           <!-- TOKENS -->
           <div class="dash-card accordion-card" style="margin-bottom:12px">
-            <div class="dc-label accordion-header" onclick="toggleAccordion('token-stats-wrap')">🔢 Consommation API <span class="accordion-arrow">▾</span></div>
-            <div id="token-stats-wrap" class="accordion-body"><div id="token-stats" style="margin-top:8px"></div></div>
+            <div class="dc-label accordion-header" onclick="toggleAccordion('token-stats-wrap')">🔢 Consommation API <span class="accordion-arrow">▸</span></div>
+            <div id="token-stats-wrap" class="accordion-body collapsed"><div id="token-stats" style="margin-top:8px"></div></div>
           </div>
 
           <!-- STATS SAV -->
           <div class="dash-card accordion-card" style="margin-bottom:12px">
-            <div class="dc-label accordion-header" onclick="toggleAccordion('sav-stats-wrap')">📊 Statistiques SAV <span class="accordion-arrow">▾</span></div>
-            <div id="sav-stats-wrap" class="accordion-body"><div id="sav-stats-admin" style="margin-top:8px"></div></div>
-          </div>
-
-          <div class="dash-section-title">Équipe</div>
-          <div class="dash-card" style="margin-bottom:12px">
-            <div style="font-size:13px;font-weight:700;margin-bottom:6px">👥 Annuaire & accès BenAI</div>
-            <div style="font-size:12px;color:var(--t3);margin-bottom:12px;line-height:1.45">Contacts salariés, création des comptes et mots de passe sont regroupés dans l’onglet <strong>Équipe</strong> du menu.</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button type="button" class="dash-quick-btn" style="flex:1;min-width:132px" onclick="showAnnuaireTeamTab('annuaire')">📇 Annuaire</button>
-              <button type="button" class="dash-quick-btn" style="flex:1;min-width:132px" onclick="showAnnuaireTeamTab('acces')">🔐 Accès BenAI</button>
-            </div>
+            <div class="dc-label accordion-header" onclick="toggleAccordion('sav-stats-wrap')">📊 Statistiques SAV <span class="accordion-arrow">▸</span></div>
+            <div id="sav-stats-wrap" class="accordion-body collapsed"><div id="sav-stats-admin" style="margin-top:8px"></div></div>
           </div>
 
           <div class="dash-section-title">Historique & contrôle</div>
@@ -1320,17 +1325,22 @@ input[type=file]{display:none;}
 
       <!-- PAGE ÉQUIPE : annuaire + accès BenAI -->
       <div id="page-annuaire" style="display:none;flex-direction:column;height:100%">
-        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
-          <div><div class="page-title">👥 Équipe</div><div class="page-sub" id="ann-counter-sub">Chargement...</div></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button onclick="showPage('absences')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">🗓️ Absences</button>
-            <button onclick="showPage('paie')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">💰 Paie</button>
-            <button class="btn-primary" id="ann-btn-add-emp" onclick="toggleEmpForm()">+ Employé</button>
+        <div class="page-header" style="padding-bottom:10px;flex-shrink:0;align-items:flex-start;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div class="page-title">👥 Équipe</div>
+            <div class="page-sub" id="ann-counter-sub">Chargement…</div>
+          </div>
+          <div class="equipe-head-actions">
+            <button type="button" class="equipe-link-btn" onclick="showPage('absences')">Absences</button>
+            <button type="button" class="equipe-link-btn" onclick="showPage('paie')">Paie</button>
+            <button type="button" class="btn-primary" id="ann-btn-add-emp" onclick="toggleEmpForm()" style="padding:8px 14px;font-size:12px">+ Employé</button>
           </div>
         </div>
-        <div class="equipe-tab-row">
-          <button type="button" class="ann-filter active" id="equipe-tab-annuaire" onclick="setEquipeTab('annuaire')">📇 Annuaire</button>
-          <button type="button" class="ann-filter" id="equipe-tab-acces" onclick="setEquipeTab('acces')">🔐 Accès BenAI</button>
+        <div class="equipe-seg-wrap">
+          <div class="equipe-seg" role="tablist">
+            <button type="button" class="equipe-seg-btn active" id="equipe-tab-annuaire" onclick="setEquipeTab('annuaire')" role="tab">📇 Contacts</button>
+            <button type="button" class="equipe-seg-btn" id="equipe-tab-acces" onclick="setEquipeTab('acces')" role="tab">🔐 Accès BenAI</button>
+          </div>
         </div>
         <div id="equipe-panel-annuaire" style="display:flex;flex:1;flex-direction:column;min-height:0">
           <div style="padding:0 16px;flex-shrink:0;display:none" id="emp-form-wrap">
@@ -1374,26 +1384,28 @@ input[type=file]{display:none;}
               </div>
             </div>
           </div>
-          <div style="padding:0 16px 10px;flex-shrink:0;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            <input type="text" placeholder="🔍 Rechercher..." id="ann-search" oninput="renderAnnuaire()" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 12px;color:var(--t1);font-family:inherit;font-size:13px;outline:none;width:180px">
-            <button class="ann-filter active" onclick="setAnnFilter('tous',this)">Tous</button>
-            <button class="ann-filter" onclick="setAnnFilter('nemausus',this)">Nemausus</button>
-            <button class="ann-filter" onclick="setAnnFilter('lambert',this)">Lambert</button>
-            <button class="ann-filter" onclick="setAnnFilter('Technicien',this)">Techniciens</button>
-            <button class="ann-filter" onclick="setAnnFilter('Métreur',this)">Métreurs</button>
-            <button class="ann-filter" onclick="setAnnFilter('Commercial',this)">Commerciaux</button>
-            <button class="ann-filter" onclick="setAnnFilter('Assistante',this)">Assistantes</button>
+          <div style="padding:0 16px 10px;flex-shrink:0">
+            <input type="text" placeholder="Rechercher un employé…" id="ann-search" oninput="renderAnnuaire()" style="width:100%;max-width:420px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:9px 12px;color:var(--t1);font-family:inherit;font-size:13px;outline:none;box-sizing:border-box">
+          </div>
+          <div id="ann-chips-filter" class="ann-chips">
+            <button type="button" class="ann-filter active" onclick="setAnnFilter('tous',this)">Tous</button>
+            <button type="button" class="ann-filter" onclick="setAnnFilter('nemausus',this)">Nemausus</button>
+            <button type="button" class="ann-filter" onclick="setAnnFilter('lambert',this)">Lambert</button>
+            <button type="button" class="ann-filter" onclick="setAnnFilter('Technicien',this)">Techniciens</button>
+            <button type="button" class="ann-filter" onclick="setAnnFilter('Métreur',this)">Métreurs</button>
+            <button type="button" class="ann-filter" onclick="setAnnFilter('Commercial',this)">Commerciaux</button>
+            <button type="button" class="ann-filter" onclick="setAnnFilter('Assistante',this)">Assistantes</button>
           </div>
           <div style="padding:0 16px;flex:1;overflow-y:auto;min-height:0" id="annuaire-list"></div>
         </div>
         <div id="equipe-panel-acces" style="display:none;flex:1;flex-direction:column;min-height:0;overflow-y:auto">
-          <div style="padding:12px 16px 16px;display:flex;flex-direction:column;gap:12px">
-            <div class="dash-card" style="margin:0">
+          <div style="padding:12px 16px 20px;display:flex;flex-direction:column;gap:14px">
+            <div class="equipe-card">
               <div style="font-size:12px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-                <span>👥 Utilisateurs BenAI</span>
-                <button type="button" class="btn-primary" onclick="showAddUser()" style="padding:6px 12px;font-size:11px;font-weight:600">+ Créer un accès</button>
+                <span>Comptes BenAI</span>
+                <button type="button" class="btn-primary" onclick="showAddUser()" style="padding:6px 12px;font-size:11px;font-weight:600">+ Nouvel accès</button>
               </div>
-              <div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.45">Un salarié doit d’abord exister dans l’onglet <strong>Annuaire</strong> (email pro recommandé pour Supabase).</div>
+              <div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.45">À partir d’une fiche <strong>Contacts</strong> (email pro pour Supabase).</div>
               <input type="text" id="user-search" placeholder="🔍 Rechercher un utilisateur..." oninput="renderUsersList()" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;outline:none;margin-bottom:8px">
               <div id="users-list" style="margin-top:4px"></div>
               <div id="add-user-form" style="display:none;margin-top:12px;background:var(--s3);border-radius:10px;padding:12px">
@@ -1421,8 +1433,8 @@ input[type=file]{display:none;}
                 <div id="add-user-status" style="font-size:11px;margin-top:6px;min-height:14px"></div>
               </div>
             </div>
-            <div class="dash-card" style="margin:0">
-              <div style="font-size:12px;font-weight:700;margin-bottom:8px">🔑 Mots de passe</div>
+            <div class="equipe-card">
+              <div style="font-size:12px;font-weight:700;margin-bottom:8px">Mots de passe (référence)</div>
               <div id="pwd-list" style="margin-top:4px"></div>
             </div>
           </div>
@@ -3334,7 +3346,7 @@ function setEquipeTab(tab){
   const addBtn=document.getElementById('ann-btn-add-emp');
   if(addBtn)addBtn.style.display=tab==='annuaire'?'inline-flex':'none';
   const sub=document.getElementById('ann-counter-sub');
-  if(sub&&tab==='acces')sub.textContent='Comptes BenAI, blocage et mots de passe — liés aux fiches annuaire';
+  if(sub&&tab==='acces')sub.textContent='Comptes, blocage et mots de passe — liés aux fiches Contacts';
   if(tab==='annuaire')renderAnnuaire();
   else{renderUsersList();renderPwdList();}
 }
@@ -3351,8 +3363,8 @@ function showAnnuaireTeamTab(which){
 let annFilter='tous';
 function setAnnFilter(filter,btn){
   annFilter=filter;
-  const scope=document.getElementById('equipe-panel-annuaire')||document;
-  scope.querySelectorAll('.ann-filter').forEach(b=>b.classList.remove('active'));
+  const chips=document.getElementById('ann-chips-filter');
+  (chips?chips.querySelectorAll('.ann-filter'):[]).forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   renderAnnuaire();
 }
