@@ -1846,21 +1846,15 @@ async function createSupabaseUserProvisioning(payload){
 function mapSavToSupabaseRows(items){
   return (items||[]).map(s=>({
     legacy_id:String(s.id),
+    societe:s.societe||'nemausus',
     client:s.client||'',
     probleme:s.probleme||s.type||'',
-    type:s.probleme||s.type||'',
-    societe:s.societe||'nemausus',
-    commercial:s.commercial||'',
-    fournisseur:s.fournisseur||'',
     rappel_date:s.rappel||s.date_rappel||null,
-    date_rappel:s.rappel||null,
     commentaire:s.commentaire||'',
     urgent:!!s.urgent,
     statut:s.statut||'nouveau',
     archive:!!s.archive,
-    archived:!!s.archive,
     mute_reminder:!!s.muteReminder,
-    done:(s.statut||'')==='regle',
     payload:s
   }));
 }
