@@ -5318,6 +5318,27 @@ function restoreChatVisual(){
 let pollingInterval=null;
 let lastAutoBugScanTs=0;
 let lastPollingHeartbeat=Date.now();
+let lastCloudRefreshTs=0;
+let cloudRefreshInFlight=false;
+const CLOUD_REFRESH_MIN_INTERVAL_MS=25000;
+
+async function refreshCoreDataFromCloudIfNeeded(force=false){
+  if(!SUPABASE_CONFIG.enabled||!currentUser)return;
+  if(cloudRefreshInFlight)return;
+  const now=Date.now();
+  if(!force&&now-lastCloudRefreshTs<CLOUD_REFRESH_MIN_INTERVAL_MS)return;
+  cloudRefreshInFlight=true;
+  lastCloudRefreshTs=now;
+  try{
+    const ok=await loadCoreDataFromSupabase();
+    if(ok)refreshVisibleDataAfterSupabaseSync();
+  }catch(e){
+    // silencieux: la surveillance de sync gère déjà les erreurs.
+  }finally{
+    cloudRefreshInFlight=false;
+  }
+}
+
 function startPolling(){
   if(pollingInterval)clearInterval(pollingInterval);
   let lastMsgCount=0;
@@ -5333,6 +5354,7 @@ function startPolling(){
     refreshBugsBadge();
     checkRappelsLeads();
     runAutoBugDetectors();
+    void refreshCoreDataFromCloudIfNeeded();
     if(currentConv){
       const area=document.getElementById('thread-msgs');
       const mem=getMem();
