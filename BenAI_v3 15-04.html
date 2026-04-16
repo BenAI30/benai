@@ -1983,26 +1983,40 @@ async function syncSharedTablesToSupabase(mem,annuaire,leads){
 function scheduleSupabaseSync(mem,annuaire){
   clearTimeout(supabaseSyncTimer);
   supabaseSyncTimer=setTimeout(()=>{
-    syncMemToSupabase(mem,annuaire);
+    supabaseSyncTimer=null;
+    void syncMemToSupabase(mem,annuaire);
   },400);
 }
 
+async function flushSupabaseSyncNow(){
+  if(supabaseSyncTimer){
+    clearTimeout(supabaseSyncTimer);
+    supabaseSyncTimer=null;
+  }
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser?.id)return true;
+  return await syncMemToSupabase(getMem(),getAnnuaire());
+}
+
 async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
-  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return;
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return false;
   const session=await ensureSupabaseSession();
-  if(!session?.access_token)return;
+  if(!session?.access_token)return false;
   const headers=getSupabaseHeaders();
-  if(!headers)return;
+  if(!headers)return false;
   try{
-    await Promise.all([
-      fetch(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}`,{
+    const [stateRes,sharedOk]=await Promise.all([
+      fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}`,{
       method:'POST',
       headers:{...headers,'Prefer':'resolution=merge-duplicates'},
       body:JSON.stringify([{uid:currentUser.id,payload:mem,updated_at:new Date().toISOString()}])
-      }),
+      },10000),
       syncSharedTablesToSupabase(mem,annuaire,getLeads())
     ]);
-  }catch(e){}
+    const stateOk=!!stateRes?.ok||stateRes?.status===404;
+    return !!sharedOk&&stateOk;
+  }catch(e){
+    return false;
+  }
 }
 
 async function loadCoreDataFromSupabase(){
@@ -2684,6 +2698,11 @@ function getConnexions(uid){
 async function logout(){
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
   const rememberedLogin=getRememberedLoginForForm();
+  const syncOk=await flushSupabaseSyncNow();
+  if(!syncOk&&SUPABASE_CONFIG.enabled){
+    const proceed=confirm('⚠️ Synchronisation Supabase échouée. Si vous vous déconnectez maintenant, les dernières modifications peuvent être perdues.\n\nSe déconnecter quand même ?');
+    if(!proceed)return;
+  }
   if(currentUser?.id){
     const snapshot=serializeCloudAppStorage();
     await persistAppStorageToSupabaseNow(currentUser.id,snapshot);
@@ -7632,6 +7651,7 @@ function downloadMyChat(){
 // ══════════════════════════════════════════
 window.addEventListener('beforeunload',()=>{
   if(currentUser?.id){
+    void flushSupabaseSyncNow();
     const snapshot=serializeCloudAppStorage();
     void persistAppStorageToSupabaseNow(currentUser.id,snapshot);
   }
