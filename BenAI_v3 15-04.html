@@ -158,6 +158,7 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .dash-quick-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px;}
 .dash-quick-btn{padding:10px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;}
 .dash-quick-btn:hover{border-color:var(--a);color:var(--a);}
+.equipe-tab-row{display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 10px;flex-shrink:0;align-items:center;}
 .dc-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
 .dc-val{font-size:28px;font-weight:800;color:var(--t1);}
 .dc-sub{font-size:11px;color:var(--t3);margin-top:3px;}
@@ -524,6 +525,8 @@ body.light .bubble{color:var(--t1);}
   .chat-textarea,.thread-input input,.form-input,.sav-search{font-size:16px;}
   .dash-grid{grid-template-columns:1fr;}
   .dash-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .equipe-tab-row{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;gap:8px;}
+  .equipe-tab-row .ann-filter{flex-shrink:0;}
   .form-row{grid-template-columns:1fr;}
   .conv-list{display:none;}
   .thread-input{padding:10px;}
@@ -753,8 +756,8 @@ input[type=file]{display:none;}
         </div>
       </div>
       <div class="sb-section">
-        <div class="sb-label">Équipe & RH</div>
-        <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')"><span class="sb-icon">👥</span><span class="sb-txt">Annuaire</span></div>
+        <div class="sb-label">Personnel</div>
+        <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')"><span class="sb-icon">👥</span><span class="sb-txt">Équipe</span></div>
         <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span><span class="sb-badge-abs" id="abs-badge" style="display:none"></span></div>
         <div class="sb-item" id="nav-paie" style="display:none" onclick="showPage('paie')"><span class="sb-icon">💰</span><span class="sb-txt">Fiches de paie</span></div>
       </div>
@@ -903,7 +906,7 @@ input[type=file]{display:none;}
         <div class="page-header" style="padding-bottom:8px;flex-shrink:0">
           <div><div class="page-title">🗓️ Absences & Congés</div><div class="page-sub">Rappels J-7 et la veille</div></div>
           <div style="display:flex;gap:8px">
-            <button onclick="showPage('annuaire')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">👥 Annuaire</button>
+            <button onclick="showAnnuaireTeamTab('annuaire')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">👥 Équipe</button>
             <button onclick="downloadPlanningAbsences('nemausus')" style="background:var(--a3);border:1px solid var(--a);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--a);font-family:inherit;font-weight:600">📥 Nemausus</button>
             <button onclick="downloadPlanningAbsences('lambert')" style="background:var(--bl2);border:1px solid var(--bl);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--bl);font-family:inherit;font-weight:600">📥 Lambert</button>
             <button class="btn-primary" onclick="toggleAbsForm()">+ Nouvelle absence</button>
@@ -989,7 +992,7 @@ input[type=file]{display:none;}
           <div class="dash-quick-actions">
             <button class="dash-quick-btn" onclick="showPage('leads')">📋 Ouvrir CRM</button>
             <button class="dash-quick-btn" onclick="showPage('sav')">🔧 Ouvrir SAV</button>
-            <button class="dash-quick-btn" onclick="showPage('annuaire')">👥 Ouvrir annuaire</button>
+            <button class="dash-quick-btn" onclick="showAnnuaireTeamTab('annuaire')">👥 Ouvrir équipe</button>
             <button class="dash-quick-btn" onclick="showPage('bugs')">🐛 Voir les bugs</button>
           </div>
 
@@ -1014,45 +1017,14 @@ input[type=file]{display:none;}
             <div id="sav-stats-wrap" class="accordion-body"><div id="sav-stats-admin" style="margin-top:8px"></div></div>
           </div>
 
-          <div class="dash-section-title">Équipe & accès</div>
-
-          <!-- UTILISATEURS -->
-          <div class="dash-card accordion-card" style="margin-bottom:12px">
-            <div class="dc-label accordion-header" onclick="toggleAccordion('users-wrap')">👥 Gestion des utilisateurs <span class="accordion-arrow">▾</span><button onclick="event.stopPropagation();showAddUser()" style="padding:4px 10px;background:var(--a);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;margin-left:8px">+ Ajouter</button></div>
-            <div id="users-wrap" class="accordion-body">
-              <input type="text" id="user-search" placeholder="🔍 Rechercher un utilisateur..." oninput="renderUsersList()" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;outline:none;margin-bottom:8px;margin-top:8px">
-              <div id="users-list" style="margin-top:4px"></div>
-              <div id="add-user-form" style="display:none;margin-top:12px;background:var(--s3);border-radius:10px;padding:12px">
-                <div style="font-size:12px;font-weight:600;margin-bottom:10px">➕ Créer un accès BenAI</div>
-                <div style="font-size:11px;color:var(--t3);margin-bottom:10px">Sélectionnez un salarié de l'annuaire pour lui créer un accès BenAI.</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-                  <div><div class="form-label">Salarié (annuaire)</div>
-                    <select class="form-input" id="new-user-ann-select">
-                      <option value="">Sélectionner...</option>
-                    </select>
-                  </div>
-                  <div><div class="form-label">Mot de passe</div><input type="text" class="form-input" id="new-user-pwd" placeholder="Mot de passe"></div>
-                </div>
-                <div style="margin-bottom:8px"><div class="form-label">Rôle BenAI</div>
-                  <select class="form-input" id="new-user-role">
-                    <option value="assistante">Assistante (BenAI complet)</option>
-                    <option value="commercial">Commercial (CRM uniquement)</option>
-                    <option value="directeur_co">Directeur commercial (CRM complet)</option>
-                  </select>
-                </div>
-                <div style="display:flex;gap:6px">
-                  <button onclick="creerUtilisateur()" class="btn-primary" style="flex:1">Créer l'accès</button>
-                  <button onclick="document.getElementById('add-user-form').style.display='none'" style="padding:9px 14px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
-                </div>
-                <div id="add-user-status" style="font-size:11px;margin-top:6px;min-height:14px"></div>
-              </div>
+          <div class="dash-section-title">Équipe</div>
+          <div class="dash-card" style="margin-bottom:12px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:6px">👥 Annuaire & accès BenAI</div>
+            <div style="font-size:12px;color:var(--t3);margin-bottom:12px;line-height:1.45">Contacts salariés, création des comptes et mots de passe sont regroupés dans l’onglet <strong>Équipe</strong> du menu.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button type="button" class="dash-quick-btn" style="flex:1;min-width:132px" onclick="showAnnuaireTeamTab('annuaire')">📇 Annuaire</button>
+              <button type="button" class="dash-quick-btn" style="flex:1;min-width:132px" onclick="showAnnuaireTeamTab('acces')">🔐 Accès BenAI</button>
             </div>
-          </div>
-
-          <!-- MOTS DE PASSE -->
-          <div class="dash-card accordion-card" style="margin-bottom:12px">
-            <div class="dc-label accordion-header" onclick="toggleAccordion('pwd-wrap')">🔑 Mots de passe <span class="accordion-arrow">▾</span></div>
-            <div id="pwd-wrap" class="accordion-body"><div id="pwd-list" style="margin-top:8px"></div></div>
           </div>
 
           <div class="dash-section-title">Historique & contrôle</div>
@@ -1346,68 +1318,115 @@ input[type=file]{display:none;}
         </div>
       </div>
 
-      <!-- PAGE ANNUAIRE -->
+      <!-- PAGE ÉQUIPE : annuaire + accès BenAI -->
       <div id="page-annuaire" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
-          <div><div class="page-title">👥 Annuaire employés</div><div class="page-sub" id="ann-counter-sub">Chargement...</div></div>
-          <div style="display:flex;gap:8px">
+          <div><div class="page-title">👥 Équipe</div><div class="page-sub" id="ann-counter-sub">Chargement...</div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button onclick="showPage('absences')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">🗓️ Absences</button>
             <button onclick="showPage('paie')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">💰 Paie</button>
-            <button class="btn-primary" onclick="toggleEmpForm()">+ Ajouter</button>
+            <button class="btn-primary" id="ann-btn-add-emp" onclick="toggleEmpForm()">+ Employé</button>
           </div>
         </div>
-        <div style="padding:0 16px;flex-shrink:0;display:none" id="emp-form-wrap">
-          <div class="sav-form">
-            <div style="font-size:13px;font-weight:600;margin-bottom:12px">➕ Nouvel employé</div>
-            <div class="form-row">
-              <div class="form-group"><div class="form-label">Prénom</div><input type="text" class="form-input" id="emp-prenom" placeholder="Prénom"></div>
-              <div class="form-group"><div class="form-label">Nom</div><input type="text" class="form-input" id="emp-nom" placeholder="Nom"></div>
-            </div>
-            <div class="form-row">
-              <div class="form-group"><div class="form-label">Email perso <span style="color:var(--t3)">(fiches de paie)</span></div><input type="email" class="form-input" id="emp-email" placeholder="email.perso@gmail.com"></div>
-              <div class="form-group"><div class="form-label">Email pro</div><input type="email" class="form-input" id="emp-email-pro" placeholder="prenom@nemausus.fr"></div>
-            </div>
-            <div class="form-row">
-              <div class="form-group"><div class="form-label">Téléphone</div><input type="text" class="form-input" id="emp-tel" placeholder="06..."></div>
-              <div class="form-group"><div class="form-label">Date de naissance <span style="color:var(--t3)">(anniversaire)</span></div><input type="date" class="form-input" id="emp-naissance"></div>
-            </div>
-            <div class="form-row">
-              <div class="form-group"><div class="form-label">Fonction</div>
-                <select class="form-input" id="emp-fonction">
-                  <option value="Technicien">Technicien</option>
-                  <option value="Métreur">Métreur</option>
-                  <option value="Commercial">Commercial</option>
-                  <option value="Assistante">Assistante</option>
-                  <option value="Comptable">Comptable</option>
-                  <option value="Autre">Autre</option>
-                </select>
+        <div class="equipe-tab-row">
+          <button type="button" class="ann-filter active" id="equipe-tab-annuaire" onclick="setEquipeTab('annuaire')">📇 Annuaire</button>
+          <button type="button" class="ann-filter" id="equipe-tab-acces" onclick="setEquipeTab('acces')">🔐 Accès BenAI</button>
+        </div>
+        <div id="equipe-panel-annuaire" style="display:flex;flex:1;flex-direction:column;min-height:0">
+          <div style="padding:0 16px;flex-shrink:0;display:none" id="emp-form-wrap">
+            <div class="sav-form">
+              <div style="font-size:13px;font-weight:600;margin-bottom:12px">➕ Nouvel employé</div>
+              <div class="form-row">
+                <div class="form-group"><div class="form-label">Prénom</div><input type="text" class="form-input" id="emp-prenom" placeholder="Prénom"></div>
+                <div class="form-group"><div class="form-label">Nom</div><input type="text" class="form-input" id="emp-nom" placeholder="Nom"></div>
               </div>
-              <div class="form-group"><div class="form-label">Société</div>
-                <select class="form-input" id="emp-soc">
-                  <option value="nemausus">Nemausus Fermetures</option>
-                  <option value="lambert">Lambert SAS</option>
-                  <option value="les-deux">Les deux</option>
-                </select>
+              <div class="form-row">
+                <div class="form-group"><div class="form-label">Email perso <span style="color:var(--t3)">(fiches de paie)</span></div><input type="email" class="form-input" id="emp-email" placeholder="email.perso@gmail.com"></div>
+                <div class="form-group"><div class="form-label">Email pro</div><input type="email" class="form-input" id="emp-email-pro" placeholder="prenom@nemausus.fr"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><div class="form-label">Téléphone</div><input type="text" class="form-input" id="emp-tel" placeholder="06..."></div>
+                <div class="form-group"><div class="form-label">Date de naissance <span style="color:var(--t3)">(anniversaire)</span></div><input type="date" class="form-input" id="emp-naissance"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><div class="form-label">Fonction</div>
+                  <select class="form-input" id="emp-fonction">
+                    <option value="Technicien">Technicien</option>
+                    <option value="Métreur">Métreur</option>
+                    <option value="Commercial">Commercial</option>
+                    <option value="Assistante">Assistante</option>
+                    <option value="Comptable">Comptable</option>
+                    <option value="Autre">Autre</option>
+                  </select>
+                </div>
+                <div class="form-group"><div class="form-label">Société</div>
+                  <select class="form-input" id="emp-soc">
+                    <option value="nemausus">Nemausus Fermetures</option>
+                    <option value="lambert">Lambert SAS</option>
+                    <option value="les-deux">Les deux</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn-primary" onclick="addEmploye()">Enregistrer</button>
+                <button onclick="toggleEmpForm()" style="background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+                <span id="emp-ok" style="font-size:12px;color:var(--g);margin-left:6px"></span>
               </div>
             </div>
-            <div style="display:flex;gap:8px">
-              <button class="btn-primary" onclick="addEmploye()">Enregistrer</button>
-              <button onclick="toggleEmpForm()" style="background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
-              <span id="emp-ok" style="font-size:12px;color:var(--g);margin-left:6px"></span>
+          </div>
+          <div style="padding:0 16px 10px;flex-shrink:0;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <input type="text" placeholder="🔍 Rechercher..." id="ann-search" oninput="renderAnnuaire()" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 12px;color:var(--t1);font-family:inherit;font-size:13px;outline:none;width:180px">
+            <button class="ann-filter active" onclick="setAnnFilter('tous',this)">Tous</button>
+            <button class="ann-filter" onclick="setAnnFilter('nemausus',this)">Nemausus</button>
+            <button class="ann-filter" onclick="setAnnFilter('lambert',this)">Lambert</button>
+            <button class="ann-filter" onclick="setAnnFilter('Technicien',this)">Techniciens</button>
+            <button class="ann-filter" onclick="setAnnFilter('Métreur',this)">Métreurs</button>
+            <button class="ann-filter" onclick="setAnnFilter('Commercial',this)">Commerciaux</button>
+            <button class="ann-filter" onclick="setAnnFilter('Assistante',this)">Assistantes</button>
+          </div>
+          <div style="padding:0 16px;flex:1;overflow-y:auto;min-height:0" id="annuaire-list"></div>
+        </div>
+        <div id="equipe-panel-acces" style="display:none;flex:1;flex-direction:column;min-height:0;overflow-y:auto">
+          <div style="padding:12px 16px 16px;display:flex;flex-direction:column;gap:12px">
+            <div class="dash-card" style="margin:0">
+              <div style="font-size:12px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                <span>👥 Utilisateurs BenAI</span>
+                <button type="button" class="btn-primary" onclick="showAddUser()" style="padding:6px 12px;font-size:11px;font-weight:600">+ Créer un accès</button>
+              </div>
+              <div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.45">Un salarié doit d’abord exister dans l’onglet <strong>Annuaire</strong> (email pro recommandé pour Supabase).</div>
+              <input type="text" id="user-search" placeholder="🔍 Rechercher un utilisateur..." oninput="renderUsersList()" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;outline:none;margin-bottom:8px">
+              <div id="users-list" style="margin-top:4px"></div>
+              <div id="add-user-form" style="display:none;margin-top:12px;background:var(--s3);border-radius:10px;padding:12px">
+                <div style="font-size:12px;font-weight:600;margin-bottom:10px">➕ Créer un accès BenAI</div>
+                <div style="font-size:11px;color:var(--t3);margin-bottom:10px">Sélectionnez un salarié de l'annuaire pour lui créer un accès BenAI.</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                  <div><div class="form-label">Salarié (annuaire)</div>
+                    <select class="form-input" id="new-user-ann-select">
+                      <option value="">Sélectionner...</option>
+                    </select>
+                  </div>
+                  <div><div class="form-label">Mot de passe</div><input type="text" class="form-input" id="new-user-pwd" placeholder="Mot de passe"></div>
+                </div>
+                <div style="margin-bottom:8px"><div class="form-label">Rôle BenAI</div>
+                  <select class="form-input" id="new-user-role">
+                    <option value="assistante">Assistante (BenAI complet)</option>
+                    <option value="commercial">Commercial (CRM uniquement)</option>
+                    <option value="directeur_co">Directeur commercial (CRM complet)</option>
+                  </select>
+                </div>
+                <div style="display:flex;gap:6px">
+                  <button onclick="creerUtilisateur()" class="btn-primary" style="flex:1">Créer l'accès</button>
+                  <button onclick="document.getElementById('add-user-form').style.display='none'" style="padding:9px 14px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+                </div>
+                <div id="add-user-status" style="font-size:11px;margin-top:6px;min-height:14px"></div>
+              </div>
+            </div>
+            <div class="dash-card" style="margin:0">
+              <div style="font-size:12px;font-weight:700;margin-bottom:8px">🔑 Mots de passe</div>
+              <div id="pwd-list" style="margin-top:4px"></div>
             </div>
           </div>
         </div>
-        <div style="padding:0 16px 10px;flex-shrink:0;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          <input type="text" placeholder="🔍 Rechercher..." id="ann-search" oninput="renderAnnuaire()" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 12px;color:var(--t1);font-family:inherit;font-size:13px;outline:none;width:180px">
-          <button class="ann-filter active" onclick="setAnnFilter('tous',this)">Tous</button>
-          <button class="ann-filter" onclick="setAnnFilter('nemausus',this)">Nemausus</button>
-          <button class="ann-filter" onclick="setAnnFilter('lambert',this)">Lambert</button>
-          <button class="ann-filter" onclick="setAnnFilter('Technicien',this)">Techniciens</button>
-          <button class="ann-filter" onclick="setAnnFilter('Métreur',this)">Métreurs</button>
-          <button class="ann-filter" onclick="setAnnFilter('Commercial',this)">Commerciaux</button>
-          <button class="ann-filter" onclick="setAnnFilter('Assistante',this)">Assistantes</button>
-        </div>
-        <div style="padding:0 16px;flex:1;overflow-y:auto" id="annuaire-list"></div>
       </div>
 
       <!-- PAGE FICHES DE PAIE -->
@@ -1444,6 +1463,7 @@ const APP_STORAGE_SUPABASE_KEY_PREFIX='user_state_';
 const appStorageCache=Object.create(null);
 let appStorageHydratedForUid='';
 let appStoragePersistTimer=null;
+let equipeUITab='annuaire';
 const APP_STORAGE_CLOUD_EXACT_ALLOWLIST=new Set([
   'benai_login_user',
   'benai_supabase_url',
@@ -2305,7 +2325,10 @@ function refreshVisibleDataAfterSupabaseSync(){
   if(document.getElementById('page-sav')?.style.display==='flex')renderSAV();
   if(document.getElementById('page-notes')?.style.display==='flex')renderNotes();
   if(document.getElementById('page-absences')?.style.display==='flex'){renderAbsences();fillAbsEmpList();}
-  if(document.getElementById('page-annuaire')?.style.display==='flex')renderAnnuaire();
+  if(document.getElementById('page-annuaire')?.style.display==='flex'){
+    if(equipeUITab==='acces'){renderUsersList();renderPwdList();}
+    else renderAnnuaire();
+  }
   if(document.getElementById('page-leads')?.style.display==='flex')initLeadsPage();
 }
 
@@ -3019,7 +3042,7 @@ function showPage(page){
   if(page==='absences'){renderAbsences();fillAbsEmpList();}
   if(page==='evolution')renderEvolution();
   if(page==='guide')renderGuidePage();
-  if(page==='annuaire')renderAnnuaire();
+  if(page==='annuaire')initEquipePage();
   if(page==='paie')renderPaieList();
   if(page==='leads')initLeadsPage();
   if(page==='bugs')initBugsPage();
@@ -3296,11 +3319,40 @@ async function handleDevisPDF(file){
   busy=false;document.getElementById('btn-send').disabled=false;
 }
 
+// PAGE ÉQUIPE (annuaire + accès BenAI)
+function setEquipeTab(tab){
+  if(tab!=='acces'&&tab!=='annuaire')tab='annuaire';
+  equipeUITab=tab;
+  const pAnn=document.getElementById('equipe-panel-annuaire');
+  const pAcc=document.getElementById('equipe-panel-acces');
+  const t1=document.getElementById('equipe-tab-annuaire');
+  const t2=document.getElementById('equipe-tab-acces');
+  if(pAnn)pAnn.style.display=tab==='annuaire'?'flex':'none';
+  if(pAcc)pAcc.style.display=tab==='acces'?'flex':'none';
+  if(t1)t1.classList.toggle('active',tab==='annuaire');
+  if(t2)t2.classList.toggle('active',tab==='acces');
+  const addBtn=document.getElementById('ann-btn-add-emp');
+  if(addBtn)addBtn.style.display=tab==='annuaire'?'inline-flex':'none';
+  const sub=document.getElementById('ann-counter-sub');
+  if(sub&&tab==='acces')sub.textContent='Comptes BenAI, blocage et mots de passe — liés aux fiches annuaire';
+  if(tab==='annuaire')renderAnnuaire();
+  else{renderUsersList();renderPwdList();}
+}
+function initEquipePage(){
+  if(!document.getElementById('equipe-panel-annuaire')){renderAnnuaire();return;}
+  setEquipeTab(equipeUITab);
+}
+function showAnnuaireTeamTab(which){
+  equipeUITab=which==='acces'?'acces':'annuaire';
+  showPage('annuaire');
+}
+
 // ANNUAIRE FILTRES
 let annFilter='tous';
 function setAnnFilter(filter,btn){
   annFilter=filter;
-  document.querySelectorAll('.ann-filter').forEach(b=>b.classList.remove('active'));
+  const scope=document.getElementById('equipe-panel-annuaire')||document;
+  scope.querySelectorAll('.ann-filter').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   renderAnnuaire();
 }
@@ -4158,7 +4210,7 @@ function renderAnnuaire(search){
   const nem=all.filter(e=>e.societe==='nemausus'||e.societe==='les-deux').length;
   const lam=all.filter(e=>e.societe==='lambert'||e.societe==='les-deux').length;
   const sub=document.getElementById('ann-counter-sub');
-  if(sub)sub.textContent=`${all.length} employé(s) — Nemausus: ${nem} · Lambert: ${lam}`;
+  if(sub&&(typeof equipeUITab==='undefined'||equipeUITab==='annuaire'))sub.textContent=`${all.length} employé(s) — Nemausus: ${nem} · Lambert: ${lam}`;
   if(!emps.length){list.innerHTML=`<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">${search||annFilter!=='tous'?'Aucun résultat':'Aucun employé — cliquez sur + Ajouter'}</div>`;return;}
   const fc={'Technicien':'#60A5FA','Métreur':'#A78BFA','Commercial':'#E8943A','Assistante':'#22C55E','Comptable':'#FBBF24','Autre':'#888'};
   const today=new Date();
@@ -4699,7 +4751,7 @@ function refreshAdmin(){
   const tot=Object.values(mem.messages).reduce((s,a)=>s+a.length,0);
   const el=document.getElementById('admin-msgs');if(el)el.textContent=tot;
   const notesEl=document.getElementById('admin-notes');if(notesEl)notesEl.textContent=(mem.notes||[]).length;
-  renderTokenStats();renderSAVStatsAdmin();renderPwdList();renderUsersList();
+  renderTokenStats();renderSAVStatsAdmin();
   // Activité récente
   const actList=document.getElementById('activity-list');
   if(actList&&mem.activity?.length){
