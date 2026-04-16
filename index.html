@@ -3922,8 +3922,9 @@ async function testSupabaseSettings(){
   try{
     const headers=getSupabaseHeaders();
     if(!headers)throw new Error('Clé manquante');
-    const url=`${SUPABASE_CONFIG.url}/rest/v1/sav?select=id&limit=1`;
-    const res=await fetch(url,{headers});
+    // Test neutre : endpoint Auth public, sans dépendre des policies SQL.
+    const url=`${SUPABASE_CONFIG.url}/auth/v1/settings`;
+    const res=await fetch(url,{headers:{apikey:headers.apikey}});
     if(!res.ok)throw new Error('Connexion refusée');
     if(msg){msg.style.color='var(--g)';msg.textContent='✅ Connexion Supabase OK';}
   }catch(e){
