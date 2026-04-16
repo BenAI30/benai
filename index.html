@@ -1403,19 +1403,37 @@ const STORAGE_KEYS = {
   sbAnonLegacy:'benai_supabase_anon_key',
   sbEnabled:'benai_supabase_enabled'
 };
+const SUPABASE_DEFAULT_URL='https://ipmbfbraadzyzncqbimn.supabase.co';
+const SUPABASE_TABLES=['sav','notes','absences','annuaire'];
+const SUPABASE_TEST_ENDPOINT='/auth/v1/settings';
+let supabaseSyncTimer=null;
 // Préparation Supabase (phase ready): cette couche permet d'activer
 // une synchro distante sans casser le fonctionnement localStorage existant.
 const SUPABASE_CONFIG = {
-  url:'https://ipmbfbraadzyzncqbimn.supabase.co',
+  url:SUPABASE_DEFAULT_URL,
   publishableKey:'',
   enabled: (localStorage.getItem(STORAGE_KEYS.sbEnabled)??'1')==='1',
   table:'benai_state'
 };
 
+function normalizeSupabaseUrl(url){
+  let out=(url||'').trim();
+  if(out&&out.startsWith('http://'))out='https://'+out.slice(7);
+  if(out&&out.startsWith('https://https://'))out=out.replace('https://https://','https://');
+  if(out&&!out.startsWith('https://')&&out.includes('.supabase.co'))out='https://'+out;
+  return out;
+}
+
+function setStatusMessage(element,color,text){
+  if(!element)return;
+  element.style.color=color;
+  element.textContent=text;
+}
+
 function applySupabaseConfigFromStorage(){
-  const storedUrl=localStorage.getItem(STORAGE_KEYS.sbUrl)||'https://ipmbfbraadzyzncqbimn.supabase.co';
+  const storedUrl=localStorage.getItem(STORAGE_KEYS.sbUrl)||SUPABASE_DEFAULT_URL;
   const storedKey=localStorage.getItem(STORAGE_KEYS.sbPublishable)||localStorage.getItem(STORAGE_KEYS.sbAnonLegacy)||'';
-  SUPABASE_CONFIG.url=storedUrl.trim();
+  SUPABASE_CONFIG.url=normalizeSupabaseUrl(storedUrl)||SUPABASE_DEFAULT_URL;
   SUPABASE_CONFIG.publishableKey=storedKey.trim();
   SUPABASE_CONFIG.enabled=(localStorage.getItem(STORAGE_KEYS.sbEnabled)??'1')==='1';
 }
@@ -1431,16 +1449,113 @@ function getSupabaseHeaders(){
   return headers;
 }
 
-async function syncMemToSupabase(mem){
+function mapSavToSupabaseRows(items){
+  return (items||[]).map(s=>({
+    legacy_id:String(s.id),
+    client:s.client||'',
+    type:s.probleme||s.type||'',
+    societe:s.societe||'nemausus',
+    commercial:s.commercial||'',
+    fournisseur:s.fournisseur||'',
+    date_rappel:s.rappel||null,
+    commentaire:s.commentaire||'',
+    urgent:!!s.urgent,
+    statut:s.statut||'nouveau',
+    archived:!!s.archive,
+    mute_reminder:!!s.muteReminder,
+    done:(s.statut||'')==='regle',
+    payload:s
+  }));
+}
+
+function mapNotesToSupabaseRows(items){
+  return (items||[]).map(n=>({
+    legacy_id:String(n.id),
+    text:n.text||n.t||'',
+    author_uid:n.by||n.from||currentUser?.id||'benjamin',
+    target_uid:n.to||'all',
+    ts:n.ts||Date.now(),
+    payload:n
+  }));
+}
+
+function mapAbsencesToSupabaseRows(items){
+  return (items||[]).map(a=>({
+    legacy_id:String(a.id),
+    employe:a.employe||'',
+    debut:a.debut||null,
+    fin:a.fin||null,
+    type:a.type||'Congé',
+    note:a.note||'',
+    notifs:Array.isArray(a.notifs)?a.notifs:[],
+    payload:a
+  }));
+}
+
+function mapAnnuaireToSupabaseRows(items){
+  return (items||[]).map(a=>({
+    legacy_id:String(a.id),
+    prenom:a.prenom||'',
+    nom:a.nom||'',
+    email:a.email||'',
+    email_pro:a.emailPro||'',
+    tel:a.tel||'',
+    naissance:a.naissance||null,
+    fonction:a.fonction||'Autre',
+    societe:a.societe||'nemausus',
+    payload:a
+  }));
+}
+
+async function upsertSupabaseTable(table,rows){
+  if(!rows?.length)return true;
+  const headers=getSupabaseHeaders();
+  if(!headers)return false;
+  const res=await fetch(`${SUPABASE_CONFIG.url}/rest/v1/${table}?on_conflict=legacy_id`,{
+    method:'POST',
+    headers:{...headers,'Prefer':'resolution=merge-duplicates'},
+    body:JSON.stringify(rows)
+  });
+  return res.ok;
+}
+
+async function syncSharedTablesToSupabase(mem,annuaire){
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
+  const headers=getSupabaseHeaders();
+  if(!headers)return false;
+  try{
+    const results=await Promise.all([
+      upsertSupabaseTable('sav',mapSavToSupabaseRows(mem?.sav)),
+      upsertSupabaseTable('notes',mapNotesToSupabaseRows(mem?.notes)),
+      upsertSupabaseTable('absences',mapAbsencesToSupabaseRows(mem?.absences)),
+      upsertSupabaseTable('annuaire',mapAnnuaireToSupabaseRows(annuaire))
+    ]);
+    return results.every(Boolean);
+  }catch(e){
+    return false;
+  }
+}
+
+function scheduleSupabaseSync(mem,annuaire){
+  clearTimeout(supabaseSyncTimer);
+  supabaseSyncTimer=setTimeout(()=>{
+    syncMemToSupabase(mem,annuaire);
+  },400);
+}
+
+async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return;
   const headers=getSupabaseHeaders();
   if(!headers)return;
   try{
-    await fetch(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}`,{
+    await Promise.all([
+      fetch(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}`,{
       method:'POST',
       headers:{...headers,'Prefer':'resolution=merge-duplicates'},
       body:JSON.stringify([{uid:currentUser.id,payload:mem,updated_at:new Date().toISOString()}])
-    });
+      }),
+      syncSharedTablesToSupabase(mem,annuaire)
+    ]);
   }catch(e){}
 }
 
@@ -1449,14 +1564,12 @@ async function loadCoreDataFromSupabase(){
   const headers=getSupabaseHeaders();
   if(!headers)return false;
   try{
-    const [savRes,notesRes,absRes,annRes]=await Promise.all([
-      fetch(`${SUPABASE_CONFIG.url}/rest/v1/sav?select=*`,{headers}),
-      fetch(`${SUPABASE_CONFIG.url}/rest/v1/notes?select=*`,{headers}),
-      fetch(`${SUPABASE_CONFIG.url}/rest/v1/absences?select=*`,{headers}),
-      fetch(`${SUPABASE_CONFIG.url}/rest/v1/annuaire?select=*`,{headers})
-    ]);
-    if(!savRes.ok||!notesRes.ok||!absRes.ok||!annRes.ok)return false;
-
+    const [savRes,notesRes,absRes,annRes]=await Promise.all(SUPABASE_TABLES.map(
+      table=>fetch(`${SUPABASE_CONFIG.url}/rest/v1/${table}?select=*`,{headers})
+    ));
+    if(!savRes.ok||!notesRes.ok||!absRes.ok||!annRes.ok){
+      return false;
+    }
     const [savRows,noteRows,absRows,annRows]=await Promise.all([
       savRes.json(),notesRes.json(),absRes.json(),annRes.json()
     ]);
@@ -1486,7 +1599,8 @@ async function loadCoreDataFromSupabase(){
       fin:a.fin||'',
       notifs:Array.isArray(a.notifs)?a.notifs:['benjamin']
     }));
-    saveMem(mem);
+    // On évite une resynchronisation immédiate pendant un chargement distant.
+    saveMem(mem,false);
     const annuaireLocal=(annRows||[]).map(a=>({
       id:a.legacy_id||a.id||Date.now(),
       prenom:a.prenom||'',
@@ -1498,7 +1612,7 @@ async function loadCoreDataFromSupabase(){
       fonction:a.fonction||'Autre',
       societe:a.societe||'nemausus'
     }));
-    saveAnnuaire(annuaireLocal);
+    saveAnnuaire(annuaireLocal,false);
     return true;
   }catch(e){
     return false;
@@ -1560,7 +1674,10 @@ function getRoundRobinCommercial(societe){
 // MÉMOIRE
 // ══════════════════════════════════════════
 function getMem(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.mem))||{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}catch{return{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}}
-function saveMem(m){localStorage.setItem(STORAGE_KEYS.mem,JSON.stringify(m));syncMemToSupabase(m);}
+function saveMem(m,sync=true){
+  localStorage.setItem(STORAGE_KEYS.mem,JSON.stringify(m));
+  if(sync)scheduleSupabaseSync(m,getAnnuaire());
+}
 function getApiKey(){return localStorage.getItem(STORAGE_KEYS.api)||'';}
 function getPwds(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.pwds))||{benjamin:'1234',aurelie:'1234',claudine:'1234'};}catch{return{benjamin:'1234',aurelie:'1234',claudine:'1234'};}}
 function savePwds(p){localStorage.setItem(STORAGE_KEYS.pwds,JSON.stringify(p));}
@@ -1687,6 +1804,10 @@ async function login(){
   const uid=normalizeId(document.getElementById('login-user').value);
   const pwd=document.getElementById('login-pwd').value;
   const err=document.getElementById('login-err');
+  if(err){
+    err.style.color='var(--t2)';
+    err.textContent='Connexion en cours...';
+  }
   if(!uid){err.textContent='Entrez votre identifiant';return;}
 
   if(uid!=='benjamin'){
@@ -1729,6 +1850,10 @@ async function login(){
       err.textContent='Mot de passe incorrect';
     }
     return;
+  }
+  if(err){
+    err.style.color='var(--g)';
+    err.textContent='';
   }
   const access=getAccess();
   if(access[resolvedUid]===false&&resolvedUid!=='benjamin'){err.textContent='Accès bloqué par l\'administrateur';return;}
@@ -2944,7 +3069,10 @@ function getSAVVu(id){return((getMem().sav_vu)||{})[id]||null;}
 
 // ANNUAIRE
 function getAnnuaire(){try{return JSON.parse(localStorage.getItem('benai_annuaire'))||[];}catch{return[];}}
-function saveAnnuaire(a){localStorage.setItem('benai_annuaire',JSON.stringify(a));}
+function saveAnnuaire(a,sync=true){
+  localStorage.setItem('benai_annuaire',JSON.stringify(a));
+  if(sync)scheduleSupabaseSync(getMem(),a);
+}
 function toggleEmpForm(){const w=document.getElementById('emp-form-wrap');w.style.display=w.style.display==='none'?'block':'none';}
 
 function addEmploye(){
@@ -3890,27 +4018,28 @@ function isLikelySupabasePublicKey(key){
 function saveSupabaseSettings(){
   const msg=document.getElementById('supabase-msg');
   if(currentUser?.role!=='admin'){
-    if(msg){msg.style.color='var(--r)';msg.textContent='⚠️ Réservé à l’administrateur';}
+    setStatusMessage(msg,'var(--r)','⚠️ Réservé à l’administrateur');
     return false;
   }
-  let url=(document.getElementById('supabase-url-settings')?.value||'').trim();
+  const urlInput=document.getElementById('supabase-url-settings');
+  const keyInput=document.getElementById('supabase-key-settings');
+  const url=normalizeSupabaseUrl(urlInput?.value||'');
   const key=(document.getElementById('supabase-key-settings')?.value||'').trim();
-  if(url&&url.startsWith('http://'))url='https://'+url.slice(7);
-  if(url&&url.startsWith('https://https://'))url=url.replace('https://https://','https://');
-  if(url&&!url.startsWith('https://')&&url.includes('.supabase.co'))url='https://'+url;
   if(!url.startsWith('https://')||!url.includes('.supabase.co')){
-    if(msg){msg.style.color='var(--r)';msg.textContent='⚠️ URL Supabase invalide';}
+    setStatusMessage(msg,'var(--r)','⚠️ URL Supabase invalide');
     return false;
   }
   if(!isLikelySupabasePublicKey(key)){
-    if(msg){msg.style.color='var(--r)';msg.textContent='⚠️ Clé invalide (utilisez Publishable, pas Secret/service_role)';}
+    setStatusMessage(msg,'var(--r)','⚠️ Clé invalide (utilisez Publishable, pas Secret/service_role)');
     return false;
   }
+  if(urlInput)urlInput.value=url;
+  if(keyInput)keyInput.value=key;
   localStorage.setItem(STORAGE_KEYS.sbUrl,url);
   localStorage.setItem(STORAGE_KEYS.sbPublishable,key);
   localStorage.setItem(STORAGE_KEYS.sbEnabled,'1');
   applySupabaseConfigFromStorage();
-  if(msg){msg.style.color='var(--g)';msg.textContent='✅ Configuration Supabase enregistrée';}
+  setStatusMessage(msg,'var(--g)','✅ Configuration Supabase enregistrée');
   return true;
 }
 
@@ -3918,17 +4047,17 @@ async function testSupabaseSettings(){
   const msg=document.getElementById('supabase-msg');
   const isSaved=saveSupabaseSettings();
   if(!isSaved)return;
-  if(msg){msg.style.color='var(--a)';msg.textContent='⏳ Test de connexion en cours...';}
+  setStatusMessage(msg,'var(--a)','⏳ Test de connexion en cours...');
   try{
     const headers=getSupabaseHeaders();
     if(!headers)throw new Error('Clé manquante');
     // Test neutre : endpoint Auth public, sans dépendre des policies SQL.
-    const url=`${SUPABASE_CONFIG.url}/auth/v1/settings`;
+    const url=`${SUPABASE_CONFIG.url}${SUPABASE_TEST_ENDPOINT}`;
     const res=await fetch(url,{headers:{apikey:headers.apikey}});
     if(!res.ok)throw new Error('Connexion refusée');
-    if(msg){msg.style.color='var(--g)';msg.textContent='✅ Connexion Supabase OK';}
+    setStatusMessage(msg,'var(--g)','✅ Connexion Supabase OK');
   }catch(e){
-    if(msg){msg.style.color='var(--r)';msg.textContent='⚠️ Test échoué : vérifiez URL/clé/policies';}
+    setStatusMessage(msg,'var(--r)','⚠️ Test échoué : vérifiez URL/clé/policies');
   }
 }
 
