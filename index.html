@@ -445,32 +445,81 @@ body.light .bubble{color:var(--t1);}
   html,body{overflow:auto;}
   .topbar{height:auto;min-height:52px;flex-wrap:wrap;padding:8px 10px;row-gap:6px;}
   .tb-user{width:100%;justify-content:flex-end;gap:6px;}
-  .main{flex-direction:column;}
+  .main{flex-direction:column;padding-bottom:74px;}
   .sidebar{
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
     width:100%;
+    height:74px;
     border-right:none;
-    border-bottom:1px solid var(--b1);
+    border-top:1px solid var(--b1);
     flex-direction:row;
     overflow-x:auto;
     overflow-y:hidden;
-    padding:4px;
+    padding:6px 6px max(6px, env(safe-area-inset-bottom));
+    z-index:1200;
+    background:var(--s1);
   }
-  .sb-section{display:flex;gap:4px;padding:0;}
-  .sb-item{min-width:44px;}
+  .sb-section{display:flex;gap:6px;padding:0;}
+  .sb-label{display:none;}
+  .sb-item{
+    min-width:72px;
+    flex-direction:column;
+    justify-content:center;
+    gap:3px;
+    padding:7px 8px;
+    border-radius:10px;
+    margin-bottom:0;
+  }
+  .sb-icon{font-size:16px;}
+  .sb-txt{
+    display:block;
+    font-size:10px;
+    line-height:1;
+    max-width:68px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    text-align:center;
+  }
+  .sb-badge,.sb-badge-r,.sb-badge-abs{position:absolute;top:4px;right:6px;margin-left:0;}
   .content{min-height:calc(100vh - 110px);}
   .page-header{padding:10px 12px 6px;flex-wrap:wrap;gap:8px;}
   .chat-area,.sav-area,.notes-area,.dashboard{padding:12px;}
   .msg.user,.msg.ai{max-width:96%;}
   .chat-input-area{padding:10px;}
+  .chat-input-row{gap:6px;}
+  .btn-send,.btn-attach-plus,.thread-send,.tool-btn,.sav-filter,.crm-filter,.ann-filter,.btn-primary,.tb-icon-btn,.tb-logout{min-height:40px;}
+  .chat-textarea,.thread-input input,.form-input,.sav-search{font-size:16px;}
   .dash-grid{grid-template-columns:1fr;}
   .form-row{grid-template-columns:1fr;}
   .conv-list{display:none;}
+  .thread-input{padding:10px;}
   .lead-modal{padding:8px;}
-  .lead-modal-box{max-height:95vh;}
+  .lead-modal-box{max-height:95vh;border-radius:14px;}
   .crm-filters{padding:8px 10px;gap:5px;}
   .crm-filter{font-size:10px;padding:4px 10px;}
   #crm-search{width:100% !important;max-width:none;}
   .kanban-col{min-width:240px;}
+  #settings-panel{
+    top:auto;
+    right:8px;
+    left:8px;
+    bottom:84px;
+    width:auto;
+    max-height:60vh;
+  }
+  .notif-popup{
+    top:auto;
+    left:8px;
+    right:8px;
+    bottom:84px;
+    width:auto;
+    max-height:55vh;
+  }
+  .login-box{width:min(94vw,380px);padding:28px 22px;}
 }
 input[type=file]{display:none;}
 </style>
