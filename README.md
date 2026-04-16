@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # BenAI
 
 Projet local minimal pour continuer le developpement de `BenAI_v3 15-04.html` avec la partie `Supabase` du dossier `supabase/`.
@@ -34,3 +35,7 @@ Le projet n'avait pas de structure Node classique. Ce socle sert surtout a :
 - rouvrir facilement le bon dossier dans Cursor
 - lancer l'application localement
 - separer plus clairement le HTML principal et la couche Supabase
+=======
+# benai
+BenAI - Assistant Nemausus Fermetures
+>>>>>>> 703c2fb5862da9a1b47e3a50d5d7d7b6bbcd7e8e
