@@ -1388,6 +1388,7 @@ input[type=file]{display:none;}
 <input type="file" id="attach-file" accept=".pdf,image/*" multiple onchange="handleAttachment(this)">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -1415,6 +1416,8 @@ const SUPABASE_CONFIG = {
   enabled: (localStorage.getItem(STORAGE_KEYS.sbEnabled)??'1')==='1',
   table:'benai_state'
 };
+let supabaseClient=null;
+let currentSupabaseSession=null;
 
 function normalizeSupabaseUrl(url){
   let out=(url||'').trim();
@@ -1449,18 +1452,121 @@ function getSupabaseHeaders(){
   return headers;
 }
 
+function getSupabaseClient(){
+  applySupabaseConfigFromStorage();
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!SUPABASE_CONFIG.publishableKey)return null;
+  if(!window.supabase?.createClient)return null;
+  if(!supabaseClient){
+    supabaseClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.publishableKey,{
+      auth:{persistSession:true,autoRefreshToken:true}
+    });
+  }
+  return supabaseClient;
+}
+
+function getBuiltinLoginEmails(){
+  return {
+    benjamin:'b.muller@monsieur-store.net'
+  };
+}
+
+function getEmailCandidateForUid(uid){
+  const normalized=normalizeId(uid);
+  if(!normalized)return '';
+  if(normalized.includes('@'))return normalized;
+  const builtinEmail=getBuiltinLoginEmails()[normalized];
+  if(builtinEmail)return builtinEmail;
+  const ann=getAnnuaire();
+  const directMatch=ann.find(e=>normalizeId(e.prenom)===normalized||normalizeId(`${e.prenom} ${e.nom}`)===normalized);
+  if(directMatch)return (directMatch.emailPro||directMatch.email||'').trim().toLowerCase();
+  const extra=getExtraUserById(normalized);
+  if(extra?.email)return String(extra.email).trim().toLowerCase();
+  return '';
+}
+
+async function fetchSupabaseProfile(accessToken){
+  if(!accessToken)return null;
+  try{
+    const res=await fetch(`${SUPABASE_CONFIG.url}/rest/v1/profiles?select=id,email,full_name,role,company`,{
+      headers:{
+        apikey:SUPABASE_CONFIG.publishableKey,
+        Authorization:'Bearer '+accessToken
+      }
+    });
+    if(!res.ok)return null;
+    const rows=await res.json();
+    return rows?.[0]||null;
+  }catch(e){
+    return null;
+  }
+}
+
+function getColorForRole(role){
+  return role==='admin'?'linear-gradient(135deg,#E8943A,#B45309)'
+    : role==='assistante'?'linear-gradient(135deg,#22C55E,#15803D)'
+    : role==='commercial'?'linear-gradient(135deg,#F472B6,#DB2777)'
+    : role==='directeur_co'?'linear-gradient(135deg,#A78BFA,#7C3AED)'
+    : 'linear-gradient(135deg,#60A5FA,#1D4ED8)';
+}
+
+function makeUserFromSupabaseProfile(profile,emailFallback=''){
+  if(!profile)return null;
+  const parts=String(profile.full_name||'Utilisateur').trim().split(/\s+/).filter(Boolean);
+  const firstName=parts[0]||'Utilisateur';
+  const uid=normalizeId(firstName);
+  return {
+    id:uid,
+    email:(profile.email||emailFallback||'').trim().toLowerCase(),
+    name:profile.full_name||firstName,
+    role:profile.role||'assistante',
+    societe:profile.company||'nemausus',
+    color:getColorForRole(profile.role),
+    initial:firstName.charAt(0).toUpperCase()||'U',
+    builtin:false
+  };
+}
+
+function getSystemPromptForUser(user){
+  if(USERS[user.id]?.system)return USERS[user.id].system;
+  return CRM_PAGES_ONLY.includes(user.role)
+    ?`Tu es BenAI CRM, assistant de ${user.name} (${ROLE_LABELS[user.role]||user.role}).`
+    :`Tu es BenAI, l'assistant de ${user.name}. Tu proposes toujours — ${user.name} décide toujours.`;
+}
+
+async function trySupabaseLogin(uid,pwd){
+  const email=getEmailCandidateForUid(uid);
+  const client=getSupabaseClient();
+  if(!client||!email||!pwd)return null;
+  try{
+    const {data,error}=await client.auth.signInWithPassword({email,password:pwd});
+    if(error||!data?.session)return null;
+    currentSupabaseSession=data.session;
+    const profile=await fetchSupabaseProfile(data.session.access_token);
+    if(!profile)return null;
+    const user=makeUserFromSupabaseProfile(profile,email);
+    if(!user)return null;
+    user.system=getSystemPromptForUser(user);
+    return {user,session:data.session};
+  }catch(e){
+    return null;
+  }
+}
+
 function mapSavToSupabaseRows(items){
   return (items||[]).map(s=>({
     legacy_id:String(s.id),
     client:s.client||'',
+    probleme:s.probleme||s.type||'',
     type:s.probleme||s.type||'',
     societe:s.societe||'nemausus',
     commercial:s.commercial||'',
     fournisseur:s.fournisseur||'',
+    rappel_date:s.rappel||s.date_rappel||null,
     date_rappel:s.rappel||null,
     commentaire:s.commentaire||'',
     urgent:!!s.urgent,
     statut:s.statut||'nouveau',
+    archive:!!s.archive,
     archived:!!s.archive,
     mute_reminder:!!s.muteReminder,
     done:(s.statut||'')==='regle',
@@ -1488,6 +1594,8 @@ function mapAbsencesToSupabaseRows(items){
     type:a.type||'Congé',
     note:a.note||'',
     notifs:Array.isArray(a.notifs)?a.notifs:[],
+    heure_debut:a.heureDebut||'',
+    heure_fin:a.heureFin||'',
     payload:a
   }));
 }
@@ -1511,12 +1619,21 @@ async function upsertSupabaseTable(table,rows){
   if(!rows?.length)return true;
   const headers=getSupabaseHeaders();
   if(!headers)return false;
-  const res=await fetch(`${SUPABASE_CONFIG.url}/rest/v1/${table}?on_conflict=legacy_id`,{
+  const payload=JSON.stringify(rows);
+  const upsertRes=await fetch(`${SUPABASE_CONFIG.url}/rest/v1/${table}?on_conflict=legacy_id`,{
     method:'POST',
     headers:{...headers,'Prefer':'resolution=merge-duplicates'},
-    body:JSON.stringify(rows)
+    body:payload
   });
-  return res.ok;
+  if(upsertRes.ok)return true;
+
+  // Fallback : certains schémas n'ont pas legacy_id unique.
+  const insertRes=await fetch(`${SUPABASE_CONFIG.url}/rest/v1/${table}`,{
+    method:'POST',
+    headers:{...headers,'Prefer':'return=minimal'},
+    body:payload
+  });
+  return insertRes.ok;
 }
 
 async function syncSharedTablesToSupabase(mem,annuaire){
@@ -1810,6 +1927,25 @@ async function login(){
   }
   if(!uid){err.textContent='Entrez votre identifiant';return;}
 
+  const supabaseAuthResult=await trySupabaseLogin(uid,pwd);
+  if(supabaseAuthResult?.user){
+    resetLoginAttempts();
+    currentUser=supabaseAuthResult.user;
+    logConnexion(currentUser.id);
+    lastActivityTime=Date.now();
+    sessionStorage.setItem('benai_session',currentUser.id);
+    localStorage.setItem(STORAGE_KEYS.rememberedLogin,document.getElementById('login-user').value.trim());
+    if(err){
+      err.style.color='var(--g)';
+      err.textContent='';
+    }
+    await loadCoreDataFromSupabase();
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').classList.add('visible');
+    initApp();
+    return;
+  }
+
   if(uid!=='benjamin'){
     const attempts=getLoginAttempts();
     const now=Date.now();
@@ -1895,13 +2031,16 @@ function getConnexions(uid){
 function logout(){
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
   sessionStorage.removeItem('benai_session');
+  const client=getSupabaseClient();
+  if(client)client.auth.signOut().catch(()=>{});
+  currentSupabaseSession=null;
   currentUser=null;chatHistory=[];currentConv=null;
   ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app').classList.remove('visible');
-  document.getElementById('login-user').value='';
+  document.getElementById('login-user').value=localStorage.getItem(STORAGE_KEYS.rememberedLogin)||'';
   document.getElementById('login-pwd').value='';
   document.getElementById('login-err').textContent='';
   document.getElementById('chat-area').innerHTML='';
@@ -6446,6 +6585,7 @@ document.addEventListener('click',e=>{
 // INIT AU CHARGEMENT
 // ══════════════════════════════════════════
 window.addEventListener('load',async()=>{
+  const client=getSupabaseClient();
   initManifestAndIcons();
   registerBenAISW();
   refreshInstallButton();
@@ -6468,6 +6608,28 @@ window.addEventListener('load',async()=>{
   const rememberedLogin=localStorage.getItem(STORAGE_KEYS.rememberedLogin)||'';
   const loginInput=document.getElementById('login-user');
   if(loginInput&&rememberedLogin)loginInput.value=rememberedLogin;
+  if(client){
+    try{
+      const {data}=await client.auth.getSession();
+      currentSupabaseSession=data?.session||null;
+      if(currentSupabaseSession?.access_token){
+        const profile=await fetchSupabaseProfile(currentSupabaseSession.access_token);
+        const user=makeUserFromSupabaseProfile(profile,currentSupabaseSession.user?.email||'');
+        if(user){
+          user.system=getSystemPromptForUser(user);
+          currentUser=user;
+          await loadCoreDataFromSupabase();
+          document.getElementById('login-screen').style.display='none';
+          document.getElementById('app').classList.add('visible');
+          initApp(true);
+          checkUpdate();
+          initOfflineDetection();
+          enableSpellcheckEverywhere();
+          return;
+        }
+      }
+    }catch(e){}
+  }
   // Restaurer session si rechargement de page
   const savedSession=sessionStorage.getItem('benai_session');
   if(savedSession){
