@@ -2111,6 +2111,8 @@ function switchSession(){toggleSwitchPanel();}
 
 function initApp(silent=false){
   const u=currentUser;
+  const chatArea=document.getElementById('chat-area');
+  if(chatArea)chatArea.innerHTML='';
   document.getElementById('tb-avatar').style.background=u.color;
   document.getElementById('tb-avatar').textContent=u.initial;
   document.getElementById('tb-username').textContent=u.name;
@@ -3183,6 +3185,9 @@ function checkAbsenceRemindersForUser(uid){_checkRemindersFor(uid);}
 function _checkRemindersFor(uid){
   const mem=getMem();const absences=mem.absences||[];
   const today=new Date();today.setHours(0,0,0,0);
+  const dayKey=today.toISOString().slice(0,10);
+  const seenKey=`benai_abs_reminders_${uid}_${dayKey}`;
+  if(localStorage.getItem(seenKey)==='1')return;
   const reminders=[];
   absences.forEach(a=>{
     const notifs=a.notifs||['benjamin'];
@@ -3193,7 +3198,10 @@ function _checkRemindersFor(uid){
     if(diff===1)reminders.push(`⚠️ DEMAIN : **${a.employe}** sera absent(e) — ${a.type}`);
     if(diff===0)reminders.push(`🔴 AUJOURD'HUI : **${a.employe}** est absent(e) (jusqu'au ${formatDate(a.fin)})`);
   });
-  if(reminders.length>0)setTimeout(()=>{reminders.forEach(r=>addAIMsg('**Rappel absence** : '+r));},800);
+  if(reminders.length>0){
+    localStorage.setItem(seenKey,'1');
+    setTimeout(()=>{reminders.forEach(r=>addAIMsg('**Rappel absence** : '+r));},800);
+  }
 }
 
 // SAV VU PAR BENJAMIN
