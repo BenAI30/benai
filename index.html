@@ -1022,8 +1022,8 @@ input[type=file]{display:none;}
             <div id="connexions-wrap" class="accordion-body collapsed"><div id="connexions-list" style="margin-top:8px"></div></div>
             <div class="dc-label accordion-header" onclick="toggleAccordion('deletions-wrap')" style="margin-top:8px">🗑️ Journal des suppressions <span class="accordion-arrow">▾</span></div>
             <div id="deletions-wrap" class="accordion-body collapsed"><div id="deletions-list" style="margin-top:8px"></div></div>
-            <div class="dc-label accordion-header" style="margin-top:10px" onclick="toggleAccordion('connexions-wrap')">🔑 Historique connexions <span class="accordion-arrow">▾</span></div>
-            <div id="connexions-wrap" class="accordion-body collapsed"><div id="connexions-history" style="margin-top:8px"></div></div>
+            <div class="dc-label accordion-header" style="margin-top:10px" onclick="toggleAccordion('connexions-history-wrap')">🔑 Historique connexions (legacy) <span class="accordion-arrow">▾</span></div>
+            <div id="connexions-history-wrap" class="accordion-body collapsed"><div id="connexions-history" style="margin-top:8px"></div></div>
           </div>
         </div>
       </div>
@@ -1720,44 +1720,79 @@ async function loadCoreDataFromSupabase(){
       savRes.json(),notesRes.json(),absRes.json(),annRes.json()
     ]);
     const mem=getMem();
-    mem.sav=(savRows||[]).map(s=>({
-      id:s.legacy_id||s.id||Date.now(),
-      client:s.client||'',
-      type:s.type||'',
-      date:s.date_rappel||s.created_at?.slice(0,10)||toISODate(new Date()),
-      done:!!s.done,
-      commentaire:s.commentaire||'',
-      muteReminder:!!s.mute_reminder,
-      archived:!!s.archived
-    }));
-    mem.notes=(noteRows||[]).map(n=>({
-      id:n.legacy_id||n.id||Date.now(),
-      t:n.text||'',
-      from:n.author_uid||'benjamin',
-      to:n.target_uid||'all',
-      ts:n.ts||Date.now()
-    }));
-    mem.absences=(absRows||[]).map(a=>({
-      id:a.legacy_id||a.id||Date.now(),
-      employe:a.employe||'',
-      type:a.type||'Congé',
-      debut:a.debut||'',
-      fin:a.fin||'',
-      notifs:Array.isArray(a.notifs)?a.notifs:['benjamin']
-    }));
+    mem.sav=(savRows||[]).map(s=>{
+      const payload=(s&&typeof s.payload==='object'&&s.payload!==null)?s.payload:{};
+      const parsedId=Number(s.legacy_id??payload.id??s.id);
+      const id=Number.isFinite(parsedId)?parsedId:(s.legacy_id??s.id??Date.now());
+      const statut=payload.statut||s.statut||(s.done?'regle':'nouveau');
+      const archive=typeof payload.archive==='boolean'?payload.archive:!!(s.archive||s.archived);
+      return {
+        id,
+        client:payload.client||s.client||'',
+        probleme:payload.probleme||payload.type||s.probleme||s.type||'',
+        societe:payload.societe||s.societe||'nemausus',
+        commercial:payload.commercial||s.commercial||'',
+        fournisseur:payload.fournisseur||s.fournisseur||'',
+        rappel:payload.rappel||s.rappel_date||s.date_rappel||null,
+        rappelDays:payload.rappelDays||'',
+        urgent:typeof payload.urgent==='boolean'?payload.urgent:!!s.urgent,
+        statut,
+        date_creation:payload.date_creation||(s.created_at?new Date(s.created_at).toLocaleDateString('fr-FR'):''),
+        by:payload.by||currentUser?.name||'BenAI',
+        actions:Array.isArray(payload.actions)?payload.actions:[],
+        commentaire:payload.commentaire||s.commentaire||'',
+        archive,
+        muteReminder:typeof payload.muteReminder==='boolean'?payload.muteReminder:!!s.mute_reminder,
+        date_reglement:payload.date_reglement||null
+      };
+    });
+    mem.notes=(noteRows||[]).map(n=>{
+      const payload=(n&&typeof n.payload==='object'&&n.payload!==null)?n.payload:{};
+      const parsedId=Number(n.legacy_id??payload.id??n.id);
+      const id=Number.isFinite(parsedId)?parsedId:(n.legacy_id??n.id??Date.now());
+      const ts=Number(n.ts??payload.ts??Date.now());
+      return {
+        id,
+        text:n.text||payload.text||payload.t||'',
+        date:payload.date||new Date(ts).toLocaleDateString('fr-FR'),
+        by:n.author_uid||payload.by||payload.from||'benjamin',
+        to:n.target_uid||payload.to||'all',
+        ts
+      };
+    });
+    mem.absences=(absRows||[]).map(a=>{
+      const payload=(a&&typeof a.payload==='object'&&a.payload!==null)?a.payload:{};
+      const parsedId=Number(a.legacy_id??payload.id??a.id);
+      const id=Number.isFinite(parsedId)?parsedId:(a.legacy_id??a.id??Date.now());
+      return {
+        id,
+        employe:a.employe||payload.employe||'',
+        type:a.type||payload.type||'Congé',
+        debut:a.debut||payload.debut||'',
+        fin:a.fin||payload.fin||'',
+        note:a.note||payload.note||'',
+        heureDebut:a.heure_debut||payload.heureDebut||'',
+        heureFin:a.heure_fin||payload.heureFin||'',
+        notifs:Array.isArray(a.notifs)?a.notifs:(Array.isArray(payload.notifs)?payload.notifs:['benjamin'])
+      };
+    });
     // On évite une resynchronisation immédiate pendant un chargement distant.
     saveMem(mem,false);
-    const annuaireLocal=(annRows||[]).map(a=>({
-      id:a.legacy_id||a.id||Date.now(),
-      prenom:a.prenom||'',
-      nom:a.nom||'',
-      email:a.email||'',
-      emailPro:a.email_pro||'',
-      tel:a.tel||'',
-      naissance:a.naissance||'',
-      fonction:a.fonction||'Autre',
-      societe:a.societe||'nemausus'
-    }));
+    const annuaireLocal=(annRows||[]).map(a=>{
+      const payload=(a&&typeof a.payload==='object'&&a.payload!==null)?a.payload:{};
+      const parsedId=Number(a.legacy_id??payload.id??a.id);
+      return {
+        id:Number.isFinite(parsedId)?parsedId:(a.legacy_id??a.id??Date.now()),
+        prenom:a.prenom||payload.prenom||'',
+        nom:a.nom||payload.nom||'',
+        email:a.email||payload.email||'',
+        emailPro:a.email_pro||payload.emailPro||'',
+        tel:a.tel||payload.tel||'',
+        naissance:a.naissance||payload.naissance||'',
+        fonction:a.fonction||payload.fonction||'Autre',
+        societe:a.societe||payload.societe||'nemausus'
+      };
+    });
     saveAnnuaire(annuaireLocal,false);
     return true;
   }catch(e){
@@ -2288,7 +2323,12 @@ function showPage(page){
   const nav=document.getElementById('nav-'+page);if(nav)nav.classList.add('active');
   if(page==='sav'){renderSAV();markSAVVu();showPageContext('sav');}
   if(page==='admin')refreshAdmin();
-  if(page==='messages'){renderConvList();showPageContext('messages');}
+  if(page==='messages'){
+    renderConvList();
+    const convs=getConvsForUser(currentUser.id);
+    if(currentConv&&convs[currentConv])openConv(currentConv,convs[currentConv]);
+    showPageContext('messages');
+  }
   if(page==='notes')renderNotes();
   if(page==='absences'){renderAbsences();fillAbsEmpList();}
   if(page==='evolution')renderEvolution();
@@ -2717,6 +2757,10 @@ function renderConvList(){
   const list=document.getElementById('conv-list');
   list.innerHTML='<div class="conv-header">Conversations</div>';
   const convs=getConvsForUser(currentUser.id);
+  if(!currentConv||!convs[currentConv]){
+    const firstConvId=Object.keys(convs)[0];
+    if(firstConvId)currentConv=firstConvId;
+  }
   Object.entries(convs).forEach(([cid,conv])=>{
     const mem=getMem();const msgs=mem.messages[cid]||[];const last=msgs[msgs.length-1];
     const unread=countUnread(currentUser.id,cid);
@@ -4006,11 +4050,7 @@ async function creerUtilisateur(){
     ?`Tu es BenAI CRM, assistant de ${name} (${roleLabel}) chez Nemausus Fermetures.`
     :`Tu es BenAI, l'assistant de ${name} (${fonction}) chez Nemausus Fermetures / Lambert SAS. Tu proposes toujours — ${name} décide toujours.`;
   USERS[uid]={name,pwd:pwds[uid],role,color:newUser.color,initial:newUser.initial,system:systemPrompt};
-  // Ajouter au select login
-  const loginSel=document.getElementById('login-user');
-  if(loginSel&&!loginSel.querySelector(`option[value="${uid}"]`)){
-    const opt=document.createElement('option');opt.value=uid;opt.textContent=name;loginSel.appendChild(opt);
-  }
+  // Login via input texte : pas d'ajout d'option dynamique.
   // Message automatique de bienvenue
   const mem=getMem();
   const convId=makeConvId('benjamin',uid);
@@ -4291,6 +4331,10 @@ function saveSupabaseSettings(){
   localStorage.setItem(STORAGE_KEYS.sbUrl,url);
   localStorage.setItem(STORAGE_KEYS.sbPublishable,key);
   localStorage.setItem(STORAGE_KEYS.sbEnabled,'1');
+  const existingClient=supabaseClient;
+  supabaseClient=null;
+  currentSupabaseSession=null;
+  if(existingClient)existingClient.auth.signOut().catch(()=>{});
   applySupabaseConfigFromStorage();
   setStatusMessage(msg,'var(--g)','✅ Configuration Supabase enregistrée');
   return true;
@@ -5756,7 +5800,7 @@ async function searchAdresse(val){
       if(!features.length){sugg.style.display='none';return;}
       sugg.innerHTML=features.map(f=>{
         const p=f.properties;
-        return `<div class="addr-suggestion" onclick="selectAdresse('${esc(p.label)}','${esc(p.city||p.municipality||'')}','${esc(p.postcode||'')}','${esc(p.context?.split(',')[0]||'')}')">
+        return `<div class="addr-suggestion" onclick="selectAdresse('${escAttr(p.label)}','${escAttr(p.city||p.municipality||'')}','${escAttr(p.postcode||'')}','${escAttr(p.context?.split(',')[0]||'')}')">
           <strong>${esc(p.name||'')}</strong> ${esc(p.postcode||'')} ${esc(p.city||'')}
         </div>`;
       }).join('');
@@ -6377,8 +6421,9 @@ function checkAnniversaires(){
 // 📅 GOOGLE AGENDA LEAD
 // ══════════════════════════════════════════
 function makeGoogleAgendaLink(l){
-  if(!l.date_rdv)return '';
-  const start=new Date(l.date_rdv);
+  const rdv=l.date_rdv||l.rappel;
+  if(!rdv)return '';
+  const start=new Date(rdv);
   const end=new Date(start.getTime()+60*60*1000);
   const fmt=d=>d.toISOString().replace(/-|:|\.\d{3}/g,'');
   const titre=encodeURIComponent('RDV '+l.nom+' — '+(l.type_projet||''));
@@ -6523,6 +6568,7 @@ function getAutoAttribution(societe){
 }
 
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const escAttr=s=>esc(s).replace(/'/g,'&#39;').replace(/"/g,'&quot;');
 const md=txt=>(txt||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
 const csv=s=>`"${(s||'').replace(/"/g,'""')}"`;
 const getUserColor=uid=>USERS[uid]?.color||getExtraUserById(uid)?.color||'#333';
@@ -6570,7 +6616,7 @@ function pushNotif(titre,msg,icon='🔔',uid){
     localStorage.setItem(key,JSON.stringify(notifs));
   }catch(e){}
   // Notification navigateur si autorisée
-  if(Notification.permission==='granted'&&uid===currentUser?.id){
+  if('Notification' in window&&Notification.permission==='granted'&&target===currentUser?.id){
     new Notification('BenAI — '+titre,{body:msg,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="%23E8943A"/><text x="16" y="22" text-anchor="middle" font-size="18" fill="white">B</text></svg>'});
   }
   refreshNotifBadge();
@@ -6632,7 +6678,7 @@ function markAllNotifsRead(){
 }
 
 function requestNotifPermission(){
-  if(Notification.permission==='default'){
+  if('Notification' in window&&Notification.permission==='default'){
     Notification.requestPermission();
   }
 }
@@ -6747,7 +6793,7 @@ window.addEventListener('load',async()=>{
   }
   // Restaurer session si rechargement de page
   const savedSession=sessionStorage.getItem('benai_session');
-  if(savedSession){
+  if(savedSession&&!client){
     const uid=savedSession;
     const userObj=USERS[uid]||getExtraUserById(uid);
     if(userObj){
