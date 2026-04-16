@@ -664,11 +664,12 @@ input[type=file]{display:none;}
     <!-- BENJAMIN UNIQUEMENT -->
     <div id="api-settings" style="display:none">
       <div class="sp-section">
-        <div class="sp-label">Clé API Anthropic</div>
+        <div class="sp-label">Clé API IA partagée (admin)</div>
         <div style="display:flex;gap:6px">
           <input type="password" id="api-key-settings" placeholder="sk-ant-..." style="flex:1;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:inherit;font-size:12px;outline:none;">
           <button onclick="saveApiKeySettings()" style="padding:8px 12px;background:var(--a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">OK</button>
         </div>
+        <div style="font-size:10px;color:var(--t3);margin-top:5px">Cette clé est utilisée par toute l'équipe, mais seule l'interface admin peut la modifier.</div>
         <div id="api-msg" style="font-size:11px;margin-top:5px;color:var(--g);min-height:14px"></div>
       </div>
       <div class="sp-section">
@@ -705,6 +706,7 @@ input[type=file]{display:none;}
         <div class="sb-label">Assistant</div>
         <div class="sb-item active" onclick="showPage('benai')" id="nav-benai"><span class="sb-icon">🤖</span><span class="sb-txt">BenAI IA</span></div>
         <div class="sb-item" onclick="showPage('notes')" id="nav-notes"><span class="sb-icon">📝</span><span class="sb-txt">Notes rapides</span></div>
+        <div class="sb-item" onclick="showPage('guide')" id="nav-guide"><span class="sb-icon">📘</span><span class="sb-txt">Guide</span></div>
         <div class="sb-item" onclick="showPage('evolution')" id="nav-evolution"><span class="sb-icon">🚀</span><span class="sb-txt">Évolution</span></div>
       </div>
       <div class="sb-section">
@@ -826,6 +828,10 @@ input[type=file]{display:none;}
               <div class="form-group"><div class="form-label">Fournisseur</div><input type="text" class="form-input" id="sav-fourn" placeholder="Ex: Somfy, Bubendorff..."></div>
               <div class="form-group"><div class="form-label">Date de rappel</div><input type="date" class="form-input" id="sav-rappel"></div>
             </div>
+            <div class="form-row">
+              <div class="form-group"><div class="form-label">Commentaire</div><input type="text" class="form-input" id="sav-comment" placeholder="Détail complémentaire..."></div>
+              <div class="form-group"><div class="form-label">Rappel auto (jours)</div><input type="number" class="form-input" id="sav-rappel-days" min="1" max="60" value="5"></div>
+            </div>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
               <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
                 <input type="checkbox" id="sav-urgent" style="width:14px;height:14px;accent-color:var(--r)"> 🔴 SAV Urgent
@@ -846,6 +852,7 @@ input[type=file]{display:none;}
           <button class="sav-filter" onclick="filterSAV('nouveau',this)">🔴 Nouveaux</button>
           <button class="sav-filter" onclick="filterSAV('en_cours',this)">🟡 En cours</button>
           <button class="sav-filter" onclick="filterSAV('regle',this)">🟢 Réglés</button>
+          <button class="sav-filter" onclick="filterSAV('archive',this)">📁 Archivés</button>
           <button class="sav-filter" onclick="filterSAV('urgent',this)">🚨 Urgents</button>
         </div>
 
@@ -889,6 +896,7 @@ input[type=file]{display:none;}
                 <select class="form-input" id="abs-type">
                   <option value="Congé">Congé</option>
                   <option value="Maladie">Maladie</option>
+                  <option value="Absence injustifiée">Absence injustifiée</option>
                   <option value="Autre">Autre</option>
                 </select>
               </div>
@@ -921,6 +929,14 @@ input[type=file]{display:none;}
           <div><div class="page-title">🚀 BenAI Évolution</div><div class="page-sub">Suggestions à valider — vous décidez toujours</div></div>
         </div>
         <div style="padding:16px;flex:1;overflow-y:auto" id="evolution-list"></div>
+      </div>
+
+      <!-- PAGE GUIDE -->
+      <div id="page-guide" style="display:none;flex-direction:column;height:100%">
+        <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
+          <div><div class="page-title">📘 Guide BenAI</div><div class="page-sub">Mode d'emploi rapide par rôle</div></div>
+        </div>
+        <div style="padding:16px;flex:1;overflow-y:auto" id="guide-content"></div>
       </div>
 
       <!-- PAGE ADMIN -->
@@ -1035,6 +1051,11 @@ input[type=file]{display:none;}
                 <option value="">Tous secteurs</option>
                 <option value="nimes">Nîmes</option>
                 <option value="avignon">Avignon</option>
+              </select>
+              <select id="crm-filter-societe" onchange="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;outline:none">
+                <option value="">Toutes sociétés</option>
+                <option value="nemausus">Nemausus</option>
+                <option value="lambert">Lambert</option>
               </select>
               <select id="crm-filter-commercial" onchange="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;outline:none;display:none">
                 <option value="">Tous commerciaux</option>
@@ -1184,10 +1205,12 @@ input[type=file]{display:none;}
                 
                 <select class="form-input" id="lead-raison-mort">
                   <option value="">Raison obligatoire *</option>
+                  <option value="prix">Prix trop élevé</option>
+                  <option value="delai">Délai trop long</option>
                   <option value="concurrent">Concurrent choisi</option>
-                  <option value="budget">Budget insuffisant</option>
-                  <option value="annule">Projet annulé</option>
+                  <option value="qualite_percue">Qualité perçue insuffisante</option>
                   <option value="injoignable_definitif">Injoignable définitif</option>
+                  <option value="annule">Projet annulé</option>
                   <option value="autre">Autre</option>
                 </select>
               </div>
@@ -1412,6 +1435,33 @@ RÈGLE ABSOLUE : Tu proposes — l'utilisateur décide toujours. Jamais d'action
 // ══════════════════════════════════════════
 let currentUser=null, chatHistory=[], currentConv=null, busy=false, currentFilter='tous';
 let deferredInstallPrompt=null;
+
+function toISODate(d){
+  const dt=new Date(d);
+  const y=dt.getFullYear();
+  const m=String(dt.getMonth()+1).padStart(2,'0');
+  const day=String(dt.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function addDaysISO(days){
+  const d=new Date();
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate()+Number(days||0));
+  return toISODate(d);
+}
+function hasDirecteurCommercial(){
+  return getAllUsers().some(u=>u.role==='directeur_co');
+}
+function getRoundRobinCommercial(societe){
+  const users=getAllUsers().filter(u=>u.role==='commercial'&&(u.societe===societe||u.societe==='les-deux'));
+  if(!users.length)return null;
+  const key='benai_rr_idx_'+(societe||'all');
+  let idx=parseInt(localStorage.getItem(key)||'0',10);
+  if(Number.isNaN(idx))idx=0;
+  const pick=users[idx%users.length];
+  localStorage.setItem(key,String((idx+1)%users.length));
+  return pick?.id||null;
+}
 
 // ══════════════════════════════════════════
 // MÉMOIRE
@@ -1687,7 +1737,7 @@ function initApp(silent=false){
 
   // Réinitialiser TOUS les éléments admin avant d'appliquer les droits
   ['nav-admin','nav-absences','nav-annuaire','nav-paie','nav-leads',
-   'nav-benai','nav-notes','nav-messages','nav-sav','nav-evolution'].forEach(id=>{
+   'nav-benai','nav-notes','nav-messages','nav-sav','nav-evolution','nav-guide'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
 
@@ -1705,7 +1755,7 @@ function initApp(silent=false){
 
   // Bouton correction : auto pour Benjamin, manuel pour les autres
   const btnCorrect=document.getElementById('btn-correct');
-  if(btnCorrect)btnCorrect.style.display=u.id==='benjamin'?'none':'inline-flex';
+  if(btnCorrect)btnCorrect.style.display='inline-flex';
 
   // Page d'accueil selon rôle
   const homePage=CRM_PAGES_ONLY.includes(u.role)?'leads':'benai';
@@ -1763,7 +1813,7 @@ function showPage(page){
   // Vérifier accès selon rôle
   const allowed=ROLE_PAGES[currentUser?.role]||ROLE_PAGES['assistante'];
   if(!allowed.includes(page)){showPage(allowed[0]);return;}
-  ['benai','notes','messages','sav','leads','absences','evolution','admin','annuaire','paie','bugs'].forEach(p=>{
+  ['benai','notes','messages','sav','leads','absences','evolution','guide','admin','annuaire','paie','bugs'].forEach(p=>{
     const el=document.getElementById('page-'+p);if(el)el.style.display='none';
     const nav=document.getElementById('nav-'+p);if(nav)nav.classList.remove('active');
   });
@@ -1775,6 +1825,7 @@ function showPage(page){
   if(page==='notes')renderNotes();
   if(page==='absences'){renderAbsences();fillAbsEmpList();}
   if(page==='evolution')renderEvolution();
+  if(page==='guide')renderGuidePage();
   if(page==='annuaire')renderAnnuaire();
   if(page==='paie')renderPaieList();
   if(page==='leads')initLeadsPage();
@@ -1841,13 +1892,14 @@ async function sendChat(txtOverride){
     if(!apiKey)throw new Error('Clé API manquante — demandez à Benjamin de la configurer');
     const mem=getMem();
     const ctx=`\nSAV ouverts: ${mem.sav.filter(s=>s.statut!=='regle').length}`;
+    const crmCtx=getCRMContextForAI();
     // Contexte intelligent Benjamin : planning + rappels
     const smartCtx=currentUser.id==='benjamin'?getBenjaminSmartContext():'';
     const msgs=chatHistory.filter(m=>m.role).map(m=>({role:m.role,content:m.content}));
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,system:currentUser.system+BENAI_CTX+ctx+smartCtx,messages:msgs})
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,system:currentUser.system+BENAI_CTX+ctx+crmCtx+smartCtx,messages:msgs})
     });
     const data=await res.json();
     if(!res.ok)throw new Error(data.error?.message||'Erreur API');
@@ -1869,6 +1921,16 @@ function updateTokenInfo(usage){
     const cost=estimateCost(usage.input_tokens,usage.output_tokens);
     info.textContent=`${(usage.input_tokens||0)+(usage.output_tokens||0)} tokens · ~${cost}€`;
   }
+}
+
+function getCRMContextForAI(){
+  const leads=getLeads();
+  const actifs=leads.filter(l=>!l.archive);
+  const perdus=actifs.filter(l=>l.statut==='rouge');
+  const vendus=actifs.filter(l=>l.statut==='vert');
+  const devis=actifs.filter(l=>l.statut==='jaune');
+  const reasons=getLeadLostAnalytics(actifs).rows.slice(0,3).map(r=>`${r.label}: ${r.count}`).join(' | ');
+  return `\nCRM: ${actifs.length} leads actifs, ${vendus.length} vendus, ${devis.length} en devis, ${perdus.length} perdus.${reasons?` Motifs pertes: ${reasons}.`:''}`;
 }
 
 // CORRIGER ORTHOGRAPHE
@@ -2291,14 +2353,18 @@ function addSAV(){
   const soc=document.getElementById('sav-soc').value;
   const commercial=document.getElementById('sav-commercial').value.trim();
   const fourn=document.getElementById('sav-fourn').value.trim();
-  const rappel=document.getElementById('sav-rappel').value;
+  const rappelDays=Math.max(1,Number(document.getElementById('sav-rappel-days')?.value||5));
+  const rappelInput=document.getElementById('sav-rappel').value;
+  const rappel=rappelInput||addDaysISO(rappelDays);
+  const commentaire=document.getElementById('sav-comment')?.value.trim()||'';
   const urgent=document.getElementById('sav-urgent').checked;
   if(!client||!pb){alert('Remplissez le client et le problème');return;}
   const mem=getMem();
-  mem.sav.unshift({id:Date.now(),client,probleme:pb,societe:soc,commercial,fournisseur:fourn,rappel,urgent,statut:'nouveau',date_creation:new Date().toLocaleDateString('fr-FR'),by:currentUser.name,actions:[]});
+  mem.sav.unshift({id:Date.now(),client,probleme:pb,societe:soc,commercial,fournisseur:fourn,rappel,rappelDays,urgent,statut:'nouveau',date_creation:new Date().toLocaleDateString('fr-FR'),by:currentUser.name,actions:[],commentaire,archive:false,muteReminder:false});
   saveMem(mem);
   updatePatterns(fourn,client);
-  ['sav-client','sav-pb','sav-commercial','sav-fourn','sav-rappel'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['sav-client','sav-pb','sav-commercial','sav-fourn','sav-rappel','sav-comment'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const rappelDaysEl=document.getElementById('sav-rappel-days');if(rappelDaysEl)rappelDaysEl.value='5';
   document.getElementById('sav-urgent').checked=false;
   const ok=document.getElementById('sav-ok');ok.textContent='✅ SAV enregistré !';
   setTimeout(()=>{ok.textContent='';toggleSavForm();},1500);
@@ -2313,11 +2379,12 @@ function renderSAV(){
   if(currentUser.id==='aurelie')savs=savs.filter(s=>s.societe==='nemausus');
   else if(currentUser.id==='claudine')savs=savs.filter(s=>s.societe==='lambert');
   // Filtre état
-  if(currentFilter==='nouveau')savs=savs.filter(s=>s.statut==='nouveau');
+  if(currentFilter==='nouveau')savs=savs.filter(s=>s.statut==='nouveau'&&!s.archive);
   else if(currentFilter==='en_cours')savs=savs.filter(s=>s.statut==='en_cours');
   else if(currentFilter==='regle')savs=savs.filter(s=>s.statut==='regle');
+  else if(currentFilter==='archive')savs=savs.filter(s=>s.archive);
   else if(currentFilter==='urgent')savs=savs.filter(s=>s.urgent&&s.statut!=='regle');
-  else savs=savs.filter(s=>s.statut!=='regle');
+  else savs=savs.filter(s=>s.statut!=='regle'&&!s.archive);
   // Recherche
   if(search)savs=savs.filter(s=>(s.client||'').toLowerCase().includes(search)||(s.probleme||'').toLowerCase().includes(search)||(s.commercial||'').toLowerCase().includes(search)||(s.fournisseur||'').toLowerCase().includes(search));
 
@@ -2326,7 +2393,7 @@ function renderSAV(){
   if(rappelArea){
     const today=new Date();today.setHours(0,0,0,0);
     const rappels=(mem.sav||[]).filter(s=>{
-      if(!s.rappel||s.statut==='regle')return false;
+      if(!s.rappel||s.statut==='regle'||s.archive||s.muteReminder)return false;
       const d=new Date(s.rappel);d.setHours(0,0,0,0);
       const diff=Math.ceil((d-today)/(1000*60*60*24));
       return diff<=7&&diff>=0;
@@ -2372,6 +2439,7 @@ function renderSAV(){
       </div>
       <div class="sav-client">${esc(s.client)}</div>
       <div class="sav-pb">${esc(s.probleme)}</div>
+      ${s.commentaire?`<div style="font-size:11px;color:var(--t2);margin-top:4px">💬 ${esc(s.commentaire)}</div>`:''}
       <div class="sav-meta">${s.commercial?'Commercial : '+esc(s.commercial)+' · ':''}${s.fournisseur?'Fournisseur : '+esc(s.fournisseur)+' · ':''}Créé par ${esc(s.by||'?')}</div>
       ${derniereAction?`<div style="margin-top:6px;padding:6px 10px;background:var(--s3);border-radius:6px;font-size:11px;color:var(--t2)">✅ <strong>${esc(derniereAction.action)}</strong> — ${esc(derniereAction.date)}</div>`:''}
       ${proactiveSuggestion}
@@ -2381,6 +2449,8 @@ function renderSAV(){
         <input type="text" class="sav-action-input" id="action-${s.id}" placeholder="Ce que tu as fait (ex: Commandé chez Somfy le 12/04...)">
         <button onclick="savAction(${s.id})" style="padding:7px 12px;background:var(--a);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">✓ Enregistrer</button>
         <button onclick="changeStatut(${s.id},'regle')" class="btn-resolve">🟢 Réglé</button>
+        <button onclick="toggleSavArchive(${s.id})" style="padding:7px 12px;background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">${s.archive?'🔓 Réouvrir':'📁 Archiver'}</button>
+        <button onclick="toggleSavMute(${s.id})" style="padding:7px 12px;background:${s.muteReminder?'var(--y2)':'var(--s3)'};color:${s.muteReminder?'var(--y)':'var(--t2)'};border:1px solid var(--b1);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">${s.muteReminder?'🔕 Sourdine':'🔔 Activer rappel'}</button>
       </div>`:''}
     </div>`;
   }).join('');
@@ -2423,13 +2493,14 @@ function saveEditSAV(id){
     societe:document.getElementById('sav-soc').value,
     fournisseur:document.getElementById('sav-fourn').value.trim(),
     rappel:document.getElementById('sav-rappel').value,
-    urgent:document.getElementById('sav-urgent').checked
+    urgent:document.getElementById('sav-urgent').checked,
+    commentaire:document.getElementById('sav-comment')?.value.trim()||''
   };
   saveMem(mem);
   const btn=document.querySelector('#sav-form-wrap .btn-primary');
   if(btn){btn.textContent='Enregistrer';btn.onclick=addSAV;}
   document.getElementById('sav-form-wrap').style.display='none';
-  ['sav-client','sav-pb','sav-commercial','sav-fourn','sav-rappel'].forEach(id=>document.getElementById(id).value='');
+  ['sav-client','sav-pb','sav-commercial','sav-fourn','sav-rappel','sav-comment'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('sav-urgent').checked=false;
   renderSAV();logActivity(`Benjamin a modifié le SAV de ${client}`);
 }
@@ -2449,11 +2520,31 @@ function changeStatut(id,statut){
 
 function refreshSAVBadge(){
   const mem=getMem();
-  const nb=(mem.sav||[]).filter(s=>s.statut!=='regle').length;
-  const urgent=(mem.sav||[]).filter(s=>s.urgent&&s.statut!=='regle').length;
+  const today=new Date();today.setHours(0,0,0,0);
+  const nb=(mem.sav||[]).filter(s=>{
+    if(s.archive||s.statut==='regle')return false;
+    if(s.urgent)return true;
+    if(!s.rappel||s.muteReminder)return false;
+    const d=new Date(s.rappel);d.setHours(0,0,0,0);
+    const diff=Math.ceil((d-today)/(1000*60*60*24));
+    return diff<=7;
+  }).length;
+  const urgent=(mem.sav||[]).filter(s=>s.urgent&&s.statut!=='regle'&&!s.archive).length;
   const badge=document.getElementById('sav-badge');
   badge.style.display=nb>0?'flex':'none';badge.textContent=nb;
   if(urgent>0)badge.style.background='var(--r)';else badge.style.background='var(--a)';
+}
+
+function toggleSavArchive(id){
+  const mem=getMem();const sav=(mem.sav||[]).find(s=>s.id===id);if(!sav)return;
+  sav.archive=!sav.archive;
+  saveMem(mem);renderSAV();refreshSAVBadge();
+}
+
+function toggleSavMute(id){
+  const mem=getMem();const sav=(mem.sav||[]).find(s=>s.id===id);if(!sav)return;
+  sav.muteReminder=!sav.muteReminder;
+  saveMem(mem);renderSAV();refreshSAVBadge();
 }
 
 function exportSAVCSV(){
@@ -3228,6 +3319,58 @@ function dismissEvol(id){
   dismissed.push(id);localStorage.setItem('benai_evol_dismissed',JSON.stringify(dismissed));renderEvolution();
 }
 
+function renderGuidePage(){
+  const box=document.getElementById('guide-content');if(!box)return;
+  const role=currentUser?.role||'assistante';
+  const roleTitle=ROLE_LABELS[role]||role;
+  const roleGuide={
+    admin:[
+      'Consulte le dashboard puis traite les alertes en priorité.',
+      'Utilise SAV pour suivre les rappels, archiver les dossiers dormants et activer la sourdine si nécessaire.',
+      'Attribue ou réattribue les leads CRM pour équilibrer la charge.',
+      'Vérifie régulièrement les bugs et les connexions.'
+    ],
+    directeur_co:[
+      'Ouvre le dashboard CRM pour le classement mensuel et les leads perdus.',
+      'Traite les leads non attribués en premier.',
+      'Surveille les devis sans réponse après 7 jours.',
+      'Utilise les motifs de perte pour corriger le discours commercial.'
+    ],
+    commercial:[
+      'Travaille uniquement tes leads et mets à jour le statut après chaque action.',
+      'Utilise le bouton Appeler pour tracer automatiquement les appels.',
+      'Renseigne systématiquement le motif si un lead est perdu.',
+      'Relance les devis sans réponse dès l’alerte.'
+    ],
+    assistante:[
+      'Crée les leads entrants avec toutes les infos client.',
+      'Utilise les notes/commentaires pour donner du contexte au commercial.',
+      'Saisis les SAV avec un rappel adapté (5 jours par défaut).',
+      'Consulte les absences pour anticiper l’organisation.'
+    ],
+    metreur:[
+      'Utilise la messagerie interne pour transmettre les infos chantier.',
+      'Ajoute des notes courtes et précises.',
+      'Remonte les bugs dès qu’un blocage apparaît.'
+    ]
+  };
+  const common=[
+    'BenAI suggère toujours, vous décidez toujours.',
+    'Sur mobile, installe BenAI via “📲 Installer” pour un accès direct.',
+    'En cas d’anomalie, signale-la depuis l’onglet Bugs.'
+  ];
+  const actions=roleGuide[role]||roleGuide.assistante;
+  box.innerHTML=`
+    <div class="sav-form" style="margin-bottom:10px">
+      <div style="font-size:14px;font-weight:700;margin-bottom:8px">👤 Guide ${esc(roleTitle)}</div>
+      ${actions.map((a,i)=>`<div style="font-size:13px;color:var(--t2);line-height:1.7;margin-bottom:6px">${i+1}. ${esc(a)}</div>`).join('')}
+    </div>
+    <div class="sav-form">
+      <div style="font-size:14px;font-weight:700;margin-bottom:8px">✅ Bonnes pratiques</div>
+      ${common.map(t=>`<div style="font-size:13px;color:var(--t2);line-height:1.7;margin-bottom:6px">• ${esc(t)}</div>`).join('')}
+    </div>`;
+}
+
 // ══════════════════════════════════════════
 // ADMIN DASHBOARD
 // ══════════════════════════════════════════
@@ -3369,6 +3512,18 @@ function creerUtilisateur(){
   if(loginSel&&!loginSel.querySelector(`option[value="${uid}"]`)){
     const opt=document.createElement('option');opt.value=uid;opt.textContent=name;loginSel.appendChild(opt);
   }
+  // Message automatique de bienvenue
+  const mem=getMem();
+  const convId=makeConvId('benjamin',uid);
+  if(!mem.messages[convId])mem.messages[convId]=[];
+  const nowTxt=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  mem.messages[convId].push({
+    from:'benjamin',
+    text:`Bienvenue ${name} 👋\nTon accès BenAI est prêt. Commence par lire l'onglet Guide 📘 puis traite tes priorités du jour.`,
+    time:nowTxt,
+    ts:Date.now()
+  });
+  saveMem(mem);
   status.style.color='var(--g)';status.textContent=`✅ Accès ${roleLabel} créé pour ${name} !`;
   document.getElementById('new-user-pwd').value='';
   setTimeout(()=>{document.getElementById('add-user-form').style.display='none';status.textContent='';},1500);
@@ -3536,6 +3691,12 @@ function initSettings(){
   document.getElementById('btn-light').style.borderColor=theme==='light'?'var(--a)':'var(--b1)';
   if(isAdmin){
     renderTeamPwdSettings();
+    const apiMsg=document.getElementById('api-msg');
+    if(apiMsg){
+      const hasKey=!!localStorage.getItem('benai_api');
+      apiMsg.style.color=hasKey?'var(--g)':'var(--y)';
+      apiMsg.textContent=hasKey?'✅ Clé IA partagée active':'⚠️ Renseignez la clé IA partagée pour toute l’équipe';
+    }
     // Afficher client ID Google Drive existant
     const clientIdEl=document.getElementById('gdrive-client-id');
     if(clientIdEl)clientIdEl.value=getGDriveClientId()||'';
@@ -3574,9 +3735,10 @@ function renderTeamPwdSettings(){
 
 function saveApiKeySettings(){
   const key=document.getElementById('api-key-settings').value.trim();const msg=document.getElementById('api-msg');
+  if(currentUser?.role!=='admin'){msg.style.color='var(--r)';msg.textContent='⚠️ Réservé à l’administrateur';return;}
   if(!key||!key.startsWith('sk-')){msg.style.color='var(--r)';msg.textContent='⚠️ Clé invalide';return;}
   localStorage.setItem('benai_api',key);document.getElementById('api-key-settings').value='';
-  msg.style.color='var(--g)';msg.textContent='✅ Clé enregistrée !';setTimeout(()=>msg.textContent='',2000);
+  msg.style.color='var(--g)';msg.textContent='✅ Clé IA partagée enregistrée !';setTimeout(()=>msg.textContent='',2500);
 }
 
 function saveGDriveClientIdSettings(){
@@ -4062,17 +4224,32 @@ async function installBenAI(){
 const CRM_ROLES=['directeur_co','commercial'];
 const CRM_PAGES_ONLY=['directeur_co','commercial'];
 const ROLE_PAGES={
-  admin:['benai','notes','messages','sav','leads','absences','annuaire','paie','admin','evolution','bugs'],
-  assistante:['benai','notes','messages','sav','leads','evolution','bugs'],
-  metreur:['benai','notes','messages','evolution','bugs'],
-  directeur_co:['leads','messages','bugs'],
-  commercial:['leads','messages','bugs']
+  admin:['benai','notes','messages','sav','leads','absences','annuaire','paie','admin','evolution','guide','bugs'],
+  assistante:['benai','notes','messages','sav','leads','evolution','guide','bugs'],
+  metreur:['benai','notes','messages','evolution','guide','bugs'],
+  directeur_co:['leads','messages','guide','bugs'],
+  commercial:['leads','messages','guide','bugs']
 };
 
 function getLeads(){try{return JSON.parse(localStorage.getItem('benai_leads'))||[];}catch{return[];}}
 function saveLeads(l){localStorage.setItem('benai_leads',JSON.stringify(l));}
 function getLeadObjectifs(){try{return JSON.parse(localStorage.getItem('benai_lead_obj'))||{nimes:{leads:20,ca:50000},avignon:{leads:15,ca:40000}};}catch{return{nimes:{leads:20,ca:50000},avignon:{leads:15,ca:40000}};}}
 function saveLeadObjectifs(o){localStorage.setItem('benai_lead_obj',JSON.stringify(o));}
+function canAccessLeadByCompany(lead){
+  if(!currentUser||!lead)return false;
+  if(currentUser.role==='admin')return true;
+  if(currentUser.role==='directeur_co'){
+    const leadSoc=lead.societe_crm||'nemausus';
+    return currentUser.societe==='les-deux'||currentUser.societe===leadSoc;
+  }
+  return true;
+}
+function getCompanyScopedLeads(list){
+  const leads=list||getLeads();
+  if(!currentUser)return leads;
+  if(currentUser.role!=='directeur_co')return leads;
+  return leads.filter(canAccessLeadByCompany);
+}
 
 let currentLeadFilter='tous';
 let currentLeadId=null;
@@ -4103,8 +4280,8 @@ function initLeadsPage(){
     if(filterComm)filterComm.style.display='block';
     fillCommercialFilter();
     filters.style.display='flex';
-    // Directeur co arrive sur les leads non attribués
-    showCRMTab('non-attribues');
+    // Directeur co arrive sur son dashboard
+    showCRMTab(role==='directeur_co'?'dashboard':'non-attribues');
   } else if(role==='assistante'){
     // Assistante : onglet unique — saisie + ses leads
     addCRMTab('mes-leads','📋 Mes leads',true);
@@ -4158,7 +4335,7 @@ function showCRMTab(id){
 
 function renderNonAttribues(){
   const list=document.getElementById('leads-list');if(!list)return;
-  const leads=getLeads().filter(l=>!l.commercial&&!l.archive&&l.statut==='gris');
+  const leads=getCompanyScopedLeads(getLeads()).filter(l=>!l.commercial&&!l.archive&&l.statut==='gris');
   if(!leads.length){
     list.innerHTML='<div style="color:var(--g);font-size:14px;padding:32px;text-align:center;font-weight:600">✅ Tous les leads sont attribués !</div>';
     return;
@@ -4201,6 +4378,7 @@ function getFilteredLeads(){
   const role=currentUser?.role;
   const search=(document.getElementById('crm-search')?.value||'').toLowerCase();
   const secteurFilter=document.getElementById('crm-filter-secteur')?.value||'';
+  const societeFilter=document.getElementById('crm-filter-societe')?.value||'';
   const commFilter=document.getElementById('crm-filter-commercial')?.value||'';
   let leads=getLeads();
 
@@ -4211,6 +4389,8 @@ function getFilteredLeads(){
   } else if(role==='assistante'){
     // Assistante voit uniquement les leads qu'elle a créés
     leads=leads.filter(l=>l.cree_par===currentUser.id||l.cree_par===currentUser.name);
+  } else if(role==='directeur_co'){
+    leads=getCompanyScopedLeads(leads);
   }
   // Admin et directeur_co voient TOUT — aucun filtre de rôle
 
@@ -4218,6 +4398,7 @@ function getFilteredLeads(){
   if(currentLeadFilter!=='archive')leads=leads.filter(l=>!l.archive);
   // Filtres UI
   if(secteurFilter)leads=leads.filter(l=>l.secteur===secteurFilter);
+  if(societeFilter)leads=leads.filter(l=>(l.societe_crm||'nemausus')===societeFilter);
   if(commFilter)leads=leads.filter(l=>l.commercial===commFilter);
   if(currentLeadFilter==='gris')leads=leads.filter(l=>l.statut==='gris');
   else if(currentLeadFilter==='rdv')leads=leads.filter(l=>l.statut==='rdv');
@@ -4248,7 +4429,7 @@ function renderLeads(){
 
   // VUE DIRECTEUR CO — deux sections
   if(role==='directeur_co'||role==='admin'){
-    const allLeads=getLeads().filter(l=>!l.archive);
+    const allLeads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive);
     const nonAttrib=allLeads.filter(l=>!l.commercial&&l.statut==='gris');
     const attrib=getFilteredLeads().filter(l=>l.commercial||l.statut!=='gris');
     let html='';
@@ -4285,7 +4466,12 @@ function renderLeads(){
 // CARTE DISPATCH (directeur co — attribution rapide)
 function renderDispatchCard(l){
   const srcIcon={MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'}[l.source]||'📋';
-  const commerciaux=getAllUsers().filter(u=>u.role==='commercial'||u.role==='directeur_co');
+  const leadSoc=l.societe_crm||'nemausus';
+  const commerciaux=getAllUsers().filter(u=>{
+    if(!(u.role==='commercial'||u.role==='directeur_co'))return false;
+    if(currentUser?.role==='admin')return true;
+    return u.societe===leadSoc||u.societe==='les-deux';
+  });
   const selectOptions=commerciaux.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   return `<div class="lead-card" style="border-left:4px solid var(--r);background:rgba(248,113,113,.05)">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -4295,7 +4481,7 @@ function renderDispatchCard(l){
     </div>
     <div class="lead-info">${esc(l.ville||'')}${l.cp?' ('+l.cp+')':''} · ${esc(l.type_projet||'')}</div>
     <div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-      ${makeCallLink(l.telephone)}
+      ${makeLeadCallLink(l.id,l.telephone)}
       ${makeGPSLink(l.adresse,l.ville,l.cp)}
       <select id="dispatch-${l.id}" class="form-input" style="flex:1;padding:6px 8px;font-size:12px;min-width:120px">
         <option value="">Choisir un commercial...</option>
@@ -4315,7 +4501,14 @@ function dispatchLead(id){
   const leads=getLeads();
   const idx=leads.findIndex(l=>l.id===id);if(idx===-1)return;
   const l=leads[idx];
+  if(!canAccessLeadByCompany(l)){showDriveNotif('🔒 Accès refusé pour cette société');return;}
   const comm=getAllUsers().find(u=>u.id===commId);
+  if(!comm){showDriveNotif('⚠️ Commercial introuvable');return;}
+  const leadSoc=l.societe_crm||'nemausus';
+  if(currentUser?.role!=='admin'&&!(comm.societe===leadSoc||comm.societe==='les-deux')){
+    showDriveNotif('⚠️ Ce commercial n’appartient pas à cette société');
+    return;
+  }
   const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   leads[idx].commercial=commId;
   addLeadTimelineEntry(leads[idx],`Attribué à ${comm?.name||commId}`,currentUser.name);
@@ -4353,7 +4546,7 @@ function renderLeadCardAssistante(l){
       ${comm
         ?`<span style="background:var(--a3);color:var(--a);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">👤 ${esc(comm.name)}</span>`
         :'<span style="background:var(--y2);color:var(--y);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⏳ En attente d\'attribution</span>'}
-      ${makeCallLink(l.telephone)}
+      ${makeLeadCallLink(l.id,l.telephone)}
     </div>
     ${rdvInfo}
     ${l.commentaire?`<div style="font-size:11px;color:var(--t2);margin-top:4px;padding:4px 8px;background:var(--s3);border-radius:6px">💬 ${esc(l.commentaire)}</div>`:''}
@@ -4387,7 +4580,7 @@ function renderLeadCard(l,role){
       <span class="lead-secteur">${secteurLabel}</span>
       ${comm?`<span class="lead-commercial">${esc(comm.name)}</span>`:''}
       ${vuInfo}
-      <span style="margin-left:auto;display:flex;gap:4px" onclick="event.stopPropagation()">${makeCallLink(l.telephone)}${makeGPSLink(l.adresse,l.ville,l.cp)}</span>
+      <span style="margin-left:auto;display:flex;gap:4px" onclick="event.stopPropagation()">${makeLeadCallLink(l.id,l.telephone)}${makeGPSLink(l.adresse,l.ville,l.cp)}</span>
     </div>
     ${dernContact}
     ${l.suivi?`<div style="font-size:11px;color:var(--t2);margin-top:4px;padding:4px 8px;background:var(--s3);border-radius:6px">📌 ${esc(l.suivi)}</div>`:''}
@@ -4425,12 +4618,60 @@ function renderKanban(){
   }).join('');
 }
 
+function getLeadLostAnalytics(leads){
+  const labels={
+    prix:'Prix trop élevé',
+    delai:'Délai trop long',
+    concurrent:'Concurrent choisi',
+    qualite_percue:'Qualité perçue insuffisante',
+    injoignable_definitif:'Injoignable définitif',
+    annule:'Projet annulé',
+    autre:'Autre'
+  };
+  const lost=(leads||[]).filter(l=>l.statut==='rouge');
+  const byReason={};
+  lost.forEach(l=>{
+    const key=l.raison_mort||'autre';
+    byReason[key]=(byReason[key]||0)+1;
+  });
+  const rows=Object.entries(byReason).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({key:k,label:labels[k]||k,count:v}));
+  return{total:lost.length,rows};
+}
+
+function getCommercialRankingMonth(leads){
+  const now=new Date();
+  const month=now.getMonth(),year=now.getFullYear();
+  const sales=(leads||[]).filter(l=>{
+    if(l.statut!=='vert'||!l.commercial)return false;
+    const d=new Date(l.date_creation||0);
+    return d.getMonth()===month&&d.getFullYear()===year;
+  });
+  const map={};
+  sales.forEach(l=>{
+    if(!map[l.commercial])map[l.commercial]={uid:l.commercial,ventes:0,ca:0};
+    map[l.commercial].ventes++;
+    map[l.commercial].ca+=Number(l.prix_vendu||0);
+  });
+  return Object.values(map).sort((a,b)=>b.ca-a.ca||b.ventes-a.ventes);
+}
+
+function getArchivedLeadsStats(leads){
+  const arch=(leads||[]).filter(l=>l.archive);
+  const byStatut={vert:0,rouge:0,autre:0};
+  arch.forEach(l=>{
+    if(l.statut==='vert')byStatut.vert++;
+    else if(l.statut==='rouge')byStatut.rouge++;
+    else byStatut.autre++;
+  });
+  return{total:arch.length,byStatut};
+}
+
 // DASHBOARD
 function renderLeadsDashboard(){
   const container=document.getElementById('leads-container');if(!container)return;
   const list=document.getElementById('leads-list');
   if(list){list.style.display='flex';}
-  const leads=getLeads().filter(l=>!l.archive);
+  const leads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive);
   const obj=getLeadObjectifs();
   const now=new Date();
   const month=now.getMonth();const year=now.getFullYear();
@@ -4477,6 +4718,47 @@ function renderLeadsDashboard(){
     html+=`<div class="stat-box"><div style="font-size:16px">${srcIcons[src]}</div><div class="stat-box-val" style="font-size:16px">${sl.length}</div><div class="stat-box-lbl">${src}</div><div style="font-size:10px;color:var(--g)">${v} ventes</div></div>`;
   });
   html+='</div></div>';
+  // Classement mensuel commerciaux
+  const ranking=getCommercialRankingMonth(leads);
+  html+=`<div class="secteur-card"><div class="secteur-title">🏆 Classement mensuel commerciaux</div>`;
+  if(!ranking.length){
+    html+=`<div style="font-size:12px;color:var(--t3)">Aucune vente ce mois.</div>`;
+  } else {
+    html+=ranking.map((r,i)=>{
+      const u=getAllUsers().find(x=>x.id===r.uid);
+      return `<div class="perf-row">
+        <div style="width:24px;text-align:center;font-weight:800;color:${i===0?'var(--g)':'var(--t2)'}">${i+1}</div>
+        <div class="perf-name">${esc(u?.name||r.uid)}</div>
+        <div class="perf-stats">${r.ventes} vente(s)</div>
+        <div class="perf-ca">${r.ca.toLocaleString('fr-FR')}€</div>
+      </div>`;
+    }).join('');
+  }
+  html+='</div>';
+  // Analyse leads perdus
+  const lost=getLeadLostAnalytics(leadsMonth);
+  html+=`<div class="secteur-card"><div class="secteur-title">📉 Analyse des leads perdus</div>`;
+  if(!lost.total){
+    html+=`<div style="font-size:12px;color:var(--t3)">Aucun lead perdu ce mois.</div>`;
+  } else {
+    html+=lost.rows.map(r=>`
+      <div class="perf-row">
+        <div class="perf-name">${esc(r.label)}</div>
+        <div class="perf-stats">${r.count} lead(s)</div>
+      </div>
+    `).join('');
+  }
+  html+='</div>';
+  // Historique archivé
+  const arch=getArchivedLeadsStats(getCompanyScopedLeads(getLeads()));
+  html+=`<div class="secteur-card"><div class="secteur-title">🗃️ Historique archivé</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      <div class="stat-box"><div class="stat-box-val">${arch.total}</div><div class="stat-box-lbl">Total archivés</div></div>
+      <div class="stat-box"><div class="stat-box-val" style="color:var(--g)">${arch.byStatut.vert}</div><div class="stat-box-lbl">Vendus</div></div>
+      <div class="stat-box"><div class="stat-box-val" style="color:var(--r)">${arch.byStatut.rouge}</div><div class="stat-box-lbl">Perdus</div></div>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--t3)">Consultez l’onglet filtre “📁 Archives” dans Leads pour le détail.</div>
+  </div>`;
   // Perf commerciaux
   const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
   if(role==='admin'||role==='directeur_co'){
@@ -4566,6 +4848,7 @@ function openNewLead(){
 // OUVRIR FICHE LEAD EXISTANT
 function openLead(id){
   const leads=getLeads();const l=leads.find(x=>x.id===id);if(!l)return;
+  if(!canAccessLeadByCompany(l)){showDriveNotif('🔒 Accès refusé pour cette société');return;}
   currentLeadId=id;currentLeadStatut=l.statut||'gris';currentLeadSource=l.source||'MAG';
   // Marquer comme vu
   const role=currentUser?.role;
@@ -4825,12 +5108,15 @@ function saveLead(){
   } else {
     // Nouveau lead
     const societe=getSocieteFromUser(currentUser.id);
-    // Pas d'auto-attribution — toujours passer par le directeur co
-    const newLead={...data,id:Date.now(),date_creation:now,timeline:[],cree_par:currentUser.id,societe_crm:societe,commercial:data.commercial||null};
+    let autoCommercial=data.commercial||null;
+    if(!autoCommercial&&!hasDirecteurCommercial()){
+      autoCommercial=getRoundRobinCommercial(societe);
+    }
+    const newLead={...data,id:Date.now(),date_creation:now,timeline:[],cree_par:currentUser.id,societe_crm:societe,commercial:autoCommercial};
     addLeadTimelineEntry(newLead,'Lead créé',currentUser.name);
-    if(data.commercial){
-      const c=getAllUsers().find(u=>u.id===data.commercial);
-      addLeadTimelineEntry(newLead,`Attribué à ${c?.name||data.commercial}`,currentUser.name);
+    if(newLead.commercial){
+      const c=getAllUsers().find(u=>u.id===newLead.commercial);
+      addLeadTimelineEntry(newLead,`Attribué à ${c?.name||newLead.commercial}`,currentUser.name);
     }
     // ACTIF : commercial crée pour lui-même, dir co alerté
     if(currentLeadSource==='ACTIF'){
@@ -4839,7 +5125,7 @@ function saveLead(){
       });
     } else {
       // Lead entrant : alerter dir co si pas attribué
-      if(!data.commercial){
+      if(!newLead.commercial){
         getAllUsers().filter(u=>u.role==='directeur_co').forEach(u=>{
           pushNotif('Nouveau lead à attribuer',`${nom} — ${projet}`,srcIcons()[data.source]||'📋',u.id);
         });
@@ -4946,12 +5232,26 @@ function fillProjetsSuggestions(){
 // FILTRE COMMERCIAL
 function fillCommercialFilter(){
   const sel=document.getElementById('crm-filter-commercial');if(!sel)return;
-  const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
+  const commerciaux=getAllUsers().filter(u=>{
+    if(u.role!=='commercial')return false;
+    if(currentUser?.role==='admin')return true;
+    if(currentUser?.role==='directeur_co'){
+      return currentUser.societe==='les-deux'||u.societe===currentUser.societe||u.societe==='les-deux';
+    }
+    return true;
+  });
   sel.innerHTML='<option value="">Tous commerciaux</option>'+commerciaux.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
 }
 function fillCommercialAssign(selected=''){
   const sel=document.getElementById('lead-commercial-assign');if(!sel)return;
-  const users=getAllUsers().filter(u=>u.role==='commercial'||u.role==='directeur_co');
+  const users=getAllUsers().filter(u=>{
+    if(!(u.role==='commercial'||u.role==='directeur_co'))return false;
+    if(currentUser?.role==='admin')return true;
+    if(currentUser?.role==='directeur_co'){
+      return currentUser.societe==='les-deux'||u.societe===currentUser.societe||u.societe==='les-deux';
+    }
+    return true;
+  });
   sel.innerHTML='<option value="">⏳ Non attribué</option>'+users.map(c=>`<option value="${c.id}"${c.id===selected?' selected':''}>${esc(c.name)} (${c.role==='directeur_co'?'Dir.co':'Commercial'})</option>`).join('');
 }
 
@@ -4975,7 +5275,7 @@ function getLeadAge(l){
 
 function checkLeadsAlertes(){
   if(currentUser?.role!=='directeur_co')return;
-  const alertes=getLeads().filter(l=>isLeadAlerte(l));
+  const alertes=getCompanyScopedLeads(getLeads()).filter(l=>isLeadAlerte(l));
   if(alertes.length>0)pushNotif('⏰ Leads en attente',`${alertes.length} lead(s) nécessitent une action`,'🚨',currentUser.id);
 }
 
@@ -4985,10 +5285,20 @@ function checkRappelsLeads(){
   const leads=getLeads().filter(l=>l.rappel&&(l.commercial===currentUser.id||currentUser.role==='directeur_co'||currentUser.id==='benjamin'));
   leads.forEach(l=>{
     const rappel=new Date(l.rappel);
-    const diff=Math.abs(rappel-now)/60000;// en minutes
-    if(diff<=5&&!localStorage.getItem('benai_rappel_done_'+l.id+'_'+l.rappel)){
+    const diff=Math.abs(rappel-now)/60000;
+    if(diff<=1&&!localStorage.getItem('benai_rappel_done_'+l.id+'_'+l.rappel)){
       pushNotif('📞 Rappel lead',`${l.nom} — ${l.type_projet}`,l.rappel_devis?'📋':'📞',currentUser.id);
       localStorage.setItem('benai_rappel_done_'+l.id+'_'+l.rappel,'1');
+    }
+    if(l.statut==='jaune'&&l.date_devis){
+      const devisDate=new Date(l.date_devis);devisDate.setHours(0,0,0,0);
+      const today=new Date();today.setHours(0,0,0,0);
+      const diffDays=Math.floor((today-devisDate)/(1000*60*60*24));
+      const k='benai_devis_relance_'+l.id+'_'+l.date_devis;
+      if(diffDays>=7&&!localStorage.getItem(k)){
+        pushNotif('📋 Devis sans réponse',`${l.nom} — relance recommandée (J+${diffDays})`,'⏰',currentUser.id);
+        localStorage.setItem(k,'1');
+      }
     }
   });
 }
@@ -4997,7 +5307,7 @@ function refreshLeadsBadge(){
   const badge=document.getElementById('leads-badge');if(!badge)return;
   const role=currentUser?.role;
   if(role==='admin'){badge.style.display='none';return;}
-  let leads=getLeads().filter(l=>!l.archive);
+  let leads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive);
   // Directeur co : badge = non attribués
   if(role==='directeur_co'){
     const n=leads.filter(l=>!l.commercial&&l.statut==='gris').length;
@@ -5015,7 +5325,7 @@ function refreshLeadsBadge(){
 
 // EXPORT EXCEL
 function exportLeadsExcel(){
-  const leads=getLeads();
+  const leads=getCompanyScopedLeads(getLeads());
   const header='Date,Source,Nom,Téléphone,Ville,CP,Projet,Statut,Commercial,Secteur,Devis (€),CA (€),Suivi,Commentaire\n';
   const rows=leads.map(l=>{
     const comm=getAllUsers().find(u=>u.id===l.commercial);
@@ -5374,6 +5684,24 @@ function makeCallLink(tel){
   if(!tel)return '';
   const clean=tel.replace(/\s/g,'');
   return `<a href="tel:${clean}" onclick="event.stopPropagation()" style="color:var(--bl);font-size:11px;text-decoration:none;background:var(--bl2);padding:2px 7px;border-radius:6px;font-weight:600">📞 Appeler</a>`;
+}
+
+function makeLeadCallLink(leadId,tel){
+  if(!tel)return '';
+  const clean=tel.replace(/\s/g,'');
+  return `<a href="tel:${clean}" onclick="event.stopPropagation();logLeadCall(${leadId})" style="color:var(--bl);font-size:11px;text-decoration:none;background:var(--bl2);padding:2px 7px;border-radius:6px;font-weight:600">📞 Appeler</a>`;
+}
+
+function logLeadCall(leadId){
+  const leads=getLeads();
+  const idx=leads.findIndex(l=>l.id===leadId);
+  if(idx===-1)return;
+  const lead=leads[idx];
+  lead.call_count=(lead.call_count||0)+1;
+  lead.last_call_at=new Date().toISOString();
+  addLeadTimelineEntry(lead,'Appel téléphonique lancé',currentUser?.name||'Utilisateur');
+  leads[idx]=lead;
+  saveLeads(leads);
 }
 
 function makeGPSLink(adresse,ville,cp){
@@ -5804,14 +6132,7 @@ window.addEventListener('load',()=>{
   // Thème
   const theme=localStorage.getItem('benai_theme')||'dark';
   if(theme==='light')document.body.classList.add('light');
-  // Clé API
-  const stored=localStorage.getItem('benai_api');
-  if(!stored){
-    setTimeout(()=>{
-      const k=prompt('🔑 Première configuration BenAI\n\nEntrez votre clé API Anthropic (sk-ant-...):\n\n(Obtenez-la sur console.anthropic.com)');
-      if(k&&k.startsWith('sk-'))localStorage.setItem('benai_api',k);
-    },500);
-  }
+  // Clé API : configuration centralisée côté admin dans Paramètres
   // Charger utilisateurs extra avec leur vrai rôle
   getExtraUsers().forEach(u=>{
     if(!USERS[u.id]){
