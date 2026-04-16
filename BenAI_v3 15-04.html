@@ -959,8 +959,14 @@ input[type=file]{display:none;}
               <div class="form-group"><div class="form-label">Heure de fin</div><input type="time" class="form-input" id="abs-heure-fin" placeholder="17:00"></div>
             </div>
             <div class="form-group" style="margin-bottom:12px"><div class="form-label">Note</div><input type="text" class="form-input" id="abs-note" placeholder="Optionnel..."></div>
+            <div class="form-group" style="margin-bottom:12px;display:none" id="abs-share-assistantes-wrap">
+              <label style="display:flex;align-items:flex-start;gap:10px;font-size:12px;cursor:pointer;line-height:1.45">
+                <input type="checkbox" id="abs-share-assistantes" checked style="accent-color:var(--a);margin-top:2px;flex-shrink:0">
+                <span><strong>Partager avec les assistantes</strong> — rappels (J-7, la veille, jour J) visibles sur leur compte BenAI. Décochez pour une absence <em>privée</em> (admin seulement parmi les cases ci-dessous).</span>
+              </label>
+            </div>
             <div style="margin-bottom:12px">
-              <div class="form-label" style="margin-bottom:8px">Notifier</div>
+              <div class="form-label" style="margin-bottom:8px">Notifier aussi (autres profils)</div>
               <div style="display:flex;gap:12px;flex-wrap:wrap" id="abs-notif-list"></div>
             </div>
             <div style="display:flex;gap:8px">
@@ -1417,7 +1423,12 @@ input[type=file]{display:none;}
                       <option value="">Sélectionner...</option>
                     </select>
                   </div>
-                  <div><div class="form-label">Mot de passe</div><input type="text" class="form-input" id="new-user-pwd" placeholder="Mot de passe"></div>
+                  <div><div class="form-label">Mot de passe <span style="font-weight:400;color:var(--t3);font-size:10px">(auto)</span></div>
+                    <div style="display:flex;gap:6px;align-items:stretch">
+                      <input type="text" class="form-input" id="new-user-pwd" placeholder="Généré automatiquement" readonly style="flex:1;font-family:'JetBrains Mono',monospace;font-size:12px">
+                      <button type="button" class="equipe-link-btn" onclick="regenNewUserPwd()" title="Générer un autre mot de passe" style="flex-shrink:0;padding:8px 12px">↻</button>
+                    </div>
+                  </div>
                 </div>
                 <div style="margin-bottom:8px"><div class="form-label">Rôle BenAI</div>
                   <select class="form-input" id="new-user-role">
@@ -1690,7 +1701,9 @@ function getSupabaseClient(){
   if(!window.supabase?.createClient)return null;
   if(!supabaseClient){
     supabaseClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.publishableKey,{
-      auth:{persistSession:false,autoRefreshToken:true}
+      // Session Auth persistée (navigateur) : rester connecté mobile / PC après fermeture d’onglet.
+      // Les données métier (SAV, leads, notes…) restent uniquement sur Supabase, pas dans ce stockage.
+      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
     });
   }
   return supabaseClient;
@@ -3918,7 +3931,25 @@ function deleteNote(id){
 // ══════════════════════════════════════════
 function toggleAbsForm(){
   const wrap=document.getElementById('abs-form-wrap');
-  wrap.style.display=wrap.style.display==='none'?'block':'none';
+  const open=wrap.style.display==='none';
+  wrap.style.display=open?'block':'none';
+  if(open)fillAbsEmpList();
+}
+
+function getAssistanteUserIds(){
+  return getAllUsers().filter(u=>u.role==='assistante').map(u=>u.id);
+}
+function buildAbsenceNotifsArray(){
+  let notifs=[...document.querySelectorAll('.abs-notif-cb:checked')].map(cb=>cb.dataset.uid);
+  const assistanteIds=getAssistanteUserIds();
+  const shareAsst=document.getElementById('abs-share-assistantes')?.checked!==false;
+  if(shareAsst&&assistanteIds.length)
+    notifs=[...new Set([...notifs,...assistanteIds])];
+  else if(!shareAsst&&assistanteIds.length){
+    const asSet=new Set(assistanteIds);
+    notifs=notifs.filter(id=>!asSet.has(id));
+  }
+  return notifs;
 }
 
 function addAbsence(){
@@ -3932,7 +3963,7 @@ function addAbsence(){
   if(!emp){alert('Sélectionnez un employé');return;}
   if(!debut||!fin){alert('Remplissez les dates');return;}
   if(new Date(fin)<new Date(debut)){alert('⚠️ La date de fin doit être après le début');return;}
-  const notifs=[...document.querySelectorAll('.abs-notif-cb:checked')].map(cb=>cb.dataset.uid);
+  const notifs=buildAbsenceNotifsArray();
   const mem=getMem();
   if(!mem.absences)mem.absences=[];
   mem.absences.unshift({
@@ -3977,6 +4008,9 @@ function editAbsence(id){
     document.querySelectorAll('.abs-notif-cb').forEach(cb=>{
       cb.checked=(a.notifs||['benjamin']).includes(cb.dataset.uid);
     });
+    const assistanteIds=getAssistanteUserIds();
+    const shareEl=document.getElementById('abs-share-assistantes');
+    if(shareEl)shareEl.checked=!assistanteIds.length||assistanteIds.some(id=>(a.notifs||[]).includes(id));
   },60);
   const btn=document.querySelector('#abs-form-wrap .btn-primary');
   if(btn){btn.textContent='💾 Modifier';btn.onclick=()=>saveEditAbsence(id);}
@@ -3990,7 +4024,7 @@ function saveEditAbsence(id){
   const fin=document.getElementById('abs-fin').value;
   if(!emp||!debut||!fin){alert('Remplissez tous les champs obligatoires');return;}
   if(new Date(fin)<new Date(debut)){alert('⚠️ La date de fin doit être après le début');return;}
-  const notifs=[...document.querySelectorAll('.abs-notif-cb:checked')].map(cb=>cb.dataset.uid);
+  const notifs=buildAbsenceNotifsArray();
   const mem=getMem();const idx=(mem.absences||[]).findIndex(a=>a.id===id);if(idx===-1)return;
   mem.absences[idx]={...mem.absences[idx],employe:emp,debut,fin,
     heureDebut:document.getElementById('abs-heure-debut')?.value||'',
@@ -4271,11 +4305,17 @@ function fillAbsEmpList(){
   sel.innerHTML='<option value="">Sélectionner...</option>'+all.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
   // Checkboxes notif dynamiques
   const notifList=document.getElementById('abs-notif-list');if(!notifList)return;
-  notifList.innerHTML=getAllUsers().map(u=>`
+  const assistanteIds=new Set(getAssistanteUserIds());
+  notifList.innerHTML=getAllUsers().filter(u=>!assistanteIds.has(u.id)).map(u=>`
     <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
       <input type="checkbox" class="abs-notif-cb" data-uid="${u.id}" ${u.id==='benjamin'?'checked':''} style="accent-color:var(--a)">
-      ${esc(u.name)}
+      ${esc(u.name)}${u.role==='admin'?' (admin)':''}
     </label>`).join('');
+  const shareWrap=document.getElementById('abs-share-assistantes-wrap');
+  const shareEl=document.getElementById('abs-share-assistantes');
+  const hasAss=assistanteIds.size>0;
+  if(shareWrap)shareWrap.style.display=hasAss?'block':'none';
+  if(shareEl&&hasAss)shareEl.checked=true;
 }
 
 // PLANNING ABSENCES - téléchargement CSV
@@ -4848,11 +4888,25 @@ function findUserById(uid){
   return getAllUsers().find(u=>normalizeId(u.id)===normalized)||null;
 }
 
+function generateBenAIPassword(len=14){
+  const chars='abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const arr=new Uint32Array(len);
+  crypto.getRandomValues(arr);
+  let s='';
+  for(let i=0;i<len;i++)s+=chars[arr[i]%chars.length];
+  return s;
+}
+function regenNewUserPwd(){
+  const el=document.getElementById('new-user-pwd');
+  if(el)el.value=generateBenAIPassword(14);
+}
+
 function showAddUser(){
   const f=document.getElementById('add-user-form');
   const isOpen=f.style.display!=='none';
   f.style.display=isOpen?'none':'block';
   if(!isOpen){
+    regenNewUserPwd();
     // Peupler le select avec les salariés de l'annuaire qui n'ont pas encore de compte BenAI
     const ann=getAnnuaire();
     const existingUsers=getAllUsers().map(u=>normalizeId(u.name));
@@ -4871,11 +4925,11 @@ function showAddUser(){
 async function creerUtilisateur(){
   const sel=document.getElementById('new-user-ann-select');
   const val=sel?.value||'';
-  const pwd=document.getElementById('new-user-pwd').value.trim();
+  let pwd=(document.getElementById('new-user-pwd')?.value||'').trim();
+  if(!pwd||pwd.length<10)pwd=generateBenAIPassword(14);
   const role=document.getElementById('new-user-role')?.value||'assistante';
   const status=document.getElementById('add-user-status');
   if(!val){status.style.color='var(--r)';status.textContent='⚠️ Sélectionnez un salarié';return;}
-  if(!pwd||pwd.length<3){status.style.color='var(--r)';status.textContent='⚠️ Mot de passe trop court (3 min)';return;}
   const [prenom,nom,soc,fonction]=val.split('|');
   const name=`${prenom} ${nom}`.trim();
   const uid=normalizeId(prenom);
@@ -4925,9 +4979,11 @@ async function creerUtilisateur(){
     ts:Date.now()
   });
   saveMem(mem);
-  status.style.color='var(--g)';status.textContent=`✅ Accès ${roleLabel} créé pour ${name} (${email})`;
-  document.getElementById('new-user-pwd').value='';
-  setTimeout(()=>{document.getElementById('add-user-form').style.display='none';status.textContent='';},1500);
+  try{void navigator.clipboard.writeText(pwd);}catch(_){}
+  document.getElementById('new-user-pwd').value=pwd;
+  status.style.color='var(--g)';
+  status.textContent=`✅ Accès ${roleLabel} créé pour ${name}. Mot de passe dans le champ ci-dessus — copié dans le presse-papiers si le navigateur l’autorise.`;
+  setTimeout(()=>{document.getElementById('add-user-form').style.display='none';status.textContent='';document.getElementById('new-user-pwd').value='';},8000);
   renderUsersList();renderPwdList();logActivity(`Benjamin a créé l'accès BenAI (${roleLabel}) pour ${name}`);
 }
 
@@ -7992,7 +8048,7 @@ window.addEventListener('load',async()=>{
       }
     }catch(e){}
   }
-  // Mode cloud strict : aucune restauration de session locale.
+  // Pas de session Supabase valide : écran login (souvenir d’email via rememberLoginId si activé).
   // Vérif mise à jour
   checkUpdate();
   // Mode hors-ligne
