@@ -9,11 +9,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BenAI">
 <link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;BenAI&quot;,&quot;short_name&quot;:&quot;BenAI&quot;,&quot;start_url&quot;:&quot;/&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23080808&quot;,&quot;theme_color&quot;:&quot;%23E8943A&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%23E8943A'/><text x='96' y='140' text-anchor='middle' font-size='120' font-weight='bold' fill='white'>B</text></svg>&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/svg+xml&quot;}]}">
-<meta name="theme-color" content="#E8943A">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="BenAI">
 <meta name="description" content="BenAI — Assistant Nemausus Fermetures & Lambert SAS">
 <title>BenAI</title>
 <style>
@@ -437,6 +432,46 @@ body.light .bubble{color:var(--t1);}
 /* VU indicator */
 .lead-vu{font-size:10px;color:var(--g);font-weight:600;}
 .lead-non-vu{font-size:10px;color:var(--r);font-weight:600;}
+/* RESPONSIVE */
+@media (max-width: 1024px){
+  .sidebar{width:72px;}
+  .sb-label,.sb-txt{display:none;}
+  .sb-item{justify-content:center;padding:10px 6px;}
+  .sb-icon{font-size:18px;}
+  .sb-badge,.sb-badge-r,.sb-badge-abs{position:absolute;top:2px;right:2px;margin-left:0;}
+  .conv-list{width:170px;}
+}
+@media (max-width: 768px){
+  html,body{overflow:auto;}
+  .topbar{height:auto;min-height:52px;flex-wrap:wrap;padding:8px 10px;row-gap:6px;}
+  .tb-user{width:100%;justify-content:flex-end;gap:6px;}
+  .main{flex-direction:column;}
+  .sidebar{
+    width:100%;
+    border-right:none;
+    border-bottom:1px solid var(--b1);
+    flex-direction:row;
+    overflow-x:auto;
+    overflow-y:hidden;
+    padding:4px;
+  }
+  .sb-section{display:flex;gap:4px;padding:0;}
+  .sb-item{min-width:44px;}
+  .content{min-height:calc(100vh - 110px);}
+  .page-header{padding:10px 12px 6px;flex-wrap:wrap;gap:8px;}
+  .chat-area,.sav-area,.notes-area,.dashboard{padding:12px;}
+  .msg.user,.msg.ai{max-width:96%;}
+  .chat-input-area{padding:10px;}
+  .dash-grid{grid-template-columns:1fr;}
+  .form-row{grid-template-columns:1fr;}
+  .conv-list{display:none;}
+  .lead-modal{padding:8px;}
+  .lead-modal-box{max-height:95vh;}
+  .crm-filters{padding:8px 10px;gap:5px;}
+  .crm-filter{font-size:10px;padding:4px 10px;}
+  #crm-search{width:100% !important;max-width:none;}
+  .kanban-col{min-width:240px;}
+}
 input[type=file]{display:none;}
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -1264,13 +1299,42 @@ input[type=file]{display:none;}
 </div><!-- /app -->
 
 <input type="file" id="attach-file" accept=".pdf,image/*" multiple onchange="handleAttachment(this)">
-<input type="file" id="paie-files" accept=".pdf" multiple onchange="processFichesPaie(this)">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 const BENAI_VERSION = '3.15';
+const STORAGE_KEYS = {
+  mem:'benai_v3',
+  api:'benai_api',
+  pwds:'benai_pwds',
+  access:'benai_access'
+};
+// Préparation Supabase (phase ready): cette couche permet d'activer
+// une synchro distante sans casser le fonctionnement localStorage existant.
+const SUPABASE_CONFIG = {
+  url: localStorage.getItem('benai_supabase_url')||'',
+  anonKey: localStorage.getItem('benai_supabase_anon_key')||'',
+  enabled: localStorage.getItem('benai_supabase_enabled')==='1',
+  table:'benai_state'
+};
+
+async function syncMemToSupabase(mem){
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!SUPABASE_CONFIG.anonKey||!currentUser)return;
+  try{
+    await fetch(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}`,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'apikey':SUPABASE_CONFIG.anonKey,
+        'Authorization':'Bearer '+SUPABASE_CONFIG.anonKey,
+        'Prefer':'resolution=merge-duplicates'
+      },
+      body:JSON.stringify([{uid:currentUser.id,payload:mem,updated_at:new Date().toISOString()}])
+    });
+  }catch(e){}
+}
 
 // ══════════════════════════════════════════
 // UTILISATEURS
@@ -1298,13 +1362,13 @@ let currentUser=null, chatHistory=[], currentConv=null, busy=false, currentFilte
 // ══════════════════════════════════════════
 // MÉMOIRE
 // ══════════════════════════════════════════
-function getMem(){try{return JSON.parse(localStorage.getItem('benai_v3'))||{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}catch{return{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}}
-function saveMem(m){localStorage.setItem('benai_v3',JSON.stringify(m));}
-function getApiKey(){return localStorage.getItem('benai_api')||'';}
-function getPwds(){try{return JSON.parse(localStorage.getItem('benai_pwds'))||{benjamin:'1234',aurelie:'1234',claudine:'1234'};}catch{return{benjamin:'1234',aurelie:'1234',claudine:'1234'};}}
-function savePwds(p){localStorage.setItem('benai_pwds',JSON.stringify(p));}
-function getAccess(){try{return JSON.parse(localStorage.getItem('benai_access'))||{};}catch{return {};}}
-function saveAccess(a){localStorage.setItem('benai_access',JSON.stringify(a));}
+function getMem(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.mem))||{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}catch{return{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}}
+function saveMem(m){localStorage.setItem(STORAGE_KEYS.mem,JSON.stringify(m));syncMemToSupabase(m);}
+function getApiKey(){return localStorage.getItem(STORAGE_KEYS.api)||'';}
+function getPwds(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.pwds))||{benjamin:'1234',aurelie:'1234',claudine:'1234'};}catch{return{benjamin:'1234',aurelie:'1234',claudine:'1234'};}}
+function savePwds(p){localStorage.setItem(STORAGE_KEYS.pwds,JSON.stringify(p));}
+function getAccess(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.access))||{};}catch{return {};}}
+function saveAccess(a){localStorage.setItem(STORAGE_KEYS.access,JSON.stringify(a));}
 
 // CHAT MEMORY par utilisateur
 function saveChatMem(uid,msgs){
@@ -2419,6 +2483,21 @@ function addAbsence(){
   if(!debut||!fin){alert('Remplissez les dates');return;}
   if(new Date(fin)<new Date(debut)){alert('⚠️ La date de fin doit être après le début');return;}
   const notifs=[...document.querySelectorAll('.abs-notif-cb:checked')].map(cb=>cb.dataset.uid);
+  const mem=getMem();
+  if(!mem.absences)mem.absences=[];
+  mem.absences.unshift({
+    id:Date.now(),
+    employe:emp,
+    debut,
+    fin,
+    heureDebut,
+    heureFin,
+    type,
+    note,
+    notifs,
+    createdAt:new Date().toISOString(),
+    by:currentUser?.id||'benjamin'
+  });
   saveMem(mem);
   ['abs-debut','abs-fin','abs-note','abs-heure-debut','abs-heure-fin'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   if(document.getElementById('abs-emp-select'))document.getElementById('abs-emp-select').value='';
