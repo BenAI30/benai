@@ -3875,7 +3875,16 @@ function saveApiKeySettings(){
 
 function isLikelySupabasePublicKey(key){
   if(!key)return false;
-  return key.startsWith('sb_publishable_')||/^eyJ/.test(key);
+  const k=key.trim();
+  if(!k)return false;
+  // On refuse explicitement les clés sensibles.
+  if(k.startsWith('sb_secret_'))return false;
+  if(/service[_-]?role/i.test(k))return false;
+  // Formats publics connus : nouvelle publishable ou ancienne anon JWT.
+  if(k.startsWith('sb_publishable_')||/^eyJ/.test(k))return true;
+  // Fallback tolérant pour éviter de bloquer l'utilisateur:
+  // une clé publique copiée avec variation de format reste acceptée.
+  return k.length>=24;
 }
 
 function saveSupabaseSettings(){
@@ -3884,14 +3893,17 @@ function saveSupabaseSettings(){
     if(msg){msg.style.color='var(--r)';msg.textContent='⚠️ Réservé à l’administrateur';}
     return false;
   }
-  const url=(document.getElementById('supabase-url-settings')?.value||'').trim();
+  let url=(document.getElementById('supabase-url-settings')?.value||'').trim();
   const key=(document.getElementById('supabase-key-settings')?.value||'').trim();
+  if(url&&url.startsWith('http://'))url='https://'+url.slice(7);
+  if(url&&url.startsWith('https://https://'))url=url.replace('https://https://','https://');
+  if(url&&!url.startsWith('https://')&&url.includes('.supabase.co'))url='https://'+url;
   if(!url.startsWith('https://')||!url.includes('.supabase.co')){
     if(msg){msg.style.color='var(--r)';msg.textContent='⚠️ URL Supabase invalide';}
     return false;
   }
   if(!isLikelySupabasePublicKey(key)){
-    if(msg){msg.style.color='var(--r)';msg.textContent='⚠️ Clé invalide (publishable ou ancienne anon)';}
+    if(msg){msg.style.color='var(--r)';msg.textContent='⚠️ Clé invalide (utilisez Publishable, pas Secret/service_role)';}
     return false;
   }
   localStorage.setItem(STORAGE_KEYS.sbUrl,url);
