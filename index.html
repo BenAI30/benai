@@ -1491,6 +1491,20 @@ function getSupabaseClient(){
   return supabaseClient;
 }
 
+async function ensureSupabaseSession(){
+  if(currentSupabaseSession?.access_token)return currentSupabaseSession;
+  const client=getSupabaseClient();
+  if(!client)return null;
+  try{
+    const {data}=await client.auth.getSession();
+    currentSupabaseSession=data?.session||null;
+    return currentSupabaseSession;
+  }catch(e){
+    currentSupabaseSession=null;
+    return null;
+  }
+}
+
 function getBuiltinLoginEmails(){
   return {
     benjamin:'b.muller@monsieur-store.net'
@@ -1676,7 +1690,9 @@ async function upsertSupabaseTable(table,rows){
 }
 
 async function syncSharedTablesToSupabase(mem,annuaire){
-  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentSupabaseSession?.access_token)return false;
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
+  const session=await ensureSupabaseSession();
+  if(!session?.access_token)return false;
   const headers=getSupabaseHeaders();
   if(!headers)return false;
   try{
@@ -1700,7 +1716,9 @@ function scheduleSupabaseSync(mem,annuaire){
 }
 
 async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
-  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser||!currentSupabaseSession?.access_token)return;
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return;
+  const session=await ensureSupabaseSession();
+  if(!session?.access_token)return;
   const headers=getSupabaseHeaders();
   if(!headers)return;
   try{
@@ -1716,7 +1734,9 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
 }
 
 async function loadCoreDataFromSupabase(){
-  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser||!currentSupabaseSession?.access_token)return false;
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return false;
+  const session=await ensureSupabaseSession();
+  if(!session?.access_token)return false;
   const headers=getSupabaseHeaders();
   if(!headers)return false;
   try{
@@ -1817,7 +1837,9 @@ function extractSharedAIKey(value){
 }
 
 async function loadSharedApiKeyFromSupabase(){
-  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentSupabaseSession?.access_token)return false;
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
+  const session=await ensureSupabaseSession();
+  if(!session?.access_token)return false;
   const headers=getSupabaseHeaders();
   if(!headers)return false;
   try{
@@ -1836,9 +1858,11 @@ async function loadSharedApiKeyFromSupabase(){
 }
 
 async function saveSharedApiKeyToSupabase(rawKey){
-  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentSupabaseSession?.access_token){
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url){
     return {ok:false,reason:'missing_session'};
   }
+  const session=await ensureSupabaseSession();
+  if(!session?.access_token)return {ok:false,reason:'missing_session'};
   const headers=getSupabaseHeaders();
   if(!headers)return {ok:false,reason:'missing_headers'};
   const key=normalizeAnthropicKey(rawKey);
@@ -1855,7 +1879,7 @@ async function saveSharedApiKeyToSupabase(rawKey){
     },10000);
     if(res.ok)return {ok:true};
     if(res.status===401||res.status===403){
-      const profile=await fetchSupabaseProfile(currentSupabaseSession.access_token);
+      const profile=await fetchSupabaseProfile(session.access_token);
       if(!profile)return {ok:false,reason:'profile_missing'};
       return {ok:false,reason:'forbidden'};
     }
@@ -4369,6 +4393,8 @@ function saveSupabaseSettings(){
   }
   const urlInput=document.getElementById('supabase-url-settings');
   const keyInput=document.getElementById('supabase-key-settings');
+  const previousUrl=SUPABASE_CONFIG.url||'';
+  const previousKey=(SUPABASE_CONFIG.publishableKey||'').trim();
   const url=normalizeSupabaseUrl(urlInput?.value||'');
   const key=(document.getElementById('supabase-key-settings')?.value||'').trim();
   if(!url.startsWith('https://')||!url.includes('.supabase.co')){
@@ -4384,10 +4410,14 @@ function saveSupabaseSettings(){
   localStorage.setItem(STORAGE_KEYS.sbUrl,url);
   localStorage.setItem(STORAGE_KEYS.sbPublishable,key);
   localStorage.setItem(STORAGE_KEYS.sbEnabled,'1');
-  const existingClient=supabaseClient;
-  supabaseClient=null;
-  currentSupabaseSession=null;
-  if(existingClient)existingClient.auth.signOut().catch(()=>{});
+  const configChanged=normalizeSupabaseUrl(previousUrl)!==url||previousKey!==key;
+  if(configChanged){
+    supabaseClient=null;
+    currentSupabaseSession=null;
+    setStatusMessage(msg,'var(--y)','✅ Configuration enregistrée — reconnectez-vous pour réactiver la session Supabase');
+    applySupabaseConfigFromStorage();
+    return true;
+  }
   applySupabaseConfigFromStorage();
   setStatusMessage(msg,'var(--g)','✅ Configuration Supabase enregistrée');
   return true;
