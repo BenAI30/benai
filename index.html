@@ -673,6 +673,17 @@ input[type=file]{display:none;}
         <div id="api-msg" style="font-size:11px;margin-top:5px;color:var(--g);min-height:14px"></div>
       </div>
       <div class="sp-section">
+        <div class="sp-label">Supabase (URL + clé publishable)</div>
+        <input type="text" id="supabase-url-settings" placeholder="https://xxxx.supabase.co" style="width:100%;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:inherit;font-size:11px;outline:none;margin-bottom:6px">
+        <input type="password" id="supabase-key-settings" placeholder="sb_publishable_... (ou ancienne clé anon eyJ...)" style="width:100%;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button onclick="saveSupabaseSettings()" style="flex:1;padding:8px 12px;background:var(--a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">Enregistrer</button>
+          <button onclick="testSupabaseSettings()" style="flex:1;padding:8px 12px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">Tester</button>
+        </div>
+        <div style="font-size:10px;color:var(--t3);margin-top:5px">Ne jamais utiliser la clé service_role ici.</div>
+        <div id="supabase-msg" style="font-size:11px;margin-top:5px;min-height:14px"></div>
+      </div>
+      <div class="sp-section">
         <div class="sp-label">Mots de passe équipe</div>
         <div id="team-pwd-list"></div>
       </div>
@@ -1385,31 +1396,113 @@ const STORAGE_KEYS = {
   mem:'benai_v3',
   api:'benai_api',
   pwds:'benai_pwds',
-  access:'benai_access'
+  access:'benai_access',
+  rememberedLogin:'benai_login_user',
+  sbUrl:'benai_supabase_url',
+  sbPublishable:'benai_supabase_publishable_key',
+  sbAnonLegacy:'benai_supabase_anon_key',
+  sbEnabled:'benai_supabase_enabled'
 };
 // Préparation Supabase (phase ready): cette couche permet d'activer
 // une synchro distante sans casser le fonctionnement localStorage existant.
 const SUPABASE_CONFIG = {
-  url: localStorage.getItem('benai_supabase_url')||'',
-  anonKey: localStorage.getItem('benai_supabase_anon_key')||'',
-  enabled: localStorage.getItem('benai_supabase_enabled')==='1',
+  url:'https://ipmbfbraadzyzncqbimn.supabase.co',
+  publishableKey:'',
+  enabled: (localStorage.getItem(STORAGE_KEYS.sbEnabled)??'1')==='1',
   table:'benai_state'
 };
 
+function applySupabaseConfigFromStorage(){
+  const storedUrl=localStorage.getItem(STORAGE_KEYS.sbUrl)||'https://ipmbfbraadzyzncqbimn.supabase.co';
+  const storedKey=localStorage.getItem(STORAGE_KEYS.sbPublishable)||localStorage.getItem(STORAGE_KEYS.sbAnonLegacy)||'';
+  SUPABASE_CONFIG.url=storedUrl.trim();
+  SUPABASE_CONFIG.publishableKey=storedKey.trim();
+  SUPABASE_CONFIG.enabled=(localStorage.getItem(STORAGE_KEYS.sbEnabled)??'1')==='1';
+}
+applySupabaseConfigFromStorage();
+
+function getSupabaseHeaders(){
+  applySupabaseConfigFromStorage();
+  const key=SUPABASE_CONFIG.publishableKey;
+  if(!key)return null;
+  const headers={'Content-Type':'application/json','apikey':key};
+  // Legacy anon keys are JWT and can still be sent as Bearer.
+  if(/^eyJ/.test(key))headers.Authorization='Bearer '+key;
+  return headers;
+}
+
 async function syncMemToSupabase(mem){
-  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!SUPABASE_CONFIG.anonKey||!currentUser)return;
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return;
+  const headers=getSupabaseHeaders();
+  if(!headers)return;
   try{
     await fetch(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}`,{
       method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'apikey':SUPABASE_CONFIG.anonKey,
-        'Authorization':'Bearer '+SUPABASE_CONFIG.anonKey,
-        'Prefer':'resolution=merge-duplicates'
-      },
+      headers:{...headers,'Prefer':'resolution=merge-duplicates'},
       body:JSON.stringify([{uid:currentUser.id,payload:mem,updated_at:new Date().toISOString()}])
     });
   }catch(e){}
+}
+
+async function loadCoreDataFromSupabase(){
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return false;
+  const headers=getSupabaseHeaders();
+  if(!headers)return false;
+  try{
+    const [savRes,notesRes,absRes,annRes]=await Promise.all([
+      fetch(`${SUPABASE_CONFIG.url}/rest/v1/sav?select=*`,{headers}),
+      fetch(`${SUPABASE_CONFIG.url}/rest/v1/notes?select=*`,{headers}),
+      fetch(`${SUPABASE_CONFIG.url}/rest/v1/absences?select=*`,{headers}),
+      fetch(`${SUPABASE_CONFIG.url}/rest/v1/annuaire?select=*`,{headers})
+    ]);
+    if(!savRes.ok||!notesRes.ok||!absRes.ok||!annRes.ok)return false;
+
+    const [savRows,noteRows,absRows,annRows]=await Promise.all([
+      savRes.json(),notesRes.json(),absRes.json(),annRes.json()
+    ]);
+    const mem=getMem();
+    mem.sav=(savRows||[]).map(s=>({
+      id:s.legacy_id||s.id||Date.now(),
+      client:s.client||'',
+      type:s.type||'',
+      date:s.date_rappel||s.created_at?.slice(0,10)||toISODate(new Date()),
+      done:!!s.done,
+      commentaire:s.commentaire||'',
+      muteReminder:!!s.mute_reminder,
+      archived:!!s.archived
+    }));
+    mem.notes=(noteRows||[]).map(n=>({
+      id:n.legacy_id||n.id||Date.now(),
+      t:n.text||'',
+      from:n.author_uid||'benjamin',
+      to:n.target_uid||'all',
+      ts:n.ts||Date.now()
+    }));
+    mem.absences=(absRows||[]).map(a=>({
+      id:a.legacy_id||a.id||Date.now(),
+      employe:a.employe||'',
+      type:a.type||'Congé',
+      debut:a.debut||'',
+      fin:a.fin||'',
+      notifs:Array.isArray(a.notifs)?a.notifs:['benjamin']
+    }));
+    saveMem(mem);
+    const annuaireLocal=(annRows||[]).map(a=>({
+      id:a.legacy_id||a.id||Date.now(),
+      prenom:a.prenom||'',
+      nom:a.nom||'',
+      email:a.email||'',
+      emailPro:a.email_pro||'',
+      tel:a.tel||'',
+      naissance:a.naissance||'',
+      fonction:a.fonction||'Autre',
+      societe:a.societe||'nemausus'
+    }));
+    saveAnnuaire(annuaireLocal);
+    return true;
+  }catch(e){
+    return false;
+  }
 }
 
 // ══════════════════════════════════════════
@@ -1473,6 +1566,33 @@ function getPwds(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.pwds)
 function savePwds(p){localStorage.setItem(STORAGE_KEYS.pwds,JSON.stringify(p));}
 function getAccess(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.access))||{};}catch{return {};}}
 function saveAccess(a){localStorage.setItem(STORAGE_KEYS.access,JSON.stringify(a));}
+const PWD_HASH_PREFIX='h$';
+function isPwdHashed(v){return typeof v==='string'&&v.startsWith(PWD_HASH_PREFIX);}
+async function hashPassword(uid,pwd){
+  try{
+    if(!window.crypto?.subtle)return pwd;
+    const payload=`benai:${uid}:${pwd}`;
+    const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(payload));
+    const hex=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
+    return PWD_HASH_PREFIX+hex;
+  }catch(e){return pwd;}
+}
+async function verifyPassword(uid,input,stored){
+  if(!stored)return false;
+  if(isPwdHashed(stored))return (await hashPassword(uid,input))===stored;
+  return input===stored;
+}
+async function maybeMigratePwds(){
+  const pwds=getPwds();
+  let changed=false;
+  for(const [uid,val] of Object.entries(pwds)){
+    if(!isPwdHashed(val)){
+      pwds[uid]=await hashPassword(uid,val);
+      changed=true;
+    }
+  }
+  if(changed)savePwds(pwds);
+}
 
 // CHAT MEMORY par utilisateur
 function saveChatMem(uid,msgs){
@@ -1563,7 +1683,7 @@ function checkAccessRealtime(){
 }
 setInterval(checkAccessRealtime,15000);
 
-function login(){
+async function login(){
   const uid=normalizeId(document.getElementById('login-user').value);
   const pwd=document.getElementById('login-pwd').value;
   const err=document.getElementById('login-err');
@@ -1598,7 +1718,8 @@ function login(){
 
   const pwds=getPwds();
   const validPwd=pwds[resolvedUid]||USERS[resolvedUid]?.pwd||'1234';
-  if(pwd!==validPwd){
+  const isValid=await verifyPassword(resolvedUid,pwd,validPwd);
+  if(!isValid){
     if(uid!=='benjamin'){
       attempts.count++;
       if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;err.textContent='Accès bloqué 5 minutes.';saveLoginAttempts(attempts);return;}
@@ -1622,6 +1743,8 @@ function login(){
     return;
   }
   sessionStorage.setItem('benai_session',resolvedUid);
+  localStorage.setItem(STORAGE_KEYS.rememberedLogin,document.getElementById('login-user').value.trim());
+  await loadCoreDataFromSupabase();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').classList.add('visible');
   initApp();
@@ -3486,7 +3609,7 @@ function showAddUser(){
   }
 }
 
-function creerUtilisateur(){
+async function creerUtilisateur(){
   const sel=document.getElementById('new-user-ann-select');
   const val=sel?.value||'';
   const pwd=document.getElementById('new-user-pwd').value.trim();
@@ -3502,11 +3625,11 @@ function creerUtilisateur(){
   const roleLabel={assistante:'Assistante',commercial:'Commercial',directeur_co:'Directeur commercial'}[role]||'Assistante';
   const newUser={id:uid,name,role,societe:soc,fonction,color:COLORS[extras.length%COLORS.length],initial:prenom[0].toUpperCase(),builtin:false};
   extras.push(newUser);saveExtraUsers(extras);
-  const pwds=getPwds();pwds[uid]=pwd;savePwds(pwds);
+  const pwds=getPwds();pwds[uid]=await hashPassword(uid,pwd);savePwds(pwds);
   const systemPrompt=CRM_PAGES_ONLY.includes(role)
     ?`Tu es BenAI CRM, assistant de ${name} (${roleLabel}) chez Nemausus Fermetures.`
     :`Tu es BenAI, l'assistant de ${name} (${fonction}) chez Nemausus Fermetures / Lambert SAS. Tu proposes toujours — ${name} décide toujours.`;
-  USERS[uid]={name,pwd,role,color:newUser.color,initial:newUser.initial,system:systemPrompt};
+  USERS[uid]={name,pwd:pwds[uid],role,color:newUser.color,initial:newUser.initial,system:systemPrompt};
   // Ajouter au select login
   const loginSel=document.getElementById('login-user');
   if(loginSel&&!loginSel.querySelector(`option[value="${uid}"]`)){
@@ -3633,29 +3756,28 @@ function editUser(uid){
 
 function renderPwdList(){
   const list=document.getElementById('pwd-list');if(!list)return;
-  const pwds=getPwds();
   list.innerHTML=getAllUsers().map(u=>`
     <div class="user-row">
       <div class="user-av" style="background:${u.color};width:26px;height:26px;border-radius:7px;font-size:11px">${u.initial}</div>
       <div style="flex:1;font-size:13px;font-weight:500">${esc(u.name)}</div>
-      <div style="font-size:12px;color:var(--t3);font-family:'JetBrains Mono',monospace;background:var(--bg);padding:4px 10px;border-radius:6px;cursor:pointer" onclick="this.textContent=this.textContent.includes('•')?'${pwds[u.id]||'1234'}':'••••'">${'••••'}</div>
+      <div style="font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;background:var(--bg);padding:4px 10px;border-radius:6px">•••• sécurisé</div>
       <button onclick="changerMdp('${u.id}','${u.name}')" style="padding:5px 10px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">Modifier</button>
     </div>`).join('');
   // Panel settings aussi
   renderTeamPwdSettings();
 }
 
-function changerMdp(uid,name){
+async function changerMdp(uid,name){
   const nouveau=prompt(`Nouveau mot de passe pour ${name} :\n\n✅ Minimum 6 caractères\n✅ Au moins 1 majuscule\n✅ Au moins 1 caractère spécial (!@#$%...)`);
   if(!nouveau)return;
   const err=validatePassword(nouveau);
   if(err){alert('⚠️ '+err);return;}
-  const pwds=getPwds();pwds[uid]=nouveau;savePwds(pwds);if(USERS[uid])USERS[uid].pwd=nouveau;
+  const pwds=getPwds();pwds[uid]=await hashPassword(uid,nouveau);savePwds(pwds);if(USERS[uid])USERS[uid].pwd=pwds[uid];
   renderPwdList();logActivity(`Benjamin a modifié le mot de passe de ${name}`);alert(`✅ Mot de passe de ${name} modifié !`);
 }
 
 // PARAMÈTRES
-function forcePwdChange(){
+async function forcePwdChange(){
   const pwd=document.getElementById('force-pwd-input').value;
   const confirm=document.getElementById('force-pwd-confirm').value;
   const err=document.getElementById('force-pwd-err');
@@ -3665,9 +3787,9 @@ function forcePwdChange(){
   if(pwd!==confirm){err.textContent='⚠️ Les mots de passe ne correspondent pas';return;}
   // Sauvegarder
   const pwds=getPwds();
-  pwds[currentUser.id]=pwd;
+  pwds[currentUser.id]=await hashPassword(currentUser.id,pwd);
   savePwds(pwds);
-  if(USERS[currentUser.id])USERS[currentUser.id].pwd=pwd;
+  if(USERS[currentUser.id])USERS[currentUser.id].pwd=pwds[currentUser.id];
   // Masquer l'écran et lancer l'app
   sessionStorage.setItem('benai_session',currentUser.id);
   document.getElementById('force-pwd-screen').style.display='none';
@@ -3703,6 +3825,17 @@ function initSettings(){
     const lastBackup=localStorage.getItem('benai_gdrive_last_backup');
     const lastEl=document.getElementById('gdrive-last-backup');
     if(lastEl&&lastBackup)lastEl.textContent='Dernière sauvegarde : '+new Date(lastBackup).toLocaleString('fr-FR');
+    const sbUrlInput=document.getElementById('supabase-url-settings');
+    const sbKeyInput=document.getElementById('supabase-key-settings');
+    const sbMsg=document.getElementById('supabase-msg');
+    if(sbUrlInput)sbUrlInput.value=localStorage.getItem(STORAGE_KEYS.sbUrl)||SUPABASE_CONFIG.url||'';
+    if(sbKeyInput)sbKeyInput.value=localStorage.getItem(STORAGE_KEYS.sbPublishable)||localStorage.getItem(STORAGE_KEYS.sbAnonLegacy)||'';
+    if(sbMsg){
+      const hasUrl=!!(localStorage.getItem(STORAGE_KEYS.sbUrl)||'').trim();
+      const hasKey=!!(localStorage.getItem(STORAGE_KEYS.sbPublishable)||localStorage.getItem(STORAGE_KEYS.sbAnonLegacy)||'').trim();
+      sbMsg.style.color=hasUrl&&hasKey?'var(--g)':'var(--y)';
+      sbMsg.textContent=hasUrl&&hasKey?'✅ Supabase configuré':'⚠️ Renseignez URL et clé publishable Supabase';
+    }
   }
 }
 
@@ -3712,23 +3845,22 @@ function setTheme(theme){
   document.getElementById('btn-light').style.borderColor=theme==='light'?'var(--a)':'var(--b1)';
 }
 
-function changerMonMdp(){
+async function changerMonMdp(){
   const pwd=document.getElementById('new-pwd').value.trim();const msg=document.getElementById('pwd-msg');
   const err=validatePassword(pwd);
   if(err){msg.style.color='var(--r)';msg.textContent='⚠️ '+err;return;}
-  const pwds=getPwds();pwds[currentUser.id]=pwd;savePwds(pwds);
+  const pwds=getPwds();pwds[currentUser.id]=await hashPassword(currentUser.id,pwd);savePwds(pwds);
   document.getElementById('new-pwd').value='';msg.style.color='var(--g)';msg.textContent='✅ Modifié !';
   setTimeout(()=>msg.textContent='',2000);logActivity(`${currentUser.name} a changé son mot de passe`);
 }
 
 function renderTeamPwdSettings(){
   const list=document.getElementById('team-pwd-list');if(!list)return;
-  const pwds=getPwds();
   list.innerHTML=getAllUsers().map(u=>`
     <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s3);border-radius:8px;margin-bottom:5px">
       <div style="width:22px;height:22px;border-radius:6px;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff">${u.initial}</div>
       <div style="flex:1;font-size:12px;font-weight:500">${u.name}</div>
-      <div style="font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;background:var(--bg);padding:3px 8px;border-radius:5px;cursor:pointer" onclick="this.textContent=this.textContent.includes('•')?'${pwds[u.id]||'1234'}':'••••'">••••</div>
+      <div style="font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;background:var(--bg);padding:3px 8px;border-radius:5px">•••• sécurisé</div>
       <button onclick="changerMdp('${u.id}','${u.name}')" style="padding:3px 8px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:5px;font-size:10px;cursor:pointer;font-family:inherit">✏️</button>
     </div>`).join('');
 }
@@ -3739,6 +3871,52 @@ function saveApiKeySettings(){
   if(!key||!key.startsWith('sk-')){msg.style.color='var(--r)';msg.textContent='⚠️ Clé invalide';return;}
   localStorage.setItem('benai_api',key);document.getElementById('api-key-settings').value='';
   msg.style.color='var(--g)';msg.textContent='✅ Clé IA partagée enregistrée !';setTimeout(()=>msg.textContent='',2500);
+}
+
+function isLikelySupabasePublicKey(key){
+  if(!key)return false;
+  return key.startsWith('sb_publishable_')||/^eyJ/.test(key);
+}
+
+function saveSupabaseSettings(){
+  const msg=document.getElementById('supabase-msg');
+  if(currentUser?.role!=='admin'){
+    if(msg){msg.style.color='var(--r)';msg.textContent='⚠️ Réservé à l’administrateur';}
+    return false;
+  }
+  const url=(document.getElementById('supabase-url-settings')?.value||'').trim();
+  const key=(document.getElementById('supabase-key-settings')?.value||'').trim();
+  if(!url.startsWith('https://')||!url.includes('.supabase.co')){
+    if(msg){msg.style.color='var(--r)';msg.textContent='⚠️ URL Supabase invalide';}
+    return false;
+  }
+  if(!isLikelySupabasePublicKey(key)){
+    if(msg){msg.style.color='var(--r)';msg.textContent='⚠️ Clé invalide (publishable ou ancienne anon)';}
+    return false;
+  }
+  localStorage.setItem(STORAGE_KEYS.sbUrl,url);
+  localStorage.setItem(STORAGE_KEYS.sbPublishable,key);
+  localStorage.setItem(STORAGE_KEYS.sbEnabled,'1');
+  applySupabaseConfigFromStorage();
+  if(msg){msg.style.color='var(--g)';msg.textContent='✅ Configuration Supabase enregistrée';}
+  return true;
+}
+
+async function testSupabaseSettings(){
+  const msg=document.getElementById('supabase-msg');
+  const isSaved=saveSupabaseSettings();
+  if(!isSaved)return;
+  if(msg){msg.style.color='var(--a)';msg.textContent='⏳ Test de connexion en cours...';}
+  try{
+    const headers=getSupabaseHeaders();
+    if(!headers)throw new Error('Clé manquante');
+    const url=`${SUPABASE_CONFIG.url}/rest/v1/sav?select=id&limit=1`;
+    const res=await fetch(url,{headers});
+    if(!res.ok)throw new Error('Connexion refusée');
+    if(msg){msg.style.color='var(--g)';msg.textContent='✅ Connexion Supabase OK';}
+  }catch(e){
+    if(msg){msg.style.color='var(--r)';msg.textContent='⚠️ Test échoué : vérifiez URL/clé/policies';}
+  }
 }
 
 function saveGDriveClientIdSettings(){
@@ -6125,7 +6303,7 @@ document.addEventListener('click',e=>{
 // ══════════════════════════════════════════
 // INIT AU CHARGEMENT
 // ══════════════════════════════════════════
-window.addEventListener('load',()=>{
+window.addEventListener('load',async()=>{
   initManifestAndIcons();
   registerBenAISW();
   refreshInstallButton();
@@ -6133,6 +6311,7 @@ window.addEventListener('load',()=>{
   const theme=localStorage.getItem('benai_theme')||'dark';
   if(theme==='light')document.body.classList.add('light');
   // Clé API : configuration centralisée côté admin dans Paramètres
+  await maybeMigratePwds();
   // Charger utilisateurs extra avec leur vrai rôle
   getExtraUsers().forEach(u=>{
     if(!USERS[u.id]){
@@ -6144,6 +6323,9 @@ window.addEventListener('load',()=>{
       USERS[u.id]={name:u.name,pwd:getPwds()[u.id]||'1234',role,color:u.color,initial:u.initial,system:systemPrompt};
     }
   });
+  const rememberedLogin=localStorage.getItem(STORAGE_KEYS.rememberedLogin)||'';
+  const loginInput=document.getElementById('login-user');
+  if(loginInput&&rememberedLogin)loginInput.value=rememberedLogin;
   // Restaurer session si rechargement de page
   const savedSession=sessionStorage.getItem('benai_session');
   if(savedSession){
@@ -6158,11 +6340,12 @@ window.addEventListener('load',()=>{
       }
       // Vérif mot de passe pas encore 1234
       const pwds=getPwds();
-      if((pwds[uid]||'1234')==='1234'){
+      if(await verifyPassword(uid,'1234',pwds[uid]||'1234')){
         sessionStorage.removeItem('benai_session');
         checkUpdate();return;
       }
       currentUser={id:uid,...userObj};
+      await loadCoreDataFromSupabase();
       document.getElementById('login-screen').style.display='none';
       document.getElementById('app').classList.add('visible');
       initApp(true); // true = restauration silencieuse (pas de message d'accueil)
