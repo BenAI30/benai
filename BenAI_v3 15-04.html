@@ -541,7 +541,7 @@ input[type=file]{display:none;}
       <p>Nemausus Fermetures · Lambert SAS</p>
     </div>
     <div class="login-label">Identifiant (email pro)</div>
-    <input type="email" class="login-input" id="login-user" placeholder="prenom.nom@entreprise.fr" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter')document.getElementById('login-pwd').focus()">
+    <input type="email" class="login-input" id="login-user" placeholder="email" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter')document.getElementById('login-pwd').focus()">
     <div class="login-label">Mot de passe</div>
     <input type="password" class="login-input" id="login-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
     <button class="login-btn" onclick="login()">Se connecter →</button>
@@ -1398,48 +1398,120 @@ input[type=file]{display:none;}
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// Désactivation localStorage: tout est routé vers sessionStorage (sans migration legacy).
-function routeLocalStorageToSessionStorage(){
-  if(window.__benaiStorageRouted)return;
-  window.__benaiStorageRouted=true;
-  try{
-    const ls=window.localStorage;
-    const ss=window.sessionStorage;
-    if(!ls||!ss)return;
-    // On repart propre: on ignore les anciennes données et on vide localStorage.
-    try{ls.clear();}catch(e){}
-    const sp=Storage.prototype;
-    if(!sp.__benaiLocalReroutePatched){
-      sp.__benaiLocalReroutePatched=true;
-      const _get=sp.getItem;
-      const _set=sp.setItem;
-      const _remove=sp.removeItem;
-      const _clear=sp.clear;
-      const _key=sp.key;
-      sp.getItem=function(k){
-        if(this===window.localStorage)return _get.call(window.sessionStorage,k);
-        return _get.call(this,k);
-      };
-      sp.setItem=function(k,v){
-        if(this===window.localStorage)return _set.call(window.sessionStorage,k,v);
-        return _set.call(this,k,v);
-      };
-      sp.removeItem=function(k){
-        if(this===window.localStorage)return _remove.call(window.sessionStorage,k);
-        return _remove.call(this,k);
-      };
-      sp.clear=function(){
-        if(this===window.localStorage)return _clear.call(window.sessionStorage);
-        return _clear.call(this);
-      };
-      sp.key=function(i){
-        if(this===window.localStorage)return _key.call(window.sessionStorage,i);
-        return _key.call(this,i);
-      };
-    }
-  }catch(e){}
+const APP_STORAGE_SUPABASE_KEY_PREFIX='user_state_';
+const APP_STORAGE_SESSION_KEY='benai_app_storage_cache';
+const appStorageCache=Object.create(null);
+let appStorageHydratedForUid='';
+let appStoragePersistTimer=null;
+const APP_STORAGE_CLOUD_EXACT_ALLOWLIST=new Set([
+  'benai_login_user',
+  'benai_supabase_url',
+  'benai_supabase_enabled',
+  'benai_theme',
+  'benai_access',
+  'benai_evol_votes',
+  'benai_evol_dismissed',
+  'benai_extra_users',
+  'benai_hidden_users',
+  'benai_name_overrides',
+  'benai_patterns',
+  'benai_gdrive_client_id',
+  'benai_gdrive_last_backup',
+  'benai_gdrive_prompt_seen',
+  'benai_lead_obj',
+  'benai_projets_sugg',
+  'benai_bugs',
+  'benai_obj_comm',
+  'benai_connexions',
+  'benai_ventes_mois',
+  'benai_roles_v2',
+  'benai_annuaire'
+]);
+const APP_STORAGE_CLOUD_PREFIX_ALLOWLIST=[
+  'benai_notifs_',
+  'benai_tuto_done_',
+  'benai_last_motiv_',
+  'benai_anniv_seen_',
+  'benai_role_guide_ack_',
+  'benai_weekly_',
+  'benai_briefing_',
+  'benai_rr_idx_'
+];
+
+function clearAppStorageCache(){
+  Object.keys(appStorageCache).forEach(k=>delete appStorageCache[k]);
 }
-routeLocalStorageToSessionStorage();
+function persistAppStorageCacheToSession(){
+  try{
+    sessionStorage.setItem(APP_STORAGE_SESSION_KEY,JSON.stringify(appStorageCache));
+  }catch{}
+}
+function loadAppStorageCacheFromSession(){
+  try{
+    const raw=sessionStorage.getItem(APP_STORAGE_SESSION_KEY);
+    if(!raw)return;
+    const obj=JSON.parse(raw);
+    if(!obj||typeof obj!=='object'||Array.isArray(obj))return;
+    clearAppStorageCache();
+    Object.entries(obj).forEach(([k,v])=>{
+      if(v===null||v===undefined)return;
+      appStorageCache[String(k)]=typeof v==='string'?v:JSON.stringify(v);
+    });
+  }catch{}
+}
+
+function isAppStorageCloudKey(key){
+  const k=String(key||'');
+  if(!k)return false;
+  // Données sensibles ou synchronisées ailleurs.
+  if(k===STORAGE_KEYS.api||k===STORAGE_KEYS.pwds||k===STORAGE_KEYS.mem||k==='benai_attempts')return false;
+  if(k===STORAGE_KEYS.sbPublishable||k===STORAGE_KEYS.sbAnonLegacy)return false;
+  if(k==='benai_leads'||k==='benai_auto_backup'||k==='benai_auto_backup_date')return false;
+  if(k.startsWith('benai_chat_')||k.startsWith('benai_read_'))return false;
+  if(k.startsWith('benai_rappel_done_')||k.startsWith('benai_devis_relance_'))return false;
+  if(k.startsWith('benai_abs_reminders_'))return false;
+  if(APP_STORAGE_CLOUD_EXACT_ALLOWLIST.has(k))return true;
+  return APP_STORAGE_CLOUD_PREFIX_ALLOWLIST.some(prefix=>k.startsWith(prefix));
+}
+function serializeCloudAppStorage(source=appStorageCache){
+  const out={};
+  Object.keys(source).forEach(k=>{
+    if(isAppStorageCloudKey(k))out[k]=source[k];
+  });
+  return out;
+}
+function getAppStorageSupabaseKey(uid){
+  return `${APP_STORAGE_SUPABASE_KEY_PREFIX}${uid||'guest'}`;
+}
+const appStorage={
+  getItem(key){
+    const k=String(key);
+    return Object.prototype.hasOwnProperty.call(appStorageCache,k)?appStorageCache[k]:null;
+  },
+  setItem(key,value){
+    const k=String(key);
+    appStorageCache[k]=String(value);
+    persistAppStorageCacheToSession();
+    if(currentUser?.id)scheduleAppStoragePersist();
+  },
+  removeItem(key){
+    const k=String(key);
+    delete appStorageCache[k];
+    persistAppStorageCacheToSession();
+    if(currentUser?.id)scheduleAppStoragePersist();
+  },
+  clear(){
+    clearAppStorageCache();
+    persistAppStorageCacheToSession();
+    if(currentUser?.id)scheduleAppStoragePersist();
+  },
+  key(index){
+    const keys=Object.keys(appStorageCache);
+    return keys[index]||null;
+  }
+};
+window.appStorage=appStorage;
+loadAppStorageCacheFromSession();
 
 const BENAI_VERSION = '3.15';
 const GUIDE_REQUIRED_VERSION='3.15';
@@ -1454,19 +1526,18 @@ const STORAGE_KEYS = {
   sbAnonLegacy:'benai_supabase_anon_key',
   sbEnabled:'benai_supabase_enabled'
 };
-const SUPABASE_DEFAULT_URL='https://ipmbfbraadzyzncqbimn.supabase.co';
+const SUPABASE_DEFAULT_URL='https://wsstfaqyixnsaimbycmw.supabase.co';
 // Clé publique uniquement (Publishable key), jamais la service_role.
-const SUPABASE_DEFAULT_PUBLISHABLE_KEY='sb_publishable_YsyJJkpNMrmGYumC4mqhNA_sFoT9hzU';
+const SUPABASE_DEFAULT_PUBLISHABLE_KEY='sb_publishable_WDPUls7WDAvZLYPflwl3yg_su4VZ-_C';
 const SUPABASE_TABLES=['sav','notes','absences','annuaire','leads'];
 const SUPABASE_TEST_ENDPOINT='/auth/v1/settings';
 const SHARED_AI_SETTING_KEY='shared_ai_api';
 let supabaseSyncTimer=null;
-// Préparation Supabase (phase ready): cette couche permet d'activer
-// une synchro distante sans casser le fonctionnement localStorage existant.
+// Préparation Supabase (phase ready): stockage session uniquement.
 const SUPABASE_CONFIG = {
   url:SUPABASE_DEFAULT_URL,
   publishableKey:SUPABASE_DEFAULT_PUBLISHABLE_KEY,
-  enabled: (localStorage.getItem(STORAGE_KEYS.sbEnabled)??'1')==='1',
+  enabled: (appStorage.getItem(STORAGE_KEYS.sbEnabled)??'1')==='1',
   table:'benai_state'
 };
 let supabaseClient=null;
@@ -1478,6 +1549,20 @@ function normalizeSupabaseUrl(url){
   if(out&&out.startsWith('https://https://'))out=out.replace('https://https://','https://');
   if(out&&!out.startsWith('https://')&&out.includes('.supabase.co'))out='https://'+out;
   return out;
+}
+function isLikelySupabasePublicKey(key){
+  if(!key)return false;
+  const k=String(key).trim();
+  if(!k)return false;
+  // On refuse explicitement les clés sensibles.
+  if(k.startsWith('sb_secret_'))return false;
+  if(/service[_-]?role/i.test(k))return false;
+  // Formats publics connus : nouvelle publishable ou ancienne anon JWT.
+  return k.startsWith('sb_publishable_')||/^eyJ/.test(k);
+}
+function isLikelySupabaseProjectUrl(url){
+  const u=normalizeSupabaseUrl(url);
+  return !!u&&u.startsWith('https://')&&u.includes('.supabase.co');
 }
 
 function setStatusMessage(element,color,text){
@@ -1497,13 +1582,14 @@ async function fetchWithTimeout(url,options={},timeoutMs=10000){
 }
 
 function applySupabaseConfigFromStorage(){
-  const storedUrl=localStorage.getItem(STORAGE_KEYS.sbUrl)||SUPABASE_DEFAULT_URL;
-  const rawStoredKey=(localStorage.getItem(STORAGE_KEYS.sbPublishable)||localStorage.getItem(STORAGE_KEYS.sbAnonLegacy)||'').trim();
-  const hasExplicitValidFormat=rawStoredKey.startsWith('sb_publishable_')||/^eyJ/.test(rawStoredKey);
-  const storedKey=hasExplicitValidFormat?rawStoredKey:SUPABASE_DEFAULT_PUBLISHABLE_KEY;
-  SUPABASE_CONFIG.url=normalizeSupabaseUrl(storedUrl)||SUPABASE_DEFAULT_URL;
-  SUPABASE_CONFIG.publishableKey=storedKey.trim();
-  SUPABASE_CONFIG.enabled=(localStorage.getItem(STORAGE_KEYS.sbEnabled)??'1')==='1';
+  const storedUrl=appStorage.getItem(STORAGE_KEYS.sbUrl)||SUPABASE_DEFAULT_URL;
+  const rawStoredKey=(appStorage.getItem(STORAGE_KEYS.sbPublishable)||appStorage.getItem(STORAGE_KEYS.sbAnonLegacy)||'').trim();
+  const normalizedUrl=normalizeSupabaseUrl(storedUrl)||SUPABASE_DEFAULT_URL;
+  const storedKey=isLikelySupabasePublicKey(rawStoredKey)?rawStoredKey:SUPABASE_DEFAULT_PUBLISHABLE_KEY;
+  const hasValidConfig=isLikelySupabaseProjectUrl(normalizedUrl)&&isLikelySupabasePublicKey(storedKey);
+  SUPABASE_CONFIG.url=hasValidConfig?normalizedUrl:'';
+  SUPABASE_CONFIG.publishableKey=hasValidConfig?storedKey.trim():'';
+  SUPABASE_CONFIG.enabled=((appStorage.getItem(STORAGE_KEYS.sbEnabled)??'1')==='1')&&hasValidConfig;
 }
 applySupabaseConfigFromStorage();
 
@@ -1555,6 +1641,79 @@ async function ensureSupabaseSession(){
     currentSupabaseSession=null;
     return null;
   }
+}
+
+async function persistAppStorageToSupabaseNow(uid=currentUser?.id,snapshot=null){
+  if(!uid||!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
+  const session=await ensureSupabaseSession();
+  if(!session?.access_token)return false;
+  const headers=getSupabaseHeaders();
+  if(!headers)return false;
+  try{
+    const cloudPayload=(snapshot&&typeof snapshot==='object'&&!Array.isArray(snapshot))
+      ?snapshot
+      :serializeCloudAppStorage();
+    const body=[{
+      key:getAppStorageSupabaseKey(uid),
+      value:cloudPayload
+    }];
+    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/app_settings?on_conflict=key`,{
+      method:'POST',
+      headers:{...headers,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify(body)
+    },8000);
+    return !!res.ok;
+  }catch(e){
+    return false;
+  }
+}
+function scheduleAppStoragePersist(){
+  if(appStoragePersistTimer)clearTimeout(appStoragePersistTimer);
+  appStoragePersistTimer=setTimeout(()=>{
+    appStoragePersistTimer=null;
+    void persistAppStorageToSupabaseNow();
+  },1200);
+}
+async function hydrateAppStorageFromSupabase(uid=currentUser?.id){
+  if(!uid||!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
+  if(appStorageHydratedForUid&&appStorageHydratedForUid!==uid){
+    clearAppStorageCache();
+    persistAppStorageCacheToSession();
+    appStorageHydratedForUid='';
+  }
+  if(appStorageHydratedForUid===uid)return true;
+  const session=await ensureSupabaseSession();
+  if(!session?.access_token)return false;
+  const headers=getSupabaseHeaders();
+  if(!headers)return false;
+  try{
+    const storageKey=getAppStorageSupabaseKey(uid);
+    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/app_settings?key=eq.${encodeURIComponent(storageKey)}&select=value`,{headers},8000);
+    if(!res.ok)return false;
+    const rows=await res.json();
+    const raw=rows?.[0]?.value;
+    const obj=(raw&&typeof raw==='object'&&!Array.isArray(raw))?raw:{};
+    clearAppStorageCache();
+    Object.entries(obj).forEach(([k,v])=>{
+      if(v===null||v===undefined)return;
+      appStorageCache[String(k)]=typeof v==='string'?v:JSON.stringify(v);
+    });
+    persistAppStorageCacheToSession();
+    appStorageHydratedForUid=uid;
+    applySupabaseConfigFromStorage();
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+function resetAppStorageRuntime(preserveSessionCopy=false){
+  clearAppStorageCache();
+  if(preserveSessionCopy){
+    persistAppStorageCacheToSession();
+  }else{
+    try{sessionStorage.removeItem(APP_STORAGE_SESSION_KEY);}catch{}
+  }
+  appStorageHydratedForUid='';
 }
 
 function getBuiltinLoginEmails(){
@@ -1628,12 +1787,31 @@ function getSystemPromptForUser(user){
     :`Tu es BenAI, l'assistant de ${user.name}. Tu proposes toujours — ${user.name} décide toujours.`;
 }
 
+function isTransientSupabaseAuthFailure(message=''){
+  const m=String(message||'').toLowerCase();
+  return m.includes('service unavailable')||m.includes('gateway timeout')||m.includes('timed out')||m.includes('temporarily unavailable');
+}
+async function signInWithPasswordRetry(client,email,password,maxAttempts=2){
+  let lastError=null;
+  for(let attempt=1;attempt<=maxAttempts;attempt++){
+    const {data,error}=await client.auth.signInWithPassword({email,password});
+    if(!error&&data?.session)return {data,error:null};
+    lastError=error||new Error('invalid_credentials');
+    if(attempt<maxAttempts&&isTransientSupabaseAuthFailure(lastError?.message)){
+      await new Promise(resolve=>setTimeout(resolve,700*attempt));
+      continue;
+    }
+    break;
+  }
+  return {data:null,error:lastError};
+}
+
 async function trySupabaseLogin(uid,pwd,rawLogin=''){
   const email=getEmailCandidateForUid(uid,rawLogin);
   const client=getSupabaseClient();
   if(!client||!email||!pwd)return {ok:false,reason:'missing_credentials'};
   try{
-    const {data,error}=await client.auth.signInWithPassword({email,password:pwd});
+    const {data,error}=await signInWithPasswordRetry(client,email,pwd,2);
     if(error||!data?.session){
       return {ok:false,reason:error?.message||'invalid_credentials'};
     }
@@ -1654,8 +1832,8 @@ async function trySupabaseSessionFromLocalCredentials(uid,pwd){
   const client=getSupabaseClient();
   if(!client||!email||!pwd)return {ok:false,reason:'missing_credentials'};
   try{
-    const {data,error}=await client.auth.signInWithPassword({email,password:pwd});
-    if(error||!data?.session)return {ok:false,reason:'invalid_credentials'};
+    const {data,error}=await signInWithPasswordRetry(client,email,pwd,2);
+    if(error||!data?.session)return {ok:false,reason:error?.message||'invalid_credentials'};
     currentSupabaseSession=data.session;
     return {ok:true};
   }catch(e){
@@ -1991,7 +2169,7 @@ async function loadSharedApiKeyFromSupabase(){
     const rows=await res.json();
     const remoteKey=extractSharedAIKey(rows?.[0]?.value);
     if(isLikelyAnthropicKey(remoteKey)){
-      localStorage.setItem(STORAGE_KEYS.api,remoteKey);
+      appStorage.setItem(STORAGE_KEYS.api,remoteKey);
       return true;
     }
     return false;
@@ -2046,6 +2224,7 @@ function refreshVisibleDataAfterSupabaseSync(){
 }
 
 async function syncSupabasePostLogin(){
+  await hydrateAppStorageFromSupabase(currentUser?.id);
   const syncedCore=await loadCoreDataFromSupabase();
   await loadSharedApiKeyFromSupabase();
   if(syncedCore){
@@ -2104,22 +2283,22 @@ function getRoundRobinCommercial(societe){
   const users=getAllUsers().filter(u=>u.role==='commercial'&&(u.societe===societe||u.societe==='les-deux'));
   if(!users.length)return null;
   const key='benai_rr_idx_'+(societe||'all');
-  let idx=parseInt(localStorage.getItem(key)||'0',10);
+  let idx=parseInt(appStorage.getItem(key)||'0',10);
   if(Number.isNaN(idx))idx=0;
   const pick=users[idx%users.length];
-  localStorage.setItem(key,String((idx+1)%users.length));
+  appStorage.setItem(key,String((idx+1)%users.length));
   return pick?.id||null;
 }
 
 // ══════════════════════════════════════════
 // MÉMOIRE
 // ══════════════════════════════════════════
-function getMem(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.mem))||{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}catch{return{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}}
+function getMem(){try{return JSON.parse(appStorage.getItem(STORAGE_KEYS.mem))||{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}catch{return{sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};}}
 function saveMem(m,sync=true){
-  localStorage.setItem(STORAGE_KEYS.mem,JSON.stringify(m));
+  appStorage.setItem(STORAGE_KEYS.mem,JSON.stringify(m));
   if(sync)scheduleSupabaseSync(m,getAnnuaire());
 }
-function getApiKey(){return normalizeAnthropicKey(localStorage.getItem(STORAGE_KEYS.api)||'');}
+function getApiKey(){return normalizeAnthropicKey(appStorage.getItem(STORAGE_KEYS.api)||'');}
 async function getApiKeyForChat(){
   let key=getApiKey();
   if(isLikelyAnthropicKey(key))return key;
@@ -2166,10 +2345,10 @@ async function requestAnthropicMessages(body,retryOnInvalidKey=true){
   throw new Error((data?.error?.message||errorMessage));
 }
 
-function getPwds(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.pwds))||{benjamin:'1234',aurelie:'1234',claudine:'1234'};}catch{return{benjamin:'1234',aurelie:'1234',claudine:'1234'};}}
-function savePwds(p){localStorage.setItem(STORAGE_KEYS.pwds,JSON.stringify(p));}
-function getAccess(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.access))||{};}catch{return {};}}
-function saveAccess(a){localStorage.setItem(STORAGE_KEYS.access,JSON.stringify(a));}
+function getPwds(){try{return JSON.parse(appStorage.getItem(STORAGE_KEYS.pwds))||{benjamin:'1234',aurelie:'1234',claudine:'1234'};}catch{return{benjamin:'1234',aurelie:'1234',claudine:'1234'};}}
+function savePwds(p){appStorage.setItem(STORAGE_KEYS.pwds,JSON.stringify(p));}
+function getAccess(){try{return JSON.parse(appStorage.getItem(STORAGE_KEYS.access))||{};}catch{return {};}}
+function saveAccess(a){appStorage.setItem(STORAGE_KEYS.access,JSON.stringify(a));}
 const PWD_HASH_PREFIX='h$';
 function isPwdHashed(v){return typeof v==='string'&&v.startsWith(PWD_HASH_PREFIX);}
 async function hashPassword(uid,pwd){
@@ -2205,9 +2384,9 @@ function saveChatMem(uid,msgs){
   const pinned=msgs.filter(m=>m.pinned);
   const recent=msgs.filter(m=>!m.pinned&&(m.ts||0)>cutoff);
   const trimmed=[...pinned,...recent].slice(-60);
-  localStorage.setItem('benai_chat_'+uid,JSON.stringify(trimmed));
+  appStorage.setItem('benai_chat_'+uid,JSON.stringify(trimmed));
 }
-function loadChatMem(uid){try{return JSON.parse(localStorage.getItem('benai_chat_'+uid))||[];}catch{return [];}}
+function loadChatMem(uid){try{return JSON.parse(appStorage.getItem('benai_chat_'+uid))||[];}catch{return [];}}
 
 // TOKEN TRACKING
 function trackTokens(uid,inp,out){
@@ -2224,8 +2403,8 @@ function estimateCost(inp,out){
 }
 
 // MESSAGE UNREAD
-function getLastRead(uid){try{return JSON.parse(localStorage.getItem('benai_read_'+uid))||{};}catch{return {};}}
-function markRead(uid,cid){const r=getLastRead(uid);r[cid]=Date.now();localStorage.setItem('benai_read_'+uid,JSON.stringify(r));}
+function getLastRead(uid){try{return JSON.parse(appStorage.getItem('benai_read_'+uid))||{};}catch{return {};}}
+function markRead(uid,cid){const r=getLastRead(uid);r[cid]=Date.now();appStorage.setItem('benai_read_'+uid,JSON.stringify(r));}
 function countUnread(uid,cid){
   const mem=getMem();const msgs=mem.messages[cid]||[];
   const lr=(getLastRead(uid)[cid]||0);
@@ -2243,8 +2422,18 @@ function refreshMsgBadge(){
 // ══════════════════════════════════════════
 // LOGIN
 // ══════════════════════════════════════════
-function getLoginAttempts(){try{return JSON.parse(localStorage.getItem('benai_attempts'))||{count:0,blockedUntil:0};}catch{return{count:0,blockedUntil:0};}}
-function saveLoginAttempts(a){localStorage.setItem('benai_attempts',JSON.stringify(a));}
+function getRememberedLoginForForm(){
+  const raw=appStorage.getItem(STORAGE_KEYS.rememberedLogin)||'';
+  const s=String(raw||'').trim();
+  if(!s)return'';
+  if(s.toLowerCase()==='prenom.nom@entreprise.fr'){
+    appStorage.removeItem(STORAGE_KEYS.rememberedLogin);
+    return'';
+  }
+  return s;
+}
+function getLoginAttempts(){try{return JSON.parse(appStorage.getItem('benai_attempts'))||{count:0,blockedUntil:0};}catch{return{count:0,blockedUntil:0};}}
+function saveLoginAttempts(a){appStorage.setItem('benai_attempts',JSON.stringify(a));}
 function resetLoginAttempts(){saveLoginAttempts({count:0,blockedUntil:0});}
 
 // Normalise identifiant : minuscules + supprime accents (Aurélie = aurelie = AURELIE)
@@ -2310,10 +2499,11 @@ async function login(){
   if(supabaseAuthResult?.ok&&supabaseAuthResult.user){
     resetLoginAttempts();
     currentUser=supabaseAuthResult.user;
+    await hydrateAppStorageFromSupabase(currentUser.id);
     logConnexion(currentUser.id);
     lastActivityTime=Date.now();
     sessionStorage.setItem('benai_session',currentUser.id);
-    localStorage.setItem(STORAGE_KEYS.rememberedLogin,document.getElementById('login-user').value.trim());
+    appStorage.setItem(STORAGE_KEYS.rememberedLogin,document.getElementById('login-user').value.trim());
     if(err){
       err.style.color='var(--g)';
       err.textContent='';
@@ -2335,6 +2525,12 @@ async function login(){
         err.textContent='Connexion Supabase refusée : email ou mot de passe incorrect.';
       }else if(reason.includes('email not confirmed')){
         err.textContent='Connexion Supabase refusée : email non confirmé.';
+      }else if(reason.includes('service unavailable')||reason.includes('gateway timeout')||reason.includes('temporarily unavailable')||reason.includes('timed out')){
+        err.textContent='Service Supabase temporairement indisponible. Réessaie dans 10 à 30 secondes.';
+      }else if(reason.includes('failed to fetch')||reason.includes('networkerror')||reason.includes('load failed')||reason.includes('network request failed')){
+        err.textContent=window.location.protocol==='file:'
+          ?'Connexion impossible en ouvrant le fichier en local (file://). Lance BenAI via http://localhost (ex. : npx serve ou Live Server) puis réessaie.'
+          :'Erreur réseau vers Supabase : vérifie la connexion, pare-feu, VPN ou une extension qui bloque les requêtes.';
       }else if(reason==='profile_missing'){
         err.textContent='Connexion Supabase OK mais profil manquant dans la table profiles.';
       }else{
@@ -2394,6 +2590,7 @@ async function login(){
   resetLoginAttempts();
   currentUser={id:resolvedUid,...(USERS[resolvedUid]||getExtraUserById(resolvedUid))};
   const supabaseBootstrap=await trySupabaseSessionFromLocalCredentials(resolvedUid,pwd);
+  await hydrateAppStorageFromSupabase(currentUser.id);
   // Log connexion
   logConnexion(resolvedUid);
   lastActivityTime=Date.now();
@@ -2403,7 +2600,7 @@ async function login(){
     return;
   }
   sessionStorage.setItem('benai_session',resolvedUid);
-  localStorage.setItem(STORAGE_KEYS.rememberedLogin,document.getElementById('login-user').value.trim());
+  appStorage.setItem(STORAGE_KEYS.rememberedLogin,document.getElementById('login-user').value.trim());
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').classList.add('visible');
   initApp();
@@ -2470,33 +2667,40 @@ async function forgotPassword(){
 function logConnexion(uid){
   try{
     const key='benai_connexions';
-    const logs=JSON.parse(localStorage.getItem(key)||'[]');
+    const logs=JSON.parse(appStorage.getItem(key)||'[]');
     logs.unshift({uid,date:new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})});
     if(logs.length>200)logs.splice(200);
-    localStorage.setItem(key,JSON.stringify(logs));
+    appStorage.setItem(key,JSON.stringify(logs));
   }catch(e){}
 }
 
 function getConnexions(uid){
   try{
-    const logs=JSON.parse(localStorage.getItem('benai_connexions')||'[]');
+    const logs=JSON.parse(appStorage.getItem('benai_connexions')||'[]');
     return uid?logs.filter(l=>l.uid===uid):logs;
   }catch{return[];}
 }
 
-function logout(){
+async function logout(){
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
+  const rememberedLogin=getRememberedLoginForForm();
+  if(currentUser?.id){
+    const snapshot=serializeCloudAppStorage();
+    await persistAppStorageToSupabaseNow(currentUser.id,snapshot);
+  }
+  resetAppStorageRuntime();
   sessionStorage.removeItem('benai_session');
   const client=getSupabaseClient();
   if(client)client.auth.signOut().catch(()=>{});
   currentSupabaseSession=null;
   currentUser=null;chatHistory=[];currentConv=null;
+  if(rememberedLogin)appStorage.setItem(STORAGE_KEYS.rememberedLogin,rememberedLogin);
   ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app').classList.remove('visible');
-  document.getElementById('login-user').value=localStorage.getItem(STORAGE_KEYS.rememberedLogin)||'';
+  document.getElementById('login-user').value=rememberedLogin;
   document.getElementById('login-pwd').value='';
   document.getElementById('login-err').textContent='';
   document.getElementById('chat-area').innerHTML='';
@@ -2542,7 +2746,10 @@ function switchBack(){
   currentUser={id:prevUid,...u};
   sessionStorage.setItem('benai_session',prevUid);
   logActivity(`Retour sur la session de ${u.name}`);
-  initApp(true);
+  void (async()=>{
+    await hydrateAppStorageFromSupabase(prevUid);
+    initApp(true);
+  })();
 }
 
 function switchToUser(uid){
@@ -2559,7 +2766,10 @@ function switchToUser(uid){
   currentUser={id:uid,...u};
   sessionStorage.setItem('benai_session',uid);
   logActivity(`Benjamin a basculé vers ${u.name}`);
-  initApp(true);
+  void (async()=>{
+    await hydrateAppStorageFromSupabase(uid);
+    initApp(true);
+  })();
 }
 
 function switchSession(){toggleSwitchPanel();}
@@ -3666,7 +3876,7 @@ function _checkRemindersFor(uid){
   const today=new Date();today.setHours(0,0,0,0);
   const dayKey=today.toISOString().slice(0,10);
   const seenKey=`benai_abs_reminders_${uid}_${dayKey}`;
-  if(localStorage.getItem(seenKey)==='1')return;
+  if(appStorage.getItem(seenKey)==='1')return;
   const reminders=[];
   absences.forEach(a=>{
     const notifs=a.notifs||['benjamin'];
@@ -3678,7 +3888,7 @@ function _checkRemindersFor(uid){
     if(diff===0)reminders.push(`🔴 AUJOURD'HUI : **${a.employe}** est absent(e) (jusqu'au ${formatDate(a.fin)})`);
   });
   if(reminders.length>0){
-    localStorage.setItem(seenKey,'1');
+    appStorage.setItem(seenKey,'1');
     setTimeout(()=>{reminders.forEach(r=>addAIMsg('**Rappel absence** : '+r));},800);
   }
 }
@@ -3694,9 +3904,9 @@ function markSAVVu(){
 function getSAVVu(id){return((getMem().sav_vu)||{})[id]||null;}
 
 // ANNUAIRE
-function getAnnuaire(){try{return JSON.parse(localStorage.getItem('benai_annuaire'))||[];}catch{return[];}}
+function getAnnuaire(){try{return JSON.parse(appStorage.getItem('benai_annuaire'))||[];}catch{return[];}}
 function saveAnnuaire(a,sync=true){
-  localStorage.setItem('benai_annuaire',JSON.stringify(a));
+  appStorage.setItem('benai_annuaire',JSON.stringify(a));
   if(sync)scheduleSupabaseSync(getMem(),a);
 }
 function toggleEmpForm(){const w=document.getElementById('emp-form-wrap');w.style.display=w.style.display==='none'?'block':'none';}
@@ -4023,7 +4233,7 @@ document.addEventListener('keydown',e=>{
 async function generateWeeklySummary(){
   if(currentUser?.id!=='benjamin')return;
   const todayKey='benai_weekly_'+new Date().toDateString();
-  if(localStorage.getItem(todayKey))return;
+  if(appStorage.getItem(todayKey))return;
   const apiKey=getApiKey();if(!apiKey)return;
   const mem=getMem();
   const savs=mem.sav||[];
@@ -4052,7 +4262,7 @@ async function generateWeeklySummary(){
     if(data.content&&data.content[0]){
       addAIMsg('📊 **Résumé de la semaine**\n\n'+data.content[0].text);
       if(data.usage)trackTokens('benjamin',data.usage.input_tokens||0,data.usage.output_tokens||0);
-      localStorage.setItem(todayKey,'1');
+      appStorage.setItem(todayKey,'1');
     }
   }catch(e){typing.remove();}
 }
@@ -4185,8 +4395,8 @@ const EVOLUTIONS=[
   {id:5,tag:'Productivité',tagColor:'var(--a)',title:'Signatures email personnalisées',desc:'BenAI mémorise vos signatures Nemausus et Lambert pour les intégrer automatiquement dans les emails rédigés.'},
 ];
 
-function getEvolVotes(){try{return JSON.parse(localStorage.getItem('benai_evol_votes'))||{};}catch{return{};}}
-function saveEvolVotes(v){localStorage.setItem('benai_evol_votes',JSON.stringify(v));}
+function getEvolVotes(){try{return JSON.parse(appStorage.getItem('benai_evol_votes'))||{};}catch{return{};}}
+function saveEvolVotes(v){appStorage.setItem('benai_evol_votes',JSON.stringify(v));}
 
 function voteEvol(evolId,vote){
   if(!currentUser||currentUser.id==='benjamin')return;
@@ -4198,7 +4408,7 @@ function voteEvol(evolId,vote){
 }
 
 function renderEvolution(){
-  const dismissed=JSON.parse(localStorage.getItem('benai_evol_dismissed')||'[]');
+  const dismissed=JSON.parse(appStorage.getItem('benai_evol_dismissed')||'[]');
   const votes=getEvolVotes();
   const isBenjamin=currentUser?.id==='benjamin';
   const list=document.getElementById('evolution-list');
@@ -4231,8 +4441,8 @@ function validateEvol(id){
   dismissEvol(id);
 }
 function dismissEvol(id){
-  const dismissed=JSON.parse(localStorage.getItem('benai_evol_dismissed')||'[]');
-  dismissed.push(id);localStorage.setItem('benai_evol_dismissed',JSON.stringify(dismissed));renderEvolution();
+  const dismissed=JSON.parse(appStorage.getItem('benai_evol_dismissed')||'[]');
+  dismissed.push(id);appStorage.setItem('benai_evol_dismissed',JSON.stringify(dismissed));renderEvolution();
 }
 
 function getRoleGuideAckKey(role){
@@ -4240,7 +4450,7 @@ function getRoleGuideAckKey(role){
 }
 function hasAcknowledgedRoleGuide(role){
   if(!currentUser||currentUser.id==='benjamin')return true;
-  return localStorage.getItem(getRoleGuideAckKey(role||currentUser.role))==='1';
+  return appStorage.getItem(getRoleGuideAckKey(role||currentUser.role))==='1';
 }
 function shouldForceRoleGuide(){
   if(!currentUser||currentUser.id==='benjamin')return false;
@@ -4248,7 +4458,7 @@ function shouldForceRoleGuide(){
 }
 function acknowledgeRoleGuide(){
   if(!currentUser)return;
-  localStorage.setItem(getRoleGuideAckKey(currentUser.role),'1');
+  appStorage.setItem(getRoleGuideAckKey(currentUser.role),'1');
   renderGuidePage();
   showDriveNotif('✅ Guide validé');
 }
@@ -4388,11 +4598,11 @@ function renderSAVStatsAdmin(){
 // ══════════════════════════════════════════
 const COLORS=['linear-gradient(135deg,#22C55E,#15803D)','linear-gradient(135deg,#60A5FA,#1D4ED8)','linear-gradient(135deg,#F472B6,#DB2777)','linear-gradient(135deg,#A78BFA,#7C3AED)','linear-gradient(135deg,#34D399,#059669)'];
 
-function getExtraUsers(){try{return JSON.parse(localStorage.getItem('benai_extra_users'))||[];}catch{return [];}}
-function saveExtraUsers(u){localStorage.setItem('benai_extra_users',JSON.stringify(u));}
+function getExtraUsers(){try{return JSON.parse(appStorage.getItem('benai_extra_users'))||[];}catch{return [];}}
+function saveExtraUsers(u){appStorage.setItem('benai_extra_users',JSON.stringify(u));}
 function getExtraUserById(id){return getExtraUsers().find(u=>u.id===id)||null;}
 function getAllUsers(){
-  const hidden=JSON.parse(localStorage.getItem('benai_hidden_users')||'[]');
+  const hidden=JSON.parse(appStorage.getItem('benai_hidden_users')||'[]');
   const base=[
     {id:'benjamin',name:'Benjamin',role:'admin',societe:'les-deux',vehicule:'',color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B',builtin:true},
     {id:'aurelie',name:'Aurélie',role:'assistante',societe:'nemausus',vehicule:'',color:'linear-gradient(135deg,#22C55E,#15803D)',initial:'A',builtin:true},
@@ -4497,9 +4707,9 @@ function supprimerUtilisateur(uid){
   if(!confirm(`Supprimer ${u?.name||uid} définitivement ? Cette action est irréversible.`))return;
   // Si builtin (Aurélie/Claudine), les masquer via un flag
   if(u?.builtin){
-    const hidden=JSON.parse(localStorage.getItem('benai_hidden_users')||'[]');
+    const hidden=JSON.parse(appStorage.getItem('benai_hidden_users')||'[]');
     if(!hidden.includes(uid))hidden.push(uid);
-    localStorage.setItem('benai_hidden_users',JSON.stringify(hidden));
+    appStorage.setItem('benai_hidden_users',JSON.stringify(hidden));
     delete USERS[uid];
   } else {
     const extras=getExtraUsers().filter(e=>e.id!==uid);saveExtraUsers(extras);
@@ -4592,10 +4802,10 @@ function editUser(uid){
   const extras=getExtraUsers();
   const idx=extras.findIndex(e=>e.id===uid);
   if(idx>-1){extras[idx].name=nouveau.trim();extras[idx].vehicule=vehicule;saveExtraUsers(extras);}
-  // Mettre à jour les builtin via localStorage override
-  const overrides=JSON.parse(localStorage.getItem('benai_name_overrides')||'{}');
+  // Mettre à jour les builtin via stockage session override
+  const overrides=JSON.parse(appStorage.getItem('benai_name_overrides')||'{}');
   overrides[uid]=nouveau.trim();
-  localStorage.setItem('benai_name_overrides',JSON.stringify(overrides));
+  appStorage.setItem('benai_name_overrides',JSON.stringify(overrides));
   renderUsersList();renderPwdList();
   logActivity(`Benjamin a modifié le nom de ${uid} → ${nouveau.trim()}`);
   alert(`✅ Nom modifié : ${nouveau.trim()}`);
@@ -4655,31 +4865,31 @@ function toggleSettings(){
 function initSettings(){
   const isAdmin=currentUser?.role==='admin';
   document.getElementById('api-settings').style.display=isAdmin?'block':'none';
-  const theme=localStorage.getItem('benai_theme')||'dark';
+  const theme=appStorage.getItem('benai_theme')||'dark';
   document.getElementById('btn-dark').style.borderColor=theme==='dark'?'var(--a)':'var(--b1)';
   document.getElementById('btn-light').style.borderColor=theme==='light'?'var(--a)':'var(--b1)';
   if(isAdmin){
     renderTeamPwdSettings();
     const apiMsg=document.getElementById('api-msg');
     if(apiMsg){
-      const hasKey=!!localStorage.getItem('benai_api');
+      const hasKey=!!appStorage.getItem('benai_api');
       apiMsg.style.color=hasKey?'var(--g)':'var(--y)';
       apiMsg.textContent=hasKey?'✅ Clé IA partagée active':'⚠️ Renseignez la clé IA partagée pour toute l’équipe';
     }
     // Afficher client ID Google Drive existant
     const clientIdEl=document.getElementById('gdrive-client-id');
     if(clientIdEl)clientIdEl.value=getGDriveClientId()||'';
-    const lastBackup=localStorage.getItem('benai_gdrive_last_backup');
+    const lastBackup=appStorage.getItem('benai_gdrive_last_backup');
     const lastEl=document.getElementById('gdrive-last-backup');
     if(lastEl&&lastBackup)lastEl.textContent='Dernière sauvegarde : '+new Date(lastBackup).toLocaleString('fr-FR');
     const sbUrlInput=document.getElementById('supabase-url-settings');
     const sbKeyInput=document.getElementById('supabase-key-settings');
     const sbMsg=document.getElementById('supabase-msg');
-    if(sbUrlInput)sbUrlInput.value=localStorage.getItem(STORAGE_KEYS.sbUrl)||SUPABASE_CONFIG.url||SUPABASE_DEFAULT_URL;
-    if(sbKeyInput)sbKeyInput.value=localStorage.getItem(STORAGE_KEYS.sbPublishable)||localStorage.getItem(STORAGE_KEYS.sbAnonLegacy)||SUPABASE_DEFAULT_PUBLISHABLE_KEY;
+    if(sbUrlInput)sbUrlInput.value=appStorage.getItem(STORAGE_KEYS.sbUrl)||SUPABASE_CONFIG.url||SUPABASE_DEFAULT_URL;
+    if(sbKeyInput)sbKeyInput.value=appStorage.getItem(STORAGE_KEYS.sbPublishable)||appStorage.getItem(STORAGE_KEYS.sbAnonLegacy)||SUPABASE_DEFAULT_PUBLISHABLE_KEY;
     if(sbMsg){
-      const hasUrl=!!(localStorage.getItem(STORAGE_KEYS.sbUrl)||SUPABASE_DEFAULT_URL||'').trim();
-      const hasKey=!!(localStorage.getItem(STORAGE_KEYS.sbPublishable)||localStorage.getItem(STORAGE_KEYS.sbAnonLegacy)||SUPABASE_DEFAULT_PUBLISHABLE_KEY||'').trim();
+      const hasUrl=!!(appStorage.getItem(STORAGE_KEYS.sbUrl)||SUPABASE_DEFAULT_URL||'').trim();
+      const hasKey=!!(appStorage.getItem(STORAGE_KEYS.sbPublishable)||appStorage.getItem(STORAGE_KEYS.sbAnonLegacy)||SUPABASE_DEFAULT_PUBLISHABLE_KEY||'').trim();
       sbMsg.style.color=hasUrl&&hasKey?'var(--g)':'var(--y)';
       sbMsg.textContent=hasUrl&&hasKey?'✅ Supabase configuré':'⚠️ Renseignez URL et clé publishable Supabase';
     }
@@ -4687,7 +4897,7 @@ function initSettings(){
 }
 
 function setTheme(theme){
-  localStorage.setItem('benai_theme',theme);document.body.classList.toggle('light',theme==='light');
+  appStorage.setItem('benai_theme',theme);document.body.classList.toggle('light',theme==='light');
   document.getElementById('btn-dark').style.borderColor=theme==='dark'?'var(--a)':'var(--b1)';
   document.getElementById('btn-light').style.borderColor=theme==='light'?'var(--a)':'var(--b1)';
 }
@@ -4716,7 +4926,7 @@ async function saveApiKeySettings(){
   const key=normalizeAnthropicKey(document.getElementById('api-key-settings').value);const msg=document.getElementById('api-msg');
   if(currentUser?.role!=='admin'){msg.style.color='var(--r)';msg.textContent='⚠️ Réservé à l’administrateur';return;}
   if(!isLikelyAnthropicKey(key)){msg.style.color='var(--r)';msg.textContent='⚠️ Clé Anthropic invalide (format attendu: sk-ant-...)';return;}
-  localStorage.setItem('benai_api',key);document.getElementById('api-key-settings').value='';
+  appStorage.setItem('benai_api',key);document.getElementById('api-key-settings').value='';
   const syncResult=await saveSharedApiKeyToSupabase(key);
   if(syncResult.ok){
     msg.style.color='var(--g)';
@@ -4732,20 +4942,6 @@ async function saveApiKeySettings(){
     msg.textContent='✅ Clé IA enregistrée localement (synchro Supabase non disponible)';
   }
   setTimeout(()=>msg.textContent='',3500);
-}
-
-function isLikelySupabasePublicKey(key){
-  if(!key)return false;
-  const k=key.trim();
-  if(!k)return false;
-  // On refuse explicitement les clés sensibles.
-  if(k.startsWith('sb_secret_'))return false;
-  if(/service[_-]?role/i.test(k))return false;
-  // Formats publics connus : nouvelle publishable ou ancienne anon JWT.
-  if(k.startsWith('sb_publishable_')||/^eyJ/.test(k))return true;
-  // Fallback tolérant pour éviter de bloquer l'utilisateur:
-  // une clé publique copiée avec variation de format reste acceptée.
-  return k.length>=24;
 }
 
 function saveSupabaseSettings(){
@@ -4770,9 +4966,9 @@ function saveSupabaseSettings(){
   }
   if(urlInput)urlInput.value=url;
   if(keyInput)keyInput.value=key;
-  localStorage.setItem(STORAGE_KEYS.sbUrl,url);
-  localStorage.setItem(STORAGE_KEYS.sbPublishable,key);
-  localStorage.setItem(STORAGE_KEYS.sbEnabled,'1');
+  appStorage.setItem(STORAGE_KEYS.sbUrl,url);
+  appStorage.setItem(STORAGE_KEYS.sbPublishable,key);
+  appStorage.setItem(STORAGE_KEYS.sbEnabled,'1');
   const configChanged=normalizeSupabaseUrl(previousUrl)!==url||previousKey!==key;
   if(configChanged){
     supabaseClient=null;
@@ -4853,8 +5049,8 @@ function importData(input){
 // ══════════════════════════════════════════
 
 // PATTERNS — mémoire longue
-function getPatterns(){try{return JSON.parse(localStorage.getItem('benai_patterns'))||{topFournisseurs:{},topClients:{},savCount:0,resolvedCount:0};}catch{return{topFournisseurs:{},topClients:{},savCount:0,resolvedCount:0};}}
-function savePatterns(p){localStorage.setItem('benai_patterns',JSON.stringify(p));}
+function getPatterns(){try{return JSON.parse(appStorage.getItem('benai_patterns'))||{topFournisseurs:{},topClients:{},savCount:0,resolvedCount:0};}catch{return{topFournisseurs:{},topClients:{},savCount:0,resolvedCount:0};}}
+function savePatterns(p){appStorage.setItem('benai_patterns',JSON.stringify(p));}
 
 function updatePatterns(fournisseur,client){
   const p=getPatterns();
@@ -4906,7 +5102,7 @@ function getPriorityBadge(score){
 // BRIEFING QUOTIDIEN INTELLIGENT
 async function generateDailyBriefing(){
   const todayKey='benai_briefing_'+new Date().toDateString();
-  if(localStorage.getItem(todayKey))return; // Déjà fait aujourd'hui
+  if(appStorage.getItem(todayKey))return; // Déjà fait aujourd'hui
   const apiKey=getApiKey();if(!apiKey)return;
   const ctx=buildBriefingContext();
   const typing=addTyping();
@@ -4924,14 +5120,14 @@ async function generateDailyBriefing(){
     if(data.content&&data.content[0]){
       addAIMsg(data.content[0].text);
       if(data.usage)trackTokens('benjamin',data.usage.input_tokens||0,data.usage.output_tokens||0);
-      localStorage.setItem(todayKey,'1');
+      appStorage.setItem(todayKey,'1');
       // Résumé hebdomadaire le vendredi
       if(new Date().getDay()===5)setTimeout(()=>generateWeeklySummary(),2000);
     }
   }catch(e){
     typing.remove();
     addAIMsg(buildFallbackBriefing());
-    localStorage.setItem(todayKey,'1');
+    appStorage.setItem(todayKey,'1');
     if(new Date().getDay()===5)setTimeout(()=>generateWeeklySummary(),2000);
   }
 }
@@ -5060,8 +5256,8 @@ const GDRIVE_BACKUP_FILENAME='BenAI_backup.json';
 let gdriveTokenClient=null;
 let gdriveToken=null;
 
-function getGDriveClientId(){return localStorage.getItem('benai_gdrive_client_id')||'';}
-function saveGDriveClientId(id){localStorage.setItem('benai_gdrive_client_id',id);}
+function getGDriveClientId(){return appStorage.getItem('benai_gdrive_client_id')||'';}
+function saveGDriveClientId(id){appStorage.setItem('benai_gdrive_client_id',id);}
 
 function initGDriveClient(){
   const clientId=getGDriveClientId();
@@ -5075,7 +5271,7 @@ function initGDriveClient(){
       uploadToDrive(gdriveToken).then(ok=>{
         if(ok){
           showDriveNotif('✅ Sauvegarde Google Drive effectuée');
-          localStorage.setItem('benai_gdrive_last_backup',new Date().toISOString());
+          appStorage.setItem('benai_gdrive_last_backup',new Date().toISOString());
           const el=document.getElementById('gdrive-last-backup');
           if(el)el.textContent='Dernière sauvegarde : '+new Date().toLocaleString('fr-FR');
         } else {
@@ -5089,9 +5285,9 @@ function initGDriveClient(){
 async function autoBackupToDrive(){
   const clientId=getGDriveClientId();
   if(!clientId){
-    const seen=localStorage.getItem('benai_gdrive_prompt_seen');
+    const seen=appStorage.getItem('benai_gdrive_prompt_seen');
     if(!seen){
-      localStorage.setItem('benai_gdrive_prompt_seen','1');
+      appStorage.setItem('benai_gdrive_prompt_seen','1');
       setTimeout(()=>addAIMsg('💾 **Sauvegarde Google Drive non configurée**\n\nVa dans ⚙️ Paramètres → section Google Drive pour entrer ton Client ID et activer la sauvegarde automatique.'),2500);
     }
     return;
@@ -5298,13 +5494,13 @@ const ROLE_PAGES={
   commercial:['leads','messages','guide','bugs']
 };
 
-function getLeads(){try{return JSON.parse(localStorage.getItem('benai_leads'))||[];}catch{return[];}}
+function getLeads(){try{return JSON.parse(appStorage.getItem('benai_leads'))||[];}catch{return[];}}
 function saveLeads(l,sync=true){
-  localStorage.setItem('benai_leads',JSON.stringify(l));
+  appStorage.setItem('benai_leads',JSON.stringify(l));
   if(sync)scheduleSupabaseSync(getMem(),getAnnuaire());
 }
-function getLeadObjectifs(){try{return JSON.parse(localStorage.getItem('benai_lead_obj'))||{nimes:{leads:20,ca:50000},avignon:{leads:15,ca:40000}};}catch{return{nimes:{leads:20,ca:50000},avignon:{leads:15,ca:40000}};}}
-function saveLeadObjectifs(o){localStorage.setItem('benai_lead_obj',JSON.stringify(o));}
+function getLeadObjectifs(){try{return JSON.parse(appStorage.getItem('benai_lead_obj'))||{nimes:{leads:20,ca:50000},avignon:{leads:15,ca:40000}};}catch{return{nimes:{leads:20,ca:50000},avignon:{leads:15,ca:40000}};}}
+function saveLeadObjectifs(o){appStorage.setItem('benai_lead_obj',JSON.stringify(o));}
 function canAccessLeadByCompany(lead){
   if(!currentUser||!lead)return false;
   if(currentUser.role==='admin')return true;
@@ -6363,13 +6559,13 @@ document.addEventListener('click',e=>{
 });
 
 // SUGGESTIONS PROJETS
-function getProjetsSuggestions(){try{return JSON.parse(localStorage.getItem('benai_projets_sugg'))||[];}catch{return[];}}
+function getProjetsSuggestions(){try{return JSON.parse(appStorage.getItem('benai_projets_sugg'))||[];}catch{return[];}}
 function updateProjetSuggestion(terme){
   const sugg=getProjetsSuggestions();
   const ex=sugg.find(s=>s.t===terme);
   if(ex)ex.n++;else sugg.push({t:terme,n:1});
   sugg.sort((a,b)=>b.n-a.n);
-  localStorage.setItem('benai_projets_sugg',JSON.stringify(sugg.slice(0,30)));
+  appStorage.setItem('benai_projets_sugg',JSON.stringify(sugg.slice(0,30)));
 }
 function fillProjetsSuggestions(){
   const dl=document.getElementById('projets-list');if(!dl)return;
@@ -6433,18 +6629,18 @@ function checkRappelsLeads(){
   leads.forEach(l=>{
     const rappel=new Date(l.rappel);
     const diff=Math.abs(rappel-now)/60000;
-    if(diff<=1&&!localStorage.getItem('benai_rappel_done_'+l.id+'_'+l.rappel)){
+    if(diff<=1&&!appStorage.getItem('benai_rappel_done_'+l.id+'_'+l.rappel)){
       pushNotif('📞 Rappel lead',`${l.nom} — ${l.type_projet}`,l.rappel_devis?'📋':'📞',currentUser.id);
-      localStorage.setItem('benai_rappel_done_'+l.id+'_'+l.rappel,'1');
+      appStorage.setItem('benai_rappel_done_'+l.id+'_'+l.rappel,'1');
     }
     if(l.statut==='jaune'&&l.date_devis){
       const devisDate=new Date(l.date_devis);devisDate.setHours(0,0,0,0);
       const today=new Date();today.setHours(0,0,0,0);
       const diffDays=Math.floor((today-devisDate)/(1000*60*60*24));
       const k='benai_devis_relance_'+l.id+'_'+l.date_devis;
-      if(diffDays>=7&&!localStorage.getItem(k)){
+      if(diffDays>=7&&!appStorage.getItem(k)){
         pushNotif('📋 Devis sans réponse',`${l.nom} — relance recommandée (J+${diffDays})`,'⏰',currentUser.id);
-        localStorage.setItem(k,'1');
+        appStorage.setItem(k,'1');
       }
     }
   });
@@ -6492,8 +6688,8 @@ function exportLeadsExcel(){
 // ══════════════════════════════════════════
 // 🐛 BUGS
 // ══════════════════════════════════════════
-function getBugs(){try{return JSON.parse(localStorage.getItem('benai_bugs'))||[];}catch{return[];}}
-function saveBugs(b){localStorage.setItem('benai_bugs',JSON.stringify(b));}
+function getBugs(){try{return JSON.parse(appStorage.getItem('benai_bugs'))||[];}catch{return[];}}
+function saveBugs(b){appStorage.setItem('benai_bugs',JSON.stringify(b));}
 function makeAutoBugFingerprint(page,desc){
   return `${page}::${String(desc||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,180)}`;
 }
@@ -6832,9 +7028,9 @@ function getHeuresOuvrees(since){
 // 🎯 OBJECTIFS COMMERCIAUX
 // ══════════════════════════════════════════
 function getObjectifsCommerciaux(){
-  try{return JSON.parse(localStorage.getItem('benai_obj_comm'))||{};}catch{return{};}
+  try{return JSON.parse(appStorage.getItem('benai_obj_comm'))||{};}catch{return{};}
 }
-function saveObjectifsCommerciaux(o){localStorage.setItem('benai_obj_comm',JSON.stringify(o));}
+function saveObjectifsCommerciaux(o){appStorage.setItem('benai_obj_comm',JSON.stringify(o));}
 
 function setObjectifCommercial(uid,mensuel,hebdo){
   const obj=getObjectifsCommerciaux();
@@ -6892,7 +7088,7 @@ function checkMotivationsAuto(){
   const uid=currentUser.id;
   const prog=getProgressionCommercial(uid);
   const pct=prog.obj.mensuel>0?prog.ca_mois/prog.obj.mensuel:0;
-  const lastMotiv=localStorage.getItem('benai_last_motiv_'+uid)||'';
+  const lastMotiv=appStorage.getItem('benai_last_motiv_'+uid)||'';
   const today=new Date().toDateString();
   if(lastMotiv===today)return;
   let contexte='';
@@ -6901,7 +7097,7 @@ function checkMotivationsAuto(){
   else if(new Date().getDay()===1)contexte='C\'est lundi, début de semaine, donne-lui de l\'élan.';
   else if(prog.ventes_semaine===0&&new Date().getDay()>=3)contexte='Pas encore de vente cette semaine, encourage-le à relancer.';
   else return;
-  localStorage.setItem('benai_last_motiv_'+uid,today);
+  appStorage.setItem('benai_last_motiv_'+uid,today);
   setTimeout(()=>genererMessageMotivation(uid,contexte),3000);
 }
 
@@ -6913,7 +7109,7 @@ function renderTableauVentes(container){
   const now=new Date();
   // Sélecteur mois
   const moisDispos=[...new Set(leads.map(l=>{const d=new Date(l.date_creation||0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}))].sort().reverse();
-  const selectedMois=localStorage.getItem('benai_ventes_mois')||`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const selectedMois=appStorage.getItem('benai_ventes_mois')||`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const [yr,mo]=selectedMois.split('-').map(Number);
   const leadsFiltered=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;});
   const total=leadsFiltered.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
@@ -6922,7 +7118,7 @@ function renderTableauVentes(container){
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div style="font-size:15px;font-weight:700">📈 Tableau de ventes</div>
       <div style="display:flex;gap:8px;align-items:center">
-        <select onchange="localStorage.setItem('benai_ventes_mois',this.value);renderLeadsDashboard()" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--t1);outline:none;font-family:'Outfit',sans-serif">
+        <select onchange="window.appStorage.setItem('benai_ventes_mois',this.value);renderLeadsDashboard()" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--t1);outline:none;font-family:'Outfit',sans-serif">
           ${moisDispos.map(m=>`<option value="${m}"${m===selectedMois?' selected':''}>${formatMois(m)}</option>`).join('')}
         </select>
         <button onclick="exportTableauVentes()" style="padding:6px 12px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📥 Export</button>
@@ -6967,7 +7163,7 @@ function formatMois(str){
 
 function exportTableauVentes(){
   const leads=getLeads().filter(l=>l.statut==='vert');
-  const selectedMois=localStorage.getItem('benai_ventes_mois')||'';
+  const selectedMois=appStorage.getItem('benai_ventes_mois')||'';
   const [yr,mo]=selectedMois?selectedMois.split('-').map(Number):[new Date().getFullYear(),new Date().getMonth()+1];
   const filtered=selectedMois?leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;}):leads;
   const header='Source,Commercial,Client,Téléphone,Ville,Produit,HT (€),Date signature\n';
@@ -7063,18 +7259,18 @@ function getContactsParCommercial(){
 function logDeletion(type,nom){
   try{
     const key='benai_deletions';
-    const logs=JSON.parse(localStorage.getItem(key)||'[]');
+    const logs=JSON.parse(appStorage.getItem(key)||'[]');
     logs.unshift({
       type,nom:nom||'?',
       user:currentUser?.name||'?',
       date:new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
     });
-    localStorage.setItem(key,JSON.stringify(logs));
+    appStorage.setItem(key,JSON.stringify(logs));
   }catch(e){}
 }
 
 function getDeletions(){
-  try{return JSON.parse(localStorage.getItem('benai_deletions'))||[];}catch{return[];}
+  try{return JSON.parse(appStorage.getItem('benai_deletions'))||[];}catch{return[];}
 }
 
 // ══════════════════════════════════════════
@@ -7085,7 +7281,7 @@ function checkAnniversaires(){
   const today=new Date();
   const ann=getAnnuaire();
   const today_key=`${today.getDate()}-${today.getMonth()}`;
-  const seen=localStorage.getItem('benai_anniv_seen_'+today_key);
+  const seen=appStorage.getItem('benai_anniv_seen_'+today_key);
   if(seen)return;
   const anniversaires=ann.filter(e=>{
     if(!e.naissance)return false;
@@ -7097,7 +7293,7 @@ function checkAnniversaires(){
       const age=today.getFullYear()-new Date(e.naissance).getFullYear();
       pushNotif(`🎂 Anniversaire`,`${e.prenom} ${e.nom} a ${age} ans aujourd'hui !`,'🎂','benjamin');
     });
-    localStorage.setItem('benai_anniv_seen_'+today_key,'1');
+    appStorage.setItem('benai_anniv_seen_'+today_key,'1');
   }
 }
 
@@ -7319,18 +7515,18 @@ function toggleAccordion(id){
 // ══════════════════════════════════════════
 // SYSTÈME DE NOTIFICATIONS
 // ══════════════════════════════════════════
-function getNotifs(){try{return JSON.parse(localStorage.getItem('benai_notifs_'+( currentUser?.id||'?')))||[];}catch{return[];}}
-function saveNotifs(n){localStorage.setItem('benai_notifs_'+(currentUser?.id||'?'),JSON.stringify(n));}
+function getNotifs(){try{return JSON.parse(appStorage.getItem('benai_notifs_'+( currentUser?.id||'?')))||[];}catch{return[];}}
+function saveNotifs(n){appStorage.setItem('benai_notifs_'+(currentUser?.id||'?'),JSON.stringify(n));}
 
 function pushNotif(titre,msg,icon='🔔',uid){
   // uid = destinataire (si vide = utilisateur courant)
   const target=uid||currentUser?.id||'?';
   try{
     const key='benai_notifs_'+target;
-    const notifs=JSON.parse(localStorage.getItem(key)||'[]');
+    const notifs=JSON.parse(appStorage.getItem(key)||'[]');
     notifs.unshift({id:Date.now(),titre,msg,icon,time:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),read:false});
     if(notifs.length>50)notifs.splice(50);
-    localStorage.setItem(key,JSON.stringify(notifs));
+    appStorage.setItem(key,JSON.stringify(notifs));
   }catch(e){}
   // Notification navigateur si autorisée
   if('Notification' in window&&Notification.permission==='granted'&&target===currentUser?.id){
@@ -7435,13 +7631,17 @@ function downloadMyChat(){
 // SAUVEGARDE À LA FERMETURE
 // ══════════════════════════════════════════
 window.addEventListener('beforeunload',()=>{
+  if(currentUser?.id){
+    const snapshot=serializeCloudAppStorage();
+    void persistAppStorageToSupabaseNow(currentUser.id,snapshot);
+  }
   if(!currentUser||currentUser.id!=='benjamin')return;
-  // Sauvegarde JSON locale silencieuse dans localStorage avec timestamp
+  // Sauvegarde JSON silencieuse en session avec timestamp
   try{
     const mem=getMem();const pwds=getPwds();const extras=getExtraUsers();const access=getAccess();const annuaire=getAnnuaire();
     const backup={version:BENAI_VERSION,date:new Date().toISOString(),data:mem,pwds,extras,access,annuaire};
-    localStorage.setItem('benai_auto_backup',JSON.stringify(backup));
-    localStorage.setItem('benai_auto_backup_date',new Date().toISOString());
+    appStorage.setItem('benai_auto_backup',JSON.stringify(backup));
+    appStorage.setItem('benai_auto_backup_date',new Date().toISOString());
   }catch(e){}
 });
 
@@ -7467,7 +7667,7 @@ window.addEventListener('load',async()=>{
   registerBenAISW();
   refreshInstallButton();
   // Thème
-  const theme=localStorage.getItem('benai_theme')||'dark';
+  const theme=appStorage.getItem('benai_theme')||'dark';
   if(theme==='light')document.body.classList.add('light');
   // Clé API : configuration centralisée côté admin dans Paramètres
   await maybeMigratePwds();
@@ -7482,7 +7682,7 @@ window.addEventListener('load',async()=>{
       USERS[u.id]={name:u.name,pwd:getPwds()[u.id]||'1234',role,color:u.color,initial:u.initial,system:systemPrompt};
     }
   });
-  const rememberedLogin=localStorage.getItem(STORAGE_KEYS.rememberedLogin)||'';
+  const rememberedLogin=getRememberedLoginForForm();
   const loginInput=document.getElementById('login-user');
   if(loginInput&&rememberedLogin)loginInput.value=rememberedLogin;
   if(client){
@@ -7495,6 +7695,7 @@ window.addEventListener('load',async()=>{
         if(user){
           user.system=getSystemPromptForUser(user);
           currentUser=user;
+          await hydrateAppStorageFromSupabase(currentUser.id);
           document.getElementById('login-screen').style.display='none';
           document.getElementById('app').classList.add('visible');
           initApp(true);
@@ -7665,12 +7866,12 @@ function nextTutoSlide(){
 
 function closeTuto(){
   document.getElementById('tuto-overlay').style.display='none';
-  if(currentUser)localStorage.setItem('benai_tuto_done_'+currentUser.id,'1');
+  if(currentUser)appStorage.setItem('benai_tuto_done_'+currentUser.id,'1');
 }
 
 function shouldShowTuto(){
   if(!currentUser||currentUser.id==='benjamin')return false;
-  return !localStorage.getItem('benai_tuto_done_'+currentUser.id);
+  return !appStorage.getItem('benai_tuto_done_'+currentUser.id);
 }
 
 async function installUpdate(version,notes){

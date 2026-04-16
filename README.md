@@ -1,41 +1,26 @@
-<<<<<<< HEAD
 # BenAI
 
-Projet local minimal pour continuer le developpement de `BenAI_v3 15-04.html` avec la partie `Supabase` du dossier `supabase/`.
+Application principale : `BenAI_v3 15-04.html`.
+
+## Point d’entrée
+
+- `index.html` : redirection vers `BenAI_v3 15-04.html` (utile pour GitHub Pages / racine du dépôt).
 
 ## Fichiers utiles
 
-- `index.html` : point d'entree local
-- `BenAI_v3 15-04.html` : application principale
-- `server.js` : petit serveur statique local
-- `supabase/` : configuration et fonctions Edge
-- `supabase_security.sql` : base SQL pour la migration
+- `BenAI_v3 15-04.html` : application
+- `supabase_security.sql` : schéma + RLS
+- `Supabase.txt` : URL + clé publishable (à jour manuellement si besoin)
+- `supabase/` : fonctions Edge et config CLI (si utilisé)
 
-## Lancer le projet
+## Lancer en local
+
+Si tu utilises le petit serveur du dépôt :
 
 ```bash
 npm start
 ```
 
-Puis ouvrir :
+Puis ouvre `http://localhost:3000` (ou le port indiqué par le script).
 
-`http://localhost:3000`
-
-## Reprise de la migration Supabase
-
-- URL Supabase deja configuree dans le HTML
-- cle publishable a renseigner dans les parametres de l'application si besoin
-- fonction Edge presente : `supabase/functions/create-user/index.ts`
-- SQL de base present : `supabase_security.sql`
-
-## Notes
-
-Le projet n'avait pas de structure Node classique. Ce socle sert surtout a :
-
-- rouvrir facilement le bon dossier dans Cursor
-- lancer l'application localement
-- separer plus clairement le HTML principal et la couche Supabase
-=======
-# benai
-BenAI - Assistant Nemausus Fermetures
->>>>>>> 703c2fb5862da9a1b47e3a50d5d7d7b6bbcd7e8e
+**Important :** n’ouvre pas l’app en `file://` si tu utilises Supabase (connexion bloquée par le navigateur). Passe par `http://localhost`.

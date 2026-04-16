@@ -1,2 +1,2 @@
-Clé publiable : A_REMPLACER_PAR_TA_CLE_PUBLISHABLE
-URL API : https://ipmbfbraadzyzncqbimn.supabase.co
+Clé publiable : sb_publishable_WDPUls7WDAvZLYPflwl3yg_su4VZ-_C
+URL API : https://wsstfaqyixnsaimbycmw.supabase.co
