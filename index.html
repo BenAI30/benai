@@ -1436,6 +1436,16 @@ function setStatusMessage(element,color,text){
   element.textContent=text;
 }
 
+async function fetchWithTimeout(url,options={},timeoutMs=10000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    return await fetch(url,{...options,signal:controller.signal});
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 function applySupabaseConfigFromStorage(){
   const storedUrl=localStorage.getItem(STORAGE_KEYS.sbUrl)||SUPABASE_DEFAULT_URL;
   const storedKey=localStorage.getItem(STORAGE_KEYS.sbPublishable)||localStorage.getItem(STORAGE_KEYS.sbAnonLegacy)||SUPABASE_DEFAULT_PUBLISHABLE_KEY;
@@ -1504,12 +1514,12 @@ function getEmailCandidateForUid(uid){
 async function fetchSupabaseProfile(accessToken){
   if(!accessToken)return null;
   try{
-    const res=await fetch(`${SUPABASE_CONFIG.url}/rest/v1/profiles?select=id,email,full_name,role,company`,{
+    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/profiles?select=id,email,full_name,role,company`,{
       headers:{
         apikey:SUPABASE_CONFIG.publishableKey,
         Authorization:'Bearer '+accessToken
       }
-    });
+    },8000);
     if(!res.ok)return null;
     const rows=await res.json();
     return rows?.[0]||null;
@@ -1666,7 +1676,7 @@ async function upsertSupabaseTable(table,rows){
 }
 
 async function syncSharedTablesToSupabase(mem,annuaire){
-  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentSupabaseSession?.access_token)return false;
   const headers=getSupabaseHeaders();
   if(!headers)return false;
   try{
@@ -1690,7 +1700,7 @@ function scheduleSupabaseSync(mem,annuaire){
 }
 
 async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
-  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return;
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser||!currentSupabaseSession?.access_token)return;
   const headers=getSupabaseHeaders();
   if(!headers)return;
   try{
@@ -1706,12 +1716,12 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
 }
 
 async function loadCoreDataFromSupabase(){
-  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return false;
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser||!currentSupabaseSession?.access_token)return false;
   const headers=getSupabaseHeaders();
   if(!headers)return false;
   try{
     const [savRes,notesRes,absRes,annRes]=await Promise.all(SUPABASE_TABLES.map(
-      table=>fetch(`${SUPABASE_CONFIG.url}/rest/v1/${table}?select=*`,{headers})
+      table=>fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${table}?select=*`,{headers},10000)
     ));
     if(!savRes.ok||!notesRes.ok||!absRes.ok||!annRes.ok){
       return false;
@@ -1811,7 +1821,7 @@ async function loadSharedApiKeyFromSupabase(){
   const headers=getSupabaseHeaders();
   if(!headers)return false;
   try{
-    const res=await fetch(`${SUPABASE_CONFIG.url}/rest/v1/app_settings?key=eq.${SHARED_AI_SETTING_KEY}&select=value`,{headers});
+    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/app_settings?key=eq.${SHARED_AI_SETTING_KEY}&select=value`,{headers},8000);
     if(!res.ok)return false;
     const rows=await res.json();
     const remoteKey=extractSharedAIKey(rows?.[0]?.value);
@@ -1826,13 +1836,15 @@ async function loadSharedApiKeyFromSupabase(){
 }
 
 async function saveSharedApiKeyToSupabase(rawKey){
-  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentSupabaseSession?.access_token)return false;
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentSupabaseSession?.access_token){
+    return {ok:false,reason:'missing_session'};
+  }
   const headers=getSupabaseHeaders();
-  if(!headers)return false;
+  if(!headers)return {ok:false,reason:'missing_headers'};
   const key=normalizeAnthropicKey(rawKey);
-  if(!isLikelyAnthropicKey(key))return false;
+  if(!isLikelyAnthropicKey(key))return {ok:false,reason:'invalid_key'};
   try{
-    const res=await fetch(`${SUPABASE_CONFIG.url}/rest/v1/app_settings?on_conflict=key`,{
+    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/app_settings?on_conflict=key`,{
       method:'POST',
       headers:{...headers,'Prefer':'resolution=merge-duplicates,return=minimal'},
       body:JSON.stringify([{
@@ -1840,10 +1852,44 @@ async function saveSharedApiKeyToSupabase(rawKey){
         value:{provider:'anthropic',key},
         updated_at:new Date().toISOString()
       }])
-    });
-    return res.ok;
+    },10000);
+    if(res.ok)return {ok:true};
+    if(res.status===401||res.status===403){
+      const profile=await fetchSupabaseProfile(currentSupabaseSession.access_token);
+      if(!profile)return {ok:false,reason:'profile_missing'};
+      return {ok:false,reason:'forbidden'};
+    }
+    return {ok:false,reason:'http_'+res.status};
   }catch(e){
-    return false;
+    return {ok:false,reason:'network'};
+  }
+}
+
+function refreshVisibleDataAfterSupabaseSync(){
+  if(!currentUser)return;
+  refreshSAVBadge();
+  refreshLeadsBadge();
+  refreshAbsBadge();
+  refreshNotifBadge();
+  if(document.getElementById('page-sav')?.style.display==='flex')renderSAV();
+  if(document.getElementById('page-notes')?.style.display==='flex')renderNotes();
+  if(document.getElementById('page-absences')?.style.display==='flex'){renderAbsences();fillAbsEmpList();}
+  if(document.getElementById('page-annuaire')?.style.display==='flex')renderAnnuaire();
+  if(document.getElementById('page-leads')?.style.display==='flex')initLeadsPage();
+}
+
+async function syncSupabasePostLogin(){
+  const syncedCore=await loadCoreDataFromSupabase();
+  await loadSharedApiKeyFromSupabase();
+  if(syncedCore){
+    refreshVisibleDataAfterSupabaseSync();
+    return;
+  }
+  if(currentSupabaseSession?.access_token){
+    const profile=await fetchSupabaseProfile(currentSupabaseSession.access_token);
+    if(!profile){
+      showDriveNotif('⚠️ Profil Supabase manquant: ajoutez votre ligne admin dans la table profiles');
+    }
   }
 }
 
@@ -2050,11 +2096,10 @@ async function login(){
       err.style.color='var(--g)';
       err.textContent='';
     }
-    await loadCoreDataFromSupabase();
-    await loadSharedApiKeyFromSupabase();
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').classList.add('visible');
     initApp();
+    void syncSupabasePostLogin();
     return;
   }
 
@@ -2117,11 +2162,10 @@ async function login(){
   }
   sessionStorage.setItem('benai_session',resolvedUid);
   localStorage.setItem(STORAGE_KEYS.rememberedLogin,document.getElementById('login-user').value.trim());
-  await loadCoreDataFromSupabase();
-  await loadSharedApiKeyFromSupabase();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').classList.add('visible');
   initApp();
+  void syncSupabasePostLogin();
 }
 
 function logConnexion(uid){
@@ -4286,11 +4330,20 @@ async function saveApiKeySettings(){
   if(currentUser?.role!=='admin'){msg.style.color='var(--r)';msg.textContent='⚠️ Réservé à l’administrateur';return;}
   if(!isLikelyAnthropicKey(key)){msg.style.color='var(--r)';msg.textContent='⚠️ Clé Anthropic invalide (format attendu: sk-ant-...)';return;}
   localStorage.setItem('benai_api',key);document.getElementById('api-key-settings').value='';
-  const synced=await saveSharedApiKeyToSupabase(key);
-  msg.style.color=synced?'var(--g)':'var(--y)';
-  msg.textContent=synced
-    ?'✅ Clé IA enregistrée et synchronisée Supabase'
-    :'✅ Clé IA enregistrée localement (synchro Supabase non disponible)';
+  const syncResult=await saveSharedApiKeyToSupabase(key);
+  if(syncResult.ok){
+    msg.style.color='var(--g)';
+    msg.textContent='✅ Clé IA enregistrée et synchronisée Supabase';
+  }else if(syncResult.reason==='profile_missing'){
+    msg.style.color='var(--y)';
+    msg.textContent='⚠️ Clé IA enregistrée localement — profil Supabase manquant (table profiles)';
+  }else if(syncResult.reason==='missing_session'){
+    msg.style.color='var(--y)';
+    msg.textContent='⚠️ Clé IA enregistrée localement — session Supabase inactive';
+  }else{
+    msg.style.color='var(--y)';
+    msg.textContent='✅ Clé IA enregistrée localement (synchro Supabase non disponible)';
+  }
   setTimeout(()=>msg.textContent='',3500);
 }
 
@@ -6778,11 +6831,10 @@ window.addEventListener('load',async()=>{
         if(user){
           user.system=getSystemPromptForUser(user);
           currentUser=user;
-          await loadCoreDataFromSupabase();
-          await loadSharedApiKeyFromSupabase();
           document.getElementById('login-screen').style.display='none';
           document.getElementById('app').classList.add('visible');
           initApp(true);
+          void syncSupabasePostLogin();
           checkUpdate();
           initOfflineDetection();
           enableSpellcheckEverywhere();
@@ -6810,11 +6862,10 @@ window.addEventListener('load',async()=>{
         checkUpdate();return;
       }
       currentUser={id:uid,...userObj};
-      await loadCoreDataFromSupabase();
-      await loadSharedApiKeyFromSupabase();
       document.getElementById('login-screen').style.display='none';
       document.getElementById('app').classList.add('visible');
       initApp(true); // true = restauration silencieuse (pas de message d'accueil)
+      void syncSupabasePostLogin();
       checkUpdate();
       return;
     }
