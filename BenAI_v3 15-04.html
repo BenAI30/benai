@@ -1695,15 +1695,25 @@ function isLikelyAnthropicKey(raw){
   return key.startsWith('sk-ant-')&&key.length>=20;
 }
 
+function useMobilePersistedSupabaseAuth(){
+  try{
+    return window.matchMedia('(max-width: 768px)').matches;
+  }catch{
+    return false;
+  }
+}
+
 function getSupabaseClient(){
   applySupabaseConfigFromStorage();
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!SUPABASE_CONFIG.publishableKey)return null;
   if(!window.supabase?.createClient)return null;
   if(!supabaseClient){
+    const persistSession=useMobilePersistedSupabaseAuth();
     supabaseClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.publishableKey,{
-      // Session Auth persistée (navigateur) : rester connecté mobile / PC après fermeture d’onglet.
-      // Les données métier (SAV, leads, notes…) restent uniquement sur Supabase, pas dans ce stockage.
-      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+      // Session persistée seulement sur « mobile » (largeur ≤768px) : rester connecté après fermeture d’onglet.
+      // Sur ordi (fenêtre large) : pas de stockage de session Auth — à reconnecter après fermeture du navigateur.
+      // Les données métier restent sur Supabase dans tous les cas.
+      auth:{persistSession,autoRefreshToken:true,detectSessionInUrl:true}
     });
   }
   return supabaseClient;
