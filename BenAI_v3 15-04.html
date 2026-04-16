@@ -1533,6 +1533,7 @@ const SUPABASE_TABLES=['sav','notes','absences','annuaire','leads'];
 const SUPABASE_TEST_ENDPOINT='/auth/v1/settings';
 const SHARED_AI_SETTING_KEY='shared_ai_api';
 let supabaseSyncTimer=null;
+let lastSupabaseSyncError='';
 // Préparation Supabase (phase ready): stockage session uniquement.
 const SUPABASE_CONFIG = {
   url:SUPABASE_DEFAULT_URL,
@@ -1942,30 +1943,51 @@ function mapLeadsToSupabaseRows(items){
 async function upsertSupabaseTable(table,rows){
   if(!rows?.length)return true;
   const headers=getSupabaseHeaders();
-  if(!headers)return false;
+  if(!headers){
+    lastSupabaseSyncError=`${table}: en-têtes Supabase manquants`;
+    return false;
+  }
   const payload=JSON.stringify(rows);
-  const upsertRes=await fetch(`${SUPABASE_CONFIG.url}/rest/v1/${table}?on_conflict=legacy_id`,{
+  const upsertRes=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${table}?on_conflict=legacy_id`,{
     method:'POST',
     headers:{...headers,'Prefer':'resolution=merge-duplicates'},
     body:payload
-  });
-  if(upsertRes.ok)return true;
+  },10000);
+  if(upsertRes.ok){
+    lastSupabaseSyncError='';
+    return true;
+  }
 
   // Fallback : certains schémas n'ont pas legacy_id unique.
-  const insertRes=await fetch(`${SUPABASE_CONFIG.url}/rest/v1/${table}`,{
+  const insertRes=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${table}`,{
     method:'POST',
     headers:{...headers,'Prefer':'return=minimal'},
     body:payload
-  });
-  return insertRes.ok;
+  },10000);
+  if(insertRes.ok){
+    lastSupabaseSyncError='';
+    return true;
+  }
+  let upsertBody='';
+  let insertBody='';
+  try{upsertBody=await upsertRes.text();}catch{}
+  try{insertBody=await insertRes.text();}catch{}
+  lastSupabaseSyncError=`${table}: upsert ${upsertRes.status} / insert ${insertRes.status} ${insertBody||upsertBody||''}`.trim();
+  return false;
 }
 
 async function syncSharedTablesToSupabase(mem,annuaire,leads){
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
   const session=await ensureSupabaseSession();
-  if(!session?.access_token)return false;
+  if(!session?.access_token){
+    lastSupabaseSyncError='Session Supabase absente (token manquant).';
+    return false;
+  }
   const headers=getSupabaseHeaders();
-  if(!headers)return false;
+  if(!headers){
+    lastSupabaseSyncError='En-têtes Supabase manquants.';
+    return false;
+  }
   try{
     const results=await Promise.all([
       upsertSupabaseTable('sav',mapSavToSupabaseRows(mem?.sav)),
@@ -1974,8 +1996,11 @@ async function syncSharedTablesToSupabase(mem,annuaire,leads){
       upsertSupabaseTable('annuaire',mapAnnuaireToSupabaseRows(annuaire)),
       upsertSupabaseTable('leads',mapLeadsToSupabaseRows(leads))
     ]);
-    return results.every(Boolean);
+    const ok=results.every(Boolean);
+    if(!ok&&!lastSupabaseSyncError)lastSupabaseSyncError='Échec sync tables partagées (cause non détaillée).';
+    return ok;
   }catch(e){
+    lastSupabaseSyncError=`Erreur sync tables: ${e?.message||e||'inconnue'}`;
     return false;
   }
 }
@@ -1998,11 +2023,20 @@ async function flushSupabaseSyncNow(){
 }
 
 async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
-  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return false;
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser){
+    lastSupabaseSyncError='Supabase désactivé ou utilisateur non connecté.';
+    return false;
+  }
   const session=await ensureSupabaseSession();
-  if(!session?.access_token)return false;
+  if(!session?.access_token){
+    lastSupabaseSyncError='Session Supabase inactive (token manquant).';
+    return false;
+  }
   const headers=getSupabaseHeaders();
-  if(!headers)return false;
+  if(!headers){
+    lastSupabaseSyncError='En-têtes Supabase invalides.';
+    return false;
+  }
   try{
     const [stateRes,sharedOk]=await Promise.all([
       fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}`,{
@@ -2013,8 +2047,16 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
       syncSharedTablesToSupabase(mem,annuaire,getLeads())
     ]);
     const stateOk=!!stateRes?.ok||stateRes?.status===404;
-    return !!sharedOk&&stateOk;
+    if(!stateOk&&!lastSupabaseSyncError){
+      let stateBody='';
+      try{stateBody=await stateRes.text();}catch{}
+      lastSupabaseSyncError=`${SUPABASE_CONFIG.table}: ${stateRes?.status||'?' } ${stateBody||''}`.trim();
+    }
+    const ok=!!sharedOk&&stateOk;
+    if(ok)lastSupabaseSyncError='';
+    return ok;
   }catch(e){
+    lastSupabaseSyncError=`Erreur réseau sync: ${e?.message||e||'inconnue'}`;
     return false;
   }
 }
@@ -2700,7 +2742,8 @@ async function logout(){
   const rememberedLogin=getRememberedLoginForForm();
   const syncOk=await flushSupabaseSyncNow();
   if(!syncOk&&SUPABASE_CONFIG.enabled){
-    const proceed=confirm('⚠️ Synchronisation Supabase échouée. Si vous vous déconnectez maintenant, les dernières modifications peuvent être perdues.\n\nSe déconnecter quand même ?');
+    const detail=lastSupabaseSyncError?`\n\nDétail: ${String(lastSupabaseSyncError).slice(0,240)}`:'';
+    const proceed=confirm('⚠️ Synchronisation Supabase échouée. Si vous vous déconnectez maintenant, les dernières modifications peuvent être perdues.'+detail+'\n\nSe déconnecter quand même ?');
     if(!proceed)return;
   }
   if(currentUser?.id){
