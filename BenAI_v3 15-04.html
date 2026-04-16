@@ -3714,20 +3714,24 @@ function addNote(){
   saveMem(mem);renderNotes();setTimeout(()=>{const first=document.querySelector('.note-card textarea');if(first)first.focus();},50);
 }
 
+function noteIdEq(a,b){
+  return String(a)===String(b);
+}
+
 function renderNotes(){
   const mem=getMem();const area=document.getElementById('notes-area');
   const notes=(mem.notes||[]).filter(n=>(n.by===currentUser.id||currentUser.role==='admin')&&(String(n.text||'').trim()||n.draft));
   if(!notes.length){area.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune note — cliquez sur + Nouvelle note</div>';return;}
   area.innerHTML=notes.map((n,i)=>`
     <div class="note-card">
-      <button class="note-del" onclick="deleteNote(${n.id})">✕</button>
-      <textarea oninput="saveNote(${n.id},this.value)" onblur="finalizeNoteOnBlur(${n.id},this)">${esc(n.text)}</textarea>
+      <button class="note-del" onclick='deleteNote(${JSON.stringify(String(n.id))})'>✕</button>
+      <textarea oninput='saveNote(${JSON.stringify(String(n.id))},this.value)' onblur='finalizeNoteOnBlur(${JSON.stringify(String(n.id))},this)'>${esc(n.text)}</textarea>
       <div class="note-meta"><span>${n.date}</span><span>${USERS[n.by]?.name||n.by}</span></div>
     </div>`).join('');
 }
 
 function saveNote(id,val){
-  const mem=getMem();const n=mem.notes?.find(x=>x.id===id);
+  const mem=getMem();const n=mem.notes?.find(x=>noteIdEq(x.id,id));
   if(n){
     n.text=val;
     n.draft=!String(val||'').trim();
@@ -3737,7 +3741,7 @@ function saveNote(id,val){
 
 function removeEmptyNoteSilent(id){
   const mem=getMem();
-  mem.notes=(mem.notes||[]).filter(n=>n.id!==id);
+  mem.notes=(mem.notes||[]).filter(n=>!noteIdEq(n.id,id));
   saveMem(mem);
   renderNotes();
 }
@@ -3776,7 +3780,10 @@ async function correctNoteSpelling(id,el){
 
 function deleteNote(id){
   if(!confirm('Supprimer cette note ?'))return;
-  const mem=getMem();mem.notes=(mem.notes||[]).filter(n=>n.id!==id);saveMem(mem);renderNotes();
+  const mem=getMem();
+  mem.notes=(mem.notes||[]).filter(n=>!noteIdEq(n.id,id));
+  saveMem(mem);
+  renderNotes();
 }
 
 // ══════════════════════════════════════════
