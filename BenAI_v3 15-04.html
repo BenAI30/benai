@@ -514,6 +514,8 @@ body.light .bubble{color:var(--t1);}
   .msg.user,.msg.ai{max-width:96%;}
   .chat-input-area{padding:10px;}
   .chat-input-row{gap:6px;}
+  #page-benai .chat-input-area{display:none;}
+  #page-benai .chat-area{padding-bottom:16px;}
   .btn-send,.btn-attach-plus,.thread-send,.tool-btn,.sav-filter,.crm-filter,.ann-filter,.btn-primary,.tb-icon-btn,.tb-logout{min-height:40px;}
   .chat-textarea,.thread-input input,.form-input,.sav-search{font-size:16px;}
   .dash-grid{grid-template-columns:1fr;}
@@ -560,7 +562,7 @@ input[type=file]{display:none;}
       <p>Nemausus Fermetures · Lambert SAS</p>
     </div>
     <div class="login-label">Identifiant (email pro)</div>
-    <input type="email" class="login-input" id="login-user" placeholder="email" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter')document.getElementById('login-pwd').focus()">
+    <input type="email" class="login-input" id="login-user" placeholder="email" autocomplete="username email" autocapitalize="none" onkeydown="if(event.key==='Enter')document.getElementById('login-pwd').focus()">
     <div class="login-label">Mot de passe</div>
     <input type="password" class="login-input" id="login-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
     <button class="login-btn" onclick="login()">Se connecter →</button>
@@ -710,24 +712,10 @@ input[type=file]{display:none;}
         <div id="team-pwd-list"></div>
       </div>
       <div class="sp-section">
-        <div class="sp-label">Sauvegarde données</div>
-        <div style="display:flex;gap:6px">
-          <button onclick="exportData()" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">💾 Local</button>
-          <button onclick="document.getElementById('import-file').click()" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">📂 Restaurer</button>
-          <button onclick="manualBackupToDrive()" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--g);background:var(--g2);color:var(--g);font-family:inherit;font-size:12px;cursor:pointer;font-weight:600">☁️ Drive</button>
+        <div class="sp-label">Stockage</div>
+        <div style="font-size:11px;color:var(--g);line-height:1.5;background:var(--g2);border:1px solid rgba(34,197,94,.25);border-radius:8px;padding:8px 10px">
+          ✅ Mode cloud strict activé : données métier stockées uniquement sur Supabase.
         </div>
-        <input type="file" id="import-file" accept=".json" onchange="importData(this)">
-        <div id="backup-msg" style="font-size:11px;margin-top:5px;min-height:14px"></div>
-      </div>
-      <div class="sp-section">
-        <div class="sp-label">Google Drive — Client ID</div>
-        <div style="font-size:10px;color:var(--t3);margin-bottom:6px">Créer un projet sur <a href="https://console.cloud.google.com" target="_blank" style="color:var(--a)">console.cloud.google.com</a> → API Drive → OAuth 2.0</div>
-        <div style="display:flex;gap:6px">
-          <input type="text" id="gdrive-client-id" placeholder="xxxx.apps.googleusercontent.com" style="flex:1;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:inherit;font-size:11px;outline:none">
-          <button onclick="saveGDriveClientIdSettings()" style="padding:8px 12px;background:var(--a);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">OK</button>
-        </div>
-        <div id="gdrive-msg" style="font-size:11px;margin-top:5px;min-height:14px"></div>
-        <div id="gdrive-last-backup" style="font-size:10px;color:var(--t3);margin-top:4px"></div>
       </div>
     </div>
   </div>
@@ -1542,6 +1530,7 @@ let supabaseSyncTimer=null;
 let lastSupabaseSyncError='';
 const AUTO_BUG_NOTIF_COOLDOWN_MS=30*60*1000;
 let lastSelfHealToastTs=0;
+const LOGIN_REMEMBER_LOCAL_KEY='benai_login_user_local';
 // Préparation Supabase (phase ready): stockage session uniquement.
 const SUPABASE_CONFIG = {
   url:SUPABASE_DEFAULT_URL,
@@ -2306,11 +2295,7 @@ async function syncSupabasePostLogin(){
 // ══════════════════════════════════════════
 const USERS = {
   benjamin:{name:'Benjamin',pwd:'1234',role:'admin',color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B',
-    system:`Tu es BenAI, l'assistant personnel de Benjamin, gérant de Nemausus Fermetures et Lambert SAS. Benjamin gère tout : back-office, commandes fournisseurs, SAV, All Manager, emails, réseaux sociaux, comptabilité. Tu peux l'aider sur n'importe quel sujet, professionnel comme personnel. Tu lui proposes toujours — il décide toujours. Tutoie-le.`},
-  aurelie:{name:'Aurélie',pwd:'1234',role:'assistante',color:'linear-gradient(135deg,#22C55E,#15803D)',initial:'A',
-    system:`Tu es BenAI, l'assistant d'Aurélie chez Nemausus Fermetures. Tu réponds UNIQUEMENT aux questions professionnelles liées à : menuiserie, volets, fenêtres, portes, stores, pergolas, emails clients, SAV, All Manager, Hercule Pro, comptabilité. Pour toute question hors sujet, réponds poliment : "Je suis configuré pour les questions professionnelles de Nemausus Fermetures uniquement." Tu proposes toujours — elle décide toujours. Tutoie-la.`},
-  claudine:{name:'Claudine',pwd:'1234',role:'assistante',color:'linear-gradient(135deg,#60A5FA,#1D4ED8)',initial:'C',
-    system:`Tu es BenAI, l'assistant de Claudine chez Lambert SAS. Tu réponds UNIQUEMENT aux questions professionnelles liées à : menuiserie, volets, fenêtres, portes, stores, pergolas, emails clients, SAV, All Manager, Hercule Pro, comptabilité, réseaux sociaux professionnels. Pour toute question hors sujet, réponds poliment : "Je suis configuré pour les questions professionnelles de Lambert SAS uniquement." Tu proposes toujours — elle décide toujours. Tutoie-la.`}
+    system:`Tu es BenAI, l'assistant personnel de Benjamin, gérant de Nemausus Fermetures et Lambert SAS. Benjamin gère tout : back-office, commandes fournisseurs, SAV, All Manager, emails, réseaux sociaux, comptabilité. Tu peux l'aider sur n'importe quel sujet, professionnel comme personnel. Tu lui proposes toujours — il décide toujours. Tutoie-le.`}
 };
 
 const BENAI_CTX=`
@@ -2421,7 +2406,7 @@ async function requestAnthropicMessages(body,retryOnInvalidKey=true){
   throw new Error((data?.error?.message||errorMessage));
 }
 
-function getPwds(){try{return JSON.parse(appStorage.getItem(STORAGE_KEYS.pwds))||{benjamin:'1234',aurelie:'1234',claudine:'1234'};}catch{return{benjamin:'1234',aurelie:'1234',claudine:'1234'};}}
+function getPwds(){try{return JSON.parse(appStorage.getItem(STORAGE_KEYS.pwds))||{benjamin:'1234'};}catch{return{benjamin:'1234'};}}
 function savePwds(p){appStorage.setItem(STORAGE_KEYS.pwds,JSON.stringify(p));}
 function getAccess(){try{return JSON.parse(appStorage.getItem(STORAGE_KEYS.access))||{};}catch{return {};}}
 function saveAccess(a){appStorage.setItem(STORAGE_KEYS.access,JSON.stringify(a));}
@@ -2499,14 +2484,24 @@ function refreshMsgBadge(){
 // LOGIN
 // ══════════════════════════════════════════
 function getRememberedLoginForForm(){
-  const raw=appStorage.getItem(STORAGE_KEYS.rememberedLogin)||'';
+  let raw=appStorage.getItem(STORAGE_KEYS.rememberedLogin)||'';
+  if(!raw){
+    try{raw=localStorage.getItem(LOGIN_REMEMBER_LOCAL_KEY)||'';}catch{}
+  }
   const s=String(raw||'').trim();
   if(!s)return'';
   if(s.toLowerCase()==='prenom.nom@entreprise.fr'){
     appStorage.removeItem(STORAGE_KEYS.rememberedLogin);
+    try{localStorage.removeItem(LOGIN_REMEMBER_LOCAL_KEY);}catch{}
     return'';
   }
   return s;
+}
+function rememberLoginId(value){
+  const v=String(value||'').trim();
+  if(!v)return;
+  appStorage.setItem(STORAGE_KEYS.rememberedLogin,v);
+  try{localStorage.setItem(LOGIN_REMEMBER_LOCAL_KEY,v);}catch{}
 }
 function getLoginAttempts(){try{return JSON.parse(appStorage.getItem('benai_attempts'))||{count:0,blockedUntil:0};}catch{return{count:0,blockedUntil:0};}}
 function saveLoginAttempts(a){appStorage.setItem('benai_attempts',JSON.stringify(a));}
@@ -2578,7 +2573,7 @@ async function login(){
     await hydrateAppStorageFromSupabase(currentUser.id);
     logConnexion(currentUser.id);
     lastActivityTime=Date.now();
-    appStorage.setItem(STORAGE_KEYS.rememberedLogin,document.getElementById('login-user').value.trim());
+    rememberLoginId(document.getElementById('login-user').value.trim());
     if(err){
       err.style.color='var(--g)';
       err.textContent='';
@@ -2674,7 +2669,7 @@ async function login(){
     document.getElementById('force-pwd-screen').style.display='flex';
     return;
   }
-  appStorage.setItem(STORAGE_KEYS.rememberedLogin,document.getElementById('login-user').value.trim());
+  rememberLoginId(document.getElementById('login-user').value.trim());
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').classList.add('visible');
   initApp();
@@ -2785,7 +2780,7 @@ async function logout(){
   if(client)client.auth.signOut().catch(()=>{});
   currentSupabaseSession=null;
   currentUser=null;chatHistory=[];currentConv=null;
-  if(rememberedLogin)appStorage.setItem(STORAGE_KEYS.rememberedLogin,rememberedLogin);
+  if(rememberedLogin)rememberLoginId(rememberedLogin);
   ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
@@ -2941,8 +2936,6 @@ function initApp(silent=false){
   if(u.role==='commercial')setTimeout(()=>checkMotivationsAuto(),5000);
   // Rappel anniversaires pour Benjamin
   if(u.id==='benjamin')setTimeout(()=>checkAnniversaires(),3000);
-  // Initialiser Google Drive client si configuré
-  if(u.id==='benjamin')setTimeout(()=>initGDriveClient(),1000);
   // Tuto première utilisation
   if(shouldShowTuto()&&!CRM_PAGES_ONLY.includes(u.role))setTimeout(()=>startTuto(),1200);
   // Bouton tuto dans paramètres
@@ -3490,10 +3483,9 @@ function toggleSavForm(){
   if(!isOpen){
     const socSelect=document.getElementById('sav-soc');
     if(socSelect){
-      if(currentUser.id==='aurelie'){
-        socSelect.value='nemausus';socSelect.disabled=true;
-      } else if(currentUser.id==='claudine'){
-        socSelect.value='lambert';socSelect.disabled=true;
+      if(currentUser.role==='assistante'&&(currentUser.societe==='nemausus'||currentUser.societe==='lambert')){
+        socSelect.value=currentUser.societe;
+        socSelect.disabled=true;
       } else {
         socSelect.disabled=false;
       }
@@ -3518,7 +3510,13 @@ function addSAV(){
   const rappel=rappelInput||addDaysISO(rappelDays);
   const commentaire=document.getElementById('sav-comment')?.value.trim()||'';
   const urgent=document.getElementById('sav-urgent').checked;
-  if(!client||!pb){alert('Remplissez le client et le problème');return;}
+  const missing=[];
+  if(!client)missing.push('Client');
+  if(!pb)missing.push('Problème');
+  if(missing.length){
+    alert('Champs vides : '+missing.join(', '));
+    return;
+  }
   const mem=getMem();
   mem.sav.unshift({id:Date.now(),client,probleme:pb,societe:soc,commercial,fournisseur:fourn,rappel,rappelDays,urgent,statut:'nouveau',date_creation:new Date().toLocaleDateString('fr-FR'),by:currentUser.name,actions:[],commentaire,archive:false,muteReminder:false});
   saveMem(mem);
@@ -3536,8 +3534,9 @@ function renderSAV(){
   let savs=mem.sav||[];const isAdmin=currentUser.role==='admin';
   const search=(document.getElementById('sav-search')?.value||'').toLowerCase();
   // Filtre société
-  if(currentUser.id==='aurelie')savs=savs.filter(s=>s.societe==='nemausus');
-  else if(currentUser.id==='claudine')savs=savs.filter(s=>s.societe==='lambert');
+  if(currentUser.role==='assistante'&&(currentUser.societe==='nemausus'||currentUser.societe==='lambert')){
+    savs=savs.filter(s=>s.societe===currentUser.societe);
+  }
   // Filtre état
   if(currentFilter==='nouveau')savs=savs.filter(s=>s.statut==='nouveau'&&!s.archive);
   else if(currentFilter==='en_cours')savs=savs.filter(s=>s.statut==='en_cours');
@@ -3644,7 +3643,13 @@ function editSAV(id){
 function saveEditSAV(id){
   const client=document.getElementById('sav-client').value.trim();
   const pb=document.getElementById('sav-pb').value.trim();
-  if(!client||!pb){alert('Client et problème obligatoires');return;}
+  const missing=[];
+  if(!client)missing.push('Client');
+  if(!pb)missing.push('Problème');
+  if(missing.length){
+    alert('Champs vides : '+missing.join(', '));
+    return;
+  }
   const mem=getMem();const idx=mem.sav.findIndex(s=>s.id===id);if(idx===-1)return;
   mem.sav[idx]={
     ...mem.sav[idx],
@@ -3711,8 +3716,9 @@ function toggleSavMute(id){
 
 function exportSAVCSV(){
   const mem=getMem();let savs=mem.sav||[];
-  if(currentUser.id==='aurelie')savs=savs.filter(s=>s.societe==='nemausus');
-  else if(currentUser.id==='claudine')savs=savs.filter(s=>s.societe==='lambert');
+  if(currentUser.role==='assistante'&&(currentUser.societe==='nemausus'||currentUser.societe==='lambert')){
+    savs=savs.filter(s=>s.societe===currentUser.societe);
+  }
   const header='Date,Client,Problème,Société,Commercial,Fournisseur,Statut,Urgent,Date rappel\n';
   const rows=savs.map(s=>`${s.date_creation||''},${csv(s.client)},${csv(s.probleme)},${s.societe==='nemausus'?'Nemausus Fermetures':'Lambert SAS'},${csv(s.commercial)},${csv(s.fournisseur)},${s.statut},${s.urgent?'Oui':'Non'},${s.rappel||''}`).join('\n');
   download('SAV_BenAI_'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.csv',header+rows,'text/csv');
@@ -4679,7 +4685,7 @@ function renderDeletionsList(){
 function renderTokenStats(){
   const el=document.getElementById('token-stats');if(!el)return;
   const mem=getMem();const tokens=mem.tokens||{};
-  const users=['benjamin','aurelie','claudine',...getExtraUsers().map(u=>u.id)];
+  const users=[...new Set(['benjamin',...getExtraUsers().map(u=>u.id)])];
   let html='';
   users.forEach(uid=>{
     const u=USERS[uid]||getExtraUserById(uid);if(!u)return;
@@ -4722,9 +4728,7 @@ function getExtraUserById(id){return getExtraUsers().find(u=>u.id===id)||null;}
 function getAllUsers(){
   const hidden=JSON.parse(appStorage.getItem('benai_hidden_users')||'[]');
   const base=[
-    {id:'benjamin',name:'Benjamin',role:'admin',societe:'les-deux',vehicule:'',color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B',builtin:true},
-    {id:'aurelie',name:'Aurélie',role:'assistante',societe:'nemausus',vehicule:'',color:'linear-gradient(135deg,#22C55E,#15803D)',initial:'A',builtin:true},
-    {id:'claudine',name:'Claudine',role:'assistante',societe:'lambert',vehicule:'',color:'linear-gradient(135deg,#60A5FA,#1D4ED8)',initial:'C',builtin:true},
+    {id:'benjamin',name:'Benjamin',role:'admin',societe:'les-deux',vehicule:'',color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B',builtin:true}
   ].filter(u=>!hidden.includes(u.id));
   const extras=getExtraUsers().map(u=>({...u,vehicule:u.vehicule||''}));
   return[...base,...extras];
@@ -6530,9 +6534,18 @@ function saveLead(){
   const ville=villeEl?.value.trim()||adresse.split(/\d{5}/)?.[1]?.trim()||'';
   const cp2=cpEl?.value.trim()||'';
   const projet=document.getElementById('lead-projet').value.trim();
-  if(!nom||!tel||!projet){alert('Remplissez les champs obligatoires : Nom, Téléphone, Projet');return;}
-  if(currentLeadStatut==='rouge'&&!document.getElementById('lead-raison-mort').value){alert('Indiquez la raison du refus');return;}
-  if(currentLeadStatut==='vert'&&!document.getElementById('lead-prix-vendu').value){alert('Indiquez le prix vendu');return;}
+  const missing=[];
+  if(!nom)missing.push('Nom');
+  if(!tel)missing.push('Téléphone');
+  if(!projet)missing.push('Projet');
+  const raisonMort=document.getElementById('lead-raison-mort').value;
+  const prixVendu=document.getElementById('lead-prix-vendu').value;
+  if(currentLeadStatut==='rouge'&&!raisonMort)missing.push('Raison du refus');
+  if(currentLeadStatut==='vert'&&!prixVendu)missing.push('Prix vendu');
+  if(missing.length){
+    alert('Champs vides : '+missing.join(', '));
+    return;
+  }
   const leads=getLeads();
   let agendaAutoOpened=false;
   const now=new Date().toISOString();
