@@ -1534,6 +1534,8 @@ const SUPABASE_TEST_ENDPOINT='/auth/v1/settings';
 const SHARED_AI_SETTING_KEY='shared_ai_api';
 let supabaseSyncTimer=null;
 let lastSupabaseSyncError='';
+const AUTO_BUG_NOTIF_COOLDOWN_MS=30*60*1000;
+let lastSelfHealToastTs=0;
 // Préparation Supabase (phase ready): stockage session uniquement.
 const SUPABASE_CONFIG = {
   url:SUPABASE_DEFAULT_URL,
@@ -6789,6 +6791,17 @@ function saveBugs(b){appStorage.setItem('benai_bugs',JSON.stringify(b));}
 function makeAutoBugFingerprint(page,desc){
   return `${page}::${String(desc||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,180)}`;
 }
+function shouldPushAutoBugNotif(fingerprint,gravite){
+  // Les alertes mineures restent visibles dans la page Bugs
+  // mais n'encombrent plus le centre de notifications.
+  if(String(gravite||'').toLowerCase()==='mineur')return false;
+  const key='benai_auto_bug_notif_'+fingerprint;
+  const now=Date.now();
+  const lastTs=Number(appStorage.getItem(key)||'0');
+  if(lastTs&&now-lastTs<AUTO_BUG_NOTIF_COOLDOWN_MS)return false;
+  appStorage.setItem(key,String(now));
+  return true;
+}
 function reportAutoBug(page,desc,gravite='important',extra={}){
   if(!desc||!page)return false;
   const bugs=getBugs();
@@ -6815,8 +6828,10 @@ function reportAutoBug(page,desc,gravite='important',extra={}){
   bugs.unshift(row);
   saveBugs(bugs);
   refreshBugsBadge();
-  // Notifier Benjamin uniquement sur vrai nouveau ticket automatique.
-  pushNotif('🤖 Bug détecté automatiquement',`${page} — ${row.desc.slice(0,90)}`,'🐛','benjamin');
+  // Notifier Benjamin seulement sur niveaux significatifs + anti-spam.
+  if(shouldPushAutoBugNotif(fingerprint,gravite)){
+    pushNotif('🤖 Bug détecté automatiquement',`${page} — ${row.desc.slice(0,90)}`,'🐛','benjamin');
+  }
   return true;
 }
 function attemptAutoHealCRMLeads(){
@@ -6935,7 +6950,10 @@ function setupSafeSelfHealing(){
     if(!pollingInterval||staleMs>90000){
       startPolling();
       reportAutoBug('BenAI IA','Auto-correction: polling relancé automatiquement.','mineur',{autoFixed:true,staleMs});
-      showDriveNotif('🩹 Auto-correction BenAI: surveillance relancée');
+      if(Date.now()-lastSelfHealToastTs>15*60*1000){
+        showDriveNotif('🩹 Auto-correction BenAI: surveillance relancée');
+        lastSelfHealToastTs=Date.now();
+      }
     }
     // Si Supabase est activé mais session manquante, tenter une récupération douce.
     if(SUPABASE_CONFIG.enabled){
