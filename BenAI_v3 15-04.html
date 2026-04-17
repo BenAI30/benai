@@ -1611,6 +1611,10 @@ const SUPABASE_TEST_ENDPOINT='/auth/v1/settings';
 const SHARED_AI_SETTING_KEY='shared_ai_api';
 let supabaseSyncTimer=null;
 let lastSupabaseSyncError='';
+let supabaseRetryTimer=null;
+let supabaseRetryDelayMs=2000;
+let supabaseSyncFailStreak=0;
+let supabaseSyncWarnTs=0;
 const AUTO_BUG_NOTIF_COOLDOWN_MS=30*60*1000;
 let lastSelfHealToastTs=0;
 const LOGIN_REMEMBER_LOCAL_KEY='benai_login_user_local';
@@ -2158,8 +2162,39 @@ function scheduleSupabaseSync(mem,annuaire){
   clearTimeout(supabaseSyncTimer);
   supabaseSyncTimer=setTimeout(()=>{
     supabaseSyncTimer=null;
-    void syncMemToSupabase(mem,annuaire);
+    void syncMemToSupabase(mem,annuaire).then(ok=>{
+      if(ok){
+        supabaseSyncFailStreak=0;
+        supabaseRetryDelayMs=2000;
+        return;
+      }
+      supabaseSyncFailStreak++;
+      queueSupabaseSyncRetry('debounced-save');
+    });
   },400);
+}
+
+function queueSupabaseSyncRetry(reason=''){
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser?.id)return;
+  if(!navigator.onLine)return;
+  if(supabaseRetryTimer)return;
+  const wait=Math.min(Math.max(supabaseRetryDelayMs,2000),30000);
+  supabaseRetryTimer=setTimeout(async()=>{
+    supabaseRetryTimer=null;
+    const ok=await syncMemToSupabase(getMem(),getAnnuaire());
+    if(ok){
+      supabaseSyncFailStreak=0;
+      supabaseRetryDelayMs=2000;
+      return;
+    }
+    supabaseSyncFailStreak++;
+    supabaseRetryDelayMs=Math.min(supabaseRetryDelayMs*2,30000);
+    if(supabaseSyncFailStreak>=3&&Date.now()-supabaseSyncWarnTs>20000){
+      supabaseSyncWarnTs=Date.now();
+      showDriveNotif('⚠️ Sync cloud instable: BenAI réessaie automatiquement.');
+    }
+    queueSupabaseSyncRetry(`retry:${reason}`);
+  },wait);
 }
 
 async function flushSupabaseSyncNow(){
@@ -2168,7 +2203,15 @@ async function flushSupabaseSyncNow(){
     supabaseSyncTimer=null;
   }
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser?.id)return true;
-  return await syncMemToSupabase(getMem(),getAnnuaire());
+  const ok=await syncMemToSupabase(getMem(),getAnnuaire());
+  if(ok){
+    supabaseSyncFailStreak=0;
+    supabaseRetryDelayMs=2000;
+    return true;
+  }
+  supabaseSyncFailStreak++;
+  queueSupabaseSyncRetry('flush');
+  return false;
 }
 
 async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
@@ -2910,6 +2953,9 @@ function getConnexions(uid){
 
 async function logout(){
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
+  if(supabaseRetryTimer){clearTimeout(supabaseRetryTimer);supabaseRetryTimer=null;}
+  supabaseRetryDelayMs=2000;
+  supabaseSyncFailStreak=0;
   const rememberedLogin=getRememberedLoginForForm();
   let syncOk=false;
   try{
@@ -4670,7 +4716,12 @@ function initOfflineDetection(){
       if(sendBtn)sendBtn.title='Mode hors-ligne — IA indisponible';
     }
   };
-  window.addEventListener('online',update);
+  window.addEventListener('online',()=>{
+    update();
+    if(currentUser?.id&&SUPABASE_CONFIG.enabled){
+      void flushSupabaseSyncNow();
+    }
+  });
   window.addEventListener('offline',update);
   update();
 }

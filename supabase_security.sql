@@ -182,6 +182,19 @@ returns text language sql stable as $$
   select company from public.profiles where id = auth.uid()
 $$;
 
+create or replace function public.current_auth_uid_slug()
+returns text language sql stable as $$
+  select lower(split_part(coalesce((select email from auth.users where id = auth.uid()),''),'@',1))
+$$;
+
+create or replace function public.set_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 -- =========
 -- Enable RLS
 -- =========
@@ -379,7 +392,12 @@ create policy "absences_select_policy"
 on public.absences for select
 using (
   public.current_profile_role() = 'admin'
-  or public.current_profile_role() in ('directeur_co','assistante','commercial','metreur')
+  or created_by = auth.uid()
+  or exists (
+    select 1
+    from jsonb_array_elements_text(coalesce(notifs,'[]'::jsonb)) as notif(uid_slug)
+    where lower(notif.uid_slug) = public.current_auth_uid_slug()
+  )
 );
 
 drop policy if exists "absences_write_policy" on public.absences;
@@ -425,13 +443,67 @@ with check (
 drop policy if exists "settings_admin_read" on public.app_settings;
 create policy "settings_admin_read"
 on public.app_settings for select
-using (public.current_profile_role() = 'admin');
+using (
+  public.current_profile_role() = 'admin'
+  or key = ('user_state_' || public.current_auth_uid_slug())
+);
 
 drop policy if exists "settings_admin_write" on public.app_settings;
 create policy "settings_admin_write"
 on public.app_settings for all
-using (public.current_profile_role() = 'admin')
-with check (public.current_profile_role() = 'admin');
+using (
+  public.current_profile_role() = 'admin'
+  or key = ('user_state_' || public.current_auth_uid_slug())
+)
+with check (
+  public.current_profile_role() = 'admin'
+  or key = ('user_state_' || public.current_auth_uid_slug())
+);
+
+alter table public.absences
+  drop constraint if exists absences_dates_valid;
+alter table public.absences
+  add constraint absences_dates_valid check (fin >= debut);
+
+alter table public.absences
+  drop constraint if exists absences_notifs_is_array;
+alter table public.absences
+  add constraint absences_notifs_is_array check (jsonb_typeof(notifs) = 'array');
+
+drop trigger if exists trg_profiles_updated_at on public.profiles;
+create trigger trg_profiles_updated_at
+before update on public.profiles
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_leads_updated_at on public.leads;
+create trigger trg_leads_updated_at
+before update on public.leads
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_sav_updated_at on public.sav;
+create trigger trg_sav_updated_at
+before update on public.sav
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_notes_updated_at on public.notes;
+create trigger trg_notes_updated_at
+before update on public.notes
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_absences_updated_at on public.absences;
+create trigger trg_absences_updated_at
+before update on public.absences
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_annuaire_updated_at on public.annuaire;
+create trigger trg_annuaire_updated_at
+before update on public.annuaire
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_app_settings_updated_at on public.app_settings;
+create trigger trg_app_settings_updated_at
+before update on public.app_settings
+for each row execute function public.set_updated_at();
 
 create index if not exists idx_sav_societe on public.sav(societe);
 create index if not exists idx_sav_statut on public.sav(statut);
