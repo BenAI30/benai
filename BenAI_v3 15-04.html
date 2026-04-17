@@ -931,7 +931,7 @@ input[type=file]{display:none;}
         </div>
         <div style="padding:0 16px;flex-shrink:0;display:none" id="abs-form-wrap">
           <div class="sav-form">
-            <div style="font-size:13px;font-weight:600;margin-bottom:12px">📅 Nouvelle absence</div>
+            <div id="abs-form-title" style="font-size:13px;font-weight:600;margin-bottom:12px">📅 Nouvelle absence</div>
             <div class="form-row">
               <div class="form-group">
                 <div class="form-label">Employé(e)</div>
@@ -4008,12 +4008,21 @@ function deleteNote(id){
 function toggleAbsForm(){
   const wrap=document.getElementById('abs-form-wrap');
   const open=wrap.style.display==='none';
-  wrap.style.display=open?'block':'none';
-  if(open)fillAbsEmpList();
+  if(open){
+    resetAbsenceFormForCreate();
+    fillAbsEmpList();
+    wrap.style.display='block';
+  } else {
+    wrap.style.display='none';
+    setAbsFormModeCreate();
+  }
 }
 
 function getAssistanteUserIds(){
   return getAllUsers().filter(u=>u.role==='assistante').map(u=>u.id);
+}
+function absenceIdEq(a,b){
+  return String(a)===String(b);
 }
 function buildAbsenceNotifsArray(){
   let notifs=[...document.querySelectorAll('.abs-notif-cb:checked')].map(cb=>cb.dataset.uid);
@@ -4026,6 +4035,38 @@ function buildAbsenceNotifsArray(){
     notifs=notifs.filter(id=>!asSet.has(id));
   }
   return notifs;
+}
+
+function setAbsFormModeCreate(){
+  const title=document.getElementById('abs-form-title');
+  if(title)title.textContent='📅 Nouvelle absence';
+  const btn=document.querySelector('#abs-form-wrap .btn-primary');
+  if(btn){
+    btn.textContent='Enregistrer';
+    btn.onclick=addAbsence;
+  }
+}
+
+function setAbsFormModeEdit(id){
+  const title=document.getElementById('abs-form-title');
+  if(title)title.textContent='✏️ Modifier absence';
+  const btn=document.querySelector('#abs-form-wrap .btn-primary');
+  if(btn){
+    btn.textContent='💾 Modifier';
+    btn.onclick=()=>saveEditAbsence(id);
+  }
+}
+
+function resetAbsenceFormForCreate(){
+  ['abs-debut','abs-fin','abs-note','abs-heure-debut','abs-heure-fin'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.value='';
+  });
+  const typeEl=document.getElementById('abs-type');
+  if(typeEl)typeEl.value='Congé';
+  const empEl=document.getElementById('abs-emp-select');
+  if(empEl)empEl.value='';
+  setAbsFormModeCreate();
 }
 
 function addAbsence(){
@@ -4056,40 +4097,30 @@ function addAbsence(){
     by:currentUser?.id||'benjamin'
   });
   saveMem(mem);
-  ['abs-debut','abs-fin','abs-note','abs-heure-debut','abs-heure-fin'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  if(document.getElementById('abs-emp-select'))document.getElementById('abs-emp-select').value='';
+  resetAbsenceFormForCreate();
   toggleAbsForm();renderAbsences();logActivity(`Benjamin a enregistré une absence pour ${emp}`);
 }
 
 function deleteAbsence(id){
   if(!confirm('Supprimer cette absence ?'))return;
-  const mem=getMem();mem.absences=(mem.absences||[]).filter(a=>a.id!==id);saveMem(mem);renderAbsences();
+  const mem=getMem();
+  mem.absences=(mem.absences||[]).filter(a=>!absenceIdEq(a.id,id));
+  saveMem(mem);
+  renderAbsences();
 }
 
 function editAbsence(id){
-  const mem=getMem();const a=(mem.absences||[]).find(x=>x.id===id);if(!a)return;
-  fillAbsEmpList();
-  setTimeout(()=>{
-    const sel=document.getElementById('abs-emp-select');
-    if(sel){sel.value=a.employe||'';}
-  },50);
+  const mem=getMem();const a=(mem.absences||[]).find(x=>absenceIdEq(x.id,id));if(!a)return;
+  fillAbsEmpList({selectedEmp:a.employe||'',selectedNotifs:Array.isArray(a.notifs)?a.notifs:null});
+  const sel=document.getElementById('abs-emp-select');
+  if(sel)sel.value=a.employe||'';
   document.getElementById('abs-debut').value=a.debut||'';
   document.getElementById('abs-fin').value=a.fin||'';
   if(document.getElementById('abs-heure-debut'))document.getElementById('abs-heure-debut').value=a.heureDebut||'';
   if(document.getElementById('abs-heure-fin'))document.getElementById('abs-heure-fin').value=a.heureFin||'';
   document.getElementById('abs-type').value=a.type||'Congé';
   document.getElementById('abs-note').value=a.note||'';
-  // Restaurer les checkboxes notif
-  setTimeout(()=>{
-    document.querySelectorAll('.abs-notif-cb').forEach(cb=>{
-      cb.checked=(a.notifs||['benjamin']).includes(cb.dataset.uid);
-    });
-    const assistanteIds=getAssistanteUserIds();
-    const shareEl=document.getElementById('abs-share-assistantes');
-    if(shareEl)shareEl.checked=!assistanteIds.length||assistanteIds.some(id=>(a.notifs||[]).includes(id));
-  },60);
-  const btn=document.querySelector('#abs-form-wrap .btn-primary');
-  if(btn){btn.textContent='💾 Modifier';btn.onclick=()=>saveEditAbsence(id);}
+  setAbsFormModeEdit(id);
   document.getElementById('abs-form-wrap').style.display='block';
   document.getElementById('abs-form-wrap').scrollIntoView({behavior:'smooth'});
 }
@@ -4101,15 +4132,14 @@ function saveEditAbsence(id){
   if(!emp||!debut||!fin){alert('Remplissez tous les champs obligatoires');return;}
   if(new Date(fin)<new Date(debut)){alert('⚠️ La date de fin doit être après le début');return;}
   const notifs=buildAbsenceNotifsArray();
-  const mem=getMem();const idx=(mem.absences||[]).findIndex(a=>a.id===id);if(idx===-1)return;
+  const mem=getMem();const idx=(mem.absences||[]).findIndex(a=>absenceIdEq(a.id,id));if(idx===-1)return;
   mem.absences[idx]={...mem.absences[idx],employe:emp,debut,fin,
     heureDebut:document.getElementById('abs-heure-debut')?.value||'',
     heureFin:document.getElementById('abs-heure-fin')?.value||'',
     type:document.getElementById('abs-type').value,
     note:document.getElementById('abs-note').value.trim(),notifs};
   saveMem(mem);
-  const btn=document.querySelector('#abs-form-wrap .btn-primary');
-  if(btn){btn.textContent='Enregistrer';btn.onclick=addAbsence;}
+  setAbsFormModeCreate();
   document.getElementById('abs-form-wrap').style.display='none';
   renderAbsences();logActivity(`Benjamin a modifié l'absence de ${emp}`);
 }
@@ -4149,6 +4179,7 @@ function renderAbsences(){
   };
 
   const renderCard=(a)=>{
+    const jsId=JSON.stringify(String(a.id));
     const {status,statusClass}=getStatus(a);
     const notifIcons=(a.notifs||['benjamin']).map(n=>n==='benjamin'?'👨':'👩').join('');
     const heures=a.heureDebut&&a.heureFin?` · ${a.heureDebut}→${a.heureFin}`:a.heureDebut?` · dès ${a.heureDebut}`:'';
@@ -4166,8 +4197,8 @@ function renderAbsences(){
         ${a.note?`<div style="font-size:10px;color:var(--t3)">${esc(a.note)}</div>`:''}
       </div>
       <span class="absence-status ${statusClass}" style="font-size:10px">${status}</span>
-      <button onclick="editAbsence(${a.id})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:16px;padding:2px" title="Modifier">✏️</button>
-      <button onclick="deleteAbsence(${a.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:16px;padding:2px" title="Supprimer">🗑️</button>
+      <button onclick='editAbsence(${jsId})' style="background:none;border:none;color:var(--a);cursor:pointer;font-size:16px;padding:2px" title="Modifier">✏️</button>
+      <button onclick='deleteAbsence(${jsId})' style="background:none;border:none;color:var(--r);cursor:pointer;font-size:16px;padding:2px" title="Supprimer">🗑️</button>
     </div>`;
   };
 
@@ -4369,29 +4400,40 @@ function renderAnnuaire(search){
     </div>`).join('');
 }
 
-function fillAbsEmpList(){
+function fillAbsEmpList(opts={}){
+  const selectedEmp=(opts.selectedEmp||'').trim();
+  const selectedNotifs=Array.isArray(opts.selectedNotifs)?opts.selectedNotifs:null;
   const sel=document.getElementById('abs-emp-select');if(!sel)return;
+  const mem=getMem();
   const ann=getAnnuaire();
   const annNoms=ann.map(e=>`${e.prenom} ${e.nom}`);
+  const absNoms=(mem.absences||[]).map(a=>String(a.employe||'').trim()).filter(Boolean);
   const users=getAllUsers().filter(u=>u.id!=='benjamin');
   const extraUsers=users
     .filter(u=>!annNoms.some(n=>normalizeId(n).includes(normalizeId(u.name))||normalizeId(n.split(' ')[0]||'').includes(normalizeId(u.name))))
     .map(u=>u.name);
-  const all=[...new Set([...annNoms,...extraUsers])].sort((a,b)=>a.localeCompare(b,'fr'));
+  const all=[...new Set([...annNoms,...extraUsers,...absNoms,selectedEmp].filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
   sel.innerHTML='<option value="">Sélectionner...</option>'+all.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if(selectedEmp)sel.value=selectedEmp;
   // Checkboxes notif dynamiques
   const notifList=document.getElementById('abs-notif-list');if(!notifList)return;
   const assistanteIds=new Set(getAssistanteUserIds());
   notifList.innerHTML=getAllUsers().filter(u=>!assistanteIds.has(u.id)).map(u=>`
     <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
-      <input type="checkbox" class="abs-notif-cb" data-uid="${u.id}" ${u.id==='benjamin'?'checked':''} style="accent-color:var(--a)">
+      <input type="checkbox" class="abs-notif-cb" data-uid="${u.id}" ${(selectedNotifs?selectedNotifs.includes(u.id):u.id==='benjamin')?'checked':''} style="accent-color:var(--a)">
       ${esc(u.name)}${u.role==='admin'?' (admin)':''}
     </label>`).join('');
   const shareWrap=document.getElementById('abs-share-assistantes-wrap');
   const shareEl=document.getElementById('abs-share-assistantes');
   const hasAss=assistanteIds.size>0;
   if(shareWrap)shareWrap.style.display=hasAss?'block':'none';
-  if(shareEl&&hasAss)shareEl.checked=true;
+  if(shareEl&&hasAss){
+    if(selectedNotifs){
+      shareEl.checked=assistanteIds.size===0||[...assistanteIds].some(id=>selectedNotifs.includes(id));
+    } else {
+      shareEl.checked=true;
+    }
+  }
 }
 
 // PLANNING ABSENCES - téléchargement CSV
