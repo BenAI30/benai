@@ -6113,7 +6113,7 @@ async function supprimerUtilisateur(uid){
   if(remoteRes.ok){
     remoteDeleted=true;
   }else{
-    enqueuePendingUserDelete({uid,email:u?.email||'',name:u?.name||uid});
+    enqueuePendingUserDelete({uid:uid,email:u?.email||'',name:u?.name||uid});
     showDriveNotif('⚠️ Suppression cloud en attente — BenAI réessaiera automatiquement.');
   }
   // Toujours masquer durablement (évite toute réapparition après sync).
