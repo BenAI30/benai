@@ -2189,14 +2189,14 @@ function scheduleAppStoragePersist(){
     void persistAppStorageToSupabaseNow();
   },1200);
 }
-async function hydrateAppStorageFromSupabase(uid=currentUser?.id){
+async function hydrateAppStorageFromSupabase(uid=currentUser?.id,force=false){
   if(!uid||!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
   if(appStorageHydratedForUid&&appStorageHydratedForUid!==uid){
     clearAppStorageCache();
     persistAppStorageCacheToSession();
     appStorageHydratedForUid='';
   }
-  if(appStorageHydratedForUid===uid)return true;
+  if(appStorageHydratedForUid===uid&&!force)return true;
   const session=await ensureSupabaseSession();
   if(!session?.access_token)return false;
   const headers=getSupabaseHeaders();
@@ -6523,15 +6523,17 @@ async function refreshCoreDataFromCloudIfNeeded(force=false){
   cloudRefreshInFlight=true;
   lastCloudRefreshTs=now;
   let ok=false;
+  let appStorageOk=false;
   try{
+    appStorageOk=await hydrateAppStorageFromSupabase(currentUser?.id,true);
     ok=await loadCoreDataFromSupabase();
-    if(ok)refreshVisibleDataAfterSupabaseSync();
+    if(ok||appStorageOk)refreshVisibleDataAfterSupabaseSync();
   }catch(e){
     // silencieux: la surveillance de sync gère déjà les erreurs.
   }finally{
     cloudRefreshInFlight=false;
   }
-  return ok;
+  return ok||appStorageOk;
 }
 function scheduleRealtimeCloudRefresh(reason='realtime'){
   if(supabaseRealtimeDebounceTimer)clearTimeout(supabaseRealtimeDebounceTimer);
