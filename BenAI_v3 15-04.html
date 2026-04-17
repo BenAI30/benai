@@ -2177,6 +2177,8 @@ async function loadSharedCoreDataFromSupabase(force=false){
     const localMemBefore=getMem();
     const localTotal=(localMemBefore.sav?.length||0)+(localMemBefore.notes?.length||0)+(localMemBefore.absences?.length||0)+(getAnnuaire()?.length||0)+(getLeads()?.length||0)+countMessagesInMap(localMemBefore.messages);
     if(remoteTotal===0&&localTotal>0)return false;
+    const lrMap=getLastRead(currentUser.id);
+    const unreadMsgsBefore=countTotalInternalUnread(currentUser.id,localMemBefore,lrMap);
     const merged=mergeSharedCoreData(data,{
       sav:localMemBefore.sav||[],
       notes:localMemBefore.notes||[],
@@ -2197,6 +2199,9 @@ async function loadSharedCoreDataFromSupabase(force=false){
     saveAnnuaire(merged.annuaire,false);
     saveLeads(merged.leads,false);
     applyInboxNotifsFromSharedFeed(merged.notif_feed);
+    const unreadMsgsAfter=countTotalInternalUnread(currentUser.id,getMem(),lrMap);
+    refreshMsgBadge();
+    if(unreadMsgsAfter>unreadMsgsBefore)try{playNotifSound();}catch(_){}
     refreshSharedSignatures(false);
     if(updatedAt)sharedCoreLastUpdatedAt=updatedAt;
     sharedCoreLastSignature=computeSupabaseSignature(merged);
@@ -2221,9 +2226,12 @@ async function loadCoreDataFromSupabaseStateSnapshot(){
     const payload=rows?.[0]?.payload;
     if(!payload||typeof payload!=='object')return false;
     const snapMem=payload.mem&&typeof payload.mem==='object'?payload.mem:payload;
+    const localBefore=getMem();
+    const lrSnap=getLastRead(currentUser.id);
+    const unreadMsgsBeforeSnap=countTotalInternalUnread(currentUser.id,localBefore,lrSnap);
     const mergedMem={
       ...createEmptyMemState(),
-      ...getMem(),
+      ...localBefore,
       ...snapMem,
       sav:Array.isArray(snapMem.sav)?snapMem.sav:[],
       notes:Array.isArray(snapMem.notes)?snapMem.notes:[],
@@ -2232,6 +2240,9 @@ async function loadCoreDataFromSupabaseStateSnapshot(){
     saveMem(mergedMem,false);
     if(Array.isArray(payload.annuaire))saveAnnuaire(payload.annuaire,false);
     if(Array.isArray(payload.leads))saveLeads(payload.leads,false);
+    const unreadMsgsAfterSnap=countTotalInternalUnread(currentUser.id,getMem(),lrSnap);
+    refreshMsgBadge();
+    if(unreadMsgsAfterSnap>unreadMsgsBeforeSnap)try{playNotifSound();}catch(_){}
     refreshSharedSignatures(false);
     return true;
   }catch(e){
@@ -3550,13 +3561,21 @@ function countUnread(uid,cid,mem,lrMap){
   }
   return n;
 }
+function countTotalInternalUnread(uid,mem,lrMap){
+  if(!uid||!mem)return 0;
+  try{
+    const lr=lrMap||getLastRead(uid);
+    const convs=getConvsForUser(uid);
+    let total=0;
+    for(const cid of Object.keys(convs))total+=countUnread(uid,cid,mem,lr);
+    return total;
+  }catch{
+    return 0;
+  }
+}
 function refreshMsgBadge(){
   if(!currentUser)return;
-  const mem=getMem();
-  const lr=getLastRead(currentUser.id);
-  const convs=getConvsForUser(currentUser.id);
-  let total=0;
-  for(const cid of Object.keys(convs))total+=countUnread(currentUser.id,cid,mem,lr);
+  const total=countTotalInternalUnread(currentUser.id,getMem(),getLastRead(currentUser.id));
   const badge=document.getElementById('msg-badge');
   if(badge){badge.style.display=total>0?'flex':'none';badge.textContent=total;}
 }
@@ -7155,7 +7174,7 @@ function scheduleRealtimeCloudRefresh(reason='realtime'){
   supabaseRealtimeDebounceTimer=setTimeout(()=>{
     supabaseRealtimeDebounceTimer=null;
     void refreshCoreDataFromCloudIfNeeded(true);
-  },450);
+  },200);
 }
 function stopSupabaseRealtimeSync(){
   if(supabaseRealtimeDebounceTimer){
