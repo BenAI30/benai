@@ -629,6 +629,7 @@ input[type=file]{display:none;}
     <div class="tuto-highlight" id="tuto-highlight" style="display:none"></div>
     <div class="tuto-actions">
       <button class="tuto-btn tuto-btn-skip" id="tuto-skip" style="display:none" aria-hidden="true" tabindex="-1">Passer</button>
+      <button class="tuto-btn tuto-btn-skip" id="tuto-prev" onclick="prevTutoSlide()" style="display:none">← Retour</button>
       <button class="tuto-btn tuto-btn-primary" id="tuto-next" onclick="nextTutoSlide()">Suivant →</button>
     </div>
   </div>
@@ -1592,6 +1593,14 @@ loadAppStorageCacheFromSession();
 
 const BENAI_VERSION = '3.15';
 const GUIDE_REQUIRED_VERSION='3.15';
+const BENAI_CHANGELOG_NOTES=[
+  'Interface simplifiee et mieux structuree sur desktop/mobile.',
+  'Page Equipe fusionnee (contacts + acces BenAI).',
+  'Tutoriel interactif obligatoire a la premiere connexion et relancable.',
+  'Controle du partage des absences avec les assistantes.',
+  'Creation utilisateur amelioree (mot de passe auto + copie rapide).',
+  'Renforcement securite/sync cloud Supabase (anti-perte + retries).'
+];
 const STORAGE_KEYS = {
   mem:'benai_v3',
   api:'benai_api',
@@ -4949,6 +4958,7 @@ function renderGuidePage(){
   const box=document.getElementById('guide-content');if(!box)return;
   const role=currentUser?.role||'assistante';
   const roleTitle=ROLE_LABELS[role]||role;
+  const canInstallMobile=canUseBenAIMobileApp(role);
   const roleGuide={
     admin:[
       'Consulte le dashboard puis traite les alertes en priorité.',
@@ -4997,11 +5007,13 @@ function renderGuidePage(){
     <div class="sav-form" style="margin-bottom:10px;border-color:rgba(59,130,246,.35);background:var(--bl2)">
       <div style="font-size:14px;font-weight:700;margin-bottom:6px">📲 BenAI sur téléphone</div>
       <div style="font-size:12px;color:var(--t2);line-height:1.65">
-        Tu peux installer BenAI comme une appli mobile pour un accès direct.
+        ${canInstallMobile
+          ?`Tu peux installer BenAI comme une appli mobile pour un accès direct.
         <br>1) Ouvre BenAI sur ton téléphone.
         <br>2) Clique sur <strong>📲 Installer</strong> (en haut à droite).
-        <br>3) iPhone: Safari → Partager → Ajouter à l’écran d’accueil.
-        <br>4) Android: confirme l’installation proposée.
+        <br>3) iPhone: Safari → Partager → Ajouter à l’ecran d’accueil.
+        <br>4) Android: confirme l’installation proposee.`
+          :`L’installation mobile est reservee aux profils <strong>Directeur commercial</strong> et <strong>Commercial</strong>.`}
       </div>
     </div>
     <div class="sav-form" style="margin-bottom:10px;border-color:rgba(96,165,250,.35);background:var(--bl2)">
@@ -5012,6 +5024,10 @@ function renderGuidePage(){
     <div class="sav-form" style="margin-bottom:10px">
       <div style="font-size:14px;font-weight:700;margin-bottom:8px">👤 Guide ${esc(roleTitle)}</div>
       ${actions.map((a,i)=>`<div style="font-size:13px;color:var(--t2);line-height:1.7;margin-bottom:6px">${i+1}. ${esc(a)}</div>`).join('')}
+    </div>
+    <div class="sav-form" style="margin-bottom:10px">
+      <div style="font-size:14px;font-weight:700;margin-bottom:8px">🆕 Dernieres evolutions</div>
+      ${BENAI_CHANGELOG_NOTES.map(t=>`<div style="font-size:13px;color:var(--t2);line-height:1.7;margin-bottom:6px">• ${esc(t)}</div>`).join('')}
     </div>
     <div class="sav-form">
       <div style="font-size:14px;font-weight:700;margin-bottom:8px">✅ Bonnes pratiques</div>
@@ -5192,18 +5208,8 @@ async function creerUtilisateur(){
     :`Tu es BenAI, l'assistant de ${name} (${fonction}) chez Nemausus Fermetures / Lambert SAS. Tu proposes toujours — ${name} décide toujours.`;
   USERS[uid]={name,pwd:pwds[uid],role,color:newUser.color,initial:newUser.initial,system:systemPrompt};
   // Login via input texte : pas d'ajout d'option dynamique.
-  // Message automatique de bienvenue
-  const mem=getMem();
-  const convId=makeConvId('benjamin',uid);
-  if(!mem.messages[convId])mem.messages[convId]=[];
-  const nowTxt=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-  mem.messages[convId].push({
-    from:'benai',
-    text:`Bienvenue ${name} 👋\nTon accès BenAI est prêt. Commence par lire l'onglet Guide 📘 puis traite tes priorités du jour.`,
-    time:nowTxt,
-    ts:Date.now()
-  });
-  saveMem(mem);
+  // Bienvenue visible uniquement par le nouvel utilisateur.
+  pushBenAINotif('👋 Bienvenue',`Bienvenue ${name} 👋 Ton accès BenAI est prêt. Commence par lire l'onglet Guide 📘 puis traite tes priorités du jour.`,'👋',uid);
   try{void navigator.clipboard.writeText(pwd);}catch(_){}
   document.getElementById('new-user-pwd').value=pwd;
   status.style.color='var(--g)';
@@ -5922,6 +5928,10 @@ function isStandaloneMode(){
   return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
 }
 
+function canUseBenAIMobileApp(role=currentUser?.role){
+  return role==='commercial'||role==='directeur_co';
+}
+
 function makePngIcon(size){
   const c=document.createElement('canvas');
   c.width=size;c.height=size;
@@ -6000,12 +6010,17 @@ async function registerBenAISW(){
 function refreshInstallButton(){
   const btn=document.getElementById('btn-install-app');
   if(!btn)return;
+  if(!canUseBenAIMobileApp()){btn.style.display='none';return;}
   if(isStandaloneMode()){btn.style.display='none';return;}
   const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
   if(deferredInstallPrompt||isIOS)btn.style.display='inline-flex';
 }
 
 async function installBenAI(){
+  if(!canUseBenAIMobileApp()){
+    showDriveNotif('ℹ️ Installation mobile réservée aux profils commercial et directeur co.');
+    return;
+  }
   if(isStandaloneMode())return;
   if(deferredInstallPrompt){
     deferredInstallPrompt.prompt();
@@ -6954,7 +6969,8 @@ function saveLead(){
   const activeCRMTabId=(document.querySelector('.crm-tab.active')?.id||'').replace('crm-tab-','');
   const now=new Date().toISOString();
   const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  const commercial=document.getElementById('lead-commercial-assign')?.value||null;
+  const selectedCommercial=document.getElementById('lead-commercial-assign')?.value||null;
+  const defaultCommercial=currentUser?.role==='commercial'?currentUser.id:null;
   const data={
     nom,telephone:tel,adresse,ville,cp:cp2,type_projet:projet,
     secteur:document.getElementById('lead-secteur').value,
@@ -6971,7 +6987,7 @@ function saveLead(){
     date_signature:document.getElementById('lead-date-signature')?.value||null,
     produit_vendu:document.getElementById('lead-produit-vendu')?.value||null,
     raison_mort:document.getElementById('lead-raison-mort')?.value||null,
-    commercial:currentLeadSource==='ACTIF'?currentUser.id:(commercial||null),
+    commercial:currentLeadSource==='ACTIF'?currentUser.id:(selectedCommercial||defaultCommercial||null),
     suivi:document.getElementById('lead-suivi')?.value.trim()||'',
     commentaire:document.getElementById('lead-commentaire')?.value.trim()||'',
   };
@@ -8335,6 +8351,8 @@ async function checkUpdate(){
       if(data.notes_assistante&&(role==='assistante'||role==='metreur'))notes=notes.concat(data.notes_assistante);
       // Fallback si pas de notes filtrées
       if(!notes.length)notes=Array.isArray(data.notes)?data.notes:[data.notes||'Améliorations et corrections'];
+      const localNotes=BENAI_CHANGELOG_NOTES.slice(0,4);
+      notes=[...new Set([...notes,...localNotes])];
       document.getElementById('update-version').textContent='Mise à jour BenAI prête';
       const notesList=document.getElementById('update-notes');
       notesList.innerHTML=notes.map(n=>'<li>✅ '+esc(n)+'</li>').join('');
@@ -8452,7 +8470,7 @@ const TUTO_MOBILE_INSTALL_SLIDE={
 
 function getRoleTutoSlides(role){
   const slides=TUTO_SLIDES_BY_ROLE[role]||TUTO_SLIDES_BY_ROLE.default;
-  return [...slides,TUTO_MOBILE_INSTALL_SLIDE];
+  return canUseBenAIMobileApp(role)?[...slides,TUTO_MOBILE_INSTALL_SLIDE]:slides.slice();
 }
 
 function startTuto(){
@@ -8475,12 +8493,21 @@ function renderTutoSlide(){
   // Progress dots
   const prog=document.getElementById('tuto-progress');
   prog.innerHTML=currentTutoSlides.map((_,i)=>`<div class="tuto-dot ${i===tutoStep?'active':''}"></div>`).join('');
+  const prevBtn=document.getElementById('tuto-prev');
+  if(prevBtn)prevBtn.style.display=tutoStep>0?'inline-block':'none';
   // Bouton suivant / terminer
   const btn=document.getElementById('tuto-next');
   if(tutoStep===currentTutoSlides.length-1){
     btn.textContent='Commencer 🚀';
   } else {
     btn.textContent='Suivant →';
+  }
+}
+
+function prevTutoSlide(){
+  if(tutoStep>0){
+    tutoStep--;
+    renderTutoSlide();
   }
 }
 
