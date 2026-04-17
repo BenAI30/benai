@@ -4902,6 +4902,16 @@ function renderGuidePage(){
       <div style="font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:8px">Ce tutoriel écrit suffit. Clique sur le bouton après lecture pour débloquer l'accès complet.</div>
       <button onclick="acknowledgeRoleGuide()" style="padding:8px 12px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✅ J’ai lu et je valide</button>
     </div>`:''}
+    <div class="sav-form" style="margin-bottom:10px;border-color:rgba(59,130,246,.35);background:var(--bl2)">
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px">📲 BenAI sur téléphone</div>
+      <div style="font-size:12px;color:var(--t2);line-height:1.65">
+        Tu peux installer BenAI comme une appli mobile pour un accès direct.
+        <br>1) Ouvre BenAI sur ton téléphone.
+        <br>2) Clique sur <strong>📲 Installer</strong> (en haut à droite).
+        <br>3) iPhone: Safari → Partager → Ajouter à l’écran d’accueil.
+        <br>4) Android: confirme l’installation proposée.
+      </div>
+    </div>
     <div class="sav-form" style="margin-bottom:10px;border-color:rgba(96,165,250,.35);background:var(--bl2)">
       <div style="font-size:14px;font-weight:700;margin-bottom:6px">🎓 Tutoriel interactif</div>
       <div style="font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:8px">Tu peux le relancer à tout moment pour faire une démonstration ou former un collaborateur.</div>
@@ -8341,9 +8351,16 @@ const TUTO_SLIDES_BY_ROLE={
 
 let tutoStep=0;
 let currentTutoSlides=[];
+const TUTO_MOBILE_INSTALL_SLIDE={
+  icon:'📲',
+  title:'BenAI sur téléphone',
+  desc:'Tu peux installer BenAI comme une appli mobile pour un accès direct depuis l’écran d’accueil.',
+  highlight:'Bouton "📲 Installer" (en haut)'
+};
 
 function getRoleTutoSlides(role){
-  return TUTO_SLIDES_BY_ROLE[role]||TUTO_SLIDES_BY_ROLE.default;
+  const slides=TUTO_SLIDES_BY_ROLE[role]||TUTO_SLIDES_BY_ROLE.default;
+  return [...slides,TUTO_MOBILE_INSTALL_SLIDE];
 }
 
 function startTuto(){
