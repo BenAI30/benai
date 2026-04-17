@@ -1719,6 +1719,7 @@ let supabaseLastSharedSyncTs=0;
 let supabaseSharedDirty={sav:false,notes:false,absences:false,annuaire:false,leads:false};
 let supabaseSharedSignatures={sav:'',notes:'',absences:'',annuaire:'',leads:''};
 let sharedCoreLastUpdatedAt='';
+let sharedCoreLastSignature='';
 let sharedApiKeyRetryTimer=null;
 let sharedApiKeyRetryDelayMs=2500;
 let pendingSharedApiKey='';
@@ -1991,6 +1992,7 @@ async function pushSharedCoreDataToSupabase(mem,annuaire,leads){
     saveLeads(mergedData.leads,false);
     refreshSharedSignatures(false);
     sharedCoreLastUpdatedAt=payload.updated_at;
+    sharedCoreLastSignature=computeSupabaseSignature(mergedData);
     return true;
   }catch(e){
     return false;
@@ -2006,7 +2008,10 @@ async function loadSharedCoreDataFromSupabase(force=false){
     if(!remoteRaw.ok)return false;
     const data=remoteRaw.data||{};
     const updatedAt=String(remoteRaw.updatedAt||'');
-    if(!force&&updatedAt&&sharedCoreLastUpdatedAt&&updatedAt<=sharedCoreLastUpdatedAt)return false;
+    const remoteSig=computeSupabaseSignature(data);
+    // Anti-désync multi-appareils: ne pas dépendre uniquement des horloges.
+    // On saute seulement si le contenu est identique.
+    if(!force&&remoteSig&&remoteSig===sharedCoreLastSignature)return false;
     const remoteTotal=(data.sav?.length||0)+(data.notes?.length||0)+(data.absences?.length||0)+(data.annuaire?.length||0)+(data.leads?.length||0);
     const localMemBefore=getMem();
     const localTotal=(localMemBefore.sav?.length||0)+(localMemBefore.notes?.length||0)+(localMemBefore.absences?.length||0)+(getAnnuaire()?.length||0)+(getLeads()?.length||0);
@@ -2029,6 +2034,7 @@ async function loadSharedCoreDataFromSupabase(force=false){
     saveLeads(merged.leads,false);
     refreshSharedSignatures(false);
     if(updatedAt)sharedCoreLastUpdatedAt=updatedAt;
+    sharedCoreLastSignature=computeSupabaseSignature(merged);
     return true;
   }catch(e){
     return false;
@@ -2178,6 +2184,7 @@ function resetAppStorageRuntime(preserveSessionCopy=false){
   supabaseSharedSignatures={sav:'',notes:'',absences:'',annuaire:'',leads:''};
   supabaseLastSharedSyncTs=0;
   sharedCoreLastUpdatedAt='';
+  sharedCoreLastSignature='';
   appStorageHydratedForUid='';
 }
 
