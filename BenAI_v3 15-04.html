@@ -1944,14 +1944,15 @@ function pickLatestNote(prev,next){
   return b>=a?next:prev;
 }
 
-function mergeSharedCoreData(remoteData,localData){
+function mergeSharedCoreData(remoteData,localData,mode='pull'){
   const remote=remoteData||{};
   const local=localData||{};
+  const preferLocal=mode==='push';
   return {
-    sav:mergeByKey(remote.sav,local.sav,x=>x?.id,prev=>prev), // remote prioritaire en cas de conflit
+    sav:mergeByKey(remote.sav,local.sav,x=>x?.id,(prev,next)=>preferLocal?next:prev),
     notes:mergeByKey(remote.notes,local.notes,x=>x?.id,pickLatestNote),
-    absences:mergeByKey(remote.absences,local.absences,x=>x?.id,prev=>prev),
-    annuaire:mergeByKey(remote.annuaire,local.annuaire,x=>x?.id,prev=>prev),
+    absences:mergeByKey(remote.absences,local.absences,x=>x?.id,(prev,next)=>preferLocal?next:prev),
+    annuaire:mergeByKey(remote.annuaire,local.annuaire,x=>x?.id,(prev,next)=>preferLocal?next:prev),
     leads:mergeByKey(remote.leads,local.leads,x=>x?.id,pickLatestLead)
   };
 }
@@ -1975,7 +1976,7 @@ async function pushSharedCoreDataToSupabase(mem,annuaire,leads){
   try{
     const localData=buildSharedCoreDataPayload(mem,annuaire,leads).data;
     const remoteRaw=await fetchSharedCoreDataRaw(headers);
-    const mergedData=mergeSharedCoreData(remoteRaw.ok?remoteRaw.data:{},localData);
+    const mergedData=mergeSharedCoreData(remoteRaw.ok?remoteRaw.data:{},localData,'push');
     const payload={
       version:1,
       updated_at:new Date().toISOString(),
@@ -2022,7 +2023,7 @@ async function loadSharedCoreDataFromSupabase(force=false){
       absences:localMemBefore.absences||[],
       annuaire:getAnnuaire()||[],
       leads:getLeads()||[]
-    });
+    },'pull');
     saveMem({
       ...createEmptyMemState(),
       ...localMemBefore,
