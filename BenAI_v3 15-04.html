@@ -2428,6 +2428,66 @@ async function deleteSupabaseUserProvisioning(payload){
   }
 }
 
+const PENDING_USER_DELETE_KEY='benai_pending_user_deletes';
+let pendingUserDeleteInFlight=false;
+let pendingUserDeleteLastRunTs=0;
+
+function getPendingUserDeletes(){
+  try{
+    const arr=JSON.parse(appStorage.getItem(PENDING_USER_DELETE_KEY)||'[]');
+    return Array.isArray(arr)?arr:[];
+  }catch{
+    return [];
+  }
+}
+
+function savePendingUserDeletes(list){
+  appStorage.setItem(PENDING_USER_DELETE_KEY,JSON.stringify(Array.isArray(list)?list:[]));
+}
+
+function enqueuePendingUserDelete(job){
+  if(!job?.uid)return;
+  const list=getPendingUserDeletes();
+  if(list.some(x=>normalizeId(x.uid)===normalizeId(job.uid)))return;
+  list.push({
+    uid:job.uid,
+    email:job.email||'',
+    name:job.name||job.uid,
+    attempts:0,
+    ts:Date.now()
+  });
+  savePendingUserDeletes(list);
+}
+
+async function processPendingUserDeletes(force=false){
+  if(pendingUserDeleteInFlight)return;
+  const now=Date.now();
+  if(!force&&now-pendingUserDeleteLastRunTs<30000)return;
+  pendingUserDeleteLastRunTs=now;
+  if(!navigator.onLine)return;
+  const list=getPendingUserDeletes();
+  if(!list.length)return;
+  pendingUserDeleteInFlight=true;
+  try{
+    const keep=[];
+    for(let i=0;i<list.length;i++){
+      const job=list[i];
+      const res=await deleteSupabaseUserProvisioning({app_uid:job.uid,email:job.email||''});
+      if(res.ok){
+        continue;
+      }
+      const attempts=Number(job.attempts||0)+1;
+      keep.push({...job,attempts,ts:Date.now(),last_error:String(res.error||'')});
+    }
+    savePendingUserDeletes(keep);
+    if(!keep.length){
+      showDriveNotif('✅ Suppressions cloud en attente terminées');
+    }
+  }finally{
+    pendingUserDeleteInFlight=false;
+  }
+}
+
 function mapSavToSupabaseRows(items){
   return (items||[]).map(s=>({
     legacy_id:String(s.id),
@@ -5508,6 +5568,7 @@ function initOfflineDetection(){
       void flushSupabaseSyncNow();
       void refreshCoreDataFromCloudIfNeeded(true);
       void loadSharedApiKeyFromSupabase();
+      void processPendingUserDeletes(true);
       renderSupabaseRuntimeStatus();
     }
   });
@@ -6052,7 +6113,8 @@ async function supprimerUtilisateur(uid){
   if(remoteRes.ok){
     remoteDeleted=true;
   }else{
-    showDriveNotif(`⚠️ Suppression cloud incomplète (${(remoteRes.error||'erreur').slice(0,80)}). Masquage local appliqué.`);
+    enqueuePendingUserDelete({uid,email:u?.email||'',name:u?.name||uid});
+    showDriveNotif('⚠️ Suppression cloud en attente — BenAI réessaiera automatiquement.');
   }
   // Toujours masquer durablement (évite toute réapparition après sync).
   hideUserId(uid);
@@ -6682,6 +6744,7 @@ function startPolling(){
     checkLeadSmartNotifications();
     runAutoBugDetectors();
     void refreshCoreDataFromCloudIfNeeded();
+    void processPendingUserDeletes();
     if(supabaseSyncFailStreak>0){
       void flushSupabaseSyncNow();
     }
