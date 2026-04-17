@@ -8257,6 +8257,11 @@ function checkLeadSmartNotifications(){
   appStorage.setItem(key,JSON.stringify({lastTs:now,lastSig:sig}));
 }
 
+// Compat legacy: certains appels historiques utilisent encore ce nom.
+function checkLeadsAlertes(){
+  checkLeadSmartNotifications();
+}
+
 function checkRappelsLeads(){
   if(!currentUser)return;
   const now=new Date();
