@@ -1489,6 +1489,9 @@ input[type=file]{display:none;}
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 const APP_STORAGE_SUPABASE_KEY_PREFIX='user_state_';
+const APP_STORAGE_SESSION_KEY='benai_session_app_storage_v1';
+const RUNTIME_MEM_SESSION_PREFIX='benai_runtime_mem_';
+const RUNTIME_LEADS_SESSION_PREFIX='benai_runtime_leads_';
 const appStorageCache=Object.create(null);
 let appStorageHydratedForUid='';
 let appStoragePersistTimer=null;
@@ -1532,10 +1535,68 @@ function clearAppStorageCache(){
   Object.keys(appStorageCache).forEach(k=>delete appStorageCache[k]);
 }
 function persistAppStorageCacheToSession(){
-  // Mode cloud strict: pas de persistance locale.
+  try{
+    sessionStorage.setItem(APP_STORAGE_SESSION_KEY,JSON.stringify(appStorageCache));
+  }catch(e){}
 }
 function loadAppStorageCacheFromSession(){
-  // Mode cloud strict: pas de restauration locale.
+  try{
+    const raw=sessionStorage.getItem(APP_STORAGE_SESSION_KEY);
+    if(!raw)return;
+    const parsed=JSON.parse(raw);
+    if(parsed&&typeof parsed==='object'){
+      Object.keys(parsed).forEach(k=>{
+        appStorageCache[String(k)]=String(parsed[k]);
+      });
+    }
+  }catch(e){}
+}
+
+function getRuntimeMemSessionKey(uid){
+  return `${RUNTIME_MEM_SESSION_PREFIX}${uid||'guest'}`;
+}
+function getRuntimeLeadsSessionKey(uid){
+  return `${RUNTIME_LEADS_SESSION_PREFIX}${uid||'guest'}`;
+}
+function persistRuntimeToSession(uid=currentUser?.id){
+  if(!uid)return;
+  try{
+    sessionStorage.setItem(getRuntimeMemSessionKey(uid),JSON.stringify(runtimeMemState||createEmptyMemState()));
+    sessionStorage.setItem(getRuntimeLeadsSessionKey(uid),JSON.stringify(Array.isArray(runtimeLeadsState)?runtimeLeadsState:[]));
+  }catch(e){}
+}
+function hydrateRuntimeFromSession(uid=currentUser?.id){
+  if(!uid)return false;
+  let restored=false;
+  try{
+    const rawMem=sessionStorage.getItem(getRuntimeMemSessionKey(uid));
+    if(rawMem){
+      const mem=JSON.parse(rawMem);
+      if(mem&&typeof mem==='object'){
+        runtimeMemState=createEmptyMemState();
+        Object.assign(runtimeMemState,mem);
+        restored=true;
+      }
+    }
+  }catch(e){}
+  try{
+    const rawLeads=sessionStorage.getItem(getRuntimeLeadsSessionKey(uid));
+    if(rawLeads){
+      const leads=JSON.parse(rawLeads);
+      if(Array.isArray(leads)){
+        runtimeLeadsState=leads;
+        restored=true;
+      }
+    }
+  }catch(e){}
+  return restored;
+}
+function clearRuntimeSession(uid=currentUser?.id){
+  if(!uid)return;
+  try{
+    sessionStorage.removeItem(getRuntimeMemSessionKey(uid));
+    sessionStorage.removeItem(getRuntimeLeadsSessionKey(uid));
+  }catch(e){}
 }
 
 function isAppStorageCloudKey(key){
@@ -1829,6 +1890,7 @@ async function hydrateAppStorageFromSupabase(uid=currentUser?.id){
 function resetAppStorageRuntime(preserveSessionCopy=false){
   clearAppStorageCache();
   if(preserveSessionCopy)persistAppStorageCacheToSession();
+  if(!preserveSessionCopy)clearRuntimeSession(currentUser?.id);
   runtimeMemState={sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};
   runtimeLeadsState=[];
   appStorageHydratedForUid='';
@@ -2606,7 +2668,8 @@ function getMem(){
 }
 function saveMem(m,sync=true){
   runtimeMemState=(m&&typeof m==='object')?m:createEmptyMemState();
-  // Mode cloud-first strict: aucune persistance locale durable pour la mémoire métier.
+  // Persistance session (temporaire) pour survivre à un refresh.
+  persistRuntimeToSession(currentUser?.id);
   appStorage.removeItem(STORAGE_KEYS.mem);
   if(sync)scheduleSupabaseSync(m,getAnnuaire());
 }
@@ -3115,6 +3178,7 @@ function switchSession(){toggleSwitchPanel();}
 
 function initApp(silent=false){
   const u=currentUser;
+  hydrateRuntimeFromSession(u?.id);
   applyTheme();
   const chatArea=document.getElementById('chat-area');
   if(chatArea)chatArea.innerHTML='';
@@ -6057,7 +6121,8 @@ function getLeads(){
 }
 function saveLeads(l,sync=true){
   runtimeLeadsState=Array.isArray(l)?l:[];
-  // Mode cloud-first strict: aucune persistance locale durable pour les leads.
+  // Persistance session (temporaire) pour survivre à un refresh.
+  persistRuntimeToSession(currentUser?.id);
   appStorage.removeItem('benai_leads');
   if(sync)scheduleSupabaseSync(getMem(),getAnnuaire());
 }
@@ -8382,7 +8447,7 @@ function isNewerVersion(remote,current){
 // ✏️ CORRECTION AUTOMATIQUE PARTOUT
 // ══════════════════════════════════════════
 function enableSpellcheckEverywhere(){
-  const isPhone=window.matchMedia('(max-width: 768px)').matches||/iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent||'');
+  const isPhone=/iphone|ipad|ipod|android|mobile/i.test((navigator.userAgent||'').toLowerCase());
   document.querySelectorAll('input[type="text"],input[type="search"],textarea').forEach(el=>{
     if(isPhone){
       el.spellcheck=false;

@@ -9,12 +9,14 @@ create extension if not exists pgcrypto;
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text unique,
+  app_uid text unique,
   full_name text not null,
   role text not null check (role in ('admin','directeur_co','commercial','assistante','metreur')),
   company text not null check (company in ('nemausus','lambert','les-deux')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.profiles add column if not exists app_uid text;
 
 -- =========
 -- LEADS
@@ -185,6 +187,15 @@ $$;
 create or replace function public.current_auth_uid_slug()
 returns text language sql stable as $$
   select lower(split_part(coalesce((select email from auth.users where id = auth.uid()),''),'@',1))
+$$;
+
+create or replace function public.current_profile_app_uid()
+returns text language sql stable as $$
+  select coalesce(
+    nullif((select app_uid from public.profiles where id = auth.uid()),''),
+    nullif((select lower(split_part(email,'@',1)) from public.profiles where id = auth.uid()),''),
+    lower(split_part(coalesce((select email from auth.users where id = auth.uid()),''),'@',1))
+  )
 $$;
 
 create or replace function public.set_updated_at()
@@ -396,7 +407,7 @@ using (
   or exists (
     select 1
     from jsonb_array_elements_text(coalesce(notifs,'[]'::jsonb)) as notif(uid_slug)
-    where lower(notif.uid_slug) = public.current_auth_uid_slug()
+    where lower(notif.uid_slug) = public.current_profile_app_uid()
   )
 );
 
@@ -445,7 +456,7 @@ create policy "settings_admin_read"
 on public.app_settings for select
 using (
   public.current_profile_role() = 'admin'
-  or key = ('user_state_' || public.current_auth_uid_slug())
+  or key = ('user_state_' || public.current_profile_app_uid())
 );
 
 drop policy if exists "settings_admin_write" on public.app_settings;
@@ -453,11 +464,11 @@ create policy "settings_admin_write"
 on public.app_settings for all
 using (
   public.current_profile_role() = 'admin'
-  or key = ('user_state_' || public.current_auth_uid_slug())
+  or key = ('user_state_' || public.current_profile_app_uid())
 )
 with check (
   public.current_profile_role() = 'admin'
-  or key = ('user_state_' || public.current_auth_uid_slug())
+  or key = ('user_state_' || public.current_profile_app_uid())
 );
 
 alter table public.absences
