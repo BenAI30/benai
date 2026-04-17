@@ -2374,11 +2374,13 @@ async function syncSharedTablesToSupabase(mem,annuaire,leads){
   }
   try{
     const results=await Promise.all([
-      replaceSupabaseTable('sav',mapSavToSupabaseRows(mem?.sav),'legacy_id'),
-      replaceSupabaseTable('notes',mapNotesToSupabaseRows(mem?.notes),'legacy_id'),
-      replaceSupabaseTable('absences',mapAbsencesToSupabaseRows(mem?.absences),'legacy_id'),
+      // Mode collaboration: upsert-only pour éviter les suppressions croisées
+      // quand deux appareils ne sont pas parfaitement synchronisés.
+      upsertSupabaseTable('sav',mapSavToSupabaseRows(mem?.sav)),
+      upsertSupabaseTable('notes',mapNotesToSupabaseRows(mem?.notes)),
+      upsertSupabaseTable('absences',mapAbsencesToSupabaseRows(mem?.absences)),
       upsertSupabaseTable('annuaire',mapAnnuaireToSupabaseRows(annuaire)),
-      replaceSupabaseTable('leads',mapLeadsToSupabaseRows(leads),'id')
+      upsertSupabaseTable('leads',mapLeadsToSupabaseRows(leads))
     ]);
     const ok=results.every(Boolean);
     if(!ok&&!lastSupabaseSyncError)lastSupabaseSyncError='Échec sync tables partagées (cause non détaillée).';
