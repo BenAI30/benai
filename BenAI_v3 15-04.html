@@ -3091,8 +3091,8 @@ function initApp(silent=false){
   if(u.role==='commercial')setTimeout(()=>checkMotivationsAuto(),5000);
   // Rappel anniversaires pour Benjamin
   if(u.id==='benjamin')setTimeout(()=>checkAnniversaires(),3000);
-  // Tuto première utilisation
-  if(shouldShowTuto()&&!CRM_PAGES_ONLY.includes(u.role))setTimeout(()=>startTuto(),1200);
+  // Tuto première utilisation (tous les rôles non-admin Benjamin)
+  if(shouldShowTuto())setTimeout(()=>startTuto(),1200);
   // Bouton tuto dans paramètres
   const tutoSection=document.getElementById('tuto-settings-section');
   if(tutoSection)tutoSection.style.display=currentUser.id==='benjamin'?'none':'block';
@@ -8223,25 +8223,72 @@ function enableSpellcheckEverywhere(){
 }
 
 
-const TUTO_SLIDES=[
-  {icon:'👋',title:'Bienvenue sur BenAI !',desc:'Votre assistant de travail pour Nemausus Fermetures et Lambert SAS. BenAI est là pour vous aider au quotidien — emails, SAV, questions métier.',highlight:null},
-  {icon:'🤖',title:'BenAI IA — Votre assistant',desc:'Posez toutes vos questions professionnelles : rédiger un email client, aide sur le SAV, questions sur All Manager ou Hercule Pro. BenAI répond en quelques secondes.',highlight:'💡 Utilisez le bouton + en bas pour joindre des images ou des PDF'},
-  {icon:'🔧',title:'Le SAV — Suivi des problèmes',desc:'Quand un technicien remonte un problème de chantier, créez un SAV ici. Benjamin le verra immédiatement et prendra en charge la commande ou la réclamation fournisseur.',highlight:'📋 Remplissez : client, problème, fournisseur concerné'},
-  {icon:'💬',title:'Messages — Communiquez avec l\'équipe',desc:'Envoyez des messages privés à Benjamin ou à l\'équipe. Plus rapide qu\'un email pour les petites questions du quotidien.',highlight:'🔔 Vous recevrez un son quand un nouveau message arrive'},
-  {icon:'✅',title:'C\'est parti !',desc:'Vous êtes prêt(e) à utiliser BenAI. En cas de doute, n\'hésitez pas à demander directement à BenAI IA — il est là pour vous aider.',highlight:null},
-];
+const TUTO_SLIDES_BY_ROLE={
+  commercial:[
+    {icon:'🎯',title:'Commercial — objectif',desc:'Ton objectif est simple : aucun lead sans action. Chaque contact doit être traité puis qualifié dans le CRM.',highlight:'Menu principal : Leads CRM'},
+    {icon:'📋',title:'1) Traiter tes leads',desc:'Ouvre un lead, lis les infos client, puis mets à jour son statut après chaque échange.',highlight:'Étape clé : statut à jour après chaque action'},
+    {icon:'📞',title:'2) Appeler le client',desc:'Dans la fiche lead, utilise le bouton Appeler pour lancer l\'appel rapidement.',highlight:'Après l\'appel : mets la situation (à rappeler, injoignable, RDV...)'},
+    {icon:'📅',title:'3) Planifier le RDV',desc:'Si un RDV est fixé, utilise le bouton Agenda dans la fiche lead.',highlight:'BenAI ouvre Google Agenda avec les informations du RDV'},
+    {icon:'🧾',title:'4) Devis et relance',desc:'Quand un devis est envoyé, renseigne la date et le montant puis relance si nécessaire.',highlight:'Action attendue : pas de devis sans suivi'},
+    {icon:'📉',title:'5) Si lead perdu',desc:'Renseigne toujours le motif de perte pour garder un CRM exploitable.',highlight:'C\'est obligatoire pour clôturer proprement le lead'},
+    {icon:'💬',title:'6) Messages & Notes',desc:'Utilise Messages pour les échanges rapides et Notes pour garder tes rappels personnels.',highlight:'Messages = équipe • Notes = perso'},
+    {icon:'🐛',title:'7) En cas de bug',desc:'Si une action ne marche pas, ouvre l\'onglet Bugs et décris le problème.',highlight:'Décris ce que tu faisais + le résultat attendu'},
+    {icon:'✅',title:'Routine quotidienne',desc:'Matin: traiter les alertes. Journée: qualifier chaque action. Fin de journée: vérifier qu\'aucun lead important n\'est oublié.',highlight:null},
+  ],
+  directeur_co:[
+    {icon:'📊',title:'Directeur co — pilotage CRM',desc:'Tu pilotes l\'activité commerciale : attribution, suivi du pipe, relances et performance.',highlight:'Point d\'entrée : Leads CRM + Dashboard'},
+    {icon:'⚠️',title:'1) Priorité non attribués',desc:'Commence la journée par les leads non attribués et affecte-les rapidement.',highlight:'Onglet À attribuer > assigner le bon commercial'},
+    {icon:'📈',title:'2) Suivre le pipe',desc:'Contrôle les statuts, les leads en alerte, les devis sans réponse et les leads perdus.',highlight:'Dashboard CRM = vue globale d\'action'},
+    {icon:'📅',title:'3) RDV et Agenda',desc:'Dans chaque fiche lead, Agenda ouvre Google Agenda avec le RDV prérempli.',highlight:'Vérifier date / horaire / adresse avant validation'},
+    {icon:'📞',title:'4) Pilotage des actions',desc:'Vérifie l\'avancement des commerciaux et réoriente les priorités si nécessaire.',highlight:'Focus : appels, relances, conversion'},
+    {icon:'🧩',title:'5) Qualité des données',desc:'Exige une qualification propre des leads (statut, motif de perte, montants).',highlight:'Un CRM propre = statistiques fiables'},
+    {icon:'💬',title:'6) Communication interne',desc:'Utilise Messages pour coordonner l\'équipe et débloquer les points urgents.',highlight:'Message court, consigne claire, action attendue'},
+    {icon:'🐛',title:'7) Remontée des anomalies',desc:'En cas de problème applicatif, utilise l\'onglet Bugs pour signaler le blocage.',highlight:'Ajouter un contexte précis pour correction rapide'},
+    {icon:'✅',title:'Routine recommandée',desc:'Matin: attribution + alertes. Midi: contrôle devis/RDV. Soir: check final du pipe.',highlight:null},
+  ],
+  assistante:[
+    {icon:'🧭',title:'Assistante — mission',desc:'Tu qualifies les demandes entrantes et tu assures une saisie claire pour fluidifier tout le traitement.',highlight:'Leads CRM + SAV + Messages'},
+    {icon:'📋',title:'1) Créer un lead complet',desc:'Renseigne nom, téléphone, adresse, projet, secteur et infos utiles dès la création.',highlight:'Leads CRM > + Nouveau lead'},
+    {icon:'📝',title:'2) Qualifier la situation',desc:'Après échange client, mets la bonne situation (à rappeler, injoignable, RDV...).',highlight:'Statut clair = suivi plus rapide'},
+    {icon:'📅',title:'3) RDV et Agenda',desc:'Quand un RDV est programmé, le bouton Agenda ouvre Google Agenda avec les infos préremplies.',highlight:'Vérifier date/heure avant validation'},
+    {icon:'🔧',title:'4) Ouvrir un SAV',desc:'Pour un problème chantier, crée un SAV précis (client, problème, fournisseur, rappel).',highlight:'Menu SAV > + Nouveau SAV'},
+    {icon:'💬',title:'5) Communication équipe',desc:'Utilise Messages pour transmettre les informations urgentes ou bloquantes.',highlight:'Toujours indiquer le contexte client'},
+    {icon:'📝',title:'6) Notes rapides',desc:'Utilise Notes pour tes rappels personnels et ton organisation quotidienne.',highlight:'Notes = aide perso, pas communication équipe'},
+    {icon:'🐛',title:'7) Signaler un bug',desc:'Si une fonction ne marche pas, ouvre l\'onglet Bugs avec une description claire.',highlight:'Explique ce que tu faisais et ce qui bloque'},
+    {icon:'✅',title:'Routine recommandée',desc:'Matin: traiter entrées. Journée: qualifier chaque dossier. Soir: vérifier les rappels du lendemain.',highlight:null},
+  ],
+  metreur:[
+    {icon:'📐',title:'Métreur — usage BenAI',desc:'BenAI te sert à transmettre les informations chantier rapidement et clairement.',highlight:'Fonctions clés : Messages, Notes, Bugs'},
+    {icon:'💬',title:'1) Messages internes',desc:'Partage les infos chantier importantes avec la bonne personne via Messages.',highlight:'Messages = communication équipe'},
+    {icon:'📝',title:'2) Notes personnelles',desc:'Utilise Notes pour garder tes rappels et éléments à vérifier.',highlight:'Notes = organisation perso'},
+    {icon:'🤖',title:'3) BenAI IA',desc:'Utilise BenAI IA pour reformuler un message, préparer un email ou clarifier une réponse.',highlight:'BenAI IA = aide de rédaction et support'},
+    {icon:'🐛',title:'4) Signaler un bug',desc:'En cas de blocage, ouvre l\'onglet Bugs avec une description précise.',highlight:'Ajouter contexte + action qui bloque'},
+    {icon:'✅',title:'Routine recommandée',desc:'Toujours laisser une trace claire des infos chantier pour éviter les oublis côté équipe.',highlight:null},
+  ],
+  default:[
+    {icon:'👋',title:'Bienvenue sur BenAI',desc:'BenAI t\'aide à traiter les actions du quotidien plus vite et plus proprement.',highlight:null},
+    {icon:'✅',title:'Prêt(e)',desc:'Suis le guide de ton rôle et mets à jour tes actions au fil de l\'eau.',highlight:null},
+  ]
+};
 
 let tutoStep=0;
+let currentTutoSlides=[];
+
+function getRoleTutoSlides(role){
+  return TUTO_SLIDES_BY_ROLE[role]||TUTO_SLIDES_BY_ROLE.default;
+}
 
 function startTuto(){
   if(!currentUser||currentUser.id==='benjamin')return;
+  currentTutoSlides=getRoleTutoSlides(currentUser.role||'assistante');
   tutoStep=0;
   renderTutoSlide();
   document.getElementById('tuto-overlay').style.display='flex';
 }
 
 function renderTutoSlide(){
-  const slide=TUTO_SLIDES[tutoStep];
+  if(!currentTutoSlides.length)currentTutoSlides=getRoleTutoSlides(currentUser?.role||'assistante');
+  const slide=currentTutoSlides[tutoStep]||currentTutoSlides[0];
   document.getElementById('tuto-icon').textContent=slide.icon;
   document.getElementById('tuto-title').textContent=slide.title;
   document.getElementById('tuto-desc').textContent=slide.desc;
@@ -8250,11 +8297,11 @@ function renderTutoSlide(){
   else hl.style.display='none';
   // Progress dots
   const prog=document.getElementById('tuto-progress');
-  prog.innerHTML=TUTO_SLIDES.map((_,i)=>`<div class="tuto-dot ${i===tutoStep?'active':''}"></div>`).join('');
+  prog.innerHTML=currentTutoSlides.map((_,i)=>`<div class="tuto-dot ${i===tutoStep?'active':''}"></div>`).join('');
   // Bouton suivant / terminer
   const btn=document.getElementById('tuto-next');
   const skip=document.getElementById('tuto-skip');
-  if(tutoStep===TUTO_SLIDES.length-1){
+  if(tutoStep===currentTutoSlides.length-1){
     btn.textContent='Commencer 🚀';
     skip.style.display='none';
   } else {
@@ -8264,7 +8311,7 @@ function renderTutoSlide(){
 }
 
 function nextTutoSlide(){
-  if(tutoStep<TUTO_SLIDES.length-1){
+  if(tutoStep<currentTutoSlides.length-1){
     tutoStep++;renderTutoSlide();
   } else {
     closeTuto();
