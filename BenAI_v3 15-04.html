@@ -1713,6 +1713,10 @@ let supabaseLastPushOkTs=0;
 let supabaseLastPullOkTs=0;
 let supabaseLastStatePushWarnTs=0;
 let supabaseAuthSubscription=null;
+const SUPABASE_FULL_SHARED_SYNC_INTERVAL_MS=2*60*1000;
+let supabaseLastSharedSyncTs=0;
+let supabaseSharedDirty={sav:false,notes:false,absences:false,annuaire:false,leads:false};
+let supabaseSharedSignatures={sav:'',notes:'',absences:'',annuaire:'',leads:''};
 let sharedApiKeyRetryTimer=null;
 let sharedApiKeyRetryDelayMs=2500;
 let pendingSharedApiKey='';
@@ -1866,6 +1870,34 @@ function renderSupabaseRuntimeStatus(){
   setStatusMessage(sbMsg,'var(--g)',`✅ Sync active (${pushTxt} · ${pullTxt} · ${rtTxt})`);
 }
 
+function computeSupabaseSignature(value){
+  try{return JSON.stringify(value??null);}catch{return String(Date.now());}
+}
+
+function markSharedDirtyIfChanged(key,value){
+  const sig=computeSupabaseSignature(value);
+  if(sig!==supabaseSharedSignatures[key]){
+    supabaseSharedSignatures[key]=sig;
+    supabaseSharedDirty[key]=true;
+    return true;
+  }
+  return false;
+}
+
+function refreshSharedSignatures(markDirty=false){
+  const mem=getMem();
+  supabaseSharedSignatures.sav=computeSupabaseSignature(mem.sav||[]);
+  supabaseSharedSignatures.notes=computeSupabaseSignature(mem.notes||[]);
+  supabaseSharedSignatures.absences=computeSupabaseSignature(mem.absences||[]);
+  supabaseSharedSignatures.annuaire=computeSupabaseSignature(getAnnuaire()||[]);
+  supabaseSharedSignatures.leads=computeSupabaseSignature(getLeads()||[]);
+  if(markDirty){
+    supabaseSharedDirty={sav:true,notes:true,absences:true,annuaire:true,leads:true};
+    return;
+  }
+  supabaseSharedDirty={sav:false,notes:false,absences:false,annuaire:false,leads:false};
+}
+
 function normalizeAnthropicKey(raw){
   return String(raw||'').trim().replace(/^["']|["']$/g,'');
 }
@@ -2005,6 +2037,9 @@ function resetAppStorageRuntime(preserveSessionCopy=false){
   if(!preserveSessionCopy)clearRuntimeSession(currentUser?.id);
   runtimeMemState={sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};
   runtimeLeadsState=[];
+  supabaseSharedDirty={sav:false,notes:false,absences:false,annuaire:false,leads:false};
+  supabaseSharedSignatures={sav:'',notes:'',absences:'',annuaire:'',leads:''};
+  supabaseLastSharedSyncTs=0;
   appStorageHydratedForUid='';
 }
 
@@ -2411,16 +2446,23 @@ async function syncSharedTablesToSupabase(mem,annuaire,leads){
     return false;
   }
   try{
-    const results=await Promise.all([
-      // Mode collaboration: upsert-only pour éviter les suppressions croisées
-      // quand deux appareils ne sont pas parfaitement synchronisés.
-      upsertSupabaseTable('sav',mapSavToSupabaseRows(mem?.sav)),
-      upsertSupabaseTable('notes',mapNotesToSupabaseRows(mem?.notes)),
-      upsertSupabaseTable('absences',mapAbsencesToSupabaseRows(mem?.absences)),
-      upsertSupabaseTable('annuaire',mapAnnuaireToSupabaseRows(annuaire)),
-      upsertSupabaseTable('leads',mapLeadsToSupabaseRows(leads))
-    ]);
-    const ok=results.every(Boolean);
+    const now=Date.now();
+    const forceFull=(now-supabaseLastSharedSyncTs)>SUPABASE_FULL_SHARED_SYNC_INTERVAL_MS;
+    const jobs=[];
+    if(forceFull||supabaseSharedDirty.sav)jobs.push(['sav',upsertSupabaseTable('sav',mapSavToSupabaseRows(mem?.sav))]);
+    if(forceFull||supabaseSharedDirty.notes)jobs.push(['notes',upsertSupabaseTable('notes',mapNotesToSupabaseRows(mem?.notes))]);
+    if(forceFull||supabaseSharedDirty.absences)jobs.push(['absences',upsertSupabaseTable('absences',mapAbsencesToSupabaseRows(mem?.absences))]);
+    if(forceFull||supabaseSharedDirty.annuaire)jobs.push(['annuaire',upsertSupabaseTable('annuaire',mapAnnuaireToSupabaseRows(annuaire))]);
+    if(forceFull||supabaseSharedDirty.leads)jobs.push(['leads',upsertSupabaseTable('leads',mapLeadsToSupabaseRows(leads))]);
+    if(!jobs.length){
+      return true;
+    }
+    const results=await Promise.all(jobs.map(async([key,promise])=>({key,ok:await promise})));
+    const ok=results.every(r=>r.ok);
+    results.forEach(r=>{
+      supabaseSharedDirty[r.key]=!r.ok;
+    });
+    if(ok)supabaseLastSharedSyncTs=Date.now();
     if(!ok&&!lastSupabaseSyncError)lastSupabaseSyncError='Échec sync tables partagées (cause non détaillée).';
     return ok;
   }catch(e){
@@ -2706,6 +2748,7 @@ async function loadCoreDataFromSupabase(){
       };
     });
     saveLeads(leadsLocal,false);
+    refreshSharedSignatures(false);
     lastSupabaseSyncError='';
     supabaseLastPullOkTs=Date.now();
     renderSupabaseRuntimeStatus();
@@ -2911,7 +2954,12 @@ function saveMem(m,sync=true){
   // Persistance session (temporaire) pour survivre à un refresh.
   persistRuntimeToSession(currentUser?.id);
   appStorage.removeItem(STORAGE_KEYS.mem);
-  if(sync)scheduleSupabaseSync(m,getAnnuaire());
+  if(sync){
+    markSharedDirtyIfChanged('sav',runtimeMemState.sav||[]);
+    markSharedDirtyIfChanged('notes',runtimeMemState.notes||[]);
+    markSharedDirtyIfChanged('absences',runtimeMemState.absences||[]);
+    scheduleSupabaseSync(m,getAnnuaire());
+  }
 }
 function getApiKey(){return normalizeAnthropicKey(appStorage.getItem(STORAGE_KEYS.api)||'');}
 async function getApiKeyForChat(){
@@ -3433,6 +3481,7 @@ function switchSession(){toggleSwitchPanel();}
 function initApp(silent=false){
   const u=currentUser;
   hydrateRuntimeFromSession(u?.id);
+  refreshSharedSignatures(false);
   if(u?.role==='admin'){
     void syncExtraUsersFromSupabaseProfiles().then(ok=>{
       if(ok&&document.getElementById('page-annuaire')?.style.display==='flex'&&equipeUITab==='acces'){
@@ -4786,7 +4835,10 @@ function getSAVVu(id){return((getMem().sav_vu)||{})[id]||null;}
 function getAnnuaire(){try{return JSON.parse(appStorage.getItem('benai_annuaire'))||[];}catch{return[];}}
 function saveAnnuaire(a,sync=true){
   appStorage.setItem('benai_annuaire',JSON.stringify(a));
-  if(sync)scheduleSupabaseSync(getMem(),a);
+  if(sync){
+    markSharedDirtyIfChanged('annuaire',a||[]);
+    scheduleSupabaseSync(getMem(),a);
+  }
 }
 function toggleEmpForm(){const w=document.getElementById('emp-form-wrap');w.style.display=w.style.display==='none'?'block':'none';}
 
@@ -6635,7 +6687,10 @@ function saveLeads(l,sync=true){
   // Persistance session (temporaire) pour survivre à un refresh.
   persistRuntimeToSession(currentUser?.id);
   appStorage.removeItem('benai_leads');
-  if(sync)scheduleSupabaseSync(getMem(),getAnnuaire());
+  if(sync){
+    markSharedDirtyIfChanged('leads',runtimeLeadsState);
+    scheduleSupabaseSync(getMem(),getAnnuaire());
+  }
 }
 function getLeadObjectifs(){try{return JSON.parse(appStorage.getItem('benai_lead_obj'))||{nimes:{leads:20,ca:50000},avignon:{leads:15,ca:40000}};}catch{return{nimes:{leads:20,ca:50000},avignon:{leads:15,ca:40000}};}}
 function saveLeadObjectifs(o){appStorage.setItem('benai_lead_obj',JSON.stringify(o));}
