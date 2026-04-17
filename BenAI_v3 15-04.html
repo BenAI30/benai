@@ -1771,6 +1771,7 @@ function applySupabaseConfigFromStorage(){
 applySupabaseConfigFromStorage();
 
 function getSupabaseHeaders(){
+  if(isSwitchPreviewSession())return null;
   applySupabaseConfigFromStorage();
   const key=SUPABASE_CONFIG.publishableKey;
   if(!key)return null;
@@ -1819,6 +1820,7 @@ function getSupabaseClient(){
 }
 
 async function ensureSupabaseSession(){
+  if(isSwitchPreviewSession())return null;
   if(currentSupabaseSession?.access_token)return currentSupabaseSession;
   const client=getSupabaseClient();
   if(!client)return null;
@@ -1961,6 +1963,7 @@ function makeUserFromSupabaseProfile(profile,emailFallback=''){
   if(profile.role==='admin'&&/benjamin/i.test(String(profile.full_name||'')))uid='benjamin';
   return {
     id:uid,
+    auth_uid:profile.id||'',
     email:(profile.email||emailFallback||'').trim().toLowerCase(),
     name:profile.full_name||firstName,
     role:profile.role||'assistante',
@@ -2151,6 +2154,22 @@ function mapAnnuaireToSupabaseRows(items){
   }));
 }
 
+function isLikelyUuid(v){
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v||'').trim());
+}
+function resolveAuthUidForUserId(uid){
+  const normalized=normalizeId(uid);
+  if(!normalized)return null;
+  if(normalized===normalizeId(currentUser?.id)){
+    const selfAuth=currentSupabaseSession?.user?.id||'';
+    if(isLikelyUuid(selfAuth))return selfAuth;
+  }
+  const fromUsers=getAllUsers().find(u=>normalizeId(u.id)===normalized);
+  const authUid=fromUsers?.auth_uid||fromUsers?.authUid||'';
+  if(isLikelyUuid(authUid))return authUid;
+  return null;
+}
+
 function mapLeadsToSupabaseRows(items){
   const createdBy=currentSupabaseSession?.user?.id||null;
   return (items||[]).map(l=>{
@@ -2159,6 +2178,7 @@ function mapLeadsToSupabaseRows(items){
     const societe=(l.societe_crm==='lambert'||l.societe==='lambert')?'lambert':'nemausus';
     const allowedStatuts=['gris','rdv','jaune','vert','rouge'];
     const statut=allowedStatuts.includes(l.statut)?l.statut:'gris';
+    const commercialAuthUid=l.commercial_user_id||resolveAuthUidForUserId(l.commercial)||null;
     const payload=(l&&typeof l==='object')?{...l,id:leadId}:l;
     return {
       id:leadId,
@@ -2171,6 +2191,7 @@ function mapLeadsToSupabaseRows(items){
       statut,
       raison_mort:l.raison_mort||null,
       created_by:createdBy,
+      commercial_user_id:isLikelyUuid(commercialAuthUid)?commercialAuthUid:null,
       archive:!!l.archive,
       payload
     };
@@ -2534,6 +2555,7 @@ async function loadCoreDataFromSupabase(){
         produit_vendu:payload.produit_vendu||null,
         raison_mort:payload.raison_mort||l.raison_mort||null,
         commercial:payload.commercial||null,
+        commercial_user_id:payload.commercial_user_id||l.commercial_user_id||null,
         suivi:payload.suivi||'',
         commentaire:payload.commentaire||'',
         rdv_history:Array.isArray(payload.rdv_history)?payload.rdv_history:[],
@@ -3153,6 +3175,9 @@ async function logout(){
 
 // Pile de sessions — pour revenir à Benjamin sans mot de passe
 let sessionStack=[];
+function isSwitchPreviewSession(){
+  return !!(currentUser&&currentUser.id!=='benjamin'&&sessionStack.length>0);
+}
 const ROLE_LABELS={admin:'Admin',assistante:'Assistante',metreur:'Métreur',commercial:'Commercial',directeur_co:'Dir. commercial'};
 
 function toggleSwitchPanel(){
@@ -3193,6 +3218,7 @@ function switchBack(){
   void (async()=>{
     await hydrateAppStorageFromSupabase(prevUid);
     initApp(true);
+    showDriveNotif('✅ Session admin restaurée (sync cloud active).');
   })();
 }
 
@@ -3210,8 +3236,8 @@ function switchToUser(uid){
   currentUser={id:uid,...u};
   logActivity(`Benjamin a basculé vers ${u.name}`);
   void (async()=>{
-    await hydrateAppStorageFromSupabase(uid);
     initApp(true);
+    showDriveNotif('👁️ Mode aperçu utilisateur: sync cloud désactivée pendant le switch.');
   })();
 }
 
@@ -5274,6 +5300,7 @@ async function syncExtraUsersFromSupabaseProfiles(){
       const prev=oldMap.get(uid);
       const newU={
         id:uid,
+        auth_uid:p?.id||prev?.auth_uid||'',
         name:fullName,
         email,
         role:p?.role||prev?.role||'assistante',
@@ -6266,7 +6293,13 @@ function canAccessLeadByCompany(lead){
     const leadSoc=lead.societe_crm||'nemausus';
     return currentUser.societe==='les-deux'||currentUser.societe===leadSoc;
   }
-  return true;
+  if(currentUser.role==='commercial'){
+    return normalizeId(lead.commercial)===normalizeId(currentUser.id);
+  }
+  if(currentUser.role==='assistante'){
+    return lead.cree_par===currentUser.id||lead.cree_par===currentUser.name;
+  }
+  return false;
 }
 function getCompanyScopedLeads(list){
   const leads=list||getLeads();
@@ -7218,6 +7251,7 @@ function saveLead(){
   const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   const selectedCommercial=document.getElementById('lead-commercial-assign')?.value||null;
   const defaultCommercial=currentUser?.role==='commercial'?currentUser.id:null;
+  const assignedCommercial=currentLeadSource==='ACTIF'?currentUser.id:(selectedCommercial||defaultCommercial||null);
   const data={
     nom,telephone:tel,adresse,ville,cp:cp2,type_projet:projet,
     secteur:sectorState.secteur,
@@ -7234,7 +7268,8 @@ function saveLead(){
     date_signature:document.getElementById('lead-date-signature')?.value||null,
     produit_vendu:document.getElementById('lead-produit-vendu')?.value||null,
     raison_mort:document.getElementById('lead-raison-mort')?.value||null,
-    commercial:currentLeadSource==='ACTIF'?currentUser.id:(selectedCommercial||defaultCommercial||null),
+    commercial:assignedCommercial,
+    commercial_user_id:resolveAuthUidForUserId(assignedCommercial),
     suivi:document.getElementById('lead-suivi')?.value.trim()||'',
     commentaire:document.getElementById('lead-commentaire')?.value.trim()||'',
     hors_secteur:!!sectorState.outOfSector,
@@ -7275,6 +7310,7 @@ function saveLead(){
         id:currentLeadId,
         date_creation:old.date_creation,
         date_modification:now,
+        commercial_user_id:data.commercial_user_id||old.commercial_user_id||null,
         societe_crm:resolveLeadSocieteBySecteur(data.secteur,old.societe_crm||getSocieteFromUser(currentUser.id))
       };
       leads[idx]=updatedLead;
@@ -7715,7 +7751,7 @@ function attemptAutoHealCRMLeads(){
     if(!l.date_creation){l.date_creation=nowIso;changed=true;fixes++;fixedShape++;}
     if(!l.date_modification){l.date_modification=nowIso;changed=true;fixes++;fixedShape++;}
     if(!l.source||!LEAD_SOURCE_CODES.includes(l.source)){l.source='MAG';changed=true;fixes++;fixedShape++;}
-    if(!l.secteur||!['nimes','avignon'].includes(l.secteur)){l.secteur='nimes';changed=true;fixes++;fixedShape++;}
+    if(!l.secteur||!['nimes','avignon','bagnoles','zone_blanche'].includes(l.secteur)){l.secteur='nimes';changed=true;fixes++;fixedShape++;}
     // Statut invalide
     if(!validStatuts.includes(l.statut)){l.statut='gris';changed=true;fixes++;fixedStatut++;}
     // RDV incohérent: pas de date -> retour en à rappeler
@@ -8017,7 +8053,7 @@ function setObjectifCommercial(uid,mensuel,hebdo){
 }
 
 function getProgressionCommercial(uid){
-  const leads=getLeads().filter(l=>l.statut==='vert'&&l.commercial===uid);
+  const leads=getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert'&&l.commercial===uid);
   const now=new Date();
   const month=now.getMonth(),year=now.getFullYear();
   const week=getWeekNumber(now);
@@ -8083,7 +8119,7 @@ function checkMotivationsAuto(){
 // 📊 TABLEAU DE VENTES MENSUEL
 // ══════════════════════════════════════════
 function renderTableauVentes(container){
-  const leads=getLeads().filter(l=>l.statut==='vert');
+  const leads=getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert');
   const now=new Date();
   // Sélecteur mois
   const moisDispos=[...new Set(leads.map(l=>{const d=new Date(l.date_creation||0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}))].sort().reverse();
@@ -8140,7 +8176,7 @@ function formatMois(str){
 }
 
 function exportTableauVentes(){
-  const leads=getLeads().filter(l=>l.statut==='vert');
+  const leads=getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert');
   const selectedMois=appStorage.getItem('benai_ventes_mois')||'';
   const [yr,mo]=selectedMois?selectedMois.split('-').map(Number):[new Date().getFullYear(),new Date().getMonth()+1];
   const filtered=selectedMois?leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;}):leads;
@@ -8188,12 +8224,12 @@ function makeGPSLink(adresse,ville,cp){
 // 🚨 RAPPORT ALERTES DIRECTEUR CO
 // ══════════════════════════════════════════
 function genererRapportAlertes(){
-  const leads=getLeads().filter(l=>!l.archive&&l.statut!=='vert'&&l.statut!=='rouge');
+  const leads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive&&l.statut!=='vert'&&l.statut!=='rouge');
   const now=new Date();
   const nonAttrib=leads.filter(l=>!l.commercial);
   const nonOuverts=leads.filter(l=>l.commercial&&!l.vu_date);
   const enRetard=leads.filter(l=>l.commercial&&l.vu_date&&isLeadAlerte(l));
-  const devisSansReponse=getLeads().filter(l=>l.statut==='jaune'&&l.rappel_devis&&new Date(l.rappel_devis)<now);
+  const devisSansReponse=leads.filter(l=>l.statut==='jaune'&&l.rappel_devis&&new Date(l.rappel_devis)<now);
   return{nonAttrib,nonOuverts,enRetard,devisSansReponse,total:nonAttrib.length+nonOuverts.length+enRetard.length+devisSansReponse.length};
 }
 
@@ -8217,7 +8253,7 @@ function toggleBlockCommercial(uid){
 // 📊 COMPTEUR CONTACTS PAR COMMERCIAL
 // ══════════════════════════════════════════
 function getContactsParCommercial(){
-  const leads=getLeads();
+  const leads=getCompanyScopedLeads(getLeads());
   const result={};
   leads.forEach(l=>{
     if(!l.commercial)return;
