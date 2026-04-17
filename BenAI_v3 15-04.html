@@ -2344,14 +2344,60 @@ async function upsertSupabaseTable(table,rows){
     lastSupabaseSyncError=`${table}: en-têtes Supabase manquants`;
     return false;
   }
-  const payload=JSON.stringify(rows);
   const conflictCol=table==='leads'?'id':'legacy_id';
+  // Déduplication défensive: évite les conflits intra-batch.
+  const seen=new Set();
+  const sanitizedRows=(rows||[]).filter(r=>{
+    const key=String(r?.[conflictCol]??'').trim();
+    if(!key)return false;
+    if(seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
+  if(!sanitizedRows.length)return true;
+  const payload=JSON.stringify(sanitizedRows);
   const upsertRes=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${table}?on_conflict=${conflictCol}`,{
     method:'POST',
     headers:{...headers,'Prefer':'resolution=merge-duplicates'},
     body:payload
   },10000);
   if(upsertRes.ok){
+    lastSupabaseSyncError='';
+    return true;
+  }
+
+  let upsertBody='';
+  try{upsertBody=await upsertRes.text();}catch{}
+
+  // Fallback 1: mode insert-only avec ignore duplicates (RLS-friendly).
+  // Utile quand UPDATE est interdit mais INSERT autorisé.
+  const ignoreRes=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${table}?on_conflict=${conflictCol}`,{
+    method:'POST',
+    headers:{...headers,'Prefer':'resolution=ignore-duplicates,return=minimal'},
+    body:payload
+  },10000);
+  if(ignoreRes.ok){
+    lastSupabaseSyncError='';
+    return true;
+  }
+
+  // Fallback 1b: granularité ligne par ligne pour éviter qu'un doublon bloque tout le lot.
+  const perRowFailures=[];
+  for(let i=0;i<sanitizedRows.length;i++){
+    const row=sanitizedRows[i];
+    const rowRes=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${table}?on_conflict=${conflictCol}`,{
+      method:'POST',
+      headers:{...headers,'Prefer':'resolution=ignore-duplicates,return=minimal'},
+      body:JSON.stringify([row])
+    },10000);
+    if(!rowRes.ok){
+      let body='';
+      try{body=await rowRes.text();}catch{}
+      perRowFailures.push(`${rowRes.status} ${String(body||'').slice(0,80)}`.trim());
+      if(perRowFailures.length>=3)break;
+    }
+  }
+  if(perRowFailures.length===0){
     lastSupabaseSyncError='';
     return true;
   }
@@ -2366,11 +2412,9 @@ async function upsertSupabaseTable(table,rows){
     lastSupabaseSyncError='';
     return true;
   }
-  let upsertBody='';
   let insertBody='';
-  try{upsertBody=await upsertRes.text();}catch{}
   try{insertBody=await insertRes.text();}catch{}
-  lastSupabaseSyncError=`${table}: upsert ${upsertRes.status} / insert ${insertRes.status} ${insertBody||upsertBody||''}`.trim();
+  lastSupabaseSyncError=`${table}: upsert ${upsertRes.status} / ignore ${ignoreRes.status} / insert ${insertRes.status} ${insertBody||upsertBody||perRowFailures.join(' | ')||''}`.trim();
   return false;
 }
 
