@@ -1162,7 +1162,7 @@ input[type=file]{display:none;}
               </div>
               <div class="form-row">
                 <div class="form-group"><div class="form-label">Ville *</div><input type="text" class="form-input" id="lead-ville" placeholder="Ville (auto ou manuel)"></div>
-                <div class="form-group"><div class="form-label">Code postal *</div><input type="text" class="form-input" id="lead-cp" placeholder="Code postal"></div>
+                <div class="form-group"><div class="form-label">Code postal *</div><input type="text" class="form-input" id="lead-cp" placeholder="Code postal" oninput="updateLeadSectorSignals()"></div>
               </div>
               <div class="form-row">
                 <div class="form-group"><div class="form-label">Type de projet *</div>
@@ -1170,11 +1170,18 @@ input[type=file]{display:none;}
                   <datalist id="projets-list"></datalist>
                 </div>
                 <div class="form-group"><div class="form-label">Secteur</div>
-                  <select class="form-input" id="lead-secteur">
+                  <select class="form-input" id="lead-secteur" onchange="updateLeadSectorSignals()">
                     <option value="nimes">Nîmes</option>
                     <option value="avignon">Avignon</option>
+                    <option value="bagnoles">Bagnols-sur-Cèze</option>
+                    <option value="zone_blanche">Zone blanche</option>
                   </select>
                 </div>
+              </div>
+              <div id="lead-sector-alert" style="display:none;margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(248,113,113,.13);border:1px solid rgba(248,113,113,.35);color:#fecaca;font-size:12px;font-weight:600"></div>
+              <div class="form-group" id="lead-hors-secteur-wrap" style="margin-top:10px;display:none">
+                <div class="form-label">Justification hors secteur *</div>
+                <textarea class="form-input" id="lead-hors-secteur-justif" rows="2" placeholder="Expliquez pourquoi ce lead doit être traité hors secteur"></textarea>
               </div>
             </div>
 
@@ -2053,6 +2060,37 @@ async function createSupabaseUserProvisioning(payload){
     return {ok:true,data:bodyJson||{}};
   }catch(e){
     return {ok:false,error:e?.message||'Erreur réseau create-user (CORS/connexion)'};
+  }
+}
+
+async function deleteSupabaseUserProvisioning(payload){
+  const client=getSupabaseClient();
+  const session=await ensureSupabaseSession();
+  const accessToken=session?.access_token||'';
+  if(!client||!accessToken)return {ok:false,error:'Session Supabase admin manquante'};
+  try{
+    const fnUrl=`${SUPABASE_CONFIG.url}/functions/v1/delete-user`;
+    const res=await fetchWithTimeout(fnUrl,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        apikey:SUPABASE_CONFIG.publishableKey,
+        Authorization:'Bearer '+accessToken
+      },
+      body:JSON.stringify(payload||{})
+    },12000);
+    let bodyJson=null;
+    const rawBody=await res.text();
+    if(rawBody){
+      try{bodyJson=JSON.parse(rawBody);}catch(_){}
+    }
+    if(!res.ok){
+      const detail=bodyJson?.error||bodyJson?.message||rawBody||`HTTP ${res.status}`;
+      return {ok:false,error:String(detail)};
+    }
+    return {ok:true,data:bodyJson||{}};
+  }catch(e){
+    return {ok:false,error:e?.message||'Erreur réseau delete-user (CORS/connexion)'};
   }
 }
 
@@ -5203,6 +5241,12 @@ function hideUserId(uid){
   if(!hidden.includes(normalized))hidden.push(normalized);
   saveHiddenUserIds(hidden);
 }
+function unhideUserId(uid){
+  const normalized=normalizeId(uid);
+  if(!normalized)return;
+  const hidden=getHiddenUserIds().filter(h=>normalizeId(h)!==normalized);
+  saveHiddenUserIds(hidden);
+}
 async function syncExtraUsersFromSupabaseProfiles(){
   if(!currentUser||currentUser.role!=='admin')return false;
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
@@ -5342,6 +5386,7 @@ async function creerUtilisateur(){
     status.textContent='⚠️ '+createResult.error;
     return;
   }
+  unhideUserId(uid);
   const newUser={id:uid,name,email,role,societe:soc,fonction,vehicule:'',color:COLORS[extras.length%COLORS.length],initial:prenom[0].toUpperCase(),builtin:false};
   extras.push(newUser);saveExtraUsers(extras);
   const pwds=getPwds();pwds[uid]=await hashPassword(uid,pwd);savePwds(pwds);
@@ -5360,10 +5405,20 @@ async function creerUtilisateur(){
   renderUsersList();renderPwdList();logActivity(`Benjamin a créé l'accès BenAI (${roleLabel}) pour ${name}`);
 }
 
-function supprimerUtilisateur(uid){
+async function supprimerUtilisateur(uid){
   if(uid==='benjamin'){alert('Benjamin ne peut pas être supprimé.');return;}
   const u=findUserById(uid);
   if(!confirm(`Supprimer ${u?.name||uid} définitivement ? Cette action est irréversible.`))return;
+  let remoteDeleted=false;
+  const remoteRes=await deleteSupabaseUserProvisioning({
+    app_uid:uid,
+    email:u?.email||''
+  });
+  if(remoteRes.ok){
+    remoteDeleted=true;
+  }else{
+    showDriveNotif(`⚠️ Suppression cloud incomplète (${(remoteRes.error||'erreur').slice(0,80)}). Masquage local appliqué.`);
+  }
   // Toujours masquer durablement (évite toute réapparition après sync).
   hideUserId(uid);
   const extras=getExtraUsers().filter(e=>normalizeId(e.id)!==normalizeId(uid));
@@ -5373,7 +5428,9 @@ function supprimerUtilisateur(uid){
   const access=getAccess();delete access[uid];saveAccess(access);
   // Retirer du select login
   const opt=document.querySelector(`#login-user option[value="${uid}"]`);if(opt)opt.remove();
-  renderUsersList();renderPwdList();logActivity(`Benjamin a supprimé l'utilisateur ${u?.name||uid}`);
+  renderUsersList();renderPwdList();
+  logActivity(`Benjamin a supprimé l'utilisateur ${u?.name||uid}${remoteDeleted?' (cloud + local)':' (local)'}`);
+  if(remoteDeleted)showDriveNotif(`✅ ${u?.name||uid} supprimé définitivement`);
 }
 
 function toggleAccess(uid){
@@ -6551,11 +6608,18 @@ function renderLeadCardAssistante(l){
   </div>`;
 }
 
+function getLeadSecteurLabel(secteur){
+  if(secteur==='avignon')return 'Avignon';
+  if(secteur==='bagnoles')return 'Bagnols-sur-Cèze';
+  if(secteur==='zone_blanche')return 'Zone blanche';
+  return 'Nîmes';
+}
+
 function renderLeadCard(l,role){
   const alerte=isLeadAlerte(l);
   const age=getLeadAge(l);
   const comm=getAllUsers().find(u=>u.id===l.commercial);
-  const secteurLabel=l.secteur==='avignon'?'Avignon':'Nîmes';
+  const secteurLabel=getLeadSecteurLabel(l.secteur);
   const statLabel=STATUT_LABELS[l.statut]||'🔵 Non traité';
   const statCls=STATUT_CLS[l.statut]||'ls-gris';
   const srcIcon=LEAD_SOURCE_ICONS[l.source]||'📋';
@@ -6676,7 +6740,12 @@ function renderLeadsDashboard(){
   const now=new Date();
   const month=now.getMonth();const year=now.getFullYear();
   const leadsMonth=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getMonth()===month&&d.getFullYear()===year;});
-  const secteurs=[{id:'nimes',label:'Nîmes',color:'var(--a)'},{id:'avignon',label:'Avignon',color:'var(--bl)'}];
+  const secteurs=[
+    {id:'nimes',label:'Nîmes',color:'var(--a)'},
+    {id:'avignon',label:'Avignon',color:'var(--bl)'},
+    {id:'bagnoles',label:'Bagnols-sur-Cèze',color:'#22c55e'},
+    {id:'zone_blanche',label:'Zone blanche',color:'var(--r)'}
+  ];
   let html='';
   // Stats globales
   const totalLeads=leads.length;
@@ -6687,6 +6756,26 @@ function renderLeadsDashboard(){
     <div class="stat-box"><div class="stat-box-val">${totalLeads}</div><div class="stat-box-lbl">Total leads</div></div>
     <div class="stat-box"><div class="stat-box-val" style="color:var(--y)">${nonAttrib}</div><div class="stat-box-lbl">À attribuer</div></div>
     <div class="stat-box"><div class="stat-box-val" style="color:var(--r)">${alertes}</div><div class="stat-box-lbl">Alertes</div></div>
+  </div>`;
+  const secteursSynthese=secteurs.map(s=>{
+    const all=leads.filter(l=>l.secteur===s.id);
+    const ventes=all.filter(l=>l.statut==='vert');
+    return{
+      ...s,
+      leads:all.length,
+      ventes:ventes.length,
+      ca:ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0)
+    };
+  });
+  html+=`<div class="secteur-card">
+    <div class="secteur-title">🧭 Suivi global par secteur</div>
+    ${secteursSynthese.map(s=>`
+      <div class="perf-row">
+        <div class="perf-name" style="color:${s.color}">${s.label}</div>
+        <div class="perf-stats">${s.leads} lead(s) · ${s.ventes} vente(s)</div>
+        <div class="perf-ca">${s.ca.toLocaleString('fr-FR')} €</div>
+      </div>
+    `).join('')}
   </div>`;
   const rdvTop=leads.map(l=>({lead:l,count:getLeadRdvDoneMonthCount(l,now)})).filter(x=>x.count>0).sort((a,b)=>b.count-a.count).slice(0,5);
   html+=`<div class="secteur-card">
@@ -6832,7 +6921,7 @@ function editObjectifCommercial(uid,name){
 
 function editObjectif(secteur){
   const obj=getLeadObjectifs();const s=obj[secteur]||{leads:0,ca:0};
-  const label=secteur==='nimes'?'Nîmes':'Avignon';
+  const label=getLeadSecteurLabel(secteur);
   const newLeads=prompt(`Objectif leads/mois — ${label} :`,s.leads);if(newLeads===null)return;
   const newCA=prompt(`Objectif CA/mois (€ HT) — ${label} :`,s.ca);if(newCA===null)return;
   obj[secteur]={leads:parseInt(newLeads)||0,ca:parseInt(newCA)||0};
@@ -6853,6 +6942,7 @@ function openNewLead(){
   fillCommercialAssign();fillProjetsSuggestions();
   document.getElementById('btn-delete-lead').style.display='none';
   document.getElementById('lead-timeline').style.display='none';
+  updateLeadSectorSignals();
   document.getElementById('lead-modal').classList.add('open');
 }
 
@@ -6873,7 +6963,7 @@ function openLead(id){
   }
   document.getElementById('modal-lead-nom').textContent=l.nom;
   document.getElementById('modal-lead-sub').innerHTML=`
-    <span class="lead-secteur">${l.secteur==='avignon'?'Avignon':'Nîmes'}</span>
+    <span class="lead-secteur">${getLeadSecteurLabel(l.secteur)}</span>
     <span>${getLeadAge(l)}</span>
     <span style="color:var(--g)">📅 ${getLeadRdvDoneCount(l)} RDV fait(s)</span>
     ${l.vu_date?`<span class="lead-vu">👁️ Vu le ${l.vu_date}</span>`:(role==='admin'||role==='directeur_co')?'<span class="lead-non-vu">👁️ Non ouvert</span>':''}
@@ -6887,6 +6977,8 @@ function openLead(id){
   document.getElementById('lead-cp').value=l.cp||'';
   document.getElementById('lead-projet').value=l.type_projet||'';
   document.getElementById('lead-secteur').value=l.secteur||'nimes';
+  const leadHorsSecteurJustif=document.getElementById('lead-hors-secteur-justif');
+  if(leadHorsSecteurJustif)leadHorsSecteurJustif.value=l.justification_hors_secteur||'';
   document.getElementById('lead-suivi').value=l.suivi||'';
   document.getElementById('lead-commentaire').value=l.commentaire||'';
   // Source
@@ -6953,6 +7045,7 @@ function openLead(id){
   if(btnAgenda)btnAgenda.style.display=(l.rappel||l.date_rdv)?'inline-block':'none';
   if(btnRdvDone)btnRdvDone.style.display='inline-block';
   if(btnEmail)btnEmail.style.display='inline-block';
+  updateLeadSectorSignals();
 }
 
 function closeLeadModal(){
@@ -6968,6 +7061,12 @@ function resetLeadForm(){
     const el=document.getElementById(id);if(el)el.value='';
   });
   document.getElementById('lead-secteur').value='nimes';
+  const leadHorsSecteurJustif=document.getElementById('lead-hors-secteur-justif');
+  if(leadHorsSecteurJustif)leadHorsSecteurJustif.value='';
+  const leadSectorAlert=document.getElementById('lead-sector-alert');
+  if(leadSectorAlert){leadSectorAlert.style.display='none';leadSectorAlert.textContent='';}
+  const leadHorsSecteurWrap=document.getElementById('lead-hors-secteur-wrap');
+  if(leadHorsSecteurWrap)leadHorsSecteurWrap.style.display='none';
   document.getElementById('lead-sous-statut').value='a_rappeler';
   const dateRdvFait=document.getElementById('lead-date-rdv-fait');if(dateRdvFait)dateRdvFait.value='';
   const montantRdv=document.getElementById('lead-montant-rdv');if(montantRdv)montantRdv.value='';
@@ -7090,10 +7189,19 @@ function saveLead(){
   const ville=villeEl?.value.trim()||adresse.split(/\d{5}/)?.[1]?.trim()||'';
   const cp2=cpEl?.value.trim()||'';
   const projet=document.getElementById('lead-projet').value.trim();
+  const sectorState=updateLeadSectorSignals()||computeLeadSectorState(cp2);
+  const justifHorsSecteur=(document.getElementById('lead-hors-secteur-justif')?.value||'').trim();
+  const historicalLead=findHistoricalLeadByIdentity(nom,adresse,cp2,currentLeadId);
+  const historicalProposal=getCommercialHistoryProposal(historicalLead);
+  const effectiveSource=historicalLead?'ANCIEN_CLIENT':currentLeadSource;
   const missing=[];
   if(!nom)missing.push('Nom');
   if(!tel)missing.push('Téléphone');
   if(!projet)missing.push('Projet');
+  if(!cp2)missing.push('Code postal');
+  if(currentUser?.role==='commercial'&&sectorState.outOfSector&&!justifHorsSecteur){
+    missing.push('Justification hors secteur');
+  }
   const raisonMort=document.getElementById('lead-raison-mort').value;
   const prixVendu=document.getElementById('lead-prix-vendu').value;
   if(currentLeadStatut==='rouge'&&!raisonMort)missing.push('Raison du refus');
@@ -7112,8 +7220,8 @@ function saveLead(){
   const defaultCommercial=currentUser?.role==='commercial'?currentUser.id:null;
   const data={
     nom,telephone:tel,adresse,ville,cp:cp2,type_projet:projet,
-    secteur:document.getElementById('lead-secteur').value,
-    source:currentLeadSource,
+    secteur:sectorState.secteur,
+    source:effectiveSource,
     statut:currentLeadStatut,
     sous_statut:document.getElementById('lead-sous-statut')?.value||'a_rappeler',
     rappel:document.getElementById('lead-rappel')?.value||null,
@@ -7129,6 +7237,14 @@ function saveLead(){
     commercial:currentLeadSource==='ACTIF'?currentUser.id:(selectedCommercial||defaultCommercial||null),
     suivi:document.getElementById('lead-suivi')?.value.trim()||'',
     commentaire:document.getElementById('lead-commentaire')?.value.trim()||'',
+    hors_secteur:!!sectorState.outOfSector,
+    zone_blanche:!!sectorState.isZoneBlanche,
+    justification_hors_secteur:justifHorsSecteur||null,
+    societe_secteur:CRM_SECTOR_OWNERS[sectorState.secteur]||null,
+    ancien_client:!!historicalLead,
+    commercial_historique:historicalProposal?.id||historicalLead?.commercial||null,
+    commercial_historique_nom:historicalProposal?.name||null,
+    proposition_reaffectation:!!(historicalProposal&&historicalProposal.isActive),
   };
   if(currentLeadId){
     const idx=leads.findIndex(l=>l.id===currentLeadId);
@@ -7168,12 +7284,34 @@ function saveLead(){
     if(!autoCommercial&&!hasDirecteurCommercial()){
       autoCommercial=getRoundRobinCommercial(societe);
     }
+    if(data.ancien_client&&historicalProposal&&historicalProposal.isActive&&data.hors_secteur&&currentUser?.role==='directeur_co'&&!selectedCommercial){
+      showDriveNotif(`🔁 Ancien client détecté : proposition de réattribution à ${historicalProposal.name}`);
+    }
     const newLead={...data,id:Date.now(),date_creation:now,timeline:[],rdv_history:[],cree_par:currentUser.id,societe_crm:societe,commercial:autoCommercial};
     if(newLead.date_rdv_fait){
       const doneDate=new Date(newLead.date_rdv_fait+'T09:00:00');
       registerLeadRdvDone(newLead,'creation',doneDate.toISOString());
     }
     addLeadTimelineEntry(newLead,'Lead créé',currentUser.name);
+    if(newLead.zone_blanche){
+      addLeadTimelineEntry(newLead,'Lead tagué en zone blanche',currentUser.name);
+    }
+    if(newLead.hors_secteur){
+      addLeadTimelineEntry(newLead,`Lead hors secteur (${getLeadSecteurLabel(newLead.secteur)})`,currentUser.name);
+    }
+    if(newLead.ancien_client){
+      const histTxt=newLead.commercial_historique_nom?` — commercial historique: ${newLead.commercial_historique_nom}`:'';
+      addLeadTimelineEntry(newLead,`Ancien client détecté${histTxt}`,currentUser.name);
+    }
+    if(newLead.hors_secteur){
+      const dirCos=getAllUsers().filter(u=>u.role==='directeur_co');
+      const proposalTxt=newLead.commercial_historique_nom&&newLead.proposition_reaffectation
+        ?` · Proposition: réattribuer à ${newLead.commercial_historique_nom}`
+        :'';
+      dirCos.forEach(u=>{
+        pushNotif('Vous êtes hors secteur',`${nom} (${newLead.cp||'CP inconnu'})${proposalTxt}`,'⚠️',u.id);
+      });
+    }
     if(newLead.commercial){
       const c=getAllUsers().find(u=>u.id===newLead.commercial);
       addLeadTimelineEntry(newLead,`Attribué à ${c?.name||newLead.commercial}`,currentUser.name);
@@ -7269,11 +7407,97 @@ function selectAdresse(label,ville,cp,context){
   detectSecteurByCP(cp);
 }
 
+const CRM_SECTOR_CP_MAP={
+  nimes:['30000','30100','30110','30111','30114','30121','30127','30128','30129','30132','30140','30170','30190','30210','30220','30230','30240','30250','30260','30270','30300','30310','30320','30340','30350','30360','30380','30410','30420','30460','30470','30480','30490','30500','30510','30520','30540','30560','30580','30600','30610','30620','30640','30660','30670','30700','30720','30730','30740','30800','30820','30840','30870','30920','30960','30980'],
+  avignon:['13103','13150','13160','13440','13550','13570','13630','13690','13870','13910','30126','30131','30133','30150','30290','30300','30390','30400','30650','84000','84130','84170','84200','84210','84230','84250','84270','84310','84320','84370','84450','84470','84510','84700','84740'],
+  bagnoles:['07150','07460','07700','26790','30130','30200','30290','30330','30430','30500','30580','30630','30760','84100','84110','84150','84190','84260','84290','84330','84340','84350','84420','84430','84500','84550','84810','84830','84840','84850','84860','84870']
+};
+const CRM_SECTOR_SETS=Object.fromEntries(Object.entries(CRM_SECTOR_CP_MAP).map(([k,v])=>[k,new Set(v)]));
+const CRM_SECTOR_LABELS={nimes:'Nîmes',avignon:'Avignon',bagnoles:'Bagnols-sur-Cèze',zone_blanche:'Zone blanche'};
+const CRM_SECTOR_OWNERS={nimes:'nemausus',avignon:'nemausus',bagnoles:'lambert',zone_blanche:'zone_blanche'};
+
+function normalizeLeadCP(raw){
+  const digits=String(raw||'').replace(/\D/g,'');
+  if(digits.length>=5)return digits.slice(0,5);
+  return '';
+}
+function resolveLeadSectorByCP(cpRaw){
+  const cp=normalizeLeadCP(cpRaw);
+  if(!cp)return {cp:'',secteur:'nimes',isKnown:false,isZoneBlanche:false,ownerSociete:'nemausus',label:CRM_SECTOR_LABELS.nimes};
+  if(CRM_SECTOR_SETS.avignon.has(cp))return {cp,secteur:'avignon',isKnown:true,isZoneBlanche:false,ownerSociete:'nemausus',label:CRM_SECTOR_LABELS.avignon};
+  if(CRM_SECTOR_SETS.bagnoles.has(cp))return {cp,secteur:'bagnoles',isKnown:true,isZoneBlanche:false,ownerSociete:'lambert',label:CRM_SECTOR_LABELS.bagnoles};
+  if(CRM_SECTOR_SETS.nimes.has(cp))return {cp,secteur:'nimes',isKnown:true,isZoneBlanche:false,ownerSociete:'nemausus',label:CRM_SECTOR_LABELS.nimes};
+  return {cp,secteur:'zone_blanche',isKnown:false,isZoneBlanche:true,ownerSociete:'zone_blanche',label:CRM_SECTOR_LABELS.zone_blanche};
+}
+function getAllowedCommercialSectors(user){
+  if(!user||user.role!=='commercial')return new Set();
+  if(user.societe==='lambert')return new Set(['bagnoles']);
+  if(user.societe==='les-deux')return new Set(['nimes','avignon','bagnoles']);
+  return new Set(['nimes','avignon']);
+}
+function computeLeadSectorState(cpRaw){
+  const selectedSecteur=document.getElementById('lead-secteur')?.value||'nimes';
+  const detected=resolveLeadSectorByCP(cpRaw);
+  const allowedSectors=getAllowedCommercialSectors(currentUser);
+  const outOfSectorByRole=currentUser?.role==='commercial'&&(!allowedSectors.size||!allowedSectors.has(detected.secteur));
+  const selectedMismatch=detected.isKnown&&selectedSecteur!==detected.secteur;
+  return {...detected,selectedSecteur,outOfSectorByRole,selectedMismatch,outOfSector:detected.isZoneBlanche||outOfSectorByRole};
+}
+function updateLeadSectorSignals(){
+  const cpInput=document.getElementById('lead-cp');
+  const secteurSel=document.getElementById('lead-secteur');
+  if(!cpInput||!secteurSel)return null;
+  const state=computeLeadSectorState(cpInput.value||'');
+  if(state.isKnown&&secteurSel.value!==state.secteur)secteurSel.value=state.secteur;
+  const alertEl=document.getElementById('lead-sector-alert');
+  const justifWrap=document.getElementById('lead-hors-secteur-wrap');
+  if(alertEl){
+    if(state.outOfSector){
+      const scopeMsg=state.isZoneBlanche
+        ?'Zone blanche: hors secteur connu.'
+        :`Vous êtes hors secteur (${CRM_SECTOR_LABELS[state.secteur]||state.secteur}).`;
+      alertEl.textContent=`⚠️ ${scopeMsg}`;
+      alertEl.style.display='block';
+    }else{
+      alertEl.style.display='none';
+      alertEl.textContent='';
+    }
+  }
+  if(justifWrap)justifWrap.style.display=state.outOfSector?'block':'none';
+  return state;
+}
+function normalizeLeadIdentityText(value){
+  return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+}
+function getLeadIdentityKey(nom,adresse,cp){
+  const n=normalizeLeadIdentityText(nom);
+  const a=normalizeLeadIdentityText(adresse);
+  const p=normalizeLeadCP(cp);
+  if(!n||!p)return '';
+  return `${n}::${p}::${a}`;
+}
+function findHistoricalLeadByIdentity(nom,adresse,cp,currentId){
+  const key=getLeadIdentityKey(nom,adresse,cp);
+  if(!key)return null;
+  const leads=getLeads();
+  return leads
+    .filter(l=>String(l.id)!==String(currentId||'')&&getLeadIdentityKey(l.nom,l.adresse,l.cp)===key)
+    .sort((a,b)=>new Date(b.date_modification||b.date_creation||0)-new Date(a.date_modification||a.date_creation||0))[0]||null;
+}
+function getCommercialHistoryProposal(lead){
+  if(!lead?.commercial)return null;
+  const user=getAllUsers().find(u=>u.id===lead.commercial);
+  if(!user)return null;
+  const access=getAccess();
+  const isActive=access[lead.commercial]!==false;
+  return {id:user.id,name:user.name,isActive};
+}
+
 function detectSecteurByCP(cp){
-  const NIMES=['30000','30900','30100','30130','30132','30133','30190','30128','30320','30310','30200','30600','30210','30980','30330','30800','30140','30150','30400','30420','30430','30440','30460','30500','30510','30520','30530','30560','30610','30620','30630','30640','30650','30660','30670','30680','30700','30730','30740','30750','30760','30820','30830','30840','30870','30960','30970'];
-  const AVIGNON=['84000','84100','84130','84140','84300','84310','84320','84420','84700','84200','84240','84260','84270','84330','84340','84350','84360','84370','84380','84390','84400','84410','84430','84440','84450','84460','84470','84480','84490','84510','84530','84550','84570','84580','84600','84610','84800','84820','84830','84850','84860','84870','84880'];
-  if(AVIGNON.some(c=>cp.startsWith(c.substring(0,4))))document.getElementById('lead-secteur').value='avignon';
-  else if(NIMES.some(c=>cp.startsWith(c.substring(0,3))))document.getElementById('lead-secteur').value='nimes';
+  const state=resolveLeadSectorByCP(cp);
+  const secteurSel=document.getElementById('lead-secteur');
+  if(secteurSel)secteurSel.value=state.secteur;
+  updateLeadSectorSignals();
 }
 
 // Fermer suggestions si clic ailleurs
@@ -7401,7 +7625,7 @@ function exportLeadsExcel(){
       new Date(l.date_creation||0).toLocaleDateString('fr-FR'),
       l.source||'',csv(l.nom),csv(l.telephone),csv(l.ville),l.cp||'',
       csv(l.type_projet),l.statut,comm?.name||'',
-      l.secteur==='avignon'?'Avignon':'Nîmes',
+      getLeadSecteurLabel(l.secteur),
       l.montant_devis||'',l.prix_vendu||'',
       csv(l.suivi),csv(l.commentaire)
     ].join(',');
@@ -8112,7 +8336,7 @@ Téléphone : ${l.telephone||'—'}
 Adresse : ${[l.adresse,l.cp,l.ville].filter(Boolean).join(', ')||'—'}
 Projet : ${l.type_projet||'—'}
 Source : ${srcLabel}
-Secteur : ${l.secteur==='avignon'?'Avignon':'Nîmes'}
+Secteur : ${getLeadSecteurLabel(l.secteur)}
 ${l.commentaire?'Commentaire : '+l.commentaire:''}
 
 Bonne chance !
