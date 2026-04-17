@@ -3715,8 +3715,8 @@ async function autoCorrectForBenjamin(txt,msgEl){
     if(!corrected||corrected.toUpperCase()==='OK'||corrected===txt)return;
     const corrDiv=document.createElement('div');
     corrDiv.className='correction-bubble';
-    const safeCorrect=esc(corrected).replace(/'/g,'&#39;');
-    corrDiv.innerHTML=`📝 <span style="flex:1">${esc(corrected)}</span><button class="correction-use" onclick="useCorrection('${safeCorrect}',this)">Utiliser</button><button class="correction-use" style="background:var(--s3);color:var(--t3)" onclick="this.parentElement.remove()">✕</button>`;
+    const encodedCorrect=encodeURIComponent(corrected);
+    corrDiv.innerHTML=`📝 <span style="flex:1">${esc(corrected)}</span><button class="correction-use" onclick="useCorrection('${encodedCorrect}',this)">Utiliser</button><button class="correction-use" style="background:var(--s3);color:var(--t3)" onclick="this.parentElement.remove()">✕</button>`;
     const wrapper=msgEl.querySelector('[style*="flex-direction:column"]');
     if(wrapper)wrapper.appendChild(corrDiv);
     if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
@@ -3725,7 +3725,9 @@ async function autoCorrectForBenjamin(txt,msgEl){
 
 function useCorrection(corrected,btn){
   const input=document.getElementById('chat-input');
-  input.value=corrected.replace(/&#39;/g,"'");
+  let decoded=corrected||'';
+  try{decoded=decodeURIComponent(corrected||'');}catch{}
+  input.value=decoded;
   input.style.height='auto';input.style.height=Math.min(input.scrollHeight,100)+'px';
   input.focus();
   btn.closest('.correction-bubble').remove();
