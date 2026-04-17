@@ -1537,7 +1537,9 @@ const APP_STORAGE_CLOUD_EXACT_ALLOWLIST=new Set([
   'benai_connexions',
   'benai_ventes_mois',
   'benai_roles_v2',
-  'benai_annuaire'
+  'benai_annuaire',
+  'benai_pending_user_deletes',
+  'benai_pending_user_creates'
 ]);
 const APP_STORAGE_CLOUD_PREFIX_ALLOWLIST=[
   'benai_notifs_',
@@ -2395,8 +2397,8 @@ async function trySupabaseSessionFromLocalCredentials(uid,pwd){
 
 async function createSupabaseUserProvisioning(payload){
   const client=getSupabaseClient();
-  const session=await ensureSupabaseSession();
-  const accessToken=session?.access_token||'';
+  await ensureSupabaseSession();
+  const accessToken=currentSupabaseSession?.access_token||'';
   if(!client||!accessToken)return {ok:false,error:'Session Supabase admin manquante'};
   try{
     const fnUrl=`${SUPABASE_CONFIG.url}/functions/v1/create-user`;
@@ -2426,8 +2428,8 @@ async function createSupabaseUserProvisioning(payload){
 
 async function deleteSupabaseUserProvisioning(payload){
   const client=getSupabaseClient();
-  const session=await ensureSupabaseSession();
-  const accessToken=session?.access_token||'';
+  await ensureSupabaseSession();
+  const accessToken=currentSupabaseSession?.access_token||'';
   if(!client||!accessToken)return {ok:false,error:'Session Supabase admin manquante'};
   try{
     const fnUrl=`${SUPABASE_CONFIG.url}/functions/v1/delete-user`;
@@ -2513,6 +2515,104 @@ async function processPendingUserDeletes(force=false){
   }finally{
     pendingUserDeleteInFlight=false;
   }
+}
+
+const PENDING_USER_CREATE_KEY='benai_pending_user_creates';
+let pendingUserCreateInFlight=false;
+let pendingUserCreateLastRunTs=0;
+
+function getPendingUserCreates(){
+  try{
+    const arr=JSON.parse(appStorage.getItem(PENDING_USER_CREATE_KEY)||'[]');
+    return Array.isArray(arr)?arr:[];
+  }catch{
+    return [];
+  }
+}
+function savePendingUserCreates(list){
+  appStorage.setItem(PENDING_USER_CREATE_KEY,JSON.stringify(Array.isArray(list)?list:[]));
+}
+function enqueuePendingUserCreate(job){
+  if(!job?.app_uid||!job?.email)return;
+  const list=getPendingUserCreates();
+  if(list.some(x=>normalizeId(x.app_uid)===normalizeId(job.app_uid)))return;
+  list.push({
+    email:String(job.email||'').trim().toLowerCase(),
+    password:String(job.password||''),
+    full_name:String(job.full_name||'').trim(),
+    role:job.role||'assistante',
+    company:job.company||'nemausus',
+    app_uid:normalizeId(job.app_uid),
+    attempts:0,
+    ts:Date.now()
+  });
+  savePendingUserCreates(list);
+}
+function shouldFallbackLocalUserProvisionAfterCreateError(err){
+  const e=String(err||'').toLowerCase();
+  if(e.includes('already')&&e.includes('registered'))return false;
+  if(e.includes('user already')||e.includes('email already')||e.includes('duplicate'))return false;
+  return e.includes('session supabase')||e.includes('admin manquante')||
+    e.includes('failed to fetch')||e.includes('network')||e.includes('load failed')||
+    e.includes('cors')||e.includes('404')||e.includes('401')||e.includes('403')||
+    e.includes('500')||e.includes('502')||e.includes('503')||e.includes('504')||
+    e.includes('functions/v1')||e.includes('edge function');
+}
+async function processPendingUserCreates(force=false){
+  if(pendingUserCreateInFlight)return;
+  const now=Date.now();
+  if(!force&&now-pendingUserCreateLastRunTs<30000)return;
+  pendingUserCreateLastRunTs=now;
+  if(!navigator.onLine)return;
+  const list=getPendingUserCreates();
+  if(!list.length)return;
+  pendingUserCreateInFlight=true;
+  try{
+    const keep=[];
+    for(let i=0;i<list.length;i++){
+      const job=list[i];
+      const res=await createSupabaseUserProvisioning({
+        email:job.email,
+        password:job.password,
+        full_name:job.full_name,
+        role:job.role,
+        company:job.company,
+        app_uid:job.app_uid
+      });
+      const errTxt=String(res.error||'').toLowerCase();
+      if(res.ok||errTxt.includes('already')||errTxt.includes('registered')||errTxt.includes('exists')||errTxt.includes('duplicate')){
+        continue;
+      }
+      const attempts=Number(job.attempts||0)+1;
+      if(attempts>=25){
+        continue;
+      }
+      keep.push({...job,attempts,ts:Date.now(),last_error:String(res.error||'')});
+    }
+    savePendingUserCreates(keep);
+    if(!keep.length&&list.length){
+      showDriveNotif('✅ Créations cloud utilisateur en attente terminées');
+    }
+  }finally{
+    pendingUserCreateInFlight=false;
+  }
+}
+async function finalizeBenAILocalUserAccount({uid,name,email,role,soc,fonction,pwd,extras,roleLabel}){
+  const initial=(String(name||'').trim().split(/\s+/)[0]||uid||'U').charAt(0).toUpperCase();
+  unhideUserId(uid);
+  const newUser={id:uid,name,email,role,societe:soc,fonction,vehicule:'',color:COLORS[extras.length%COLORS.length],initial,builtin:false};
+  extras.push(newUser);
+  saveExtraUsers(extras);
+  const pwds=getPwds();
+  pwds[uid]=await hashPassword(uid,pwd);
+  savePwds(pwds);
+  const systemPrompt=CRM_PAGES_ONLY.includes(role)
+    ?`Tu es BenAI CRM, assistant de ${name} (${roleLabel}) chez Nemausus Fermetures.`
+    :`Tu es BenAI, l'assistant de ${name} (${fonction}) chez Nemausus Fermetures / Lambert SAS. Tu proposes toujours — ${name} décide toujours.`;
+  USERS[uid]={name,pwd:pwds[uid],role,color:newUser.color,initial:newUser.initial,system:systemPrompt};
+  pushBenAINotif('👋 Bienvenue',`Bienvenue ${name} 👋 Ton accès BenAI est prêt. Commence par lire l'onglet Guide 📘 puis traite tes priorités du jour.`,'👋',uid);
+  try{void navigator.clipboard.writeText(pwd);}catch(_){}
+  scheduleAppStoragePersist();
 }
 
 function mapSavToSupabaseRows(items){
@@ -3097,6 +3197,8 @@ async function syncSupabasePostLogin(){
     sharedLoaded=await loadSharedApiKeyFromSupabase();
   }
   await startSupabaseRealtimeSync();
+  void processPendingUserDeletes(true);
+  void processPendingUserCreates(true);
   renderSupabaseRuntimeStatus();
   if(syncedCore){
     refreshVisibleDataAfterSupabaseSync();
@@ -5508,6 +5610,7 @@ function initOfflineDetection(){
       void refreshCoreDataFromCloudIfNeeded(true);
       void loadSharedApiKeyFromSupabase();
       void processPendingUserDeletes(true);
+      void processPendingUserCreates(true);
       renderSupabaseRuntimeStatus();
     }
   });
@@ -5994,10 +6097,13 @@ async function creerUtilisateur(){
   if(!val){status.style.color='var(--r)';status.textContent='⚠️ Sélectionnez un salarié';return;}
   const [prenom,nom,soc,fonction]=val.split('|');
   const name=`${prenom} ${nom}`.trim();
-  const uid=normalizeId(prenom);
-  if(getAllUsers().find(u=>u.id===uid)){status.style.color='var(--r)';status.textContent='⚠️ Cet accès existe déjà';return;}
+  let uid=normalizeId(prenom);
+  let suffix=2;
+  while(getAllUsers().some(u=>normalizeId(u.id)===uid)){
+    uid=`${normalizeId(prenom)}_${suffix++}`;
+  }
   const ann=getAnnuaireActive();
-  const annEntry=ann.find(e=>normalizeId(`${e.prenom} ${e.nom}`)===normalizeId(name)||normalizeId(e.prenom)===uid)||null;
+  const annEntry=ann.find(e=>normalizeId(`${e.prenom} ${e.nom}`)===normalizeId(name)||normalizeId(e.prenom)===normalizeId(prenom))||null;
   const email=(annEntry?.emailPro||annEntry?.email||'').trim().toLowerCase();
   if(!email||!email.includes('@')){
     status.style.color='var(--r)';
@@ -6007,7 +6113,7 @@ async function creerUtilisateur(){
   const extras=getExtraUsers();
   const roleLabel={assistante:'Assistante',commercial:'Commercial',directeur_co:'Directeur commercial'}[role]||'Assistante';
   status.style.color='var(--a)';
-  status.textContent='⏳ Création du compte Supabase...';
+  status.textContent='⏳ Création du compte (cloud + local)...';
   const createResult=await createSupabaseUserProvisioning({
     email,
     password:pwd,
@@ -6016,57 +6122,73 @@ async function creerUtilisateur(){
     company:soc,
     app_uid:uid
   });
-  if(!createResult.ok){
+  const useLocalFallback=!createResult.ok&&shouldFallbackLocalUserProvisionAfterCreateError(createResult.error);
+  if(!createResult.ok&&!useLocalFallback){
     status.style.color='var(--r)';
     status.textContent='⚠️ '+createResult.error;
     return;
   }
-  unhideUserId(uid);
-  const newUser={id:uid,name,email,role,societe:soc,fonction,vehicule:'',color:COLORS[extras.length%COLORS.length],initial:prenom[0].toUpperCase(),builtin:false};
-  extras.push(newUser);saveExtraUsers(extras);
-  const pwds=getPwds();pwds[uid]=await hashPassword(uid,pwd);savePwds(pwds);
-  const systemPrompt=CRM_PAGES_ONLY.includes(role)
-    ?`Tu es BenAI CRM, assistant de ${name} (${roleLabel}) chez Nemausus Fermetures.`
-    :`Tu es BenAI, l'assistant de ${name} (${fonction}) chez Nemausus Fermetures / Lambert SAS. Tu proposes toujours — ${name} décide toujours.`;
-  USERS[uid]={name,pwd:pwds[uid],role,color:newUser.color,initial:newUser.initial,system:systemPrompt};
-  // Login via input texte : pas d'ajout d'option dynamique.
-  // Bienvenue visible uniquement par le nouvel utilisateur.
-  pushBenAINotif('👋 Bienvenue',`Bienvenue ${name} 👋 Ton accès BenAI est prêt. Commence par lire l'onglet Guide 📘 puis traite tes priorités du jour.`,'👋',uid);
-  try{void navigator.clipboard.writeText(pwd);}catch(_){}
+  if(useLocalFallback){
+    enqueuePendingUserCreate({email,password:pwd,full_name:name,role,company:soc,app_uid:uid});
+  }
+  await finalizeBenAILocalUserAccount({uid,name,email,role,soc,fonction,pwd,extras,roleLabel});
   document.getElementById('new-user-pwd').value=pwd;
   status.style.color='var(--g)';
-  status.textContent=`✅ Accès ${roleLabel} créé pour ${name}. Mot de passe dans le champ ci-dessus — copié dans le presse-papiers si le navigateur l’autorise.`;
+  if(createResult.ok){
+    status.textContent=`✅ Accès ${roleLabel} créé pour ${name}. Mot de passe dans le champ ci-dessus — copié dans le presse-papiers si le navigateur l’autorise.`;
+  }else{
+    status.style.color='var(--y)';
+    status.textContent=`✅ Accès ${roleLabel} créé localement pour ${name}. Cloud : en file d’attente (Edge/Supabase) — reconnecte-toi en admin cloud puis laisse BenAI 30–60 s.`;
+  }
   setTimeout(()=>{document.getElementById('add-user-form').style.display='none';status.textContent='';document.getElementById('new-user-pwd').value='';},8000);
   renderUsersList();renderPwdList();logActivity(`Benjamin a créé l'accès BenAI (${roleLabel}) pour ${name}`);
 }
 
 async function supprimerUtilisateur(uid){
-  if(uid==='benjamin'){alert('Benjamin ne peut pas être supprimé.');return;}
-  const u=findUserById(uid);
-  if(!confirm(`Supprimer ${u?.name||uid} définitivement ? Cette action est irréversible.`))return;
+  if(normalizeId(uid)==='benjamin'){alert('Benjamin ne peut pas être supprimé.');return;}
+  const u=findUserById(uid)||findUserById(normalizeId(uid));
+  if(!u){alert('Utilisateur introuvable.');return;}
+  const effectiveId=u.id;
+  if(!confirm(`Supprimer ${u.name||effectiveId} définitivement ? Cette action est irréversible.`))return;
+  const emailForCloud=(u.email||getEmailCandidateForUid(effectiveId,'')||'').trim().toLowerCase();
   let remoteDeleted=false;
   const remoteRes=await deleteSupabaseUserProvisioning({
-    app_uid:uid,
-    email:u?.email||''
+    app_uid:effectiveId,
+    email:emailForCloud
   });
   if(remoteRes.ok){
     remoteDeleted=true;
   }else{
-    enqueuePendingUserDelete({uid:uid,email:u?.email||'',name:u?.name||uid});
+    enqueuePendingUserDelete({uid:effectiveId,email:emailForCloud,name:u.name||effectiveId});
     showDriveNotif('⚠️ Suppression cloud en attente — BenAI réessaiera automatiquement.');
   }
-  // Toujours masquer durablement (évite toute réapparition après sync).
-  hideUserId(uid);
-  const extras=getExtraUsers().filter(e=>normalizeId(e.id)!==normalizeId(uid));
+  hideUserId(effectiveId);
+  const extras=getExtraUsers().filter(e=>normalizeId(e.id)!==normalizeId(effectiveId));
   saveExtraUsers(extras);
-  delete USERS[uid];
-  const pwds=getPwds();delete pwds[uid];savePwds(pwds);
-  const access=getAccess();delete access[uid];saveAccess(access);
-  // Retirer du select login
-  const opt=document.querySelector(`#login-user option[value="${uid}"]`);if(opt)opt.remove();
+  Object.keys(USERS).forEach(k=>{
+    if(normalizeId(k)===normalizeId(effectiveId))delete USERS[k];
+  });
+  const pwds=getPwds();
+  Object.keys(pwds).forEach(k=>{
+    if(normalizeId(k)===normalizeId(effectiveId))delete pwds[k];
+  });
+  savePwds(pwds);
+  const access=getAccess();
+  Object.keys(access).forEach(k=>{
+    if(normalizeId(k)===normalizeId(effectiveId))delete access[k];
+  });
+  saveAccess(access);
+  const loginSel=document.getElementById('login-user');
+  if(loginSel){
+    [...loginSel.querySelectorAll('option')].forEach(opt=>{
+      if(String(opt.value||'')===String(effectiveId)||normalizeId(opt.value)===normalizeId(effectiveId))opt.remove();
+    });
+  }
+  scheduleAppStoragePersist();
   renderUsersList();renderPwdList();
-  logActivity(`Benjamin a supprimé l'utilisateur ${u?.name||uid}${remoteDeleted?' (cloud + local)':' (local)'}`);
-  if(remoteDeleted)showDriveNotif(`✅ ${u?.name||uid} supprimé définitivement`);
+  logActivity(`Benjamin a supprimé l'utilisateur ${u.name||effectiveId}${remoteDeleted?' (cloud + local)':' (local)'}`);
+  if(remoteDeleted)showDriveNotif(`✅ ${u.name||effectiveId} supprimé définitivement`);
+  else showDriveNotif(`✅ ${u.name||effectiveId} retiré de BenAI (cloud en attente si besoin)`);
 }
 
 function toggleAccess(uid){
@@ -6109,14 +6231,15 @@ function renderUsersList(){
     const div=document.createElement('div');div.className='user-row';
     let actionsHtml='';
     if(u.id!=='benjamin'){
-      actionsHtml+=`<button onclick="editUser('${u.id}')" style="padding:4px 8px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">✏️</button>`;
-      actionsHtml+=`<div onclick="toggleAccess('${u.id}')" class="toggle ${isBlocked?'':'on'}" title="${isBlocked?'Bloqué':'Actif'}"></div>`;
+      const uidArg=JSON.stringify(String(u.id));
+      actionsHtml+=`<button onclick="editUser(${uidArg})" style="padding:4px 8px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">✏️</button>`;
+      actionsHtml+=`<div onclick="toggleAccess(${uidArg})" class="toggle ${isBlocked?'':'on'}" title="${isBlocked?'Bloqué':'Actif'}"></div>`;
       if(isCRM){
         const bStyle=isBlocked?'background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3)':'background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3)';
         const bText=isBlocked?'🔓 Débloquer':'🔒 Bloquer';
-        actionsHtml+=`<button onclick="toggleBlockCommercial('${u.id}')" style="padding:4px 8px;${bStyle};border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">${bText}</button>`;
+        actionsHtml+=`<button onclick="toggleBlockCommercial(${uidArg})" style="padding:4px 8px;${bStyle};border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">${bText}</button>`;
       }
-      actionsHtml+=`<button onclick="supprimerUtilisateur('${u.id}')" style="padding:4px 8px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">🗑️</button>`;
+      actionsHtml+=`<button onclick="supprimerUtilisateur(${uidArg})" style="padding:4px 8px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">🗑️</button>`;
     } else {
       actionsHtml='<span style="font-size:10px;color:var(--t3)">Admin</span>';
     }
@@ -6686,6 +6809,7 @@ function startPolling(){
     runAutoBugDetectors();
     void refreshCoreDataFromCloudIfNeeded();
     void processPendingUserDeletes();
+    void processPendingUserCreates();
     if(supabaseSyncFailStreak>0){
       void flushSupabaseSyncNow();
     }
