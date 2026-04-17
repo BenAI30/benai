@@ -1609,7 +1609,7 @@ function flushPersistRuntimeToSession(uid=currentUser?.id){
 function schedulePersistRuntimeToSession(uid=currentUser?.id){
   if(!uid)return;
   if(persistRuntimeMemTimer)clearTimeout(persistRuntimeMemTimer);
-  persistRuntimeMemTimer=setTimeout(()=>{persistRuntimeMemTimer=null;persistRuntimeToSession(uid);},0);
+  persistRuntimeMemTimer=setTimeout(()=>{persistRuntimeMemTimer=null;persistRuntimeToSession(uid);},200);
 }
 function hydrateRuntimeFromSession(uid=currentUser?.id){
   if(!uid)return false;
@@ -3852,7 +3852,7 @@ let sessionStack=[];
 
 async function logout(){
   flushPersistRuntimeToSession(currentUser?.id);
-  if(convListRenderRaf!=null){cancelAnimationFrame(convListRenderRaf);convListRenderRaf=null;}
+  if(convListRenderTimer){clearTimeout(convListRenderTimer);convListRenderTimer=null;}
   stopSupabaseRealtimeSync();
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
   if(supabaseRetryTimer){clearTimeout(supabaseRetryTimer);supabaseRetryTimer=null;}
@@ -4640,13 +4640,10 @@ function cpClick(el,val){
 function makeConvId(uid1,uid2){return [uid1,uid2].sort().join('_');}
 
 const INTERNAL_MSG_THREAD_MAX=400;
-let convListRenderRaf=null;
+let convListRenderTimer=null;
 function scheduleRenderConvList(){
-  if(convListRenderRaf!=null)return;
-  convListRenderRaf=requestAnimationFrame(()=>{
-    convListRenderRaf=null;
-    renderConvList();
-  });
+  if(convListRenderTimer)clearTimeout(convListRenderTimer);
+  convListRenderTimer=setTimeout(()=>{convListRenderTimer=null;renderConvList();},70);
 }
 
 // Génère dynamiquement les conversations d'un utilisateur
@@ -4740,9 +4737,9 @@ function createThreadMessageEl(cid,m,idx){
 
 function patchConvListRowForCid(cid){
   const list=document.getElementById('conv-list');
-  if(!list)return;
+  if(!list)return false;
   const item=list.querySelector('.conv-item[data-conv-id="'+String(cid).replace(/"/g,'')+'"]');
-  if(!item)return;
+  if(!item)return false;
   const mem=getMem();
   const msgs=mem.messages[cid]||[];
   const last=msgs[msgs.length-1];
@@ -4760,6 +4757,7 @@ function patchConvListRowForCid(cid){
   }else if(badge){
     badge.remove();
   }
+  return true;
 }
 
 function tryAppendOneThreadMessage(cid){
@@ -4772,10 +4770,17 @@ function tryAppendOneThreadMessage(cid){
   if(!area)return false;
   const last=raw[L-1];
   if(!last)return false;
+  const domMsgCount=area.querySelectorAll('.tmsg').length;
+  if(L===1){
+    if(domMsgCount!==0)return false;
+  }else if(domMsgCount!==L-1){
+    return false;
+  }
   const hadBubble=!!area.querySelector('.tmsg-bubble');
   if(!hadBubble)area.innerHTML='';
   area.appendChild(createThreadMessageEl(cid,last,L-1));
   area.scrollTop=area.scrollHeight;
+  area.dataset.count=String(L);
   return true;
 }
 
@@ -4783,7 +4788,11 @@ function renderThread(cid){
   const mem=getMem();
   const raw=mem.messages[cid]||[];
   const area=document.getElementById('thread-msgs');area.innerHTML='';
-  if(!raw.length){area.innerHTML='<div style="color:var(--t3);font-size:12px;text-align:center;padding:20px">Aucun message — démarrez la conversation !</div>';return;}
+  if(!raw.length){
+    area.innerHTML='<div style="color:var(--t3);font-size:12px;text-align:center;padding:20px">Aucun message — démarrez la conversation !</div>';
+    area.dataset.count='0';
+    return;
+  }
   const start=raw.length>INTERNAL_MSG_THREAD_MAX?raw.length-INTERNAL_MSG_THREAD_MAX:0;
   const msgs=raw.slice(start);
   if(start>0){
@@ -4799,6 +4808,7 @@ function renderThread(cid){
   });
   area.appendChild(frag);
   area.scrollTop=area.scrollHeight;
+  area.dataset.count=String(raw.length);
 }
 
 function sendMsg(){
@@ -4813,7 +4823,7 @@ function sendMsg(){
     renderThread(currentConv);
     scheduleRenderConvList();
   }else{
-    patchConvListRowForCid(currentConv);
+    if(!patchConvListRowForCid(currentConv))scheduleRenderConvList();
     refreshMsgBadge();
   }
   logActivity(`${currentUser.name} a envoyé un message`);
@@ -4836,7 +4846,7 @@ function appendBenAIMotivationInternalMessage(recipientUid,plainText){
         renderThread(cid);
         scheduleRenderConvList();
       }else{
-        patchConvListRowForCid(cid);
+        if(!patchConvListRowForCid(cid))scheduleRenderConvList();
         refreshMsgBadge();
       }
     }else{
