@@ -1,7 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+const baseCorsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
@@ -15,16 +14,57 @@ type CreateUserPayload = {
   app_uid?: string;
 };
 
-function json(status: number, body: unknown) {
+function getAllowedOrigins(): Set<string> {
+  const raw = Deno.env.get("CORS_ALLOWED_ORIGINS") ?? "";
+  const envOrigins = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // Local dev defaults only; production domains must be listed in env.
+  const defaults = ["http://localhost:3000", "http://127.0.0.1:3000"];
+  return new Set([...defaults, ...envOrigins]);
+}
+
+const allowedOrigins = getAllowedOrigins();
+
+function isOriginAllowed(origin: string | null): boolean {
+  // Non-browser clients usually send no Origin header.
+  if (!origin) return true;
+  return allowedOrigins.has(origin);
+}
+
+function corsHeadersFor(origin: string | null): Record<string, string> {
+  const headers: Record<string, string> = { ...baseCorsHeaders };
+  if (origin && allowedOrigins.has(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+    headers["Vary"] = "Origin";
+  }
+  return headers;
+}
+
+function json(status: number, body: unknown, origin: string | null) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeadersFor(origin), "Content-Type": "application/json" },
   });
 }
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get("Origin");
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    if (!isOriginAllowed(origin)) {
+      return new Response("CORS origin denied", {
+        status: 403,
+        headers: { ...baseCorsHeaders, "Content-Type": "text/plain" },
+      });
+    }
+    return new Response("ok", { headers: corsHeadersFor(origin) });
+  }
+
+  if (!isOriginAllowed(origin)) {
+    return json(403, { error: "Origin non autorisee" }, origin);
   }
 
   try {
@@ -32,12 +72,12 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
     if (!supabaseUrl || !serviceRoleKey) {
-      return json(500, { error: "Variables Supabase manquantes" });
+      return json(500, { error: "Variables Supabase manquantes" }, origin);
     }
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return json(401, { error: "Authorization manquante" });
+      return json(401, { error: "Authorization manquante" }, origin);
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
@@ -51,7 +91,7 @@ Deno.serve(async (req) => {
     } = await adminClient.auth.getUser(token);
 
     if (callerError || !caller) {
-      return json(401, { error: "Session invalide" });
+      return json(401, { error: "Session invalide" }, origin);
     }
 
     const { data: callerProfile, error: callerProfileError } = await adminClient
@@ -61,7 +101,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (callerProfileError || callerProfile?.role !== "admin") {
-      return json(403, { error: "Accès réservé à l'administrateur" });
+      return json(403, { error: "Accès réservé à l'administrateur" }, origin);
     }
 
     const payload = (await req.json()) as CreateUserPayload;
@@ -73,22 +113,22 @@ Deno.serve(async (req) => {
     const appUid = String(payload.app_uid || "").trim().toLowerCase();
 
     if (!email || !email.includes("@")) {
-      return json(400, { error: "Email invalide" });
+      return json(400, { error: "Email invalide" }, origin);
     }
     if (!password || password.length < 3) {
-      return json(400, { error: "Mot de passe trop court" });
+      return json(400, { error: "Mot de passe trop court" }, origin);
     }
     if (!fullName) {
-      return json(400, { error: "Nom complet manquant" });
+      return json(400, { error: "Nom complet manquant" }, origin);
     }
 
     const allowedRoles = ["admin", "directeur_co", "commercial", "assistante", "metreur"];
     const allowedCompanies = ["nemausus", "lambert", "les-deux"];
     if (!allowedRoles.includes(role)) {
-      return json(400, { error: "Rôle invalide" });
+      return json(400, { error: "Rôle invalide" }, origin);
     }
     if (!allowedCompanies.includes(company)) {
-      return json(400, { error: "Société invalide" });
+      return json(400, { error: "Société invalide" }, origin);
     }
 
     const existingAuth = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
@@ -110,7 +150,7 @@ Deno.serve(async (req) => {
       });
 
       if (createError || !created.user) {
-        return json(400, { error: createError?.message || "Impossible de créer l'utilisateur" });
+        return json(400, { error: createError?.message || "Impossible de créer l'utilisateur" }, origin);
       }
 
       userId = created.user.id;
@@ -126,7 +166,7 @@ Deno.serve(async (req) => {
       });
 
       if (updateError) {
-        return json(400, { error: updateError.message || "Impossible de mettre à jour l'utilisateur" });
+        return json(400, { error: updateError.message || "Impossible de mettre à jour l'utilisateur" }, origin);
       }
     }
 
@@ -143,7 +183,7 @@ Deno.serve(async (req) => {
     );
 
     if (profileError) {
-      return json(400, { error: profileError.message || "Impossible de créer le profil" });
+      return json(400, { error: profileError.message || "Impossible de créer le profil" }, origin);
     }
 
     return json(200, {
@@ -153,10 +193,10 @@ Deno.serve(async (req) => {
       full_name: fullName,
       role,
       company,
-    });
+    }, origin);
   } catch (error) {
     return json(500, {
       error: error instanceof Error ? error.message : "Erreur inconnue",
-    });
+    }, origin);
   }
 });
