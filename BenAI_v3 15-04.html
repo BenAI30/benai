@@ -1957,15 +1957,32 @@ function pickLatestNote(prev,next){
   return b>=a?next:prev;
 }
 
+function pickLatestSav(prev,next){
+  const a=Number(prev?.sync_ts||Date.parse(prev?.date_creation||0)||0);
+  const b=Number(next?.sync_ts||Date.parse(next?.date_creation||0)||0);
+  return b>=a?next:prev;
+}
+
+function pickLatestAbsence(prev,next){
+  const a=Number(prev?.sync_ts||Date.parse(prev?.createdAt||prev?.debut||0)||0);
+  const b=Number(next?.sync_ts||Date.parse(next?.createdAt||next?.debut||0)||0);
+  return b>=a?next:prev;
+}
+
+function pickLatestAnnuaire(prev,next){
+  const a=Number(prev?.sync_ts||0);
+  const b=Number(next?.sync_ts||0);
+  return b>=a?next:prev;
+}
+
 function mergeSharedCoreData(remoteData,localData,mode='pull'){
   const remote=remoteData||{};
   const local=localData||{};
-  const preferLocal=mode==='push';
   return {
-    sav:mergeByKey(remote.sav,local.sav,x=>x?.id,(prev,next)=>preferLocal?next:prev),
+    sav:mergeByKey(remote.sav,local.sav,x=>x?.id,pickLatestSav),
     notes:mergeByKey(remote.notes,local.notes,x=>x?.id,pickLatestNote),
-    absences:mergeByKey(remote.absences,local.absences,x=>x?.id,(prev,next)=>preferLocal?next:prev),
-    annuaire:mergeByKey(remote.annuaire,local.annuaire,x=>x?.id,(prev,next)=>preferLocal?next:prev),
+    absences:mergeByKey(remote.absences,local.absences,x=>x?.id,pickLatestAbsence),
+    annuaire:mergeByKey(remote.annuaire,local.annuaire,x=>x?.id,pickLatestAnnuaire),
     leads:mergeByKey(remote.leads,local.leads,x=>x?.id,pickLatestLead)
   };
 }
@@ -2249,7 +2266,7 @@ function getEmailCandidateForUid(uid,rawLogin=''){
   if(normalized.includes('@'))return normalized;
   const builtinEmail=getBuiltinLoginEmails()[normalized];
   if(builtinEmail)return builtinEmail;
-  const ann=getAnnuaire();
+  const ann=getAnnuaireActive();
   const directMatch=ann.find(e=>normalizeId(e.prenom)===normalized||normalizeId(`${e.prenom} ${e.nom}`)===normalized);
   if(directMatch)return (directMatch.emailPro||directMatch.email||'').trim().toLowerCase();
   const extra=getExtraUserById(normalized);
@@ -2505,7 +2522,7 @@ function mapSavToSupabaseRows(items){
 }
 
 function mapNotesToSupabaseRows(items){
-  return (items||[]).filter(n=>String(n?.text||n?.t||'').trim()).map(n=>({
+  return (items||[]).filter(n=>!!n?._deleted||String(n?.text||n?.t||'').trim()).map(n=>({
     legacy_id:String(n.id),
     text:n.text||n.t||'',
     author_uid:n.by||n.from||currentUser?.id||'benjamin',
@@ -4024,7 +4041,7 @@ function getBenjaminSmartContext(){
 
 function getSmartReminders(){
   const mem=getMem();
-  const notes=(mem.notes||[]).filter(n=>n.by==='benjamin'&&n.text);
+  const notes=(mem.notes||[]).filter(n=>!n._deleted&&n.by==='benjamin'&&n.text);
   const keywords=['rappelle','rappeler','rappel','oublie','pense à','à faire','appeler','contacter','envoyer','commander','relancer','vérifier','suivre'];
   return notes.filter(n=>keywords.some(k=>n.text.toLowerCase().includes(k))).map(n=>n.text.substring(0,120));
 }
@@ -4460,7 +4477,7 @@ function addSAV(){
     return;
   }
   const mem=getMem();
-  mem.sav.unshift({id:Date.now(),client,probleme:pb,societe:soc,commercial,fournisseur:fourn,rappel,rappelDays,urgent,statut:'nouveau',date_creation:new Date().toLocaleDateString('fr-FR'),by:currentUser.name,actions:[],commentaire,archive:false,muteReminder:false});
+  mem.sav.unshift({id:Date.now(),client,probleme:pb,societe:soc,commercial,fournisseur:fourn,rappel,rappelDays,urgent,statut:'nouveau',date_creation:new Date().toLocaleDateString('fr-FR'),by:currentUser.name,actions:[],commentaire,archive:false,muteReminder:false,sync_ts:Date.now(),_deleted:false});
   saveMem(mem);
   updatePatterns(fourn,client);
   ['sav-client','sav-pb','sav-commercial','sav-fourn','sav-rappel','sav-comment'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
@@ -4473,7 +4490,7 @@ function addSAV(){
 
 function renderSAV(){
   const mem=getMem();const list=document.getElementById('sav-list');
-  let savs=mem.sav||[];const isAdmin=currentUser.role==='admin';
+  let savs=(mem.sav||[]).filter(s=>!s._deleted);const isAdmin=currentUser.role==='admin';
   const search=(document.getElementById('sav-search')?.value||'').toLowerCase();
   // Filtre société
   if(currentUser.role==='assistante'&&(currentUser.societe==='nemausus'||currentUser.societe==='lambert')){
@@ -4494,6 +4511,7 @@ function renderSAV(){
   if(rappelArea){
     const today=new Date();today.setHours(0,0,0,0);
     const rappels=(mem.sav||[]).filter(s=>{
+      if(s._deleted)return false;
       if(!s.rappel||s.statut==='regle'||s.archive||s.muteReminder)return false;
       const d=new Date(s.rappel);d.setHours(0,0,0,0);
       const diff=Math.ceil((d-today)/(1000*60*60*24));
@@ -4558,12 +4576,17 @@ function renderSAV(){
 }
 
 function getClientHistory(client,excludeId,mem){
-  return (mem.sav||[]).filter(s=>s.client===client&&s.id!==excludeId).slice(0,5);
+  return (mem.sav||[]).filter(s=>!s._deleted&&s.client===client&&s.id!==excludeId).slice(0,5);
 }
 
 function deleteSAV(id){
   if(!confirm('Supprimer ce SAV définitivement ?'))return;
-  const mem=getMem();mem.sav=mem.sav.filter(s=>s.id!==id);saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a supprimé un SAV`);
+  const mem=getMem();
+  const sav=mem.sav.find(s=>s.id===id);
+  if(!sav)return;
+  sav._deleted=true;
+  sav.sync_ts=Date.now();
+  saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a supprimé un SAV`);
 }
 
 function editSAV(id){
@@ -4601,7 +4624,8 @@ function saveEditSAV(id){
     fournisseur:document.getElementById('sav-fourn').value.trim(),
     rappel:document.getElementById('sav-rappel').value,
     urgent:document.getElementById('sav-urgent').checked,
-    commentaire:document.getElementById('sav-comment')?.value.trim()||''
+    commentaire:document.getElementById('sav-comment')?.value.trim()||'',
+    sync_ts:Date.now()
   };
   saveMem(mem);
   const btn=document.querySelector('#sav-form-wrap .btn-primary');
@@ -4617,18 +4641,21 @@ function savAction(id){
   const mem=getMem();const sav=mem.sav.find(s=>s.id===id);if(!sav)return;
   if(!sav.actions)sav.actions=[];
   sav.actions.push({action:txt,date:new Date().toLocaleDateString('fr-FR'),by:currentUser.name});
-  sav.statut='en_cours';saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a traité SAV : ${sav.client}`);
+  sav.statut='en_cours';
+  sav.sync_ts=Date.now();
+  saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a traité SAV : ${sav.client}`);
 }
 
 function changeStatut(id,statut){
   const mem=getMem();const sav=mem.sav.find(s=>s.id===id);
-  if(sav){sav.statut=statut;if(statut==='regle')sav.date_reglement=new Date().toLocaleDateString('fr-FR');saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a réglé SAV : ${sav.client}`);}
+  if(sav){sav.statut=statut;if(statut==='regle')sav.date_reglement=new Date().toLocaleDateString('fr-FR');sav.sync_ts=Date.now();saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a réglé SAV : ${sav.client}`);}
 }
 
 function refreshSAVBadge(){
   const mem=getMem();
   const today=new Date();today.setHours(0,0,0,0);
   const nb=(mem.sav||[]).filter(s=>{
+    if(s._deleted)return false;
     if(s.archive||s.statut==='regle')return false;
     const createdBy=(s.by||'').toLowerCase();
     const viewer=(currentUser?.name||'').toLowerCase();
@@ -4638,7 +4665,7 @@ function refreshSAVBadge(){
     const diff=Math.ceil((d-today)/(1000*60*60*24));
     return diff<=1;
   }).length;
-  const urgent=(mem.sav||[]).filter(s=>s.urgent&&s.statut!=='regle'&&!s.archive&&((s.by||'').toLowerCase()!==(currentUser?.name||'').toLowerCase())).length;
+  const urgent=(mem.sav||[]).filter(s=>!s._deleted&&s.urgent&&s.statut!=='regle'&&!s.archive&&((s.by||'').toLowerCase()!==(currentUser?.name||'').toLowerCase())).length;
   const badge=document.getElementById('sav-badge');
   badge.style.display=nb>0?'flex':'none';badge.textContent=nb;
   if(urgent>0)badge.style.background='var(--r)';else badge.style.background='var(--a)';
@@ -4647,17 +4674,19 @@ function refreshSAVBadge(){
 function toggleSavArchive(id){
   const mem=getMem();const sav=(mem.sav||[]).find(s=>s.id===id);if(!sav)return;
   sav.archive=!sav.archive;
+  sav.sync_ts=Date.now();
   saveMem(mem);renderSAV();refreshSAVBadge();
 }
 
 function toggleSavMute(id){
   const mem=getMem();const sav=(mem.sav||[]).find(s=>s.id===id);if(!sav)return;
   sav.muteReminder=!sav.muteReminder;
+  sav.sync_ts=Date.now();
   saveMem(mem);renderSAV();refreshSAVBadge();
 }
 
 function exportSAVCSV(){
-  const mem=getMem();let savs=mem.sav||[];
+  const mem=getMem();let savs=(mem.sav||[]).filter(s=>!s._deleted);
   if(currentUser.role==='assistante'&&(currentUser.societe==='nemausus'||currentUser.societe==='lambert')){
     savs=savs.filter(s=>s.societe===currentUser.societe);
   }
@@ -4671,7 +4700,7 @@ function exportSAVCSV(){
 // ══════════════════════════════════════════
 function addNote(){
   const mem=getMem();if(!mem.notes)mem.notes=[];
-  mem.notes.unshift({id:Date.now(),text:'',date:new Date().toLocaleDateString('fr-FR'),by:currentUser.id,draft:true});
+  mem.notes.unshift({id:Date.now(),text:'',date:new Date().toLocaleDateString('fr-FR'),by:currentUser.id,draft:true,ts:Date.now(),_deleted:false});
   saveMem(mem);renderNotes();setTimeout(()=>{const first=document.querySelector('.note-card textarea');if(first)first.focus();},50);
 }
 
@@ -4681,7 +4710,7 @@ function noteIdEq(a,b){
 
 function renderNotes(){
   const mem=getMem();const area=document.getElementById('notes-area');
-  const notes=(mem.notes||[]).filter(n=>(n.by===currentUser.id||currentUser.role==='admin')&&(String(n.text||'').trim()||n.draft));
+  const notes=(mem.notes||[]).filter(n=>!n._deleted&&(n.by===currentUser.id||currentUser.role==='admin')&&(String(n.text||'').trim()||n.draft));
   if(!notes.length){area.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune note — cliquez sur + Nouvelle note</div>';return;}
   area.innerHTML=notes.map((n,i)=>`
     <div class="note-card">
@@ -4696,13 +4725,18 @@ function saveNote(id,val){
   if(n){
     n.text=val;
     n.draft=!String(val||'').trim();
+    n.ts=Date.now();
   }
   saveMem(mem);
 }
 
 function removeEmptyNoteSilent(id){
   const mem=getMem();
-  mem.notes=(mem.notes||[]).filter(n=>!noteIdEq(n.id,id));
+  const n=(mem.notes||[]).find(x=>noteIdEq(x.id,id));
+  if(n){
+    n._deleted=true;
+    n.ts=Date.now();
+  }
   saveMem(mem);
   renderNotes();
 }
@@ -4742,7 +4776,10 @@ async function correctNoteSpelling(id,el){
 function deleteNote(id){
   if(!confirm('Supprimer cette note ?'))return;
   const mem=getMem();
-  mem.notes=(mem.notes||[]).filter(n=>!noteIdEq(n.id,id));
+  const n=(mem.notes||[]).find(x=>noteIdEq(x.id,id));
+  if(!n)return;
+  n._deleted=true;
+  n.ts=Date.now();
   saveMem(mem);
   renderNotes();
 }
@@ -4839,7 +4876,9 @@ function addAbsence(){
     note,
     notifs,
     createdAt:new Date().toISOString(),
-    by:currentUser?.id||'benjamin'
+    by:currentUser?.id||'benjamin',
+    sync_ts:Date.now(),
+    _deleted:false
   });
   saveMem(mem);
   resetAbsenceFormForCreate();
@@ -4849,7 +4888,10 @@ function addAbsence(){
 function deleteAbsence(id){
   if(!confirm('Supprimer cette absence ?'))return;
   const mem=getMem();
-  mem.absences=(mem.absences||[]).filter(a=>!absenceIdEq(a.id,id));
+  const abs=(mem.absences||[]).find(a=>absenceIdEq(a.id,id));
+  if(!abs)return;
+  abs._deleted=true;
+  abs.sync_ts=Date.now();
   saveMem(mem);
   renderAbsences();
 }
@@ -4882,7 +4924,10 @@ function saveEditAbsence(id){
     heureDebut:document.getElementById('abs-heure-debut')?.value||'',
     heureFin:document.getElementById('abs-heure-fin')?.value||'',
     type:document.getElementById('abs-type').value,
-    note:document.getElementById('abs-note').value.trim(),notifs};
+    note:document.getElementById('abs-note').value.trim(),
+    notifs,
+    sync_ts:Date.now()
+  };
   saveMem(mem);
   setAbsFormModeCreate();
   document.getElementById('abs-form-wrap').style.display='none';
@@ -4901,7 +4946,7 @@ function setAbsSort(mode,btn){
 function refreshAbsEmpFilter(){
   const sel=document.getElementById('abs-filter-emp');if(!sel)return;
   const mem=getMem();
-  const emps=[...new Set((mem.absences||[]).map(a=>a.employe))].sort((a,b)=>a.localeCompare(b,'fr'));
+  const emps=[...new Set((mem.absences||[]).filter(a=>!a._deleted).map(a=>a.employe))].sort((a,b)=>a.localeCompare(b,'fr'));
   const cur=sel.value;
   sel.innerHTML='<option value="">Tous les employés</option>'+emps.map(e=>`<option value="${esc(e)}"${cur===e?' selected':''}>${esc(e)}</option>`).join('');
 }
@@ -4910,7 +4955,7 @@ function renderAbsences(){
   const mem=getMem();const list=document.getElementById('abs-list');
   refreshAbsEmpFilter();
   const filterEmp=(document.getElementById('abs-filter-emp')?.value||'').trim();
-  let absences=(mem.absences||[]).filter(a=>!filterEmp||a.employe===filterEmp);
+  let absences=(mem.absences||[]).filter(a=>!a._deleted&&(!filterEmp||a.employe===filterEmp));
   if(!absences.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune absence enregistrée</div>';return;}
   const today=new Date();today.setHours(0,0,0,0);
 
@@ -4990,7 +5035,7 @@ function renderAbsences(){
 function checkAbsenceReminders(){_checkRemindersFor('benjamin');}
 function checkAbsenceRemindersForUser(uid){_checkRemindersFor(uid);}
 function _checkRemindersFor(uid){
-  const mem=getMem();const absences=mem.absences||[];
+  const mem=getMem();const absences=(mem.absences||[]).filter(a=>!a._deleted);
   const today=new Date();today.setHours(0,0,0,0);
   const dayKey=today.toISOString().slice(0,10);
   const seenKey=`benai_abs_reminders_${uid}_${dayKey}`;
@@ -5016,13 +5061,17 @@ function markSAVVu(){
   if(currentUser?.role!=='admin')return;
   const mem=getMem();if(!mem.sav_vu)mem.sav_vu={};
   const today=new Date().toLocaleDateString('fr-FR');
-  (mem.sav||[]).forEach(s=>{if(!mem.sav_vu[s.id])mem.sav_vu[s.id]=today;});
+  (mem.sav||[]).forEach(s=>{if(!s._deleted&&!mem.sav_vu[s.id])mem.sav_vu[s.id]=today;});
   saveMem(mem);
 }
 function getSAVVu(id){return((getMem().sav_vu)||{})[id]||null;}
 
 // ANNUAIRE
 function getAnnuaire(){try{return JSON.parse(appStorage.getItem('benai_annuaire'))||[];}catch{return[];}}
+function getAnnuaireActive(list){
+  const items=Array.isArray(list)?list:getAnnuaire();
+  return items.filter(e=>e&&!e._deleted);
+}
 function saveAnnuaire(a,sync=true){
   appStorage.setItem('benai_annuaire',JSON.stringify(a));
   if(sync){
@@ -5043,7 +5092,7 @@ function addEmploye(){
   const soc=document.getElementById('emp-soc').value;
   if(!prenom||!nom){alert('Prénom et Nom sont obligatoires');return;}
   const ann=getAnnuaire();
-  ann.push({id:Date.now(),prenom,nom,email,emailPro,tel,naissance,fonction,societe:soc});
+  ann.push({id:Date.now(),prenom,nom,email,emailPro,tel,naissance,fonction,societe:soc,sync_ts:Date.now(),_deleted:false});
   saveAnnuaire(ann);
   ['emp-prenom','emp-nom','emp-email','emp-email-pro','emp-tel','emp-naissance'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const ok=document.getElementById('emp-ok');ok.textContent='✅ Enregistré !';
@@ -5053,8 +5102,13 @@ function addEmploye(){
 
 function deleteEmploye(id){
   if(!confirm('Supprimer cet employé de l\'annuaire ?'))return;
-  logDeletion('Employé annuaire',getAnnuaire().find(e=>e.id===id)?.prenom+' '+getAnnuaire().find(e=>e.id===id)?.nom);
-  saveAnnuaire(getAnnuaire().filter(e=>e.id!==id));renderAnnuaire();
+  const ann=getAnnuaire();
+  const emp=ann.find(e=>e.id===id);
+  if(!emp)return;
+  logDeletion('Employé annuaire',(emp?.prenom||'')+' '+(emp?.nom||''));
+  emp._deleted=true;
+  emp.sync_ts=Date.now();
+  saveAnnuaire(ann);renderAnnuaire();
 }
 
 function editEmploye(id){
@@ -5087,7 +5141,8 @@ function saveEditEmploye(id){
     tel:document.getElementById('emp-tel').value.trim(),
     naissance:document.getElementById('emp-naissance')?.value||'',
     fonction:document.getElementById('emp-fonction').value,
-    societe:document.getElementById('emp-soc').value
+    societe:document.getElementById('emp-soc').value,
+    sync_ts:Date.now()
   };
   saveAnnuaire(ann);
   const btn=document.querySelector('#emp-form-wrap .btn-primary');
@@ -5102,12 +5157,12 @@ function saveEditEmploye(id){
 function renderAnnuaire(search){
   if(search===undefined)search=document.getElementById('ann-search')?.value||'';
   const list=document.getElementById('annuaire-list');if(!list)return;
-  let emps=getAnnuaire();
+  let emps=getAnnuaireActive();
   if(annFilter==='nemausus')emps=emps.filter(e=>e.societe==='nemausus'||e.societe==='les-deux');
   else if(annFilter==='lambert')emps=emps.filter(e=>e.societe==='lambert'||e.societe==='les-deux');
   else if(annFilter!=='tous')emps=emps.filter(e=>e.fonction===annFilter);
   if(search)emps=emps.filter(e=>`${e.prenom} ${e.nom} ${e.email||''} ${e.emailPro||''} ${e.fonction||''} ${e.tel||''}`.toLowerCase().includes(search.toLowerCase()));
-  const all=getAnnuaire();
+  const all=getAnnuaireActive();
   const nem=all.filter(e=>e.societe==='nemausus'||e.societe==='les-deux').length;
   const lam=all.filter(e=>e.societe==='lambert'||e.societe==='les-deux').length;
   const sub=document.getElementById('ann-counter-sub');
@@ -5153,9 +5208,9 @@ function fillAbsEmpList(opts={}){
   const selectedNotifs=Array.isArray(opts.selectedNotifs)?opts.selectedNotifs:null;
   const sel=document.getElementById('abs-emp-select');if(!sel)return;
   const mem=getMem();
-  const ann=getAnnuaire();
+  const ann=getAnnuaireActive();
   const annNoms=ann.map(e=>`${e.prenom} ${e.nom}`);
-  const absNoms=(mem.absences||[]).map(a=>String(a.employe||'').trim()).filter(Boolean);
+  const absNoms=(mem.absences||[]).filter(a=>!a._deleted).map(a=>String(a.employe||'').trim()).filter(Boolean);
   const users=getAllUsers().filter(u=>u.id!=='benjamin');
   const extraUsers=users
     .filter(u=>!annNoms.some(n=>normalizeId(n).includes(normalizeId(u.name))||normalizeId(n.split(' ')[0]||'').includes(normalizeId(u.name))))
@@ -5187,13 +5242,13 @@ function fillAbsEmpList(opts={}){
 // PLANNING ABSENCES - téléchargement CSV
 function downloadPlanningAbsences(societe){
   const mem=getMem();
-  const absences=(mem.absences||[]).sort((a,b)=>new Date(a.debut)-new Date(b.debut));
+  const absences=(mem.absences||[]).filter(a=>!a._deleted).sort((a,b)=>new Date(a.debut)-new Date(b.debut));
   if(!absences.length){alert('Aucune absence enregistrée');return;}
   const isNem=societe==='nemausus';
   const label=isNem?'Nemausus Fermetures':'Lambert SAS';
   const color=isNem?'linear-gradient(135deg,#E8943A,#C4711A)':'linear-gradient(135deg,#3B82F6,#1D4ED8)';
   const borderColor=isNem?'#E8943A':'#3B82F6';
-  const ann=getAnnuaire();
+  const ann=getAnnuaireActive();
   const users=getAllUsers().filter(u=>u.id!=='benjamin');
   const DAY_NAMES=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
   const MONTH_NAMES=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -5472,7 +5527,7 @@ async function processFichesPaie(input){
       const data=await res.json();
       if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
       const parsed=JSON.parse(data.content[0].text.replace(/```json|```/g,'').trim());
-      const ann=getAnnuaire();
+      const ann=getAnnuaireActive();
       const match=ann.find(e=>normalizeId(e.nom)===normalizeId(parsed.nom||'')||normalizeId(`${e.prenom} ${e.nom}`)===normalizeId(`${parsed.prenom||''} ${parsed.nom||''}`));
       paieResults.push({file:file.name,prenom:parsed.prenom||'',nom:parsed.nom||'',mois:parsed.mois||'',annee:parsed.annee||'',email:match?.email||'',found:!!match});
     }catch(e){
@@ -5708,7 +5763,7 @@ function refreshAdmin(){
   const mem=getMem();
   const tot=Object.values(mem.messages).reduce((s,a)=>s+a.length,0);
   const el=document.getElementById('admin-msgs');if(el)el.textContent=tot;
-  const notesEl=document.getElementById('admin-notes');if(notesEl)notesEl.textContent=(mem.notes||[]).length;
+  const notesEl=document.getElementById('admin-notes');if(notesEl)notesEl.textContent=(mem.notes||[]).filter(n=>!n._deleted).length;
   renderTokenStats();renderSAVStatsAdmin();
   // Activité récente
   const actList=document.getElementById('activity-list');
@@ -5887,7 +5942,7 @@ function showAddUser(){
   if(!isOpen){
     regenNewUserPwd();
     // Peupler le select avec les salariés de l'annuaire qui n'ont pas encore de compte BenAI
-    const ann=getAnnuaire();
+    const ann=getAnnuaireActive();
     const existingUsers=getAllUsers().map(u=>normalizeId(u.name));
     const disponibles=ann.filter(e=>{
       const fullName=`${e.prenom} ${e.nom}`;
@@ -5913,7 +5968,7 @@ async function creerUtilisateur(){
   const name=`${prenom} ${nom}`.trim();
   const uid=normalizeId(prenom);
   if(getAllUsers().find(u=>u.id===uid)){status.style.color='var(--r)';status.textContent='⚠️ Cet accès existe déjà';return;}
-  const ann=getAnnuaire();
+  const ann=getAnnuaireActive();
   const annEntry=ann.find(e=>normalizeId(`${e.prenom} ${e.nom}`)===normalizeId(name)||normalizeId(e.prenom)===uid)||null;
   const email=(annEntry?.emailPro||annEntry?.email||'').trim().toLowerCase();
   if(!email||!email.includes('@')){
@@ -6435,8 +6490,8 @@ function buildBriefingContext(){
   const convs=getConvsForUser('benjamin');
   let unread=0;Object.keys(convs).forEach(cid=>unread+=countUnread('benjamin',cid));
   const todayDate=new Date();
-  const absToday=(mem.absences||[]).filter(a=>new Date(a.debut)<=todayDate&&new Date(a.fin)>=todayDate);
-  const absWeek=(mem.absences||[]).filter(a=>{const d=new Date(a.debut);const w=new Date();w.setDate(w.getDate()+7);return d>todayDate&&d<=w;});
+  const absToday=(mem.absences||[]).filter(a=>!a._deleted&&new Date(a.debut)<=todayDate&&new Date(a.fin)>=todayDate);
+  const absWeek=(mem.absences||[]).filter(a=>{if(a._deleted)return false;const d=new Date(a.debut);const w=new Date();w.setDate(w.getDate()+7);return d>todayDate&&d<=w;});
   const reminders=getSmartReminders();
   const patterns=getTopPatterns();
   const nem=openSAV.filter(s=>s.societe==='nemausus').length;
@@ -6453,8 +6508,8 @@ ${patterns.topFournisseurs.length>0?'Fournisseurs habituels: '+patterns.topFourn
 
 function buildFallbackBriefing(){
   const mem=getMem();
-  const open=(mem.sav||[]).filter(s=>s.statut!=='regle').length;
-  const urgent=(mem.sav||[]).filter(s=>s.urgent&&s.statut!=='regle').length;
+  const open=(mem.sav||[]).filter(s=>!s._deleted&&s.statut!=='regle').length;
+  const urgent=(mem.sav||[]).filter(s=>!s._deleted&&s.urgent&&s.statut!=='regle').length;
   const days=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
   const schedule={1:'Nemausus',3:'Nemausus',5:'Nemausus',2:'Lambert',4:'Lambert'};
   const d=new Date().getDay();
@@ -6469,7 +6524,7 @@ function showPageContext(page){
   const mem=getMem();
   let msg='';
   if(page==='sav'){
-    const open=(mem.sav||[]).filter(s=>s.statut!=='regle');
+    const open=(mem.sav||[]).filter(s=>!s._deleted&&s.statut!=='regle');
     const urgent=open.filter(s=>s.urgent);
     const old=open.filter(s=>getSAVAgeDays(s)>=5);
     const parts=[];
@@ -6909,7 +6964,7 @@ function canAccessLeadByCompany(lead){
   return false;
 }
 function getCompanyScopedLeads(list){
-  const leads=list||getLeads();
+  const leads=(list||getLeads()).filter(l=>l&&!l._deleted);
   if(!currentUser)return leads;
   if(currentUser.role!=='directeur_co')return leads;
   return leads.filter(canAccessLeadByCompany);
@@ -6960,7 +7015,7 @@ function getRelatedClientLeads(targetLead,list){
   const leads=Array.isArray(list)?list:getLeads();
   const key=getLeadClientIdentityKey(targetLead);
   if(!key)return [targetLead];
-  return leads.filter(l=>getLeadClientIdentityKey(l)===key);
+  return leads.filter(l=>!l._deleted&&getLeadClientIdentityKey(l)===key);
 }
 function getClientUniqueRdvDays(targetLead,list){
   const days=new Set();
@@ -7148,7 +7203,7 @@ function getFilteredLeads(){
   const secteurFilter=hasGlobalScopeFilters?(document.getElementById('crm-filter-secteur')?.value||''):'';
   const societeFilter=hasGlobalScopeFilters?(document.getElementById('crm-filter-societe')?.value||''):'';
   const commFilter=hasGlobalScopeFilters?(document.getElementById('crm-filter-commercial')?.value||''):'';
-  let leads=getLeads();
+  let leads=getLeads().filter(l=>!l._deleted);
 
   // RÈGLES STRICTES PAR RÔLE
   if(role==='commercial'){
@@ -8139,9 +8194,14 @@ function rouvrirLead(id){
 function deleteLead(){
   if(currentUser.id!=='benjamin'){alert('Suppression réservée à Benjamin');return;}
   if(!confirm('Supprimer ce lead définitivement ?'))return;
-  const l=getLeads().find(x=>x.id===currentLeadId);
+  const leads=getLeads();
+  const l=leads.find(x=>x.id===currentLeadId);
+  if(!l)return;
   logDeletion('Lead',l?.nom||'?');
-  saveLeads(getLeads().filter(x=>x.id!==currentLeadId));
+  l._deleted=true;
+  l.archive=true;
+  l.date_modification=new Date().toISOString();
+  saveLeads(leads);
   closeLeadModal();renderLeads();refreshLeadsBadge();
   logActivity('Benjamin a supprimé le lead : '+(l?.nom||'?'));
 }
@@ -8344,7 +8404,7 @@ function getLeadAge(l){
 
 function getLeadNotifScopeForUser(){
   if(!currentUser)return [];
-  let scoped=getLeads().filter(l=>!l.archive&&l.statut!=='vert'&&l.statut!=='rouge');
+  let scoped=getLeads().filter(l=>!l._deleted&&!l.archive&&l.statut!=='vert'&&l.statut!=='rouge');
   if(currentUser.role==='commercial'){
     scoped=scoped.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
   }else if(currentUser.role==='directeur_co'){
@@ -8401,7 +8461,7 @@ function checkLeadsAlertes(){
 function checkRappelsLeads(){
   if(!currentUser)return;
   const now=new Date();
-  const leads=getLeads().filter(l=>l.rappel&&(l.commercial===currentUser.id||currentUser.role==='directeur_co'||currentUser.id==='benjamin'));
+  const leads=getLeads().filter(l=>!l._deleted&&l.rappel&&(l.commercial===currentUser.id||currentUser.role==='directeur_co'||currentUser.id==='benjamin'));
   leads.forEach(l=>{
     const rappel=new Date(l.rappel);
     const diff=Math.abs(rappel-now)/60000;
@@ -9194,7 +9254,7 @@ function getDeletions(){
 function checkAnniversaires(){
   if(currentUser?.id!=='benjamin')return;
   const today=new Date();
-  const ann=getAnnuaire();
+  const ann=getAnnuaireActive();
   const today_key=`${today.getDate()}-${today.getMonth()}`;
   const seen=appStorage.getItem('benai_anniv_seen_'+today_key);
   if(seen)return;
@@ -9302,7 +9362,7 @@ let fusionSelectIds=[];
 
 function ouvrirFusion(){
   // Ouvrir un mini panel de fusion
-  const leads=getLeads().filter(l=>!l.archive);
+  const leads=getLeads().filter(l=>!l._deleted&&!l.archive);
   const panel=document.createElement('div');
   panel.id='fusion-panel';
   panel.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px';
@@ -9326,7 +9386,7 @@ function ouvrirFusion(){
 function renderFusionList(){
   const list=document.getElementById('fusion-list');if(!list)return;
   const search=(document.getElementById('fusion-search')?.value||'').toLowerCase();
-  let leads=getLeads().filter(l=>!l.archive);
+  let leads=getLeads().filter(l=>!l._deleted&&!l.archive);
   if(search)leads=leads.filter(l=>(l.nom||'').toLowerCase().includes(search)||(l.telephone||'').includes(search));
   list.innerHTML=leads.map(l=>{
     const sel=fusionSelectIds.includes(l.id);
@@ -9366,7 +9426,10 @@ function confirmerFusion(){
   addLeadTimelineEntry(l1,`Fusionné avec ${l2.nom}`,currentUser.name);
   // Supprimer l2
   logDeletion('Lead (fusion)',l2.nom);
-  const newLeads=leads.filter(l=>l.id!==id2);
+  l2._deleted=true;
+  l2.archive=true;
+  l2.date_modification=new Date().toISOString();
+  const newLeads=[...leads];
   const idx=newLeads.findIndex(l=>l.id===id1);
   if(idx!==-1)newLeads[idx]=l1;
   saveLeads(newLeads);
@@ -9523,6 +9586,7 @@ function refreshAbsBadge(){
   const mem=getMem();
   const today=new Date();today.setHours(0,0,0,0);
   const upcoming=(mem.absences||[]).filter(a=>{
+    if(a._deleted)return false;
     const debut=new Date(a.debut);debut.setHours(0,0,0,0);
     const fin=new Date(a.fin);fin.setHours(0,0,0,0);
     const diff=Math.ceil((debut-today)/(1000*60*60*24));
