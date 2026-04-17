@@ -1654,6 +1654,7 @@ loadAppStorageCacheFromSession();
 
 const BENAI_VERSION = '3.15';
 const GUIDE_REQUIRED_VERSION='3.15';
+const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 const BENAI_CHANGELOG_NOTES=[
   'Interface simplifiee et mieux structuree sur desktop/mobile.',
   'Page Equipe fusionnee (contacts + acces BenAI).',
@@ -1918,10 +1919,11 @@ function getEmailCandidateForUid(uid,rawLogin=''){
   return '';
 }
 
-async function fetchSupabaseProfile(accessToken){
+async function fetchSupabaseProfile(accessToken,userAuthId=''){
   if(!accessToken)return null;
   try{
-    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/profiles?select=id,email,full_name,role,company`,{
+    const idFilter=userAuthId?`&id=eq.${encodeURIComponent(userAuthId)}`:'';
+    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/profiles?select=id,email,full_name,role,company,app_uid${idFilter}`,{
       headers:{
         apikey:SUPABASE_CONFIG.publishableKey,
         Authorization:'Bearer '+accessToken
@@ -1947,7 +1949,9 @@ function makeUserFromSupabaseProfile(profile,emailFallback=''){
   if(!profile)return null;
   const parts=String(profile.full_name||'Utilisateur').trim().split(/\s+/).filter(Boolean);
   const firstName=parts[0]||'Utilisateur';
-  const uid=normalizeId(firstName);
+  const emailSlug=normalizeId(String((profile.email||emailFallback||'').split('@')[0]||firstName));
+  let uid=normalizeId(profile.app_uid||emailSlug||firstName);
+  if(profile.role==='admin'&&/benjamin/i.test(String(profile.full_name||'')))uid='benjamin';
   return {
     id:uid,
     email:(profile.email||emailFallback||'').trim().toLowerCase(),
@@ -1996,7 +2000,7 @@ async function trySupabaseLogin(uid,pwd,rawLogin=''){
       return {ok:false,reason:error?.message||'invalid_credentials'};
     }
     currentSupabaseSession=data.session;
-    const profile=await fetchSupabaseProfile(data.session.access_token);
+    const profile=await fetchSupabaseProfile(data.session.access_token,data.session.user?.id||'');
     if(!profile)return {ok:false,reason:'profile_missing'};
     const user=makeUserFromSupabaseProfile(profile,email);
     if(!user)return {ok:false,reason:'profile_invalid'};
@@ -2560,7 +2564,7 @@ async function saveSharedApiKeyToSupabase(rawKey){
     },10000);
     if(res.ok)return {ok:true};
     if(res.status===401||res.status===403){
-      const profile=await fetchSupabaseProfile(session.access_token);
+      const profile=await fetchSupabaseProfile(session.access_token,session.user?.id||'');
       if(!profile)return {ok:false,reason:'profile_missing'};
       return {ok:false,reason:'forbidden'};
     }
@@ -2595,7 +2599,7 @@ async function syncSupabasePostLogin(){
     return;
   }
   if(currentSupabaseSession?.access_token){
-    const profile=await fetchSupabaseProfile(currentSupabaseSession.access_token);
+    const profile=await fetchSupabaseProfile(currentSupabaseSession.access_token,currentSupabaseSession.user?.id||'');
     if(!profile){
       showDriveNotif('⚠️ Profil Supabase manquant: ajoutez votre ligne admin dans la table profiles');
     }
@@ -3179,6 +3183,14 @@ function switchSession(){toggleSwitchPanel();}
 function initApp(silent=false){
   const u=currentUser;
   hydrateRuntimeFromSession(u?.id);
+  if(u?.role==='admin'){
+    void syncExtraUsersFromSupabaseProfiles().then(ok=>{
+      if(ok&&document.getElementById('page-annuaire')?.style.display==='flex'&&equipeUITab==='acces'){
+        renderUsersList();
+        renderPwdList();
+      }
+    });
+  }
   applyTheme();
   const chatArea=document.getElementById('chat-area');
   if(chatArea)chatArea.innerHTML='';
@@ -5178,6 +5190,55 @@ const COLORS=['linear-gradient(135deg,#22C55E,#15803D)','linear-gradient(135deg,
 function getExtraUsers(){try{return JSON.parse(appStorage.getItem('benai_extra_users'))||[];}catch{return [];}}
 function saveExtraUsers(u){appStorage.setItem('benai_extra_users',JSON.stringify(u));}
 function getExtraUserById(id){return getExtraUsers().find(u=>u.id===id)||null;}
+async function syncExtraUsersFromSupabaseProfiles(){
+  if(!currentUser||currentUser.role!=='admin')return false;
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
+  const session=await ensureSupabaseSession();
+  if(!session?.access_token)return false;
+  const headers=getSupabaseHeaders();
+  if(!headers)return false;
+  try{
+    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/profiles?select=id,email,app_uid,full_name,role,company`,{headers},8000);
+    if(!res.ok)return false;
+    const rows=await res.json();
+    const old=getExtraUsers();
+    const oldMap=new Map(old.map(u=>[u.id,u]));
+    const merged=[...old];
+    const exists=new Set(old.map(u=>u.id));
+    const colorIdx={i:merged.length};
+    rows.forEach(p=>{
+      const email=(p?.email||'').trim().toLowerCase();
+      const fullName=String(p?.full_name||email.split('@')[0]||'Utilisateur').trim();
+      let uid=normalizeId(p?.app_uid||email.split('@')[0]||fullName.split(/\s+/)[0]||'');
+      if(!uid)return;
+      if(uid==='benjamin'||uid==='benai')return;
+      const prev=oldMap.get(uid);
+      const newU={
+        id:uid,
+        name:fullName,
+        email,
+        role:p?.role||prev?.role||'assistante',
+        societe:p?.company||prev?.societe||'nemausus',
+        fonction:prev?.fonction||'',
+        vehicule:prev?.vehicule||'',
+        color:prev?.color||COLORS[(colorIdx.i++)%COLORS.length],
+        initial:(fullName[0]||uid[0]||'U').toUpperCase(),
+        builtin:false
+      };
+      if(exists.has(uid)){
+        const idx=merged.findIndex(u=>u.id===uid);
+        if(idx>-1)merged[idx]={...merged[idx],...newU};
+      }else{
+        merged.push(newU);
+        exists.add(uid);
+      }
+    });
+    saveExtraUsers(merged);
+    return true;
+  }catch(e){
+    return false;
+  }
+}
 function getAllUsers(){
   const hidden=JSON.parse(appStorage.getItem('benai_hidden_users')||'[]');
   const base=[
@@ -8361,7 +8422,7 @@ window.addEventListener('load',async()=>{
       const {data}=await client.auth.getSession();
       currentSupabaseSession=data?.session||null;
       if(currentSupabaseSession?.access_token){
-        const profile=await fetchSupabaseProfile(currentSupabaseSession.access_token);
+        const profile=await fetchSupabaseProfile(currentSupabaseSession.access_token,currentSupabaseSession.user?.id||'');
         const user=makeUserFromSupabaseProfile(profile,currentSupabaseSession.user?.email||'');
         if(user){
           user.system=getSystemPromptForUser(user);
@@ -8586,12 +8647,35 @@ function nextTutoSlide(){
 
 function closeTuto(){
   document.getElementById('tuto-overlay').style.display='none';
-  if(currentUser)appStorage.setItem('benai_tuto_done_'+currentUser.id,'1');
+  if(currentUser){
+    const keys=getTutoDoneKeysForCurrentUser();
+    keys.forEach(key=>appStorage.setItem(key,'1'));
+    try{
+      keys.forEach(key=>localStorage.setItem(TUTO_DONE_LOCAL_PREFIX+key,'1'));
+    }catch(e){}
+  }
+}
+
+function getTutoDoneKeysForCurrentUser(){
+  const keys=[];
+  if(currentUser?.id)keys.push('benai_tuto_done_'+currentUser.id);
+  const authUid=currentSupabaseSession?.user?.id||'';
+  if(authUid)keys.push('benai_tuto_done_auth_'+authUid);
+  return [...new Set(keys)];
 }
 
 function shouldShowTuto(){
   if(!currentUser)return false;
-  return !appStorage.getItem('benai_tuto_done_'+currentUser.id);
+  const keys=getTutoDoneKeysForCurrentUser();
+  if(keys.some(key=>appStorage.getItem(key)==='1'))return false;
+  try{
+    const hasLocalDone=keys.some(key=>localStorage.getItem(TUTO_DONE_LOCAL_PREFIX+key)==='1');
+    if(hasLocalDone){
+      keys.forEach(key=>appStorage.setItem(key,'1'));
+      return false;
+    }
+  }catch(e){}
+  return true;
 }
 
 async function installUpdate(version,notes){
