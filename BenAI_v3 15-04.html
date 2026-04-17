@@ -1256,9 +1256,10 @@ input[type=file]{display:none;}
               <div id="panel-vert" style="display:none">
                 
                 <div class="form-row">
-                  <div class="form-group"><div class="form-label">Prix vendu HT (€) *</div><input type="number" class="form-input" id="lead-prix-vendu" placeholder="0" step="100"></div>
+                  <div class="form-group"><div class="form-label">Prix final vendu HT (€) *</div><input type="number" class="form-input" id="lead-prix-vendu" placeholder="Montant final signé" step="100" min="1"></div>
                   <div class="form-group"><div class="form-label">Date signature</div><input type="date" class="form-input" id="lead-date-signature"></div>
                 </div>
+                <div style="font-size:11px;color:var(--t3);margin-top:2px">Saisir le montant final HT réellement vendu pour un suivi commercial fiable.</div>
                 <div class="form-group"><div class="form-label">Produit vendu</div><input type="text" class="form-input" id="lead-produit-vendu" placeholder="Ex: 3 volets roulants alu..."></div>
               </div>
 
@@ -1696,6 +1697,7 @@ const SUPABASE_DEFAULT_URL='https://wsstfaqyixnsaimbycmw.supabase.co';
 // Clé publique uniquement (Publishable key), jamais la service_role.
 const SUPABASE_DEFAULT_PUBLISHABLE_KEY='sb_publishable_WDPUls7WDAvZLYPflwl3yg_su4VZ-_C';
 const SUPABASE_TABLES=['sav','notes','absences','annuaire','leads'];
+const SUPABASE_FETCH_PAGE_SIZE=1000;
 const SUPABASE_TEST_ENDPOINT='/auth/v1/settings';
 const SHARED_AI_SETTING_KEY='shared_ai_api';
 let supabaseSyncTimer=null;
@@ -1771,6 +1773,36 @@ async function fetchWithTimeout(url,options={},timeoutMs=10000){
   }finally{
     clearTimeout(timer);
   }
+}
+
+async function fetchSupabaseRowsPaged(table,headers,select='*'){
+  const rows=[];
+  let from=0;
+  while(true){
+    const to=from+SUPABASE_FETCH_PAGE_SIZE-1;
+    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${table}?select=${encodeURIComponent(select)}`,{
+      headers:{
+        ...headers,
+        'Range-Unit':'items',
+        'Range':`${from}-${to}`,
+        'Prefer':'count=exact'
+      }
+    },10000);
+    if(!res.ok){
+      let detail='';
+      try{detail=await res.text();}catch{}
+      throw new Error(`${table}: lecture ${res.status} ${detail||''}`.trim());
+    }
+    const chunk=await res.json();
+    if(Array.isArray(chunk)&&chunk.length){
+      rows.push(...chunk);
+    }
+    if(!Array.isArray(chunk)||chunk.length<SUPABASE_FETCH_PAGE_SIZE){
+      break;
+    }
+    from+=SUPABASE_FETCH_PAGE_SIZE;
+  }
+  return rows;
 }
 
 function applySupabaseConfigFromStorage(){
@@ -2286,15 +2318,7 @@ async function replaceSupabaseTable(table,rows,idCol='legacy_id'){
     if(!upsertOk)return false;
 
     // 2) Suppression ciblée des lignes absentes localement (pas de wipe global).
-    const idsUrl=`${SUPABASE_CONFIG.url}/rest/v1/${table}?select=${idCol}&${idCol}=not.is.null`;
-    const idsRes=await fetchWithTimeout(idsUrl,{headers},10000);
-    if(!idsRes.ok){
-      let body='';
-      try{body=await idsRes.text();}catch{}
-      lastSupabaseSyncError=`${table}: lecture ids ${idsRes.status} ${body||''}`.trim();
-      return false;
-    }
-    const remoteRows=await idsRes.json();
+    const remoteRows=await fetchSupabaseRowsPaged(table,headers,idCol);
     const remoteIds=(remoteRows||[]).map(r=>String(r?.[idCol]??'')).filter(Boolean);
     const localIds=new Set(localRows.map(r=>String(r?.[idCol]??'')).filter(Boolean));
     const toDelete=remoteIds.filter(id=>!localIds.has(id));
@@ -2471,14 +2495,12 @@ async function loadCoreDataFromSupabase(){
   const headers=getSupabaseHeaders();
   if(!headers)return false;
   try{
-    const [savRes,notesRes,absRes,annRes,leadsRes]=await Promise.all(SUPABASE_TABLES.map(
-      table=>fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${table}?select=*`,{headers},10000)
-    ));
-    if(!savRes.ok||!notesRes.ok||!absRes.ok||!annRes.ok||!leadsRes.ok){
-      return false;
-    }
     const [savRows,noteRows,absRows,annRows,leadRows]=await Promise.all([
-      savRes.json(),notesRes.json(),absRes.json(),annRes.json(),leadsRes.json()
+      fetchSupabaseRowsPaged('sav',headers),
+      fetchSupabaseRowsPaged('notes',headers),
+      fetchSupabaseRowsPaged('absences',headers),
+      fetchSupabaseRowsPaged('annuaire',headers),
+      fetchSupabaseRowsPaged('leads',headers)
     ]);
     const localMemBefore=getMem();
     const localLeadsBefore=getLeads();
@@ -4076,7 +4098,7 @@ function addSAV(){
   if(!client)missing.push('Client');
   if(!pb)missing.push('Problème');
   if(missing.length){
-    alert('Champs vides : '+missing.join(', '));
+    alert('Champs requis ou invalides : '+missing.join(', '));
     return;
   }
   const mem=getMem();
@@ -7528,9 +7550,13 @@ function saveLead(){
     missing.push('Justification hors secteur');
   }
   const raisonMort=document.getElementById('lead-raison-mort').value;
-  const prixVendu=document.getElementById('lead-prix-vendu').value;
+  const prixVenduRaw=(document.getElementById('lead-prix-vendu')?.value||'').trim();
+  const prixVenduValue=Number(prixVenduRaw);
   if(currentLeadStatut==='rouge'&&!raisonMort)missing.push('Raison du refus');
-  if(currentLeadStatut==='vert'&&!prixVendu)missing.push('Prix vendu');
+  if(currentLeadStatut==='vert'){
+    if(!prixVenduRaw)missing.push('Prix final vendu HT');
+    else if(!Number.isFinite(prixVenduValue)||prixVenduValue<=0)missing.push('Prix final vendu HT (> 0)');
+  }
   if(missing.length){
     alert('Champs vides : '+missing.join(', '));
     return;
@@ -7556,7 +7582,7 @@ function saveLead(){
     montant_devis:document.getElementById('lead-montant-devis')?.value||null,
     date_devis:document.getElementById('lead-date-devis')?.value||null,
     rappel_devis:document.getElementById('lead-rappel-devis')?.value||null,
-    prix_vendu:document.getElementById('lead-prix-vendu')?.value||null,
+    prix_vendu:prixVenduRaw||null,
     date_signature:document.getElementById('lead-date-signature')?.value||null,
     produit_vendu:document.getElementById('lead-produit-vendu')?.value||null,
     raison_mort:document.getElementById('lead-raison-mort')?.value||null,
