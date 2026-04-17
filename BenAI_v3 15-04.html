@@ -527,6 +527,20 @@ body.light .bubble{color:var(--t1);}
   .sb-badge,.sb-badge-r,.sb-badge-abs{position:absolute;top:4px;right:6px;margin-left:0;}
   .content{min-height:0;display:flex;flex-direction:column;}
   .page-header{padding:10px 12px 6px;flex-wrap:wrap;gap:8px;}
+  /* SAV / absences / équipe : les formulaires sont hors des sous-zones scroll → sur petit écran une seule colonne défilante */
+  #page-sav,#page-absences,#page-annuaire{
+    flex:1 1 auto;
+    min-height:0;
+    max-height:100%;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-y:contain;
+  }
+  #page-sav .sav-area{flex:none;overflow-y:visible;min-height:0;}
+  #page-absences #abs-list{flex:none !important;overflow-y:visible !important;min-height:0;}
+  #page-annuaire #equipe-panel-annuaire{flex:none !important;min-height:0;overflow:visible !important;}
+  #page-annuaire #annuaire-list{flex:none !important;overflow-y:visible !important;min-height:0;}
+  #page-annuaire #equipe-panel-acces{flex:none !important;overflow-y:visible !important;min-height:0;}
   .chat-area,.sav-area,.notes-area,.dashboard{padding:12px;}
   .msg.user,.msg.ai{max-width:96%;}
   .chat-input-area{padding:10px;}
@@ -4567,6 +4581,7 @@ function editMsg(cid,idx){
 // ══════════════════════════════════════════
 function toggleSavForm(){
   const wrap=document.getElementById('sav-form-wrap');
+  if(!wrap)return;
   const isOpen=wrap.style.display!=='none';
   wrap.style.display=isOpen?'none':'block';
   if(!isOpen){
@@ -4579,6 +4594,7 @@ function toggleSavForm(){
         socSelect.disabled=false;
       }
     }
+    requestAnimationFrame(()=>{try{wrap.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(_){}});
   }
 }
 
@@ -4919,11 +4935,13 @@ function deleteNote(id){
 // ══════════════════════════════════════════
 function toggleAbsForm(){
   const wrap=document.getElementById('abs-form-wrap');
+  if(!wrap)return;
   const open=wrap.style.display==='none';
   if(open){
     resetAbsenceFormForCreate();
     fillAbsEmpList();
     wrap.style.display='block';
+    requestAnimationFrame(()=>{try{wrap.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(_){}});
   } else {
     wrap.style.display='none';
     setAbsFormModeCreate();
@@ -5209,7 +5227,13 @@ function saveAnnuaire(a,sync=true){
     scheduleSupabaseSync(getMem(),a);
   }
 }
-function toggleEmpForm(){const w=document.getElementById('emp-form-wrap');w.style.display=w.style.display==='none'?'block':'none';}
+function toggleEmpForm(){
+  const w=document.getElementById('emp-form-wrap');
+  if(!w)return;
+  const show=w.style.display==='none'||w.style.display==='';
+  w.style.display=show?'block':'none';
+  if(show)requestAnimationFrame(()=>{try{w.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(_){}});
+}
 
 function addEmploye(){
   const prenom=document.getElementById('emp-prenom').value.trim();
