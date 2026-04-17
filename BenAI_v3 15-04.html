@@ -1720,6 +1720,7 @@ let supabaseSharedDirty={sav:false,notes:false,absences:false,annuaire:false,lea
 let supabaseSharedSignatures={sav:'',notes:'',absences:'',annuaire:'',leads:''};
 let sharedCoreLastUpdatedAt='';
 let sharedCoreLastSignature='';
+let sharedCoreLastReadOk=false;
 let sharedApiKeyRetryTimer=null;
 let sharedApiKeyRetryDelayMs=2500;
 let pendingSharedApiKey='';
@@ -2034,9 +2035,11 @@ async function loadSharedCoreDataFromSupabase(force=false){
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return false;
   const headers=getSupabaseHeaders();
   if(!headers)return false;
+  sharedCoreLastReadOk=false;
   try{
     const remoteRaw=await fetchSharedCoreDataRaw(headers);
     if(!remoteRaw.ok)return false;
+    sharedCoreLastReadOk=true;
     const data=remoteRaw.data||{};
     const updatedAt=String(remoteRaw.updatedAt||'');
     const remoteSig=computeSupabaseSignature(data);
@@ -2177,8 +2180,8 @@ function shouldMonitorSupabaseSession(){
 
 async function persistAppStorageToSupabaseNow(uid=currentUser?.id,snapshot=null){
   if(!uid||!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
-  const session=await ensureSupabaseSession();
-  if(!session?.access_token)return false;
+  await ensureSupabaseSession();
+  if(!hasSupabaseDataAuth())return false;
   const headers=getSupabaseHeaders();
   if(!headers)return false;
   try{
@@ -2214,8 +2217,8 @@ async function hydrateAppStorageFromSupabase(uid=currentUser?.id,force=false){
     appStorageHydratedForUid='';
   }
   if(appStorageHydratedForUid===uid&&!force)return true;
-  const session=await ensureSupabaseSession();
-  if(!session?.access_token)return false;
+  await ensureSupabaseSession();
+  if(!hasSupabaseDataAuth())return false;
   const headers=getSupabaseHeaders();
   if(!headers)return false;
   try{
@@ -2225,11 +2228,18 @@ async function hydrateAppStorageFromSupabase(uid=currentUser?.id,force=false){
     const rows=await res.json();
     const raw=rows?.[0]?.value;
     const obj=(raw&&typeof raw==='object'&&!Array.isArray(raw))?raw:{};
-    clearAppStorageCache();
+    // Ne pas effacer les clés locales (anti-spam, rappels, état UI local).
+    // On remplace uniquement les clés gérées par le snapshot cloud.
+    const mergedCache={...appStorageCache};
+    Object.keys(mergedCache).forEach(k=>{
+      if(isAppStorageCloudKey(k))delete mergedCache[k];
+    });
     Object.entries(obj).forEach(([k,v])=>{
       if(v===null||v===undefined)return;
-      appStorageCache[String(k)]=typeof v==='string'?v:JSON.stringify(v);
+      mergedCache[String(k)]=typeof v==='string'?v:JSON.stringify(v);
     });
+    clearAppStorageCache();
+    Object.assign(appStorageCache,mergedCache);
     persistAppStorageCacheToSession();
     appStorageHydratedForUid=uid;
     applySupabaseConfigFromStorage();
@@ -2948,6 +2958,14 @@ async function loadCoreDataFromSupabase(){
       supabaseLastPullOkTs=Date.now();
       renderSupabaseRuntimeStatus();
       return true;
+    }
+    // Si le miroir partagé a été lu correctement mais sans nouveauté,
+    // ne surtout pas écraser avec un snapshot utilisateur potentiellement plus ancien.
+    if(sharedCoreLastReadOk){
+      lastSupabaseSyncError='';
+      supabaseLastPullOkTs=Date.now();
+      renderSupabaseRuntimeStatus();
+      return false;
     }
     const stateSnapshotOk=await loadCoreDataFromSupabaseStateSnapshot();
     if(stateSnapshotOk){
@@ -9499,16 +9517,37 @@ function saveNotifs(n){appStorage.setItem('benai_notifs_'+(currentUser?.id||'?')
 function pushNotif(titre,msg,icon='🔔',uid){
   // uid = destinataire (si vide = utilisateur courant)
   const target=uid||currentUser?.id||'?';
+  const now=Date.now();
+  const notifSignature=`${String(titre||'').trim()}::${String(msg||'').trim()}::${target}`;
+  const dedupeKey='benai_notif_last_'+target;
+  let allowInsert=true;
+  try{
+    const rawState=appStorage.getItem(dedupeKey)||'';
+    const state=rawState?JSON.parse(rawState):{};
+    if(state?.sig===notifSignature&&Number(state?.ts||0)&&now-Number(state.ts)<90*1000){
+      allowInsert=false;
+    }
+  }catch(e){}
   try{
     const key='benai_notifs_'+target;
     const notifs=JSON.parse(appStorage.getItem(key)||'[]');
-    notifs.unshift({id:Date.now(),titre,msg,icon,time:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),read:false});
-    if(notifs.length>50)notifs.splice(50);
-    appStorage.setItem(key,JSON.stringify(notifs));
+    if(allowInsert){
+      notifs.unshift({id:Date.now(),titre,msg,icon,time:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),read:false});
+      if(notifs.length>50)notifs.splice(50);
+      appStorage.setItem(key,JSON.stringify(notifs));
+      appStorage.setItem(dedupeKey,JSON.stringify({sig:notifSignature,ts:now}));
+    }
   }catch(e){}
   // Notification navigateur si autorisée
-  if('Notification' in window&&Notification.permission==='granted'&&target===currentUser?.id){
-    new Notification('BenAI — '+titre,{body:msg,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="%23E8943A"/><text x="16" y="22" text-anchor="middle" font-size="18" fill="white">B</text></svg>'});
+  if(allowInsert&&'Notification' in window&&target===currentUser?.id){
+    const BrowserNotif=window.Notification;
+    if(BrowserNotif&&BrowserNotif.permission==='granted'){
+      try{
+        new BrowserNotif('BenAI — '+titre,{body:msg,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="%23E8943A"/><text x="16" y="22" text-anchor="middle" font-size="18" fill="white">B</text></svg>'});
+      }catch(e){
+        reportAutoBug('Notifications',`Erreur JavaScript: ${e?.message||e}`,'mineur');
+      }
+    }
   }
   refreshNotifBadge();
 }
@@ -9573,8 +9612,9 @@ function markAllNotifsRead(){
 }
 
 function requestNotifPermission(){
-  if('Notification' in window&&Notification.permission==='default'){
-    Notification.requestPermission();
+  const BrowserNotif=window.Notification;
+  if(BrowserNotif&&BrowserNotif.permission==='default'){
+    try{BrowserNotif.requestPermission();}catch(e){}
   }
 }
 
