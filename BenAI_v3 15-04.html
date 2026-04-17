@@ -2102,29 +2102,70 @@ async function upsertSupabaseTable(table,rows){
 }
 
 async function replaceSupabaseTable(table,rows,idCol='legacy_id'){
-  const headers=getSupabaseHeaders();
-  if(!headers){
-    lastSupabaseSyncError=`${table}: en-têtes Supabase manquants`;
-    return false;
-  }
   try{
-    const wipeRes=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${table}?${idCol}=not.is.null`,{
-      method:'DELETE',
-      headers:{...headers,'Prefer':'return=minimal'}
-    },10000);
-    if(!wipeRes.ok){
-      let wipeBody='';
-      try{wipeBody=await wipeRes.text();}catch{}
-      lastSupabaseSyncError=`${table}: suppression ${wipeRes.status} ${wipeBody||''}`.trim();
+    const headers=getSupabaseHeaders();
+    if(!headers){
+      lastSupabaseSyncError=`${table}: en-têtes Supabase manquants`;
       return false;
     }
-    if(!rows?.length){
+
+    const localRows=Array.isArray(rows)?rows:[];
+    // Garde-fou anti-perte: ne jamais vider une table entière sur une source locale vide.
+    if(localRows.length===0){
       lastSupabaseSyncError='';
       return true;
     }
-    return await upsertSupabaseTable(table,rows);
+
+    // 1) Upsert des lignes locales
+    const upsertOk=await upsertSupabaseTable(table,localRows);
+    if(!upsertOk)return false;
+
+    // 2) Suppression ciblée des lignes absentes localement (pas de wipe global).
+    const idsUrl=`${SUPABASE_CONFIG.url}/rest/v1/${table}?select=${idCol}&${idCol}=not.is.null`;
+    const idsRes=await fetchWithTimeout(idsUrl,{headers},10000);
+    if(!idsRes.ok){
+      let body='';
+      try{body=await idsRes.text();}catch{}
+      lastSupabaseSyncError=`${table}: lecture ids ${idsRes.status} ${body||''}`.trim();
+      return false;
+    }
+    const remoteRows=await idsRes.json();
+    const remoteIds=(remoteRows||[]).map(r=>String(r?.[idCol]??'')).filter(Boolean);
+    const localIds=new Set(localRows.map(r=>String(r?.[idCol]??'')).filter(Boolean));
+    const toDelete=remoteIds.filter(id=>!localIds.has(id));
+    if(!toDelete.length){
+      lastSupabaseSyncError='';
+      return true;
+    }
+
+    // Garde-fou: bloquer les suppressions anormalement massives.
+    if(remoteIds.length>=20){
+      const keepRatio=localIds.size/remoteIds.length;
+      if(keepRatio<0.25){
+        lastSupabaseSyncError=`${table}: sync bloquée (suppression massive suspecte évitée)`;
+        return false;
+      }
+    }
+
+    const chunkSize=120;
+    for(let i=0;i<toDelete.length;i+=chunkSize){
+      const chunk=toDelete.slice(i,i+chunkSize).map(v=>encodeURIComponent(v)).join(',');
+      const delUrl=`${SUPABASE_CONFIG.url}/rest/v1/${table}?${idCol}=in.(${chunk})`;
+      const delRes=await fetchWithTimeout(delUrl,{
+        method:'DELETE',
+        headers:{...headers,'Prefer':'return=minimal'}
+      },10000);
+      if(!delRes.ok){
+        let body='';
+        try{body=await delRes.text();}catch{}
+        lastSupabaseSyncError=`${table}: suppression ciblée ${delRes.status} ${body||''}`.trim();
+        return false;
+      }
+    }
+    lastSupabaseSyncError='';
+    return true;
   }catch(e){
-    lastSupabaseSyncError=`${table}: erreur remplacement ${e?.message||e||'inconnue'}`;
+    lastSupabaseSyncError=`${table}: erreur sync sécurisée ${e?.message||e||'inconnue'}`;
     return false;
   }
 }
