@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#E8943A">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -678,9 +678,10 @@ input[type=file]{display:none;}
 <div class="notif-popup" id="notif-panel">
   <div class="notif-popup-header">
     <span class="notif-popup-title">🔔 Notifications</span>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button onclick="markAllNotifsRead()" style="background:none;border:none;color:var(--t3);font-size:10px;cursor:pointer;font-family:inherit">Tout marquer lu</button>
-      <button onclick="toggleNotifPanel()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px">✕</button>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;max-width:62%">
+      <button type="button" onclick="markAllNotifsRead()" style="background:none;border:none;color:rgba(255,255,255,.88);font-size:10px;cursor:pointer;font-family:inherit">Tout marquer lu</button>
+      <button type="button" onclick="clearReadNotifs()" style="background:none;border:none;color:rgba(255,255,255,.88);font-size:10px;cursor:pointer;font-family:inherit">Effacer les lues</button>
+      <button type="button" onclick="toggleNotifPanel()" style="background:none;border:none;color:rgba(255,255,255,.88);cursor:pointer;font-size:16px">✕</button>
     </div>
   </div>
   <div class="notif-popup-body" id="notif-list"><div style="padding:16px;color:var(--t3);font-size:12px;text-align:center">Aucune notification</div></div>
@@ -771,7 +772,7 @@ input[type=file]{display:none;}
   <div class="main">
     <!-- SIDEBAR -->
     <div class="sidebar">
-      <div class="sb-section">
+      <div class="sb-section" id="sb-quotidien">
         <div class="sb-label">Quotidien</div>
         <div class="sb-item active" onclick="showPage('benai')" id="nav-benai"><span class="sb-icon">🤖</span><span class="sb-txt">BenAI IA</span></div>
         <div class="sb-item" onclick="showPage('guide')" id="nav-guide"><span class="sb-icon">📘</span><span class="sb-txt">Guide</span></div>
@@ -781,7 +782,7 @@ input[type=file]{display:none;}
         </div>
         <div class="sb-item" onclick="showPage('notes')" id="nav-notes"><span class="sb-icon">📝</span><span class="sb-txt">Notes</span></div>
       </div>
-      <div class="sb-section">
+      <div class="sb-section" id="sb-metier">
         <div class="sb-label">Métier</div>
         <div class="sb-item" onclick="showPage('sav')" id="nav-sav">
           <span class="sb-icon">🔧</span><span class="sb-txt">SAV</span>
@@ -792,7 +793,7 @@ input[type=file]{display:none;}
           <span class="sb-badge" id="leads-badge" style="display:none"></span>
         </div>
       </div>
-      <div class="sb-section">
+      <div class="sb-section" id="sb-entreprise">
         <div class="sb-label">Entreprise</div>
         <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')"><span class="sb-icon">👥</span><span class="sb-txt">Équipe</span></div>
         <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span><span class="sb-badge-abs" id="abs-badge" style="display:none"></span></div>
@@ -935,15 +936,15 @@ input[type=file]{display:none;}
         </div>
       </div>
 
-      <!-- PAGE ABSENCES (Benjamin only) -->
+      <!-- PAGE ABSENCES (admin : gestion — autres rôles : absences partagées avec eux) -->
       <div id="page-absences" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:8px;flex-shrink:0">
-          <div><div class="page-title">🗓️ Absences & Congés</div><div class="page-sub">Rappels J-7 et la veille</div></div>
-          <div style="display:flex;gap:8px">
-            <button onclick="showAnnuaireTeamTab('annuaire')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">👥 Équipe</button>
-            <button onclick="downloadPlanningAbsences('nemausus')" style="background:var(--a3);border:1px solid var(--a);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--a);font-family:inherit;font-weight:600">📥 Nemausus</button>
-            <button onclick="downloadPlanningAbsences('lambert')" style="background:var(--bl2);border:1px solid var(--bl);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--bl);font-family:inherit;font-weight:600">📥 Lambert</button>
-            <button class="btn-primary" onclick="toggleAbsForm()">+ Nouvelle absence</button>
+          <div><div class="page-title">🗓️ Absences & Congés</div><div class="page-sub" id="abs-page-sub">Rappels J-7 et la veille</div></div>
+          <div class="abs-admin-only" style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" onclick="showAnnuaireTeamTab('annuaire')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">👥 Équipe</button>
+            <button type="button" onclick="downloadPlanningAbsences('nemausus')" style="background:var(--a3);border:1px solid var(--a);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--a);font-family:inherit;font-weight:600">📥 Nemausus</button>
+            <button type="button" onclick="downloadPlanningAbsences('lambert')" style="background:var(--bl2);border:1px solid var(--bl);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--bl);font-family:inherit;font-weight:600">📥 Lambert</button>
+            <button type="button" class="btn-primary" onclick="toggleAbsForm()">+ Nouvelle absence</button>
           </div>
         </div>
         <!-- BARRE TRI + FILTRE -->
@@ -1690,14 +1691,6 @@ loadAppStorageCacheFromSession();
 const BENAI_VERSION = '3.15';
 const GUIDE_REQUIRED_VERSION='3.15';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
-const BENAI_CHANGELOG_NOTES=[
-  'Interface simplifiee et mieux structuree sur desktop/mobile.',
-  'Page Equipe fusionnee (contacts + acces BenAI).',
-  'Tutoriel interactif obligatoire a la premiere connexion et relancable.',
-  'Controle du partage des absences avec les assistantes.',
-  'Creation utilisateur amelioree (mot de passe auto + copie rapide).',
-  'Renforcement securite/sync cloud Supabase (anti-perte + retries).'
-];
 const STORAGE_KEYS = {
   mem:'benai_v3',
   api:'benai_api',
@@ -3198,7 +3191,7 @@ function refreshVisibleDataAfterSupabaseSync(){
   refreshNotifBadge();
   if(document.getElementById('page-sav')?.style.display==='flex')renderSAV();
   if(document.getElementById('page-notes')?.style.display==='flex')renderNotes();
-  if(document.getElementById('page-absences')?.style.display==='flex'){renderAbsences();fillAbsEmpList();}
+  if(document.getElementById('page-absences')?.style.display==='flex'){configureAbsencesPageForRole();renderAbsences();if(currentUser?.role==='admin')fillAbsEmpList();}
   if(document.getElementById('page-annuaire')?.style.display==='flex'){
     if(equipeUITab==='acces'){renderUsersList();renderPwdList();}
     else renderAnnuaire();
@@ -3846,6 +3839,25 @@ function switchToUser(uid){
 function switchSession(){toggleSwitchPanel();}
 
 
+function applySidebarSectionOrderForRole(role){
+  const sidebar=document.querySelector('.sidebar');
+  const q=document.getElementById('sb-quotidien');
+  const m=document.getElementById('sb-metier');
+  const e=document.getElementById('sb-entreprise');
+  if(!sidebar||!q||!m||!e)return;
+  const metierLbl=m.querySelector('.sb-label');
+  if(metierLbl)metierLbl.textContent=CRM_PAGES_ONLY.includes(role)?'CRM':'Métier';
+  if(CRM_PAGES_ONLY.includes(role)){
+    sidebar.append(m);
+    sidebar.append(q);
+    sidebar.append(e);
+  }else{
+    sidebar.append(q);
+    sidebar.append(m);
+    sidebar.append(e);
+  }
+}
+
 function initApp(silent=false){
   const u=currentUser;
   hydrateRuntimeFromSession(u?.id);
@@ -3889,10 +3901,11 @@ function initApp(silent=false){
     const navL=document.getElementById('nav-leads');
     if(navL)navL.style.display='flex';
   }
+  applySidebarSectionOrderForRole(u.role);
 
-  // Bouton correction : auto pour Benjamin, manuel pour les autres
+  // Bouton correction orthographe (IA) — ordinateur / large fenêtre uniquement
   const btnCorrect=document.getElementById('btn-correct');
-  if(btnCorrect)btnCorrect.style.display='inline-flex';
+  if(btnCorrect)btnCorrect.style.display=isBenAIDesktopAutocorrect()?'inline-flex':'none';
 
   // Page d'accueil selon rôle
   const homePage=CRM_PAGES_ONLY.includes(u.role)?'leads':'benai';
@@ -3909,11 +3922,14 @@ function initApp(silent=false){
       addAIMsg(`${sal} **${u.name}** 👋\n\nJe suis BenAI v${BENAI_VERSION}, votre assistant.\n\n⚠️ Je propose toujours — vous décidez toujours.\n\nComment puis-je vous aider ?`);
     }
   }
-  // Vérifier rappels absences pour tous les utilisateurs
+  // Vérifier rappels absences (admin : flux historique Benjamin + CRM si absences partagées)
   if(u.role==='admin'){
     checkAbsenceReminders();
     refreshAdmin();
   } else if(!CRM_PAGES_ONLY.includes(u.role)){
+    checkAbsenceRemindersForUser(u.id);
+  }
+  if(CRM_PAGES_ONLY.includes(u.role)&&(ROLE_PAGES[u.role]||[]).includes('absences')){
     checkAbsenceRemindersForUser(u.id);
   }
   refreshSAVBadge();
@@ -3928,6 +3944,7 @@ function initApp(silent=false){
   buildEmojiPicker();
   startPolling();
   refreshAbsBadge();
+  if(allowed.includes('absences'))configureAbsencesPageForRole();
   refreshNotifBadge();
   requestNotifPermission();
   // Motivations automatiques pour commerciaux
@@ -3950,7 +3967,7 @@ function showPage(page){
   if(currentUser&&shouldForceRoleGuide()&&page!=='guide'){
     page='guide';
   }
-  const adminOnly=['admin','absences','annuaire','paie'];
+  const adminOnly=['admin','annuaire','paie'];
   if(adminOnly.includes(page)&&currentUser?.role!=='admin'){showPage('leads');return;}
   // Vérifier accès selon rôle
   const allowed=ROLE_PAGES[currentUser?.role]||ROLE_PAGES['assistante'];
@@ -3979,7 +3996,7 @@ function showPage(page){
     showPageContext('messages');
   }
   if(page==='notes')renderNotes();
-  if(page==='absences'){renderAbsences();fillAbsEmpList();}
+  if(page==='absences'){configureAbsencesPageForRole();renderAbsences();if(currentUser?.role==='admin')fillAbsEmpList();}
   if(page==='evolution')renderEvolution();
   if(page==='guide')renderGuidePage();
   if(page==='annuaire')initEquipePage();
@@ -4021,8 +4038,8 @@ async function sendChat(txtOverride){
   if(!txtOverride){input.value='';input.style.height='auto';}
   busy=true;document.getElementById('btn-send').disabled=true;
 
-  // Correction auto avant envoi (tous utilisateurs)
-  if(!txtOverride){
+  // Correction auto avant envoi (ordinateur / large fenêtre uniquement)
+  if(!txtOverride&&isBenAIDesktopAutocorrect()){
     const apiKey=getApiKey();
     if(apiKey){
       try{
@@ -4173,6 +4190,7 @@ ${lostTxt}
 
 // CORRIGER ORTHOGRAPHE
 async function correctSpelling(){
+  if(!isBenAIDesktopAutocorrect())return;
   const input=document.getElementById('chat-input');
   const txt=input.value.trim();
   if(!txt)return;
@@ -4209,6 +4227,7 @@ function getSmartReminders(){
 
 // AUTO-CORRECTION BENJAMIN
 async function autoCorrectForBenjamin(txt,msgEl){
+  if(!isBenAIDesktopAutocorrect())return;
   const apiKey=getApiKey();if(!apiKey||!msgEl)return;
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{
@@ -4915,6 +4934,7 @@ function finalizeNoteOnBlur(id,el){
 }
 
 async function correctNoteSpelling(id,el){
+  if(!isBenAIDesktopAutocorrect())return;
   const txt=el.value.trim();
   if(!txt||txt.split(' ').length<3)return;
   const apiKey=getApiKey();if(!apiKey)return;
@@ -4951,6 +4971,7 @@ function deleteNote(id){
 // ABSENCES (Benjamin uniquement)
 // ══════════════════════════════════════════
 function toggleAbsForm(){
+  if(currentUser?.role!=='admin')return;
   const wrap=document.getElementById('abs-form-wrap');
   if(!wrap)return;
   const open=wrap.style.display==='none';
@@ -4970,6 +4991,22 @@ function getAssistanteUserIds(){
 }
 function absenceIdEq(a,b){
   return String(a)===String(b);
+}
+function absenceNotifsIncludeUser(absence,uid){
+  if(!uid||!absence)return false;
+  const list=Array.isArray(absence.notifs)&&absence.notifs.length?absence.notifs:['benjamin'];
+  const u=String(uid).trim();
+  return list.some(n=>String(n).trim()===u);
+}
+function configureAbsencesPageForRole(){
+  const isAd=currentUser?.role==='admin';
+  document.querySelectorAll('#page-absences .abs-admin-only').forEach(el=>{
+    el.style.display=isAd?'flex':'none';
+  });
+  const sub=document.getElementById('abs-page-sub');
+  if(sub)sub.textContent=isAd?'Rappels J-7 et la veille':'Absences partagées avec vous (rappels aussi dans BenAI IA)';
+  const wrap=document.getElementById('abs-form-wrap');
+  if(wrap&&!isAd)wrap.style.display='none';
 }
 function buildAbsenceNotifsArray(){
   let notifs=[...document.querySelectorAll('.abs-notif-cb:checked')].map(cb=>cb.dataset.uid);
@@ -5017,6 +5054,7 @@ function resetAbsenceFormForCreate(){
 }
 
 function addAbsence(){
+  if(currentUser?.role!=='admin')return;
   const emp=document.getElementById('abs-emp-select')?.value||'';
   const debut=document.getElementById('abs-debut').value;
   const fin=document.getElementById('abs-fin').value;
@@ -5051,6 +5089,7 @@ function addAbsence(){
 }
 
 function deleteAbsence(id){
+  if(currentUser?.role!=='admin')return;
   if(!confirm('Supprimer cette absence ?'))return;
   const mem=getMem();
   const abs=(mem.absences||[]).find(a=>absenceIdEq(a.id,id));
@@ -5062,6 +5101,7 @@ function deleteAbsence(id){
 }
 
 function editAbsence(id){
+  if(currentUser?.role!=='admin')return;
   const mem=getMem();const a=(mem.absences||[]).find(x=>absenceIdEq(x.id,id));if(!a)return;
   fillAbsEmpList({selectedEmp:a.employe||'',selectedNotifs:Array.isArray(a.notifs)?a.notifs:null});
   const sel=document.getElementById('abs-emp-select');
@@ -5078,6 +5118,7 @@ function editAbsence(id){
 }
 
 function saveEditAbsence(id){
+  if(currentUser?.role!=='admin')return;
   const emp=document.getElementById('abs-emp-select')?.value||'';
   const debut=document.getElementById('abs-debut').value;
   const fin=document.getElementById('abs-fin').value;
@@ -5111,17 +5152,28 @@ function setAbsSort(mode,btn){
 function refreshAbsEmpFilter(){
   const sel=document.getElementById('abs-filter-emp');if(!sel)return;
   const mem=getMem();
-  const emps=[...new Set((mem.absences||[]).filter(a=>!a._deleted).map(a=>a.employe))].sort((a,b)=>a.localeCompare(b,'fr'));
+  const uid=currentUser?.id||'';
+  const isAd=currentUser?.role==='admin';
+  const pool=(mem.absences||[]).filter(a=>!a._deleted&&(isAd||absenceNotifsIncludeUser(a,uid)));
+  const emps=[...new Set(pool.map(a=>a.employe))].sort((a,b)=>a.localeCompare(b,'fr'));
   const cur=sel.value;
   sel.innerHTML='<option value="">Tous les employés</option>'+emps.map(e=>`<option value="${esc(e)}"${cur===e?' selected':''}>${esc(e)}</option>`).join('');
 }
 
 function renderAbsences(){
   const mem=getMem();const list=document.getElementById('abs-list');
+  const isAbsAdmin=currentUser?.role==='admin';
   refreshAbsEmpFilter();
   const filterEmp=(document.getElementById('abs-filter-emp')?.value||'').trim();
   let absences=(mem.absences||[]).filter(a=>!a._deleted&&(!filterEmp||a.employe===filterEmp));
-  if(!absences.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune absence enregistrée</div>';return;}
+  if(!isAbsAdmin){
+    const uid=currentUser?.id||'';
+    absences=absences.filter(a=>absenceNotifsIncludeUser(a,uid));
+  }
+  if(!absences.length){
+    list.innerHTML=`<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">${isAbsAdmin?'Aucune absence enregistrée':'Aucune absence partagée avec vous pour l’instant'}</div>`;
+    return;
+  }
   const today=new Date();today.setHours(0,0,0,0);
 
   const getStatus=(a)=>{
@@ -5144,6 +5196,8 @@ function renderAbsences(){
       :a.type==='Accident du travail'?'🚑'
       :a.type==='Formation'?'📚'
       :'🗓️';
+    const actions=isAbsAdmin?`<button type="button" onclick='editAbsence(${jsId})' style="background:none;border:none;color:var(--a);cursor:pointer;font-size:16px;padding:2px" title="Modifier">✏️</button>
+      <button type="button" onclick='deleteAbsence(${jsId})' style="background:none;border:none;color:var(--r);cursor:pointer;font-size:16px;padding:2px" title="Supprimer">🗑️</button>`:'';
     return `<div style="padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--b1)">
       <span style="font-size:18px">${icon}</span>
       <div style="flex:1">
@@ -5152,8 +5206,7 @@ function renderAbsences(){
         ${a.note?`<div style="font-size:10px;color:var(--t3)">${esc(a.note)}</div>`:''}
       </div>
       <span class="absence-status ${statusClass}" style="font-size:10px">${status}</span>
-      <button onclick='editAbsence(${jsId})' style="background:none;border:none;color:var(--a);cursor:pointer;font-size:16px;padding:2px" title="Modifier">✏️</button>
-      <button onclick='deleteAbsence(${jsId})' style="background:none;border:none;color:var(--r);cursor:pointer;font-size:16px;padding:2px" title="Supprimer">🗑️</button>
+      ${actions}
     </div>`;
   };
 
@@ -5207,8 +5260,7 @@ function _checkRemindersFor(uid){
   if(appStorage.getItem(seenKey)==='1')return;
   const reminders=[];
   absences.forEach(a=>{
-    const notifs=a.notifs||['benjamin'];
-    if(!notifs.includes(uid))return;
+    if(!absenceNotifsIncludeUser(a,uid))return;
     const debut=new Date(a.debut);debut.setHours(0,0,0,0);
     const diff=Math.ceil((debut-today)/(1000*60*60*24));
     if(diff===7)reminders.push(`📅 Dans 7 jours : **${a.employe}** absent(e) — ${a.type} (du ${formatDate(a.debut)} au ${formatDate(a.fin)})`);
@@ -5412,6 +5464,7 @@ function fillAbsEmpList(opts={}){
 
 // PLANNING ABSENCES - téléchargement CSV
 function downloadPlanningAbsences(societe){
+  if(currentUser?.role!=='admin')return;
   const mem=getMem();
   const absences=(mem.absences||[]).filter(a=>!a._deleted).sort((a,b)=>new Date(a.debut)-new Date(b.debut));
   if(!absences.length){alert('Aucune absence enregistrée');return;}
@@ -5916,10 +5969,6 @@ function renderGuidePage(){
     <div class="sav-form" style="margin-bottom:10px">
       <div style="font-size:14px;font-weight:700;margin-bottom:8px">👤 Guide ${esc(roleTitle)}</div>
       ${actions.map((a,i)=>`<div style="font-size:13px;color:var(--t2);line-height:1.7;margin-bottom:6px">${i+1}. ${esc(a)}</div>`).join('')}
-    </div>
-    <div class="sav-form" style="margin-bottom:10px">
-      <div style="font-size:14px;font-weight:700;margin-bottom:8px">🆕 Dernieres evolutions</div>
-      ${BENAI_CHANGELOG_NOTES.map(t=>`<div style="font-size:13px;color:var(--t2);line-height:1.7;margin-bottom:6px">• ${esc(t)}</div>`).join('')}
     </div>
     <div class="sav-form">
       <div style="font-size:14px;font-weight:700;margin-bottom:8px">✅ Bonnes pratiques</div>
@@ -7119,10 +7168,10 @@ const CRM_ROLES=['directeur_co','commercial'];
 const CRM_PAGES_ONLY=['directeur_co','commercial'];
 const ROLE_PAGES={
   admin:['benai','notes','messages','sav','leads','absences','annuaire','paie','admin','evolution','guide','bugs'],
-  assistante:['benai','notes','messages','sav','leads','evolution','guide','bugs'],
-  metreur:['benai','notes','messages','evolution','guide','bugs'],
-  directeur_co:['leads','messages','guide','bugs'],
-  commercial:['leads','messages','guide','bugs']
+  assistante:['benai','notes','messages','sav','leads','absences','evolution','guide','bugs'],
+  metreur:['benai','notes','messages','absences','evolution','guide','bugs'],
+  directeur_co:['leads','messages','absences','guide','bugs'],
+  commercial:['leads','messages','absences','guide','bugs']
 };
 
 function getLeads(){
@@ -9722,6 +9771,16 @@ function disableBrowserNotifications(reason=''){
   }
 }
 
+/** Notifications OS du navigateur (hors onglet) : désactivées sur téléphone / petite fenêtre — l’app garde la cloche in-app. */
+function shouldUseBrowserOSNotifications(){
+  if(isBrowserNotificationDisabled())return false;
+  try{
+    if(window.matchMedia('(max-width: 768px)').matches)return false;
+  }catch{}
+  if(/iphone|ipad|ipod|android|mobile/i.test((navigator.userAgent||'').toLowerCase()))return false;
+  return true;
+}
+
 function pushNotif(titre,msg,icon='🔔',uid){
   // uid = destinataire (si vide = utilisateur courant)
   const target=uid||currentUser?.id||'?';
@@ -9746,8 +9805,8 @@ function pushNotif(titre,msg,icon='🔔',uid){
       appStorage.setItem(dedupeKey,JSON.stringify({sig:notifSignature,ts:now}));
     }
   }catch(e){}
-  // Notification navigateur si autorisée
-  if(allowInsert&&!isBrowserNotificationDisabled()&&'Notification' in window&&target===currentUser?.id){
+  // Notification navigateur (OS) — ordinateur uniquement ; sur téléphone : centre in-app uniquement
+  if(allowInsert&&shouldUseBrowserOSNotifications()&&'Notification' in window&&target===currentUser?.id){
     const BrowserNotif=window.Notification;
     if(BrowserNotif&&BrowserNotif.permission==='granted'){
       try{
@@ -9824,8 +9883,21 @@ function markAllNotifsRead(){
   renderNotifList();
 }
 
+function clearReadNotifs(){
+  const notifs=getNotifs();
+  const kept=notifs.filter(n=>!n.read);
+  if(kept.length===notifs.length){
+    showDriveNotif('ℹ️ Aucune notification déjà lue à effacer');
+    return;
+  }
+  saveNotifs(kept);
+  refreshNotifBadge();
+  renderNotifList();
+}
+
 function requestNotifPermission(){
   if(isBrowserNotificationDisabled())return;
+  if(!shouldUseBrowserOSNotifications())return;
   const BrowserNotif=window.Notification;
   if(BrowserNotif&&BrowserNotif.permission==='default'){
     try{BrowserNotif.requestPermission();}catch(e){}
@@ -9838,9 +9910,12 @@ function requestNotifPermission(){
 function refreshAbsBadge(){
   const badge=document.getElementById('abs-badge');if(!badge)return;
   const mem=getMem();
+  const isAd=currentUser?.role==='admin';
+  const uid=currentUser?.id||'';
   const today=new Date();today.setHours(0,0,0,0);
   const upcoming=(mem.absences||[]).filter(a=>{
     if(a._deleted)return false;
+    if(!isAd&&!absenceNotifsIncludeUser(a,uid))return false;
     const debut=new Date(a.debut);debut.setHours(0,0,0,0);
     const fin=new Date(a.fin);fin.setHours(0,0,0,0);
     const diff=Math.ceil((debut-today)/(1000*60*60*24));
@@ -9983,8 +10058,6 @@ async function checkUpdate(){
       if(data.notes_assistante&&(role==='assistante'||role==='metreur'))notes=notes.concat(data.notes_assistante);
       // Fallback si pas de notes filtrées
       if(!notes.length)notes=Array.isArray(data.notes)?data.notes:[data.notes||'Améliorations et corrections'];
-      const localNotes=BENAI_CHANGELOG_NOTES.slice(0,4);
-      notes=[...new Set([...notes,...localNotes])];
       document.getElementById('update-version').textContent='Mise à jour BenAI prête';
       const notesList=document.getElementById('update-notes');
       notesList.innerHTML=notes.map(n=>'<li>✅ '+esc(n)+'</li>').join('');
@@ -10013,6 +10086,9 @@ function isNewerVersion(remote,current){
 // ══════════════════════════════════════════
 // ✏️ CORRECTION AUTOMATIQUE PARTOUT
 // ══════════════════════════════════════════
+function isBenAIDesktopAutocorrect(){
+  try{return window.matchMedia('(min-width: 769px)').matches;}catch{return false;}
+}
 function enableSpellcheckEverywhere(){
   const isPhone=/iphone|ipad|ipod|android|mobile/i.test((navigator.userAgent||'').toLowerCase());
   document.querySelectorAll('input[type="text"],input[type="search"],textarea').forEach(el=>{
@@ -10042,6 +10118,17 @@ function enableSpellcheckEverywhere(){
   }).observe(document.body,{childList:true,subtree:true});
 }
 
+try{
+  const _mqDesk=window.matchMedia('(min-width: 769px)');
+  const _syncCorrectBtn=()=>{
+    const btn=document.getElementById('btn-correct');
+    if(btn&&document.getElementById('app')?.classList.contains('visible')){
+      btn.style.display=_mqDesk.matches?'inline-flex':'none';
+    }
+  };
+  if(_mqDesk.addEventListener)_mqDesk.addEventListener('change',_syncCorrectBtn);
+  else if(_mqDesk.addListener)_mqDesk.addListener(_syncCorrectBtn);
+}catch(e){}
 
 const TUTO_SLIDES_BY_ROLE={
   commercial:[
