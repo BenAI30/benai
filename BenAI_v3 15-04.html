@@ -7269,7 +7269,14 @@ function saveLead(){
         // Notifier le commercial
         pushNotif('Lead attribué',`${nom} — ${projet}`,LEAD_SOURCE_ICONS[data.source]||'📋',data.commercial);
       }
-      const updatedLead={...old,...data,id:currentLeadId,date_creation:old.date_creation,date_modification:now};
+      const updatedLead={
+        ...old,
+        ...data,
+        id:currentLeadId,
+        date_creation:old.date_creation,
+        date_modification:now,
+        societe_crm:resolveLeadSocieteBySecteur(data.secteur,old.societe_crm||getSocieteFromUser(currentUser.id))
+      };
       leads[idx]=updatedLead;
       if(activeCRMTabId==='non-attribues'&&!isLeadInNonAttribQueue(updatedLead)){
         movedOutOfNonAttrib=true;
@@ -7279,7 +7286,7 @@ function saveLead(){
     logActivity(`${currentUser.name} a mis à jour : ${nom}`);
   } else {
     // Nouveau lead
-    const societe=getSocieteFromUser(currentUser.id);
+    const societe=resolveLeadSocieteBySecteur(data.secteur,getSocieteFromUser(currentUser.id));
     let autoCommercial=data.commercial||null;
     if(!autoCommercial&&!hasDirecteurCommercial()){
       autoCommercial=getRoundRobinCommercial(societe);
@@ -7415,6 +7422,12 @@ const CRM_SECTOR_CP_MAP={
 const CRM_SECTOR_SETS=Object.fromEntries(Object.entries(CRM_SECTOR_CP_MAP).map(([k,v])=>[k,new Set(v)]));
 const CRM_SECTOR_LABELS={nimes:'Nîmes',avignon:'Avignon',bagnoles:'Bagnols-sur-Cèze',zone_blanche:'Zone blanche'};
 const CRM_SECTOR_OWNERS={nimes:'nemausus',avignon:'nemausus',bagnoles:'lambert',zone_blanche:'zone_blanche'};
+function resolveLeadSocieteBySecteur(secteur,fallbackSociete='nemausus'){
+  if(secteur==='bagnoles')return 'lambert';
+  if(secteur==='nimes'||secteur==='avignon')return 'nemausus';
+  if(fallbackSociete==='lambert'||fallbackSociete==='nemausus')return fallbackSociete;
+  return 'nemausus';
+}
 
 function normalizeLeadCP(raw){
   const digits=String(raw||'').replace(/\D/g,'');
