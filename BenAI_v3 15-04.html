@@ -8795,13 +8795,37 @@ function runAutoBugDetectors(){
     reportAutoBug('CRM Leads',`Détecteur CRM en erreur: ${e?.message||'erreur inconnue'}`,'mineur');
   }
 }
+function resolveNotificationConstructorAutoBugs(){
+  const bugs=getBugs();
+  let changed=false;
+  const nowStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  bugs.forEach(b=>{
+    const txt=String(b?.desc||'').toLowerCase();
+    if(b?.statut==='ouvert'&&/failed to construct ['"]?notification['"]?|illegal constructor|serviceworkerregistration\.shownotification/.test(txt)){
+      b.statut='resolu';
+      b.reponse='Erreur navigateur connue. Notifications OS désactivées automatiquement pour éviter le spam.';
+      b.date_resolution=nowStr;
+      changed=true;
+    }
+  });
+  if(!changed)return false;
+  saveBugs(bugs);
+  refreshBugsBadge();
+  return true;
+}
 function setupAutomaticBugHooks(){
   if(window.__benaiAutoBugHooksReady)return;
   window.__benaiAutoBugHooksReady=true;
+  resolveNotificationConstructorAutoBugs();
   window.addEventListener('error',evt=>{
     const msg=String(evt?.message||'Erreur JS inconnue');
     // Filtrer quelques bruits navigateur fréquents.
     if(/resizeobserver loop limit exceeded/i.test(msg))return;
+    if(/failed to construct ['"]?notification['"]?|illegal constructor|serviceworkerregistration\.shownotification/i.test(msg)){
+      disableBrowserNotifications(msg);
+      resolveNotificationConstructorAutoBugs();
+      return;
+    }
     const src=evt?.filename?` (${evt.filename.split('/').pop()}:${evt.lineno||0})`:'';
     reportAutoBug('BenAI IA',`Erreur JavaScript: ${msg}${src}`,'bloquant');
   });
@@ -9513,6 +9537,15 @@ function toggleAccordion(id){
 // ══════════════════════════════════════════
 function getNotifs(){try{return JSON.parse(appStorage.getItem('benai_notifs_'+( currentUser?.id||'?')))||[];}catch{return[];}}
 function saveNotifs(n){appStorage.setItem('benai_notifs_'+(currentUser?.id||'?'),JSON.stringify(n));}
+function isBrowserNotificationDisabled(){
+  return appStorage.getItem('benai_notif_browser_disabled')==='1';
+}
+function disableBrowserNotifications(reason=''){
+  appStorage.setItem('benai_notif_browser_disabled','1');
+  if(reason){
+    try{console.warn('[BenAI] Notifications navigateur désactivées:',reason);}catch(e){}
+  }
+}
 
 function pushNotif(titre,msg,icon='🔔',uid){
   // uid = destinataire (si vide = utilisateur courant)
@@ -9539,13 +9572,18 @@ function pushNotif(titre,msg,icon='🔔',uid){
     }
   }catch(e){}
   // Notification navigateur si autorisée
-  if(allowInsert&&'Notification' in window&&target===currentUser?.id){
+  if(allowInsert&&!isBrowserNotificationDisabled()&&'Notification' in window&&target===currentUser?.id){
     const BrowserNotif=window.Notification;
     if(BrowserNotif&&BrowserNotif.permission==='granted'){
       try{
         new BrowserNotif('BenAI — '+titre,{body:msg,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="%23E8943A"/><text x="16" y="22" text-anchor="middle" font-size="18" fill="white">B</text></svg>'});
       }catch(e){
-        reportAutoBug('Notifications',`Erreur JavaScript: ${e?.message||e}`,'mineur');
+        const errTxt=String(e?.message||e||'');
+        if(/failed to construct ['"]?notification['"]?|illegal constructor|serviceworkerregistration\.shownotification/i.test(errTxt)){
+          disableBrowserNotifications(errTxt);
+        }else{
+          reportAutoBug('Notifications',`Erreur JavaScript: ${errTxt}`,'mineur');
+        }
       }
     }
   }
@@ -9612,6 +9650,7 @@ function markAllNotifsRead(){
 }
 
 function requestNotifPermission(){
+  if(isBrowserNotificationDisabled())return;
   const BrowserNotif=window.Notification;
   if(BrowserNotif&&BrowserNotif.permission==='default'){
     try{BrowserNotif.requestPermission();}catch(e){}
