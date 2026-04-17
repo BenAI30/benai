@@ -1716,6 +1716,7 @@ const SUPABASE_CONFIG = {
 };
 let supabaseClient=null;
 let currentSupabaseSession=null;
+let currentAuthMode='unknown';
 let runtimeMemState={sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};
 let runtimeLeadsState=[];
 const LEAD_SOURCE_DEFS=[
@@ -1838,11 +1839,25 @@ async function ensureSupabaseSession(){
   try{
     const {data}=await client.auth.getSession();
     currentSupabaseSession=data?.session||null;
+    if(currentSupabaseSession?.access_token){
+      currentAuthMode='supabase';
+      return currentSupabaseSession;
+    }
+    // Récupération douce: retente un refresh si un token est présent en storage navigateur.
+    const refreshed=await client.auth.refreshSession();
+    currentSupabaseSession=refreshed?.data?.session||null;
+    if(currentSupabaseSession?.access_token)currentAuthMode='supabase';
     return currentSupabaseSession;
   }catch(e){
     currentSupabaseSession=null;
     return null;
   }
+}
+function shouldMonitorSupabaseSession(){
+  if(!SUPABASE_CONFIG.enabled)return false;
+  if(isSwitchPreviewSession())return false;
+  if(currentAuthMode==='supabase')return true;
+  return !!currentSupabaseSession?.access_token;
 }
 
 async function persistAppStorageToSupabaseNow(uid=currentUser?.id,snapshot=null){
@@ -2021,6 +2036,7 @@ async function trySupabaseLogin(uid,pwd,rawLogin=''){
       return {ok:false,reason:error?.message||'invalid_credentials'};
     }
     currentSupabaseSession=data.session;
+    currentAuthMode='supabase';
     const profile=await fetchSupabaseProfile(data.session.access_token,data.session.user?.id||'');
     if(!profile)return {ok:false,reason:'profile_missing'};
     const user=makeUserFromSupabaseProfile(profile,email);
@@ -2040,6 +2056,7 @@ async function trySupabaseSessionFromLocalCredentials(uid,pwd){
     const {data,error}=await signInWithPasswordRetry(client,email,pwd,2);
     if(error||!data?.session)return {ok:false,reason:error?.message||'invalid_credentials'};
     currentSupabaseSession=data.session;
+    currentAuthMode='supabase';
     return {ok:true};
   }catch(e){
     return {ok:false,reason:'network'};
@@ -2404,6 +2421,11 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser){
     lastSupabaseSyncError='Supabase désactivé ou utilisateur non connecté.';
     return false;
+  }
+  // En mode local (sans session Supabase attendue), ne pas polluer avec des faux échecs de sync.
+  if(!shouldMonitorSupabaseSession()){
+    lastSupabaseSyncError='';
+    return true;
   }
   const session=await ensureSupabaseSession();
   if(!session?.access_token){
@@ -3049,6 +3071,12 @@ async function login(){
   resetLoginAttempts();
   currentUser={id:resolvedUid,...(USERS[resolvedUid]||getExtraUserById(resolvedUid))};
   const supabaseBootstrap=await trySupabaseSessionFromLocalCredentials(resolvedUid,pwd);
+  if(!supabaseBootstrap.ok){
+    currentAuthMode='local';
+    lastSupabaseSyncError='';
+    supabaseSyncFailStreak=0;
+    supabaseRetryDelayMs=2000;
+  }
   await hydrateAppStorageFromSupabase(currentUser.id);
   // Log connexion
   logConnexion(resolvedUid);
@@ -3171,6 +3199,7 @@ async function logout(){
   const client=getSupabaseClient();
   if(client)client.auth.signOut().catch(()=>{});
   currentSupabaseSession=null;
+  currentAuthMode='unknown';
   currentUser=null;chatHistory=[];currentConv=null;
   if(rememberedLogin)rememberLoginId(rememberedLogin);
   ['nav-admin','nav-absences','nav-annuaire','nav-paie'].forEach(id=>{
@@ -6407,28 +6436,84 @@ let currentLeadStatut='gris';
 let currentLeadSource='MAG';
 let currentCRMView='list';
 
+function getRdvDayKey(entry){
+  if(!entry)return '';
+  const raw=String(entry.date||entry.ts||'').trim();
+  if(!raw)return '';
+  if(/^\d{4}-\d{2}-\d{2}/.test(raw))return raw.slice(0,10);
+  const d=new Date(raw);
+  if(isNaN(d))return '';
+  return d.toISOString().slice(0,10);
+}
+function getUniqueRdvDays(lead){
+  const entries=Array.isArray(lead?.rdv_history)?lead.rdv_history:[];
+  const days=new Set();
+  entries.forEach(e=>{
+    const key=getRdvDayKey(e);
+    if(key)days.add(key);
+  });
+  if(days.size===0&&lead?.date_rdv_fait){
+    const fallback=getRdvDayKey({date:lead.date_rdv_fait});
+    if(fallback)days.add(fallback);
+  }
+  return days;
+}
+function normalizeLeadPhoneForIdentity(value){
+  return String(value||'').replace(/\D+/g,'').trim();
+}
+function getLeadClientIdentityKey(lead){
+  if(!lead)return '';
+  const strict=getLeadIdentityKey(lead.nom,lead.adresse,lead.cp);
+  if(strict)return strict;
+  const nameKey=normalizeLeadIdentityText(lead.nom);
+  const phoneKey=normalizeLeadPhoneForIdentity(lead.telephone);
+  if(nameKey&&phoneKey)return `${nameKey}::tel::${phoneKey}`;
+  return '';
+}
+function getRelatedClientLeads(targetLead,list){
+  if(!targetLead)return [];
+  const leads=Array.isArray(list)?list:getLeads();
+  const key=getLeadClientIdentityKey(targetLead);
+  if(!key)return [targetLead];
+  return leads.filter(l=>getLeadClientIdentityKey(l)===key);
+}
+function getClientUniqueRdvDays(targetLead,list){
+  const days=new Set();
+  const related=getRelatedClientLeads(targetLead,list);
+  related.forEach(lead=>{
+    getUniqueRdvDays(lead).forEach(day=>days.add(day));
+  });
+  return days;
+}
+function getClientRdvDoneCount(targetLead,list){
+  if(!targetLead)return 0;
+  return getClientUniqueRdvDays(targetLead,list).size;
+}
+
 function getLeadRdvDoneCount(lead){
   if(!lead)return 0;
-  if(Array.isArray(lead.rdv_history)&&lead.rdv_history.length>0)return lead.rdv_history.length;
-  return lead.date_rdv_fait?1:0;
+  return getUniqueRdvDays(lead).size;
 }
 function getLeadRdvDoneMonthCount(lead,refDate=new Date()){
   if(!lead)return 0;
   const entries=Array.isArray(lead.rdv_history)?lead.rdv_history:[];
-  if(!entries.length)return 0;
+  if(!entries.length&& !lead.date_rdv_fait)return 0;
   const m=refDate.getMonth();
   const y=refDate.getFullYear();
-  return entries.filter(e=>{
-    const d=new Date(e.date||e.ts||0);
-    return !isNaN(d)&&d.getMonth()===m&&d.getFullYear()===y;
-  }).length;
+  const uniqueDays=getUniqueRdvDays(lead);
+  let count=0;
+  uniqueDays.forEach(day=>{
+    const d=new Date(day+'T00:00:00');
+    if(!isNaN(d)&&d.getMonth()===m&&d.getFullYear()===y)count++;
+  });
+  return count;
 }
 function registerLeadRdvDone(lead,source='manuel',dateISO=''){
   if(!lead)return false;
   if(!lead.rdv_history)lead.rdv_history=[];
   const iso=dateISO||new Date().toISOString();
-  const keyDate=String(iso).slice(0,10);
-  const already=lead.rdv_history.some(e=>String(e.date||'').slice(0,10)===keyDate&&e.source===source);
+  const keyDate=getRdvDayKey({date:iso});
+  const already=getClientUniqueRdvDays(lead).has(keyDate);
   if(already)return false;
   lead.rdv_history.push({date:iso,source,user:currentUser?.name||'BenAI'});
   return true;
@@ -6754,6 +6839,7 @@ function renderLeadCard(l,role){
   const vuInfo=vuBy?(l.vu_date?`<span class="lead-vu">👁️ ${l.vu_date}</span>`:`<span class="lead-non-vu">👁️ Jamais ouvert</span>`):'';
   const dernAction=l.timeline?.length?l.timeline[l.timeline.length-1]:null;
   const rdvDone=getLeadRdvDoneCount(l);
+  const rdvClientDone=getClientRdvDoneCount(l);
   const dernContact=dernAction?`<div style="font-size:10px;color:var(--t2);margin-top:3px">🕐 ${dernAction.date} — ${esc(dernAction.action)}</div>`:'';
   return `<div class="lead-card statut-${l.statut}${alerte?' alerte24':''}${l.archive?';opacity:.6':''}" onclick="openLead(${l.id})" style="position:relative">
     ${alerte?'<div class="lead-alerte" style="position:absolute;top:10px;right:10px">⏰ Alerte</div>':''}
@@ -6768,7 +6854,8 @@ function renderLeadCard(l,role){
       <span class="lead-statut ${statCls}">${statLabel}</span>
       <span class="lead-secteur">${secteurLabel}</span>
       ${comm?`<span class="lead-commercial">${esc(comm.name)}</span>`:''}
-      ${rdvDone>0?`<span style="background:var(--g2);color:var(--g);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">📅 ${rdvDone} RDV fait(s)</span>`:''}
+      ${rdvClientDone>0?`<span style="background:var(--g2);color:var(--g);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">📅 ${rdvClientDone} RDV client</span>`:''}
+      ${rdvDone>0&&rdvDone!==rdvClientDone?`<span style="background:var(--s3);color:var(--t2);padding:2px 7px;border-radius:10px;font-size:10px">fiche: ${rdvDone}</span>`:''}
       ${vuInfo}
       <span style="margin-left:auto;display:flex;gap:4px" onclick="event.stopPropagation()">${makeLeadCallLink(l.id,l.telephone)}${makeGPSLink(l.adresse,l.ville,l.cp)}</span>
     </div>
@@ -7127,10 +7214,13 @@ function openLead(id){
     saveLeads(leads);
   }
   document.getElementById('modal-lead-nom').textContent=l.nom;
+  const rdvLeadCount=getLeadRdvDoneCount(l);
+  const rdvClientCount=getClientRdvDoneCount(l);
   document.getElementById('modal-lead-sub').innerHTML=`
     <span class="lead-secteur">${getLeadSecteurLabel(l.secteur)}</span>
     <span>${getLeadAge(l)}</span>
-    <span style="color:var(--g)">📅 ${getLeadRdvDoneCount(l)} RDV fait(s)</span>
+    <span style="color:var(--g)">📅 ${rdvClientCount} RDV chez ce client</span>
+    ${rdvLeadCount!==rdvClientCount?`<span style="color:var(--t2)">Fiche actuelle: ${rdvLeadCount}</span>`:''}
     ${l.vu_date?`<span class="lead-vu">👁️ Vu le ${l.vu_date}</span>`:(role==='admin'||role==='directeur_co')?'<span class="lead-non-vu">👁️ Non ouvert</span>':''}
   `;
   resetLeadForm();
@@ -8086,9 +8176,11 @@ function setupSafeSelfHealing(){
     }
     // Si Supabase est activé mais session manquante, tenter une récupération douce.
     if(SUPABASE_CONFIG.enabled){
-      const sess=await ensureSupabaseSession();
-      if(!sess?.access_token){
+      if(shouldMonitorSupabaseSession()){
+        const sess=await ensureSupabaseSession();
+        if(!sess?.access_token){
         reportAutoBug('BenAI IA','Session Supabase absente malgré auto-récupération.','important',{autoFixed:false});
+        }
       }
     }
   },60000);
@@ -8937,6 +9029,7 @@ window.addEventListener('load',async()=>{
       const {data}=await client.auth.getSession();
       currentSupabaseSession=data?.session||null;
       if(currentSupabaseSession?.access_token){
+        currentAuthMode='supabase';
         const profile=await fetchSupabaseProfile(currentSupabaseSession.access_token,currentSupabaseSession.user?.id||'');
         const user=makeUserFromSupabaseProfile(profile,currentSupabaseSession.user?.email||'');
         if(user){
