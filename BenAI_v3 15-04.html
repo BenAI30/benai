@@ -3341,6 +3341,17 @@ function normalizeId(s){
     .replace(/\s+/g,'_');
 }
 
+function resolveLocalUidForLogin(rawLogin=''){
+  const raw=String(rawLogin||'').trim();
+  if(!raw)return '';
+  if(raw.includes('@')){
+    const email=raw.toLowerCase();
+    const matchedUser=getAllUsers().find(u=>String(u?.email||'').trim().toLowerCase()===email);
+    if(matchedUser?.id)return normalizeId(matchedUser.id);
+  }
+  return normalizeId(raw);
+}
+
 // Validation mot de passe fort
 function validatePassword(pwd){
   if(pwd.length<6)return 'Minimum 6 caractères';
@@ -3377,6 +3388,7 @@ setInterval(checkAccessRealtime,15000);
 async function login(){
   const rawLogin=(document.getElementById('login-user').value||'').trim();
   const uid=normalizeId(rawLogin);
+  const localUid=resolveLocalUidForLogin(rawLogin);
   const pwd=document.getElementById('login-pwd').value;
   const isEmailLogin=rawLogin.includes('@');
   const err=document.getElementById('login-err');
@@ -3411,33 +3423,31 @@ async function login(){
     void syncSupabasePostLogin();
     return;
   }
-
-  // Si l'utilisateur saisit un email, on évite le fallback local
-  // pour ne pas déclencher des blocages de tentatives inutiles.
+  let supabaseFailureLabel='';
   if(isEmailLogin){
-    if(err){
-      err.style.color='var(--r)';
-      const reason=String(supabaseAuthResult?.reason||'').toLowerCase();
-      if(reason.includes('invalid login credentials')){
-        err.textContent='Connexion Supabase refusée : email ou mot de passe incorrect.';
-      }else if(reason.includes('email not confirmed')){
-        err.textContent='Connexion Supabase refusée : email non confirmé.';
-      }else if(reason.includes('service unavailable')||reason.includes('gateway timeout')||reason.includes('temporarily unavailable')||reason.includes('timed out')){
-        err.textContent='Service Supabase temporairement indisponible. Réessaie dans 10 à 30 secondes.';
-      }else if(reason.includes('failed to fetch')||reason.includes('networkerror')||reason.includes('load failed')||reason.includes('network request failed')){
-        err.textContent=window.location.protocol==='file:'
-          ?'Connexion impossible en ouvrant le fichier en local (file://). Lance BenAI via http://localhost (ex. : npx serve ou Live Server) puis réessaie.'
-          :'Erreur réseau vers Supabase : vérifie la connexion, pare-feu, VPN ou une extension qui bloque les requêtes.';
-      }else if(reason==='profile_missing'){
-        err.textContent='Connexion Supabase OK mais profil manquant dans la table profiles.';
-      }else{
-        err.textContent='Connexion Supabase refusée : '+(supabaseAuthResult?.reason||'erreur inconnue');
-      }
+    const reason=String(supabaseAuthResult?.reason||'').toLowerCase();
+    if(reason.includes('invalid login credentials')){
+      supabaseFailureLabel='Connexion Supabase refusée : email ou mot de passe incorrect.';
+    }else if(reason.includes('email not confirmed')){
+      supabaseFailureLabel='Connexion Supabase refusée : email non confirmé.';
+    }else if(reason.includes('service unavailable')||reason.includes('gateway timeout')||reason.includes('temporarily unavailable')||reason.includes('timed out')){
+      supabaseFailureLabel='Service Supabase temporairement indisponible.';
+    }else if(reason.includes('failed to fetch')||reason.includes('networkerror')||reason.includes('load failed')||reason.includes('network request failed')){
+      supabaseFailureLabel=window.location.protocol==='file:'
+        ?'Connexion impossible en ouvrant le fichier en local (file://).'
+        :'Erreur réseau vers Supabase.';
+    }else if(reason==='profile_missing'){
+      supabaseFailureLabel='Connexion Supabase OK mais profil manquant dans la table profiles.';
+    }else{
+      supabaseFailureLabel='Connexion Supabase refusée : '+(supabaseAuthResult?.reason||'erreur inconnue');
     }
-    return;
+    if(err){
+      err.style.color='var(--y)';
+      err.textContent=supabaseFailureLabel+' Tentative locale...';
+    }
   }
 
-  if(uid!=='benjamin'){
+  if(localUid!=='benjamin'){
     const attempts=getLoginAttempts();
     const now=Date.now();
     if(attempts.blockedUntil>now){
@@ -3448,16 +3458,16 @@ async function login(){
   }
 
   const now=Date.now();
-  const attempts=uid!=='benjamin'?getLoginAttempts():{count:0,blockedUntil:0};
-  const userFound=findUserById(uid);
-  const resolvedUid=userFound?normalizeId(userFound.id):uid;
+  const attempts=localUid!=='benjamin'?getLoginAttempts():{count:0,blockedUntil:0};
+  const userFound=findUserById(localUid);
+  const resolvedUid=userFound?normalizeId(userFound.id):localUid;
 
   if(!userFound){
-    if(uid!=='benjamin'){
+    if(localUid!=='benjamin'){
       attempts.count++;
       if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;}
       saveLoginAttempts(attempts);
-      err.textContent=`Identifiant ou mot de passe incorrect (${Math.min(attempts.count,3)}/3)`;
+      err.textContent=supabaseFailureLabel||`Identifiant ou mot de passe incorrect (${Math.min(attempts.count,3)}/3)`;
     } else {
       err.textContent='Identifiant incorrect';
     }
@@ -3468,7 +3478,7 @@ async function login(){
   const validPwd=pwds[resolvedUid]||USERS[resolvedUid]?.pwd||'1234';
   const isValid=await verifyPassword(resolvedUid,pwd,validPwd);
   if(!isValid){
-    if(uid!=='benjamin'){
+    if(localUid!=='benjamin'){
       attempts.count++;
       if(attempts.count>=3){attempts.blockedUntil=now+5*60*1000;attempts.count=0;err.textContent='Accès bloqué 5 minutes.';saveLoginAttempts(attempts);return;}
       saveLoginAttempts(attempts);
