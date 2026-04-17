@@ -1709,6 +1709,9 @@ let supabaseSyncWarnTs=0;
 let supabaseRealtimeChannel=null;
 let supabaseRealtimeDebounceTimer=null;
 let supabaseRealtimeReady=false;
+let sharedApiKeyRetryTimer=null;
+let sharedApiKeyRetryDelayMs=2500;
+let pendingSharedApiKey='';
 const AUTO_BUG_NOTIF_COOLDOWN_MS=30*60*1000;
 let lastSelfHealToastTs=0;
 const LOGIN_REMEMBER_LOCAL_KEY='benai_login_user_local';
@@ -2361,11 +2364,9 @@ async function replaceSupabaseTable(table,rows,idCol='legacy_id'){
 
 async function syncSharedTablesToSupabase(mem,annuaire,leads){
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
-  const session=await ensureSupabaseSession();
-  if(!session?.access_token){
-    lastSupabaseSyncError='Session Supabase absente (token manquant).';
-    return false;
-  }
+  // Tentative "best effort": si la session manque, on continue avec l'apikey
+  // (utile quand les policies autorisent les opérations anon/authenticated).
+  await ensureSupabaseSession();
   const headers=getSupabaseHeaders();
   if(!headers){
     lastSupabaseSyncError='En-têtes Supabase manquants.';
@@ -2454,11 +2455,7 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
     lastSupabaseSyncError='';
     return true;
   }
-  const session=await ensureSupabaseSession();
-  if(!session?.access_token){
-    lastSupabaseSyncError='Session Supabase inactive (token manquant).';
-    return false;
-  }
+  await ensureSupabaseSession();
   const headers=getSupabaseHeaders();
   if(!headers){
     lastSupabaseSyncError='En-têtes Supabase invalides.';
@@ -2490,8 +2487,7 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
 
 async function loadCoreDataFromSupabase(){
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return false;
-  const session=await ensureSupabaseSession();
-  if(!session?.access_token)return false;
+  await ensureSupabaseSession();
   const headers=getSupabaseHeaders();
   if(!headers)return false;
   try{
@@ -2641,8 +2637,8 @@ function extractSharedAIKey(value){
 
 async function loadSharedApiKeyFromSupabase(){
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
-  const session=await ensureSupabaseSession();
-  if(!session?.access_token)return false;
+  // Tolère une lecture sans session utilisateur si la policy Supabase l'autorise.
+  await ensureSupabaseSession();
   const headers=getSupabaseHeaders();
   if(!headers)return false;
   try{
@@ -2692,6 +2688,27 @@ async function saveSharedApiKeyToSupabase(rawKey){
   }
 }
 
+function scheduleSharedApiKeySyncRetry(rawKey,reason=''){
+  const key=normalizeAnthropicKey(rawKey);
+  if(!isLikelyAnthropicKey(key))return;
+  pendingSharedApiKey=key;
+  if(sharedApiKeyRetryTimer||!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return;
+  const wait=Math.min(Math.max(sharedApiKeyRetryDelayMs,2500),30000);
+  sharedApiKeyRetryTimer=setTimeout(async()=>{
+    sharedApiKeyRetryTimer=null;
+    if(!pendingSharedApiKey)return;
+    const result=await saveSharedApiKeyToSupabase(pendingSharedApiKey);
+    if(result.ok){
+      pendingSharedApiKey='';
+      sharedApiKeyRetryDelayMs=2500;
+      return;
+    }
+    // Backoff progressif tant que la session/réseau n'est pas prêt.
+    sharedApiKeyRetryDelayMs=Math.min(sharedApiKeyRetryDelayMs*2,30000);
+    scheduleSharedApiKeySyncRetry(pendingSharedApiKey,`retry:${reason}`);
+  },wait);
+}
+
 function refreshVisibleDataAfterSupabaseSync(){
   if(!currentUser)return;
   refreshSAVBadge();
@@ -2711,7 +2728,18 @@ function refreshVisibleDataAfterSupabaseSync(){
 async function syncSupabasePostLogin(){
   await hydrateAppStorageFromSupabase(currentUser?.id);
   const syncedCore=await loadCoreDataFromSupabase();
-  await loadSharedApiKeyFromSupabase();
+  const localApiKey=getApiKey();
+  if(currentUser?.role==='admin'&&isLikelyAnthropicKey(localApiKey)){
+    const publishResult=await saveSharedApiKeyToSupabase(localApiKey);
+    if(!publishResult.ok){
+      scheduleSharedApiKeySyncRetry(localApiKey,'post-login-admin-republish');
+    }
+  }
+  let sharedLoaded=await loadSharedApiKeyFromSupabase();
+  if(!sharedLoaded){
+    await new Promise(r=>setTimeout(r,800));
+    sharedLoaded=await loadSharedApiKeyFromSupabase();
+  }
   await startSupabaseRealtimeSync();
   if(syncedCore){
     refreshVisibleDataAfterSupabaseSync();
@@ -5827,17 +5855,22 @@ async function saveApiKeySettings(){
   appStorage.setItem('benai_api',key);document.getElementById('api-key-settings').value='';
   const syncResult=await saveSharedApiKeyToSupabase(key);
   if(syncResult.ok){
+    pendingSharedApiKey='';
+    sharedApiKeyRetryDelayMs=2500;
     msg.style.color='var(--g)';
     msg.textContent='✅ Clé IA enregistrée et synchronisée Supabase';
   }else if(syncResult.reason==='profile_missing'){
+    scheduleSharedApiKeySyncRetry(key,'profile-missing');
     msg.style.color='var(--y)';
-    msg.textContent='⚠️ Clé IA enregistrée localement — profil Supabase manquant (table profiles)';
+    msg.textContent='⚠️ Clé locale enregistrée — profil Supabase manquant, nouvelle tentative auto activée';
   }else if(syncResult.reason==='missing_session'){
+    scheduleSharedApiKeySyncRetry(key,'missing-session');
     msg.style.color='var(--y)';
-    msg.textContent='⚠️ Clé IA enregistrée localement — session Supabase inactive';
+    msg.textContent='⚠️ Clé locale enregistrée — session Supabase inactive, sync auto en attente';
   }else{
+    scheduleSharedApiKeySyncRetry(key,syncResult.reason||'unknown');
     msg.style.color='var(--y)';
-    msg.textContent='✅ Clé IA enregistrée localement (synchro Supabase non disponible)';
+    msg.textContent='⚠️ Clé locale enregistrée — synchro Supabase en retry automatique';
   }
   setTimeout(()=>msg.textContent='',3500);
 }
