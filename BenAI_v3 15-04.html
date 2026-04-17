@@ -6526,6 +6526,8 @@ function initLeadsPage(){
   const filters=document.getElementById('crm-filters');
   const btnNew=document.getElementById('btn-new-lead');
   const filterComm=document.getElementById('crm-filter-commercial');
+  const filterSecteur=document.getElementById('crm-filter-secteur');
+  const filterSociete=document.getElementById('crm-filter-societe');
 
   // Bouton nouveau lead — assistante et commercial uniquement (pas directeur co)
   btnNew.style.display=(role==='assistante'||role==='admin'||role==='commercial')?'flex':'none';
@@ -6534,12 +6536,26 @@ function initLeadsPage(){
   const srcActif=document.getElementById('src-actif-btn');
   if(srcActif)srcActif.style.display=role==='commercial'?'flex':'none';
 
+  // Filtres globaux réservés aux profils pilotage (admin / directeur_co).
+  const canUseGlobalScopeFilters=(role==='admin'||role==='directeur_co');
+  if(filterSecteur){
+    filterSecteur.style.display=canUseGlobalScopeFilters?'inline-flex':'none';
+    if(!canUseGlobalScopeFilters)filterSecteur.value='';
+  }
+  if(filterSociete){
+    filterSociete.style.display=canUseGlobalScopeFilters?'inline-flex':'none';
+    if(!canUseGlobalScopeFilters)filterSociete.value='';
+  }
+  if(filterComm){
+    filterComm.style.display=canUseGlobalScopeFilters?'block':'none';
+    if(!canUseGlobalScopeFilters)filterComm.value='';
+  }
+
   tabs.innerHTML='';
   if(role==='admin'||role==='directeur_co'){
     addCRMTab('non-attribues','⚠️ À attribuer',true);
     addCRMTab('mes-leads','📋 Tous les leads',false);
     addCRMTab('dashboard','📊 Dashboard',false);
-    if(filterComm)filterComm.style.display='block';
     fillCommercialFilter();
     filters.style.display='flex';
     // Directeur co arrive sur son dashboard
@@ -6643,9 +6659,10 @@ const STATUT_CLS={gris:'ls-gris',rdv:'ls-rdv',jaune:'ls-jaune',vert:'ls-vert',ro
 function getFilteredLeads(){
   const role=currentUser?.role;
   const search=(document.getElementById('crm-search')?.value||'').toLowerCase();
-  const secteurFilter=document.getElementById('crm-filter-secteur')?.value||'';
-  const societeFilter=document.getElementById('crm-filter-societe')?.value||'';
-  const commFilter=document.getElementById('crm-filter-commercial')?.value||'';
+  const hasGlobalScopeFilters=(role==='admin'||role==='directeur_co');
+  const secteurFilter=hasGlobalScopeFilters?(document.getElementById('crm-filter-secteur')?.value||''):'';
+  const societeFilter=hasGlobalScopeFilters?(document.getElementById('crm-filter-societe')?.value||''):'';
+  const commFilter=hasGlobalScopeFilters?(document.getElementById('crm-filter-commercial')?.value||''):'';
   let leads=getLeads();
 
   // RÈGLES STRICTES PAR RÔLE
