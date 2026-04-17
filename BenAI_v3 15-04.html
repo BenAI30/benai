@@ -1859,8 +1859,8 @@ function getSupabaseHeaders(){
     headers.Authorization='Bearer '+accessToken;
     return headers;
   }
-  // Legacy anon keys are JWT and can still be sent as Bearer.
-  if(/^eyJ/.test(key))headers.Authorization='Bearer '+key;
+  // Sans session utilisateur : PostgREST attend toujours Authorization Bearer + apikey (JWT anon ou publishable).
+  if(/^eyJ/.test(key)||String(key).startsWith('sb_publishable_'))headers.Authorization='Bearer '+key;
   return headers;
 }
 
@@ -2989,6 +2989,12 @@ async function flushSupabaseSyncNow(){
 }
 
 async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
+  if(isSwitchPreviewSession()){
+    lastSupabaseSyncError='';
+    supabaseSyncFailStreak=0;
+    renderSupabaseRuntimeStatus();
+    return true;
+  }
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser){
     lastSupabaseSyncError='Supabase désactivé ou utilisateur non connecté.';
     renderSupabaseRuntimeStatus();
@@ -3008,7 +3014,7 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
   }
   const headers=getSupabaseHeaders();
   if(!headers){
-    lastSupabaseSyncError='En-têtes Supabase invalides.';
+    lastSupabaseSyncError='Configuration REST Supabase incomplète (clé ou session).';
     renderSupabaseRuntimeStatus();
     return false;
   }
@@ -3051,6 +3057,11 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
 }
 
 async function loadCoreDataFromSupabase(){
+  if(isSwitchPreviewSession()){
+    lastSupabaseSyncError='';
+    renderSupabaseRuntimeStatus();
+    return false;
+  }
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return false;
   if(!navigator.onLine)return false;
   await ensureSupabaseSession();
@@ -3061,7 +3072,7 @@ async function loadCoreDataFromSupabase(){
   }
   const headers=getSupabaseHeaders();
   if(!headers){
-    lastSupabaseSyncError='En-têtes Supabase invalides.';
+    lastSupabaseSyncError='Configuration REST Supabase incomplète (clé ou session).';
     renderSupabaseRuntimeStatus();
     return false;
   }
@@ -3739,6 +3750,7 @@ async function logout(){
     await persistAppStorageToSupabaseNow(currentUser.id,snapshot);
   }
   resetAppStorageRuntime();
+  sessionStack=[];
   const client=getSupabaseClient();
   if(client)client.auth.signOut().catch(()=>{});
   currentSupabaseSession=null;
@@ -3811,6 +3823,11 @@ function switchToUser(uid){
   document.getElementById('switch-panel').style.display='none';
   stopSupabaseRealtimeSync();
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
+  if(supabaseRetryTimer){clearTimeout(supabaseRetryTimer);supabaseRetryTimer=null;}
+  if(supabaseSyncTimer){clearTimeout(supabaseSyncTimer);supabaseSyncTimer=null;}
+  supabaseRetryDelayMs=2000;
+  supabaseSyncFailStreak=0;
+  lastSupabaseSyncError='';
   const u=USERS[uid]||getExtraUserById(uid);
   if(!u){alert('Utilisateur introuvable');return;}
   const access=getAccess();
