@@ -2814,9 +2814,9 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
   try{
     const statePayload=buildSupabaseStatePayload(mem,annuaire,getLeads());
     const [stateResult,sharedResult,coreResult]=await Promise.allSettled([
-      fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}`,{
+      fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}?on_conflict=uid`,{
       method:'POST',
-      headers:{...headers,'Prefer':'resolution=merge-duplicates'},
+      headers:{...headers,'Prefer':'resolution=merge-duplicates,return=minimal'},
       body:JSON.stringify([{uid:currentUser.id,payload:statePayload,updated_at:new Date().toISOString()}])
       },10000),
       syncSharedTablesToSupabase(mem,annuaire,getLeads()),
@@ -2830,8 +2830,11 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
       if(!stateOk){
         let stateBody='';
         try{stateBody=await stateRes.text();}catch{}
+        if(isSupabaseDuplicateConflict(stateRes?.status,stateBody)){
+          stateOk=true;
+        }
         const now=Date.now();
-        if(now-supabaseLastStatePushWarnTs>30000){
+        if(!stateOk&&now-supabaseLastStatePushWarnTs>30000){
           supabaseLastStatePushWarnTs=now;
           showDriveNotif(`⚠️ Avertissement sync état local: ${stateRes?.status||'?' }`);
         }
