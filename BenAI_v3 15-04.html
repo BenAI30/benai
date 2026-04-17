@@ -2337,6 +2337,12 @@ function mapLeadsToSupabaseRows(items){
   });
 }
 
+function isSupabaseDuplicateConflict(status,bodyText=''){
+  if(Number(status)!==409)return false;
+  const txt=String(bodyText||'');
+  return txt.includes('"23505"')||txt.toLowerCase().includes('duplicate')||txt.toLowerCase().includes('unique');
+}
+
 async function upsertSupabaseTable(table,rows){
   if(!rows?.length)return true;
   const headers=getSupabaseHeaders();
@@ -2380,6 +2386,12 @@ async function upsertSupabaseTable(table,rows){
     lastSupabaseSyncError='';
     return true;
   }
+  let ignoreBody='';
+  try{ignoreBody=await ignoreRes.text();}catch{}
+  if(isSupabaseDuplicateConflict(ignoreRes.status,ignoreBody)){
+    lastSupabaseSyncError='';
+    return true;
+  }
 
   // Fallback 1b: granularité ligne par ligne pour éviter qu'un doublon bloque tout le lot.
   const perRowFailures=[];
@@ -2393,6 +2405,9 @@ async function upsertSupabaseTable(table,rows){
     if(!rowRes.ok){
       let body='';
       try{body=await rowRes.text();}catch{}
+      if(isSupabaseDuplicateConflict(rowRes.status,body)){
+        continue;
+      }
       perRowFailures.push(`${rowRes.status} ${String(body||'').slice(0,80)}`.trim());
       if(perRowFailures.length>=3)break;
     }
@@ -2414,6 +2429,10 @@ async function upsertSupabaseTable(table,rows){
   }
   let insertBody='';
   try{insertBody=await insertRes.text();}catch{}
+  if(isSupabaseDuplicateConflict(insertRes.status,insertBody)){
+    lastSupabaseSyncError='';
+    return true;
+  }
   lastSupabaseSyncError=`${table}: upsert ${upsertRes.status} / ignore ${ignoreRes.status} / insert ${insertRes.status} ${insertBody||upsertBody||perRowFailures.join(' | ')||''}`.trim();
   return false;
 }
