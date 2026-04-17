@@ -8070,6 +8070,25 @@ function reportAutoBug(page,desc,gravite='important',extra={}){
   }
   return true;
 }
+function resolveAutoBug(page,desc,response='Auto-résolu'){
+  const fingerprint=makeAutoBugFingerprint(page,desc);
+  const bugs=getBugs();
+  const nowStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  let changed=false;
+  bugs.forEach(b=>{
+    if(b?.auto&&b?.statut==='ouvert'&&b?.fingerprint===fingerprint){
+      b.statut='resolu';
+      b.reponse=response;
+      b.date_resolution=nowStr;
+      changed=true;
+    }
+  });
+  if(!changed)return false;
+  saveBugs(bugs);
+  renderBugsList();
+  refreshBugsBadge();
+  return true;
+}
 function attemptAutoHealCRMLeads(){
   const leads=getLeads();
   if(!Array.isArray(leads)||!leads.length)return {changed:false,fixes:0,summary:''};
@@ -8196,8 +8215,13 @@ function setupSafeSelfHealing(){
       if(shouldMonitorSupabaseSession()){
         const sess=await ensureSupabaseSession();
         if(!sess?.access_token){
-        reportAutoBug('BenAI IA','Session Supabase absente malgré auto-récupération.','important',{autoFixed:false});
+          reportAutoBug('BenAI IA','Session Supabase absente malgré auto-récupération.','important',{autoFixed:false});
+        }else{
+          resolveAutoBug('BenAI IA','Session Supabase absente malgré auto-récupération.','Session Supabase revenue, alerte fermée automatiquement.');
         }
+      }else{
+        // Mode local ou preview: cette alerte n'est pas pertinente.
+        resolveAutoBug('BenAI IA','Session Supabase absente malgré auto-récupération.','Mode local/preview détecté, alerte fermée automatiquement.');
       }
     }
   },60000);
