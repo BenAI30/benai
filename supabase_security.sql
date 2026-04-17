@@ -444,7 +444,6 @@ using (
 with check (
   public.current_profile_role() = 'admin'
   or created_by = auth.uid()
-  or created_by is null
 );
 
 -- =========
