@@ -1841,8 +1841,7 @@ function getSupabaseHeaders(){
 }
 
 function hasSupabaseDataAuth(){
-  if(currentSupabaseSession?.access_token)return true;
-  return /^eyJ/.test(String(SUPABASE_CONFIG.publishableKey||'').trim());
+  return !!String(SUPABASE_CONFIG.publishableKey||'').trim();
 }
 
 function fmtRuntimeTs(ts){
@@ -1877,11 +1876,8 @@ function isLikelyAnthropicKey(raw){
 }
 
 function useMobilePersistedSupabaseAuth(){
-  try{
-    return window.matchMedia('(max-width: 768px)').matches;
-  }catch{
-    return false;
-  }
+  // Session persistée sur tous les appareils pour stabiliser la synchro cloud.
+  return true;
 }
 
 function getSupabaseClient(){
@@ -2467,7 +2463,8 @@ function queueSupabaseSyncRetry(reason=''){
     supabaseRetryDelayMs=Math.min(supabaseRetryDelayMs*2,30000);
     if(supabaseSyncFailStreak>=3&&Date.now()-supabaseSyncWarnTs>20000){
       supabaseSyncWarnTs=Date.now();
-      showDriveNotif('⚠️ Sync cloud instable: BenAI réessaie automatiquement.');
+    const detail=lastSupabaseSyncError?` (${String(lastSupabaseSyncError).slice(0,90)})`:'';
+    showDriveNotif('⚠️ Sync cloud instable: BenAI réessaie automatiquement.'+detail);
     }
     renderSupabaseRuntimeStatus();
     queueSupabaseSyncRetry(`retry:${reason}`);
@@ -6314,11 +6311,10 @@ function stopSupabaseRealtimeSync(){
 }
 async function startSupabaseRealtimeSync(){
   stopSupabaseRealtimeSync();
-  if(!shouldMonitorSupabaseSession())return false;
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
   const client=getSupabaseClient();
   if(!client)return false;
-  const session=await ensureSupabaseSession();
-  if(!session?.access_token)return false;
+  await ensureSupabaseSession();
   const channelName=`benai-rt-${normalizeId(currentUser?.id||'user')}-${Date.now()}`;
   let channel=client.channel(channelName);
   SUPABASE_TABLES.forEach(table=>{
@@ -6353,6 +6349,7 @@ function startPolling(){
     refreshLeadsBadge();
     refreshBugsBadge();
     checkRappelsLeads();
+    checkLeadSmartNotifications();
     runAutoBugDetectors();
     void refreshCoreDataFromCloudIfNeeded();
     if(supabaseSyncFailStreak>0){
@@ -8091,10 +8088,55 @@ function getLeadAge(l){
   return Math.floor(h/24)+'j';
 }
 
-function checkLeadsAlertes(){
-  if(currentUser?.role!=='directeur_co')return;
-  const alertes=getCompanyScopedLeads(getLeads()).filter(l=>isLeadAlerte(l));
-  if(alertes.length>0)pushBenAINotif('⏰ Leads en attente',`${alertes.length} lead(s) nécessitent une action`,'🚨',currentUser.id);
+function getLeadNotifScopeForUser(){
+  if(!currentUser)return [];
+  let scoped=getLeads().filter(l=>!l.archive&&l.statut!=='vert'&&l.statut!=='rouge');
+  if(currentUser.role==='commercial'){
+    scoped=scoped.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
+  }else if(currentUser.role==='directeur_co'){
+    scoped=getCompanyScopedLeads(scoped);
+  }else if(currentUser.role==='admin'&&currentUser.id!=='benjamin'){
+    scoped=[];
+  }
+  return scoped;
+}
+
+function checkLeadSmartNotifications(){
+  if(!currentUser)return;
+  const scoped=getLeadNotifScopeForUser();
+  if(!scoped.length)return;
+  const nonAttribues=scoped.filter(l=>!l.commercial&&l.statut==='gris').length;
+  const alertes=scoped.filter(l=>isLeadAlerte(l)).length;
+  const aRappeler=scoped.filter(l=>l.statut==='gris'||l.statut==='jaune').length;
+  const totalAction=Math.max(nonAttribues,0)+Math.max(alertes,0);
+  if(totalAction<=0&&aRappeler<=0)return;
+
+  const key=`benai_lead_push_state_${currentUser.id}`;
+  const now=Date.now();
+  let state={lastTs:0,lastSig:''};
+  try{
+    const raw=appStorage.getItem(key);
+    if(raw){
+      const parsed=JSON.parse(raw);
+      if(parsed&&typeof parsed==='object')state={...state,...parsed};
+    }
+  }catch(e){}
+  const sig=`${nonAttribues}|${alertes}|${aRappeler}`;
+  const changed=sig!==state.lastSig;
+  const cooldownPassed=(now-Number(state.lastTs||0))>20*60*1000; // 20 min
+  if(!changed&&!cooldownPassed)return;
+
+  let msg='';
+  if(currentUser.id==='benjamin'){
+    if(nonAttribues>0)msg=`Benjamin, ${nonAttribues} lead(s) t’attendent pour attribution.`;
+    else if(alertes>0)msg=`Benjamin, ${alertes} lead(s) attendent une action commerciale.`;
+    else msg=`Benjamin, ${aRappeler} lead(s) à suivre aujourd’hui.`;
+  }else{
+    if(alertes>0)msg=`${alertes} lead(s) urgents t’attendent.`;
+    else msg=`${aRappeler} lead(s) à suivre maintenant.`;
+  }
+  pushBenAINotif('📋 Leads en attente',msg,'⏰',currentUser.id);
+  appStorage.setItem(key,JSON.stringify({lastTs:now,lastSig:sig}));
 }
 
 function checkRappelsLeads(){
