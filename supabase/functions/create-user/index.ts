@@ -70,8 +70,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey || !anonKey) {
       return json(500, { error: "Variables Supabase manquantes" }, origin);
     }
 
@@ -80,19 +81,28 @@ Deno.serve(async (req) => {
       return json(401, { error: "Authorization manquante" }, origin);
     }
 
-    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
     const token = authHeader.replace("Bearer ", "").trim();
+    if (!token) {
+      return json(401, { error: "Authorization invalide" }, origin);
+    }
+
+    // Verify caller session with anon client (compatible with asymmetric JWT algs, e.g. ES256).
+    const callerClient = createClient(supabaseUrl, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
     const {
       data: { user: caller },
       error: callerError,
-    } = await adminClient.auth.getUser(token);
+    } = await callerClient.auth.getUser();
 
     if (callerError || !caller) {
       return json(401, { error: "Session invalide" }, origin);
     }
+
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
     const { data: callerProfile, error: callerProfileError } = await adminClient
       .from("profiles")
