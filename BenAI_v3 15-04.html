@@ -9467,7 +9467,11 @@ function logLeadCall(leadId){
 
 function makeGPSLink(adresse,ville,cp){
   const q=encodeURIComponent([adresse,cp,ville].filter(Boolean).join(' '));
-  return `<a href="https://maps.google.com/?q=${q}" target="_blank" onclick="event.stopPropagation()" style="color:var(--g);font-size:11px;text-decoration:none;background:var(--g2);padding:2px 7px;border-radius:6px;font-weight:600">🗺️ GPS</a>`;
+  const pill='font-size:11px;text-decoration:none;padding:2px 7px;border-radius:6px;font-weight:600;white-space:nowrap';
+  return `<span style="display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap" onclick="event.stopPropagation()">
+    <a href="https://maps.google.com/?q=${q}" target="_blank" rel="noopener" style="color:var(--g);background:var(--g2);${pill}">🗺️ Maps</a>
+    <a href="https://www.waze.com/ul?q=${q}" target="_blank" rel="noopener" style="color:#fff;background:#33ccff;${pill}">🚗 Waze</a>
+  </span>`;
 }
 
 // ══════════════════════════════════════════
