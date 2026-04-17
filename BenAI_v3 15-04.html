@@ -1914,18 +1914,82 @@ function buildSharedCoreDataPayload(mem,annuaire,leads){
   };
 }
 
+function mergeByKey(remoteList,localList,keyGetter,conflictResolver){
+  const map=new Map();
+  (Array.isArray(remoteList)?remoteList:[]).forEach(item=>{
+    const key=String(keyGetter(item)||'').trim();
+    if(!key)return;
+    map.set(key,item);
+  });
+  (Array.isArray(localList)?localList:[]).forEach(item=>{
+    const key=String(keyGetter(item)||'').trim();
+    if(!key)return;
+    if(!map.has(key)){map.set(key,item);return;}
+    const prev=map.get(key);
+    map.set(key,conflictResolver(prev,item));
+  });
+  return Array.from(map.values());
+}
+
+function pickLatestLead(prev,next){
+  const a=Date.parse(prev?.date_modification||prev?.date_creation||0)||0;
+  const b=Date.parse(next?.date_modification||next?.date_creation||0)||0;
+  return b>=a?next:prev;
+}
+
+function pickLatestNote(prev,next){
+  const a=Number(prev?.ts||0);
+  const b=Number(next?.ts||0);
+  return b>=a?next:prev;
+}
+
+function mergeSharedCoreData(remoteData,localData){
+  const remote=remoteData||{};
+  const local=localData||{};
+  return {
+    sav:mergeByKey(remote.sav,local.sav,x=>x?.id,prev=>prev), // remote prioritaire en cas de conflit
+    notes:mergeByKey(remote.notes,local.notes,x=>x?.id,pickLatestNote),
+    absences:mergeByKey(remote.absences,local.absences,x=>x?.id,prev=>prev),
+    annuaire:mergeByKey(remote.annuaire,local.annuaire,x=>x?.id,prev=>prev),
+    leads:mergeByKey(remote.leads,local.leads,x=>x?.id,pickLatestLead)
+  };
+}
+
+async function fetchSharedCoreDataRaw(headers){
+  const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/app_settings?key=eq.${SHARED_CORE_DATA_KEY}&select=value`,{headers},10000);
+  if(!res.ok)return {ok:false,data:null,updatedAt:''};
+  const rows=await res.json();
+  const value=rows?.[0]?.value||{};
+  return {
+    ok:true,
+    data:value?.data||{},
+    updatedAt:String(value?.updated_at||'')
+  };
+}
+
 async function pushSharedCoreDataToSupabase(mem,annuaire,leads){
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
   const headers=getSupabaseHeaders();
   if(!headers)return false;
   try{
-    const payload=buildSharedCoreDataPayload(mem,annuaire,leads);
+    const localData=buildSharedCoreDataPayload(mem,annuaire,leads).data;
+    const remoteRaw=await fetchSharedCoreDataRaw(headers);
+    const mergedData=mergeSharedCoreData(remoteRaw.ok?remoteRaw.data:{},localData);
+    const payload={
+      version:1,
+      updated_at:new Date().toISOString(),
+      data:mergedData
+    };
     const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/app_settings?on_conflict=key`,{
       method:'POST',
       headers:{...headers,'Prefer':'resolution=merge-duplicates,return=minimal'},
       body:JSON.stringify([{key:SHARED_CORE_DATA_KEY,value:payload,updated_at:payload.updated_at}])
     },10000);
     if(!res.ok)return false;
+    saveMem({...createEmptyMemState(),...getMem(),sav:mergedData.sav,notes:mergedData.notes,absences:mergedData.absences},false);
+    saveAnnuaire(mergedData.annuaire,false);
+    saveLeads(mergedData.leads,false);
+    refreshSharedSignatures(false);
     sharedCoreLastUpdatedAt=payload.updated_at;
     return true;
   }catch(e){
@@ -1938,26 +2002,31 @@ async function loadSharedCoreDataFromSupabase(force=false){
   const headers=getSupabaseHeaders();
   if(!headers)return false;
   try{
-    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/app_settings?key=eq.${SHARED_CORE_DATA_KEY}&select=value`,{headers},10000);
-    if(!res.ok)return false;
-    const rows=await res.json();
-    const value=rows?.[0]?.value;
-    const data=value?.data||{};
-    const updatedAt=String(value?.updated_at||'');
+    const remoteRaw=await fetchSharedCoreDataRaw(headers);
+    if(!remoteRaw.ok)return false;
+    const data=remoteRaw.data||{};
+    const updatedAt=String(remoteRaw.updatedAt||'');
     if(!force&&updatedAt&&sharedCoreLastUpdatedAt&&updatedAt<=sharedCoreLastUpdatedAt)return false;
     const remoteTotal=(data.sav?.length||0)+(data.notes?.length||0)+(data.absences?.length||0)+(data.annuaire?.length||0)+(data.leads?.length||0);
     const localMemBefore=getMem();
     const localTotal=(localMemBefore.sav?.length||0)+(localMemBefore.notes?.length||0)+(localMemBefore.absences?.length||0)+(getAnnuaire()?.length||0)+(getLeads()?.length||0);
     if(remoteTotal===0&&localTotal>0)return false;
+    const merged=mergeSharedCoreData(data,{
+      sav:localMemBefore.sav||[],
+      notes:localMemBefore.notes||[],
+      absences:localMemBefore.absences||[],
+      annuaire:getAnnuaire()||[],
+      leads:getLeads()||[]
+    });
     saveMem({
       ...createEmptyMemState(),
       ...localMemBefore,
-      sav:Array.isArray(data.sav)?data.sav:[],
-      notes:Array.isArray(data.notes)?data.notes:[],
-      absences:Array.isArray(data.absences)?data.absences:[]
+      sav:merged.sav,
+      notes:merged.notes,
+      absences:merged.absences
     },false);
-    saveAnnuaire(Array.isArray(data.annuaire)?data.annuaire:[],false);
-    saveLeads(Array.isArray(data.leads)?data.leads:[],false);
+    saveAnnuaire(merged.annuaire,false);
+    saveLeads(merged.leads,false);
     refreshSharedSignatures(false);
     if(updatedAt)sharedCoreLastUpdatedAt=updatedAt;
     return true;
