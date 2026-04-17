@@ -1915,6 +1915,19 @@ function buildSharedCoreDataPayload(mem,annuaire,leads){
   };
 }
 
+function buildSupabaseStatePayload(mem,annuaire,leads){
+  return {
+    version:2,
+    saved_at:new Date().toISOString(),
+    mem:{
+      ...createEmptyMemState(),
+      ...(mem&&typeof mem==='object'?mem:{})
+    },
+    annuaire:Array.isArray(annuaire)?annuaire:[],
+    leads:Array.isArray(leads)?leads:[]
+  };
+}
+
 function mergeByKey(remoteList,localList,keyGetter,conflictResolver){
   const map=new Map();
   (Array.isArray(remoteList)?remoteList:[]).forEach(item=>{
@@ -2036,6 +2049,39 @@ async function loadSharedCoreDataFromSupabase(force=false){
     refreshSharedSignatures(false);
     if(updatedAt)sharedCoreLastUpdatedAt=updatedAt;
     sharedCoreLastSignature=computeSupabaseSignature(merged);
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
+async function loadCoreDataFromSupabaseStateSnapshot(){
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser?.id)return false;
+  const headers=getSupabaseHeaders();
+  if(!headers)return false;
+  try{
+    const res=await fetchWithTimeout(
+      `${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}?uid=eq.${encodeURIComponent(currentUser.id)}&select=payload,updated_at`,
+      {headers},
+      10000
+    );
+    if(!res.ok)return false;
+    const rows=await res.json();
+    const payload=rows?.[0]?.payload;
+    if(!payload||typeof payload!=='object')return false;
+    const snapMem=payload.mem&&typeof payload.mem==='object'?payload.mem:payload;
+    const mergedMem={
+      ...createEmptyMemState(),
+      ...getMem(),
+      ...snapMem,
+      sav:Array.isArray(snapMem.sav)?snapMem.sav:[],
+      notes:Array.isArray(snapMem.notes)?snapMem.notes:[],
+      absences:Array.isArray(snapMem.absences)?snapMem.absences:[]
+    };
+    saveMem(mergedMem,false);
+    if(Array.isArray(payload.annuaire))saveAnnuaire(payload.annuaire,false);
+    if(Array.isArray(payload.leads))saveLeads(payload.leads,false);
+    refreshSharedSignatures(false);
     return true;
   }catch(e){
     return false;
@@ -2766,21 +2812,21 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
     return false;
   }
   try{
+    const statePayload=buildSupabaseStatePayload(mem,annuaire,getLeads());
     const [stateResult,sharedResult,coreResult]=await Promise.allSettled([
       fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}`,{
       method:'POST',
       headers:{...headers,'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify([{uid:currentUser.id,payload:mem,updated_at:new Date().toISOString()}])
+      body:JSON.stringify([{uid:currentUser.id,payload:statePayload,updated_at:new Date().toISOString()}])
       },10000),
       syncSharedTablesToSupabase(mem,annuaire,getLeads()),
       pushSharedCoreDataToSupabase(mem,annuaire,getLeads())
     ]);
     const sharedOk=sharedResult.status==='fulfilled'&&!!sharedResult.value;
     const coreOk=coreResult.status==='fulfilled'&&!!coreResult.value;
-    let stateOk=false;
+    const stateOk=(stateResult.status==='fulfilled')&&(!!stateResult.value?.ok||stateResult.value?.status===404);
     if(stateResult.status==='fulfilled'){
       const stateRes=stateResult.value;
-      stateOk=!!stateRes?.ok||stateRes?.status===404;
       if(!stateOk){
         let stateBody='';
         try{stateBody=await stateRes.text();}catch{}
@@ -2791,7 +2837,7 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
         }
       }
     }
-    if(sharedOk||coreOk){
+    if(sharedOk||coreOk||stateOk){
       lastSupabaseSyncError='';
       supabaseLastPushOkTs=Date.now();
       renderSupabaseRuntimeStatus();
@@ -2829,6 +2875,13 @@ async function loadCoreDataFromSupabase(){
   try{
     const sharedCoreOk=await loadSharedCoreDataFromSupabase();
     if(sharedCoreOk){
+      lastSupabaseSyncError='';
+      supabaseLastPullOkTs=Date.now();
+      renderSupabaseRuntimeStatus();
+      return true;
+    }
+    const stateSnapshotOk=await loadCoreDataFromSupabaseStateSnapshot();
+    if(stateSnapshotOk){
       lastSupabaseSyncError='';
       supabaseLastPullOkTs=Date.now();
       renderSupabaseRuntimeStatus();
