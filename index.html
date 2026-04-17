@@ -3,11 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="0; url=./BenAI_v3%2015-04.html">
   <meta name="theme-color" content="#E8943A">
   <title>BenAI</title>
 </head>
 <body style="margin:0;background:#080808;color:#F2EFE8;font-family:system-ui,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;">
-  <p>Chargement de BenAI… Si rien ne s’affiche, <a href="./BenAI_v3%2015-04.html" style="color:#60A5FA">ouvrir BenAI ici</a>.</p>
+  <p id="boot-msg">Chargement de BenAI…</p>
+  <script>
+    (async function bootBenAI(){
+      try{
+        const res=await fetch('./BenAI_v3%2015-04.html',{cache:'no-store'});
+        if(!res.ok)throw new Error('Impossible de charger l’application');
+        const html=await res.text();
+        document.open();
+        document.write(html);
+        document.close();
+      }catch(e){
+        const msg=document.getElementById('boot-msg');
+        if(msg){
+          msg.innerHTML='Chargement impossible. <a href="./BenAI_v3%2015-04.html" style="color:#60A5FA">Ouvrir BenAI ici</a>.';
+        }
+      }
+    })();
+  </script>
 </body>
 </html>

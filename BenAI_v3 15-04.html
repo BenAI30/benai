@@ -531,7 +531,7 @@ body.light .bubble{color:var(--t1);}
   .msg.user,.msg.ai{max-width:96%;}
   .chat-input-area{padding:10px;}
   .chat-input-row{gap:6px;}
-  #page-benai .chat-input-area{display:none;}
+  #page-benai .chat-input-area{display:block;}
   #page-benai .chat-area{padding-bottom:16px;}
   .btn-send,.btn-attach-plus,.thread-send,.tool-btn,.sav-filter,.crm-filter,.ann-filter,.equipe-seg-btn,.equipe-link-btn,.btn-primary,.tb-icon-btn,.tb-logout{min-height:40px;}
   .chat-textarea,.thread-input input,.form-input,.sav-search{font-size:16px;}
@@ -1137,6 +1137,8 @@ input[type=file]{display:none;}
                 <button class="src-btn" data-src="TEL" onclick="selectSource(this)">📞 TEL</button>
                 <button class="src-btn" data-src="WEB" onclick="selectSource(this)">🌐 WEB</button>
                 <button class="src-btn" data-src="PARRAINAGE" onclick="selectSource(this)">🤝 PARRAINAGE</button>
+                <button class="src-btn" data-src="FOIRE" onclick="selectSource(this)">🎪 FOIRE</button>
+                <button class="src-btn" data-src="ANCIEN_CLIENT" onclick="selectSource(this)">👤 ANCIEN CLIENT</button>
                 <button class="src-btn" data-src="ACTIF" onclick="selectSource(this)" id="src-actif-btn" style="display:none">🏃 ACTIF</button>
               </div>
             </div>
@@ -1620,6 +1622,18 @@ let supabaseClient=null;
 let currentSupabaseSession=null;
 let runtimeMemState={sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};
 let runtimeLeadsState=[];
+const LEAD_SOURCE_DEFS=[
+  {code:'MAG',icon:'📍',label:'Magasin'},
+  {code:'TEL',icon:'📞',label:'Téléphone'},
+  {code:'WEB',icon:'🌐',label:'Web'},
+  {code:'PARRAINAGE',icon:'🤝',label:'Parrainage'},
+  {code:'FOIRE',icon:'🎪',label:'Foire'},
+  {code:'ANCIEN_CLIENT',icon:'👤',label:'Ancien client'},
+  {code:'ACTIF',icon:'🏃',label:'Actif'}
+];
+const LEAD_SOURCE_ICONS=LEAD_SOURCE_DEFS.reduce((acc,src)=>{acc[src.code]=src.icon;return acc;},{});
+const LEAD_SOURCE_LABELS=LEAD_SOURCE_DEFS.reduce((acc,src)=>{acc[src.code]=src.label;return acc;},{});
+const LEAD_SOURCE_CODES=LEAD_SOURCE_DEFS.map(src=>src.code);
 
 function normalizeSupabaseUrl(url){
   let out=(url||'').trim();
@@ -2061,6 +2075,34 @@ async function upsertSupabaseTable(table,rows){
   return false;
 }
 
+async function replaceSupabaseTable(table,rows,idCol='legacy_id'){
+  const headers=getSupabaseHeaders();
+  if(!headers){
+    lastSupabaseSyncError=`${table}: en-têtes Supabase manquants`;
+    return false;
+  }
+  try{
+    const wipeRes=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${table}?${idCol}=not.is.null`,{
+      method:'DELETE',
+      headers:{...headers,'Prefer':'return=minimal'}
+    },10000);
+    if(!wipeRes.ok){
+      let wipeBody='';
+      try{wipeBody=await wipeRes.text();}catch{}
+      lastSupabaseSyncError=`${table}: suppression ${wipeRes.status} ${wipeBody||''}`.trim();
+      return false;
+    }
+    if(!rows?.length){
+      lastSupabaseSyncError='';
+      return true;
+    }
+    return await upsertSupabaseTable(table,rows);
+  }catch(e){
+    lastSupabaseSyncError=`${table}: erreur remplacement ${e?.message||e||'inconnue'}`;
+    return false;
+  }
+}
+
 async function syncSharedTablesToSupabase(mem,annuaire,leads){
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
   const session=await ensureSupabaseSession();
@@ -2075,11 +2117,11 @@ async function syncSharedTablesToSupabase(mem,annuaire,leads){
   }
   try{
     const results=await Promise.all([
-      upsertSupabaseTable('sav',mapSavToSupabaseRows(mem?.sav)),
-      upsertSupabaseTable('notes',mapNotesToSupabaseRows(mem?.notes)),
-      upsertSupabaseTable('absences',mapAbsencesToSupabaseRows(mem?.absences)),
+      replaceSupabaseTable('sav',mapSavToSupabaseRows(mem?.sav),'legacy_id'),
+      replaceSupabaseTable('notes',mapNotesToSupabaseRows(mem?.notes),'legacy_id'),
+      replaceSupabaseTable('absences',mapAbsencesToSupabaseRows(mem?.absences),'legacy_id'),
       upsertSupabaseTable('annuaire',mapAnnuaireToSupabaseRows(annuaire)),
-      upsertSupabaseTable('leads',mapLeadsToSupabaseRows(leads))
+      replaceSupabaseTable('leads',mapLeadsToSupabaseRows(leads),'id')
     ]);
     const ok=results.every(Boolean);
     if(!ok&&!lastSupabaseSyncError)lastSupabaseSyncError='Échec sync tables partagées (cause non détaillée).';
@@ -2954,6 +2996,7 @@ function switchSession(){toggleSwitchPanel();}
 
 function initApp(silent=false){
   const u=currentUser;
+  applyTheme();
   const chatArea=document.getElementById('chat-area');
   if(chatArea)chatArea.innerHTML='';
   document.getElementById('tb-avatar').style.background=u.color;
@@ -5157,12 +5200,22 @@ function toggleSettings(){
   if(!isOpen)initSettings();
 }
 
+function getStoredTheme(){
+  return appStorage.getItem('benai_theme')==='light'?'light':'dark';
+}
+
+function applyTheme(theme=getStoredTheme()){
+  document.body.classList.toggle('light',theme==='light');
+  const btnDark=document.getElementById('btn-dark');
+  const btnLight=document.getElementById('btn-light');
+  if(btnDark)btnDark.style.borderColor=theme==='dark'?'var(--a)':'var(--b1)';
+  if(btnLight)btnLight.style.borderColor=theme==='light'?'var(--a)':'var(--b1)';
+}
+
 function initSettings(){
   const isAdmin=currentUser?.role==='admin';
   document.getElementById('api-settings').style.display=isAdmin?'block':'none';
-  const theme=appStorage.getItem('benai_theme')||'dark';
-  document.getElementById('btn-dark').style.borderColor=theme==='dark'?'var(--a)':'var(--b1)';
-  document.getElementById('btn-light').style.borderColor=theme==='light'?'var(--a)':'var(--b1)';
+  applyTheme();
   if(isAdmin){
     renderTeamPwdSettings();
     const apiMsg=document.getElementById('api-msg');
@@ -5192,9 +5245,8 @@ function initSettings(){
 }
 
 function setTheme(theme){
-  appStorage.setItem('benai_theme',theme);document.body.classList.toggle('light',theme==='light');
-  document.getElementById('btn-dark').style.borderColor=theme==='dark'?'var(--a)':'var(--b1)';
-  document.getElementById('btn-light').style.borderColor=theme==='light'?'var(--a)':'var(--b1)';
+  appStorage.setItem('benai_theme',theme);
+  applyTheme(theme);
 }
 
 async function changerMonMdp(){
@@ -6081,7 +6133,7 @@ function renderLeads(){
 
 // CARTE DISPATCH (directeur co — attribution rapide)
 function renderDispatchCard(l){
-  const srcIcon={MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'}[l.source]||'📋';
+  const srcIcon=LEAD_SOURCE_ICONS[l.source]||'📋';
   const leadSoc=l.societe_crm||'nemausus';
   const commerciaux=getAllUsers().filter(u=>{
     if(!(u.role==='commercial'||u.role==='directeur_co'))return false;
@@ -6131,14 +6183,14 @@ function dispatchLead(id){
   saveLeads(leads);
   renderLeads();
   refreshLeadsBadge();
-  pushNotif('📋 Lead assigné',`${l.nom} — ${l.type_projet}`,{MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'}[l.source]||'📋',commId);
+  pushNotif('📋 Lead assigné',`${l.nom} — ${l.type_projet}`,LEAD_SOURCE_ICONS[l.source]||'📋',commId);
   logActivity(`${currentUser.name} a attribué ${l.nom} à ${comm?.name}`);
   showDriveNotif(`✅ ${l.nom} attribué à ${comm?.name}`);
 }
 
 // CARTE ASSISTANTE (sans statuts)
 function renderLeadCardAssistante(l){
-  const srcIcon={MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'}[l.source]||'📋';
+  const srcIcon=LEAD_SOURCE_ICONS[l.source]||'📋';
   const age=getLeadAge(l);
   const comm=getAllUsers().find(u=>u.id===l.commercial);
   // Infos RDV/rappel
@@ -6176,7 +6228,7 @@ function renderLeadCard(l,role){
   const secteurLabel=l.secteur==='avignon'?'Avignon':'Nîmes';
   const statLabel=STATUT_LABELS[l.statut]||'🔵 Non traité';
   const statCls=STATUT_CLS[l.statut]||'ls-gris';
-  const srcIcon={MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'}[l.source]||'📋';
+  const srcIcon=LEAD_SOURCE_ICONS[l.source]||'📋';
   const montant=l.statut==='vert'&&l.prix_vendu?` · 💰 ${Number(l.prix_vendu).toLocaleString('fr-FR')} €`:l.statut==='jaune'&&l.montant_devis?` · 📋 ${Number(l.montant_devis).toLocaleString('fr-FR')} €`:'';
   const vuBy=(role==='admin'||role==='directeur_co');
   const vuInfo=vuBy?(l.vu_date?`<span class="lead-vu">👁️ ${l.vu_date}</span>`:`<span class="lead-non-vu">👁️ Jamais ouvert</span>`):'';
@@ -6337,13 +6389,13 @@ function renderLeadsDashboard(){
     </div>`;
   });
   // Stats par source
-  const sources=['MAG','TEL','WEB','PARRAINAGE','ACTIF'];
-  const srcIcons={MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'};
-  html+=`<div class="secteur-card"><div class="secteur-title">📊 Par source</div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">`;
+  const sources=LEAD_SOURCE_CODES;
+  const srcIcons=LEAD_SOURCE_ICONS;
+  html+=`<div class="secteur-card"><div class="secteur-title">📊 Par source</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:6px">`;
   sources.forEach(src=>{
     const sl=leadsMonth.filter(l=>l.source===src);
     const v=sl.filter(l=>l.statut==='vert').length;
-    html+=`<div class="stat-box"><div style="font-size:16px">${srcIcons[src]}</div><div class="stat-box-val" style="font-size:16px">${sl.length}</div><div class="stat-box-lbl">${src}</div><div style="font-size:10px;color:var(--g)">${v} ventes</div></div>`;
+    html+=`<div class="stat-box"><div style="font-size:16px">${srcIcons[src]}</div><div class="stat-box-val" style="font-size:16px">${sl.length}</div><div class="stat-box-lbl">${LEAD_SOURCE_LABELS[src]||src}</div><div style="font-size:10px;color:var(--g)">${v} ventes</div></div>`;
   });
   html+='</div></div>';
   // Classement mensuel commerciaux
@@ -6766,7 +6818,7 @@ function saveLead(){
         const newComm=getAllUsers().find(u=>u.id===data.commercial);
         addLeadTimelineEntry(old,`Attribué à ${newComm?.name||data.commercial}`,currentUser.name);
         // Notifier le commercial
-        pushNotif('Lead attribué',`${nom} — ${projet}`,data.source==='ACTIF'?'🏃':'📋',data.commercial);
+        pushNotif('Lead attribué',`${nom} — ${projet}`,LEAD_SOURCE_ICONS[data.source]||'📋',data.commercial);
       }
       const updatedLead={...old,...data,id:currentLeadId,date_creation:old.date_creation,date_modification:now};
       leads[idx]=updatedLead;
@@ -6819,7 +6871,7 @@ function saveLead(){
   refreshLeadsBadge();
 }
 
-function srcIcons(){return{MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'};}
+function srcIcons(){return LEAD_SOURCE_ICONS;}
 
 function rouvrirLead(id){
   if(!confirm('Réouvrir ce lead ?'))return;
@@ -7085,7 +7137,7 @@ function attemptAutoHealCRMLeads(){
     if(!Array.isArray(l.rdv_history)){l.rdv_history=[];changed=true;fixes++;fixedShape++;}
     if(!l.date_creation){l.date_creation=nowIso;changed=true;fixes++;fixedShape++;}
     if(!l.date_modification){l.date_modification=nowIso;changed=true;fixes++;fixedShape++;}
-    if(!l.source||!['MAG','TEL','WEB','PARRAINAGE','ACTIF'].includes(l.source)){l.source='MAG';changed=true;fixes++;fixedShape++;}
+    if(!l.source||!LEAD_SOURCE_CODES.includes(l.source)){l.source='MAG';changed=true;fixes++;fixedShape++;}
     if(!l.secteur||!['nimes','avignon'].includes(l.secteur)){l.secteur='nimes';changed=true;fixes++;fixedShape++;}
     // Statut invalide
     if(!validStatuts.includes(l.statut)){l.statut='gris';changed=true;fixes++;fixedStatut++;}
@@ -7462,7 +7514,7 @@ function renderTableauVentes(container){
   const [yr,mo]=selectedMois.split('-').map(Number);
   const leadsFiltered=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;});
   const total=leadsFiltered.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
-  const srcIcons2={MAG:'📍',TEL:'📞',WEB:'🌐',PARRAINAGE:'🤝',ACTIF:'🏃'};
+  const srcIcons2=LEAD_SOURCE_ICONS;
   const html=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div style="font-size:15px;font-weight:700">📈 Tableau de ventes</div>
@@ -7709,7 +7761,7 @@ function markLeadRdvDone(id,source='manuel'){
 // ══════════════════════════════════════════
 function exportLeadParEmail(id){
   const l=getLeads().find(x=>x.id===id);if(!l)return;
-  const srcLabel={MAG:'Magasin',TEL:'Téléphone',WEB:'Web',PARRAINAGE:'Parrainage',ACTIF:'Actif'}[l.source]||'';
+  const srcLabel=LEAD_SOURCE_LABELS[l.source]||'';
   const sujet=encodeURIComponent(`Lead CRM — ${l.nom} — ${l.type_projet||''}`);
   const corps=encodeURIComponent(`Bonjour,
 
@@ -8017,8 +8069,7 @@ window.addEventListener('load',async()=>{
   registerBenAISW();
   refreshInstallButton();
   // Thème
-  const theme=appStorage.getItem('benai_theme')||'dark';
-  if(theme==='light')document.body.classList.add('light');
+  applyTheme();
   // Clé API : configuration centralisée côté admin dans Paramètres
   await maybeMigratePwds();
   // Charger utilisateurs extra avec leur vrai rôle
@@ -8095,7 +8146,7 @@ async function checkUpdate(){
       if(data.notes_assistante&&(role==='assistante'||role==='metreur'))notes=notes.concat(data.notes_assistante);
       // Fallback si pas de notes filtrées
       if(!notes.length)notes=Array.isArray(data.notes)?data.notes:[data.notes||'Améliorations et corrections'];
-      document.getElementById('update-version').textContent='BenAI v'+data.version;
+      document.getElementById('update-version').textContent='Mise à jour BenAI prête';
       const notesList=document.getElementById('update-notes');
       notesList.innerHTML=notes.map(n=>'<li>✅ '+esc(n)+'</li>').join('');
       window._pendingUpdate={version:data.version,notes:data.notes};
@@ -8124,7 +8175,14 @@ function isNewerVersion(remote,current){
 // ✏️ CORRECTION AUTOMATIQUE PARTOUT
 // ══════════════════════════════════════════
 function enableSpellcheckEverywhere(){
+  const isPhone=window.matchMedia('(max-width: 768px)').matches||/iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent||'');
   document.querySelectorAll('input[type="text"],input[type="search"],textarea').forEach(el=>{
+    if(isPhone){
+      el.spellcheck=false;
+      el.setAttribute('autocorrect','off');
+      el.setAttribute('autocapitalize','none');
+      return;
+    }
     el.spellcheck=true;
     el.setAttribute('autocorrect','on');
     el.setAttribute('autocapitalize','sentences');
@@ -8132,9 +8190,15 @@ function enableSpellcheckEverywhere(){
   // Observer pour les éléments ajoutés dynamiquement
   new MutationObserver(()=>{
     document.querySelectorAll('input[type="text"]:not([spellcheck]),textarea:not([spellcheck])').forEach(el=>{
-      el.spellcheck=true;
-      el.setAttribute('autocorrect','on');
-      el.setAttribute('autocapitalize','sentences');
+      if(isPhone){
+        el.spellcheck=false;
+        el.setAttribute('autocorrect','off');
+        el.setAttribute('autocapitalize','none');
+      }else{
+        el.spellcheck=true;
+        el.setAttribute('autocorrect','on');
+        el.setAttribute('autocapitalize','sentences');
+      }
     });
   }).observe(document.body,{childList:true,subtree:true});
 }
