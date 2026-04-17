@@ -2450,11 +2450,8 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
     lastSupabaseSyncError='Supabase désactivé ou utilisateur non connecté.';
     return false;
   }
-  // En mode local (sans session Supabase attendue), ne pas polluer avec des faux échecs de sync.
-  if(!shouldMonitorSupabaseSession()){
-    lastSupabaseSyncError='';
-    return true;
-  }
+  // Tenter une sync même si la session Auth n'est pas encore prête.
+  // Cela évite de "masquer" des échecs en mode local.
   await ensureSupabaseSession();
   const headers=getSupabaseHeaders();
   if(!headers){
@@ -5091,6 +5088,15 @@ function initOfflineDetection(){
     update();
     if(currentUser?.id&&SUPABASE_CONFIG.enabled){
       void flushSupabaseSyncNow();
+      void refreshCoreDataFromCloudIfNeeded(true);
+      void loadSharedApiKeyFromSupabase();
+    }
+  });
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden)return;
+    if(currentUser?.id&&SUPABASE_CONFIG.enabled){
+      void flushSupabaseSyncNow();
+      void refreshCoreDataFromCloudIfNeeded(true);
     }
   });
   window.addEventListener('offline',update);
