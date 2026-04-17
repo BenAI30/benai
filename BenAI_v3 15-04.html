@@ -3436,10 +3436,20 @@ async function sendChat(txtOverride){
       }catch(e){}
     }
   }
-  const userMsgEl=addUserMsg(txt);const typing=addTyping();
+  addUserMsg(txt);
   const now=Date.now();
   chatHistory.push({role:'user',content:txt,ts:now});
   if(chatHistory.length>60)chatHistory=chatHistory.slice(-60);
+  if(shouldGenerateLocalCRMReport(txt)){
+    const report=generateLocalCRMReport();
+    chatHistory.push({role:'assistant',content:report,ts:Date.now()});
+    saveChatMem(currentUser.id,chatHistory);
+    addAIMsg(report);
+    logActivity(`${currentUser.name} a demandé un rapport CRM local`);
+    busy=false;document.getElementById('btn-send').disabled=false;
+    return;
+  }
+  const typing=addTyping();
   try{
     const mem=getMem();
     const ctx=`\nSAV ouverts: ${mem.sav.filter(s=>s.statut!=='regle').length}`;
@@ -3477,13 +3487,85 @@ function updateTokenInfo(usage){
 }
 
 function getCRMContextForAI(){
-  const leads=getLeads();
+  const leads=getCompanyScopedLeads(getLeads());
   const actifs=leads.filter(l=>!l.archive);
   const perdus=actifs.filter(l=>l.statut==='rouge');
   const vendus=actifs.filter(l=>l.statut==='vert');
   const devis=actifs.filter(l=>l.statut==='jaune');
   const reasons=getLeadLostAnalytics(actifs).rows.slice(0,3).map(r=>`${r.label}: ${r.count}`).join(' | ');
   return `\nCRM: ${actifs.length} leads actifs, ${vendus.length} vendus, ${devis.length} en devis, ${perdus.length} perdus.${reasons?` Motifs pertes: ${reasons}.`:''}`;
+}
+
+function shouldGenerateLocalCRMReport(txt){
+  const q=String(txt||'').toLowerCase();
+  const asksReport=/(rapport|analyse|diagnostic|audit|synthese|bilan)/.test(q);
+  const crmScope=/(crm|lead|leads|commercial|commerciaux|vente|ventes|secteur|tableau|kpi)/.test(q);
+  const asksProblems=/(ne va pas|anomal|risque|probleme|corrig|faible|point faible)/.test(q);
+  return (asksReport&&crmScope)||(crmScope&&asksProblems);
+}
+
+function generateLocalCRMReport(){
+  const scopedLeads=getCompanyScopedLeads(getLeads());
+  const actifs=scopedLeads.filter(l=>!l.archive);
+  const now=new Date();
+  const month=now.getMonth(),year=now.getFullYear();
+  const leadsMonth=actifs.filter(l=>{const d=new Date(l.date_creation||0);return d.getMonth()===month&&d.getFullYear()===year;});
+  const vendus=actifs.filter(l=>l.statut==='vert');
+  const devis=actifs.filter(l=>l.statut==='jaune');
+  const perdus=actifs.filter(l=>l.statut==='rouge');
+  const nonAttrib=actifs.filter(l=>!l.commercial&&l.statut==='gris');
+  const alertes=actifs.filter(l=>isLeadAlerte(l));
+  const zoneBlanche=actifs.filter(l=>l.zone_blanche||l.secteur==='zone_blanche');
+  const horsSecteurSansJustif=actifs.filter(l=>l.hors_secteur&&!String(l.justification_hors_secteur||'').trim());
+  const rdvSansDate=actifs.filter(l=>(l.statut==='rdv'||l.sous_statut==='rdv_programme')&&!l.rappel&&!l.date_rdv_fait);
+  const devisSansMontant=actifs.filter(l=>l.statut==='jaune'&&!Number(l.montant_devis||0));
+  const olderNoCommercial=actifs.filter(l=>!l.commercial&&getHeuresOuvrees(new Date(l.date_creation||Date.now()))>24);
+  const caTotal=vendus.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
+  const caMonth=leadsMonth.filter(l=>l.statut==='vert').reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
+  const lostTop=getLeadLostAnalytics(leadsMonth).rows.slice(0,3);
+
+  const issues=[];
+  if(nonAttrib.length)issues.push(`- ${nonAttrib.length} lead(s) non attribué(s).`);
+  if(alertes.length)issues.push(`- ${alertes.length} lead(s) en alerte de traitement.`);
+  if(olderNoCommercial.length)issues.push(`- ${olderNoCommercial.length} lead(s) sans commercial depuis +24h ouvrées.`);
+  if(rdvSansDate.length)issues.push(`- ${rdvSansDate.length} RDV sans date.`);
+  if(devisSansMontant.length)issues.push(`- ${devisSansMontant.length} devis sans montant.`);
+  if(horsSecteurSansJustif.length)issues.push(`- ${horsSecteurSansJustif.length} lead(s) hors secteur sans justification.`);
+
+  const secteurs=['nimes','avignon','bagnoles','zone_blanche'];
+  const secteursTxt=secteurs.map(s=>{
+    const label=getLeadSecteurLabel(s);
+    const sl=actifs.filter(l=>l.secteur===s);
+    const ca=sl.filter(l=>l.statut==='vert').reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
+    return `- ${label}: ${sl.length} leads, ${ca.toLocaleString('fr-FR')} €`;
+  }).join('\n');
+
+  const lostTxt=lostTop.length
+    ?lostTop.map(r=>`- ${r.label}: ${r.count}`).join('\n')
+    :'- Aucun motif majeur ce mois.';
+
+  return `## Rapport CRM automatique
+
+- Périmètre analysé: ${actifs.length} leads actifs
+- Ce mois: ${leadsMonth.length} leads, ${caMonth.toLocaleString('fr-FR')} € signés
+- Total signé (actifs): ${caTotal.toLocaleString('fr-FR')} €
+- Devis en cours: ${devis.length}
+- Leads perdus: ${perdus.length}
+- Zone blanche: ${zoneBlanche.length}
+
+### Vue par secteur
+${secteursTxt}
+
+### Points de vigilance
+${issues.length?issues.join('\n'):'- Aucun signal critique détecté sur les règles principales.'}
+
+### Motifs de perte (mois en cours)
+${lostTxt}
+
+### Actions recommandées
+- Attribuer en priorité les leads en attente et ceux en alerte.
+- Nettoyer les fiches incohérentes (RDV sans date, devis sans montant).
+- Vérifier les hors-secteur sans justification pour éviter les pertes de suivi.`;
 }
 
 // CORRIGER ORTHOGRAPHE
@@ -6785,6 +6867,10 @@ function renderLeadsDashboard(){
   const nonAttrib=leads.filter(l=>!l.commercial&&l.statut==='gris').length;
   const alertes=leads.filter(l=>isLeadAlerte(l)).length;
   const rdvMonthTotal=leads.reduce((sum,l)=>sum+getLeadRdvDoneMonthCount(l,now),0);
+  html+=`<div class="secteur-card" style="padding:10px 14px">
+    <div style="font-size:11px;color:var(--t3);font-weight:600;letter-spacing:.3px">STRUCTURE DASHBOARD</div>
+    <div style="font-size:12px;color:var(--t2);margin-top:4px">1) Pilotage global · 2) Analyse ventes · 3) Performance commerciale · 4) Exports et suivi</div>
+  </div>`;
   html+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
     <div class="stat-box"><div class="stat-box-val">${totalLeads}</div><div class="stat-box-lbl">Total leads</div></div>
     <div class="stat-box"><div class="stat-box-val" style="color:var(--y)">${nonAttrib}</div><div class="stat-box-lbl">À attribuer</div></div>
@@ -6800,6 +6886,7 @@ function renderLeadsDashboard(){
       ca:ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0)
     };
   });
+  html+=`<div style="font-size:11px;color:var(--t3);font-weight:700;margin:6px 0">1) PILOTAGE GLOBAL</div>`;
   html+=`<div class="secteur-card">
     <div class="secteur-title">🧭 Suivi global par secteur</div>
     ${secteursSynthese.map(s=>`
@@ -6809,6 +6896,23 @@ function renderLeadsDashboard(){
         <div class="perf-ca">${s.ca.toLocaleString('fr-FR')} €</div>
       </div>
     `).join('')}
+  </div>`;
+  const salesTotal=leads.filter(l=>l.statut==='vert');
+  const caTotal=salesTotal.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
+  const salesMonth=leadsMonth.filter(l=>l.statut==='vert');
+  const caMonth=salesMonth.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
+  const panierMoyen=salesTotal.length?Math.round(caTotal/salesTotal.length):0;
+  const txConv=totalLeads?Math.round((salesTotal.length/totalLeads)*100):0;
+  html+=`<div style="font-size:11px;color:var(--t3);font-weight:700;margin:6px 0">2) ANALYSE VENTES</div>`;
+  html+=`<div class="secteur-card">
+    <div class="secteur-title">💼 Analyse ventes complète</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+      <div class="stat-box"><div class="stat-box-val" style="color:var(--g)">${salesTotal.length}</div><div class="stat-box-lbl">Ventes signées</div></div>
+      <div class="stat-box"><div class="stat-box-val" style="color:var(--g)">${caTotal.toLocaleString('fr-FR')} €</div><div class="stat-box-lbl">CA total signé</div></div>
+      <div class="stat-box"><div class="stat-box-val">${panierMoyen.toLocaleString('fr-FR')} €</div><div class="stat-box-lbl">Panier moyen</div></div>
+      <div class="stat-box"><div class="stat-box-val" style="color:var(--a)">${txConv}%</div><div class="stat-box-lbl">Taux conversion global</div></div>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--t2)">Ce mois: ${salesMonth.length} vente(s) · ${caMonth.toLocaleString('fr-FR')} € signé(s).</div>
   </div>`;
   const rdvTop=leads.map(l=>({lead:l,count:getLeadRdvDoneMonthCount(l,now)})).filter(x=>x.count>0).sort((a,b)=>b.count-a.count).slice(0,5);
   html+=`<div class="secteur-card">
@@ -6820,6 +6924,7 @@ function renderLeadsDashboard(){
     ${rdvTop.length?rdvTop.map(x=>`<div class="perf-row"><div class="perf-name">${esc(x.lead.nom)}</div><div class="perf-stats">${x.count} RDV</div><div class="perf-ca">${esc(x.lead.type_projet||'')}</div></div>`).join(''):`<div style="font-size:12px;color:var(--t3)">Aucun RDV réalisé enregistré ce mois.</div>`}
   </div>`;
   // Par secteur
+  html+=`<div style="font-size:11px;color:var(--t3);font-weight:700;margin:6px 0">3) PERFORMANCE COMMERCIALE</div>`;
   secteurs.forEach(s=>{
     const sl=leadsMonth.filter(l=>l.secteur===s.id);
     const total=sl.length,ventes=sl.filter(l=>l.statut==='vert');
@@ -6895,7 +7000,23 @@ function renderLeadsDashboard(){
   const role=currentUser?.role||'assistante';
   const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
   if(role==='admin'||role==='directeur_co'){
-    html+=`<div style="display:flex;gap:8px;margin-bottom:12px"><button onclick="exportLeadsExcel()" style="flex:1;padding:8px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">📥 Exporter tous les leads</button><button onclick="ouvrirFusion()" style="flex:1;padding:8px;background:var(--bl2);color:var(--bl);border:1px solid rgba(96,165,250,.3);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">🔀 Fusionner leads en double</button></div>`;
+    html+=`<div style="font-size:11px;color:var(--t3);font-weight:700;margin:6px 0">4) EXPORTS ET ACTIONS</div>`;
+    html+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button onclick="exportLeadsExcel()" style="flex:1;min-width:220px;padding:8px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">📥 Exporter tous les leads</button>
+      <button onclick="exportAllCRMTables()" style="flex:1;min-width:220px;padding:8px;background:var(--a3);color:var(--a);border:1px solid rgba(232,148,58,.35);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">📦 Télécharger tous les tableaux CRM</button>
+      <button onclick="ouvrirFusion()" style="flex:1;min-width:220px;padding:8px;background:var(--bl2);color:var(--bl);border:1px solid rgba(96,165,250,.3);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">🔀 Fusionner leads en double</button>
+    </div>`;
+    html+=`<div class="secteur-card">
+      <div class="secteur-title">📤 Exports individuels</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+        <button onclick="exportCRMTable('leads')" style="padding:8px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:8px;font-family:inherit;font-size:12px;cursor:pointer">Leads détaillés</button>
+        <button onclick="exportCRMTable('ventes')" style="padding:8px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:8px;font-family:inherit;font-size:12px;cursor:pointer">Ventes</button>
+        <button onclick="exportCRMTable('secteurs')" style="padding:8px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:8px;font-family:inherit;font-size:12px;cursor:pointer">Performance secteurs</button>
+        <button onclick="exportCRMTable('sources')" style="padding:8px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:8px;font-family:inherit;font-size:12px;cursor:pointer">Performance sources</button>
+        <button onclick="exportCRMTable('classement')" style="padding:8px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:8px;font-family:inherit;font-size:12px;cursor:pointer">Classement commerciaux</button>
+        <button onclick="exportCRMTable('pertes')" style="padding:8px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:8px;font-family:inherit;font-size:12px;cursor:pointer">Analyse pertes</button>
+      </div>
+    </div>`;
   }
 
   // RAPPORT ALERTES
@@ -7681,6 +7802,103 @@ function exportLeadsExcel(){
   }).join('\n');
   download('Leads_BenAI_'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.csv',header+rows,'text/csv;charset=utf-8');
   logActivity('Export leads Excel');
+}
+
+function buildCRMExportBundles(){
+  const scopedLeads=getCompanyScopedLeads(getLeads());
+  const actifs=scopedLeads.filter(l=>!l.archive);
+  const now=new Date();
+  const currentMonth=appStorage.getItem('benai_ventes_mois')||`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const [yr,mo]=currentMonth.split('-').map(Number);
+  const leadsMonth=actifs.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;});
+  const salesMonth=leadsMonth.filter(l=>l.statut==='vert');
+  const stamp=new Date().toISOString().slice(0,10);
+  const scopeLabel=(currentUser?.role==='directeur_co')?`scope_${currentUser.societe||'societe'}`:'scope_global';
+
+  const leadsHeader='Date,Source,Nom,Téléphone,Ville,CP,Projet,Statut,Commercial,Secteur,Hors secteur,Zone blanche,Devis (€),CA (€),Suivi,Commentaire\n';
+  const leadsRows=actifs.map(l=>{
+    const comm=getAllUsers().find(u=>u.id===l.commercial);
+    return [
+      new Date(l.date_creation||0).toLocaleDateString('fr-FR'),
+      l.source||'',
+      csv(l.nom),csv(l.telephone),csv(l.ville),l.cp||'',
+      csv(l.type_projet),l.statut,csv(comm?.name||''),
+      csv(getLeadSecteurLabel(l.secteur)),
+      l.hors_secteur?'Oui':'Non',
+      (l.zone_blanche||l.secteur==='zone_blanche')?'Oui':'Non',
+      l.montant_devis||'',l.prix_vendu||'',
+      csv(l.suivi),csv(l.commentaire)
+    ].join(',');
+  }).join('\n');
+
+  const ventesHeader='Mois,Source,Commercial,Client,Téléphone,Ville,Produit,HT (€),Date signature\n';
+  const ventesRows=salesMonth.map(l=>{
+    const comm=getAllUsers().find(u=>u.id===l.commercial);
+    return [currentMonth,l.source||'',csv(comm?.name||''),csv(l.nom),csv(l.telephone),csv(l.ville),csv(l.produit_vendu||l.type_projet),l.prix_vendu||'',l.date_signature||''].join(',');
+  }).join('\n');
+
+  const secteurs=['nimes','avignon','bagnoles','zone_blanche'];
+  const secteurHeader='Secteur,Leads actifs,Ventes,CA signé (€),Devis en cours,Pipeline devis (€)\n';
+  const secteurRows=secteurs.map(s=>{
+    const sl=actifs.filter(l=>l.secteur===s);
+    const ventes=sl.filter(l=>l.statut==='vert');
+    const devis=sl.filter(l=>l.statut==='jaune');
+    const ca=ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
+    const pipeline=devis.reduce((sum,l)=>sum+Number(l.montant_devis||0),0);
+    return [csv(getLeadSecteurLabel(s)),sl.length,ventes.length,ca,devis.length,pipeline].join(',');
+  }).join('\n');
+
+  const srcHeader='Mois,Source,Leads,Ventes,CA signé (€)\n';
+  const srcRows=LEAD_SOURCE_CODES.map(src=>{
+    const sl=leadsMonth.filter(l=>l.source===src);
+    const ventes=sl.filter(l=>l.statut==='vert');
+    const ca=ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
+    return [currentMonth,csv(LEAD_SOURCE_LABELS[src]||src),sl.length,ventes.length,ca].join(',');
+  }).join('\n');
+
+  const ranking=getCommercialRankingMonth(actifs);
+  const rankHeader='Mois,Rang,Commercial,Ventes,CA signé (€)\n';
+  const rankRows=ranking.map((r,i)=>{
+    const u=getAllUsers().find(x=>x.id===r.uid);
+    return [currentMonth,i+1,csv(u?.name||r.uid),r.ventes,r.ca].join(',');
+  }).join('\n');
+
+  const lost=getLeadLostAnalytics(leadsMonth);
+  const lostHeader='Mois,Motif,Leads perdus\n';
+  const lostRows=(lost.rows||[]).map(r=>[currentMonth,csv(r.label),r.count].join(',')).join('\n');
+
+  return {
+    currentMonth,
+    bundles:{
+      leads:{filename:`CRM_Leads_${scopeLabel}_${stamp}.csv`,content:leadsHeader+leadsRows},
+      ventes:{filename:`CRM_Ventes_${currentMonth}_${scopeLabel}_${stamp}.csv`,content:ventesHeader+ventesRows},
+      secteurs:{filename:`CRM_Secteurs_${scopeLabel}_${stamp}.csv`,content:secteurHeader+secteurRows},
+      sources:{filename:`CRM_Sources_${currentMonth}_${scopeLabel}_${stamp}.csv`,content:srcHeader+srcRows},
+      classement:{filename:`CRM_Classement_${currentMonth}_${scopeLabel}_${stamp}.csv`,content:rankHeader+rankRows},
+      pertes:{filename:`CRM_Pertes_${currentMonth}_${scopeLabel}_${stamp}.csv`,content:lostHeader+lostRows}
+    }
+  };
+}
+
+function exportCRMTable(key){
+  const payload=buildCRMExportBundles();
+  const item=payload.bundles[key];
+  if(!item){
+    showDriveNotif('⚠️ Tableau inconnu');
+    return;
+  }
+  download(item.filename,item.content,'text/csv;charset=utf-8');
+  showDriveNotif(`📥 Export ${key} prêt`);
+  logActivity(`${currentUser?.name||'Utilisateur'} a exporté le tableau ${key}`);
+}
+
+function exportAllCRMTables(){
+  const payload=buildCRMExportBundles();
+  Object.values(payload.bundles).forEach(item=>{
+    download(item.filename,item.content,'text/csv;charset=utf-8');
+  });
+  showDriveNotif(`📦 Tableaux CRM exportés (${formatMois(payload.currentMonth)})`);
+  logActivity(`${currentUser?.name||'Utilisateur'} a exporté tous les tableaux CRM`);
 }
 
 // ══════════════════════════════════════════
