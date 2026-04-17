@@ -5190,6 +5190,19 @@ const COLORS=['linear-gradient(135deg,#22C55E,#15803D)','linear-gradient(135deg,
 function getExtraUsers(){try{return JSON.parse(appStorage.getItem('benai_extra_users'))||[];}catch{return [];}}
 function saveExtraUsers(u){appStorage.setItem('benai_extra_users',JSON.stringify(u));}
 function getExtraUserById(id){return getExtraUsers().find(u=>u.id===id)||null;}
+function getHiddenUserIds(){
+  try{return JSON.parse(appStorage.getItem('benai_hidden_users')||'[]')||[];}catch{return[];}
+}
+function saveHiddenUserIds(ids){
+  appStorage.setItem('benai_hidden_users',JSON.stringify([...(new Set((ids||[]).map(x=>String(x||'').trim()).filter(Boolean)))]));
+}
+function hideUserId(uid){
+  const normalized=normalizeId(uid);
+  if(!normalized)return;
+  const hidden=getHiddenUserIds();
+  if(!hidden.includes(normalized))hidden.push(normalized);
+  saveHiddenUserIds(hidden);
+}
 async function syncExtraUsersFromSupabaseProfiles(){
   if(!currentUser||currentUser.role!=='admin')return false;
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
@@ -5201,7 +5214,8 @@ async function syncExtraUsersFromSupabaseProfiles(){
     const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/profiles?select=id,email,app_uid,full_name,role,company`,{headers},8000);
     if(!res.ok)return false;
     const rows=await res.json();
-    const old=getExtraUsers();
+    const hiddenSet=new Set(getHiddenUserIds().map(normalizeId));
+    const old=getExtraUsers().filter(u=>!hiddenSet.has(normalizeId(u.id)));
     const oldMap=new Map(old.map(u=>[u.id,u]));
     const merged=[...old];
     const exists=new Set(old.map(u=>u.id));
@@ -5212,6 +5226,7 @@ async function syncExtraUsersFromSupabaseProfiles(){
       let uid=normalizeId(p?.app_uid||email.split('@')[0]||fullName.split(/\s+/)[0]||'');
       if(!uid)return;
       if(uid==='benjamin'||uid==='benai')return;
+      if(hiddenSet.has(uid))return;
       const prev=oldMap.get(uid);
       const newU={
         id:uid,
@@ -5240,11 +5255,13 @@ async function syncExtraUsersFromSupabaseProfiles(){
   }
 }
 function getAllUsers(){
-  const hidden=JSON.parse(appStorage.getItem('benai_hidden_users')||'[]');
+  const hiddenSet=new Set(getHiddenUserIds().map(normalizeId));
   const base=[
     {id:'benjamin',name:'Benjamin',role:'admin',societe:'les-deux',vehicule:'',color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B',builtin:true}
-  ].filter(u=>!hidden.includes(u.id));
-  const extras=getExtraUsers().map(u=>({...u,vehicule:u.vehicule||''}));
+  ].filter(u=>!hiddenSet.has(normalizeId(u.id)));
+  const extras=getExtraUsers()
+    .filter(u=>!hiddenSet.has(normalizeId(u.id)))
+    .map(u=>({...u,vehicule:u.vehicule||''}));
   return[...base,...extras];
 }
 
@@ -5347,17 +5364,13 @@ function supprimerUtilisateur(uid){
   if(uid==='benjamin'){alert('Benjamin ne peut pas être supprimé.');return;}
   const u=findUserById(uid);
   if(!confirm(`Supprimer ${u?.name||uid} définitivement ? Cette action est irréversible.`))return;
-  // Si builtin (Aurélie/Claudine), les masquer via un flag
-  if(u?.builtin){
-    const hidden=JSON.parse(appStorage.getItem('benai_hidden_users')||'[]');
-    if(!hidden.includes(uid))hidden.push(uid);
-    appStorage.setItem('benai_hidden_users',JSON.stringify(hidden));
-    delete USERS[uid];
-  } else {
-    const extras=getExtraUsers().filter(e=>e.id!==uid);saveExtraUsers(extras);
-    delete USERS[uid];
-  }
+  // Toujours masquer durablement (évite toute réapparition après sync).
+  hideUserId(uid);
+  const extras=getExtraUsers().filter(e=>normalizeId(e.id)!==normalizeId(uid));
+  saveExtraUsers(extras);
+  delete USERS[uid];
   const pwds=getPwds();delete pwds[uid];savePwds(pwds);
+  const access=getAccess();delete access[uid];saveAccess(access);
   // Retirer du select login
   const opt=document.querySelector(`#login-user option[value="${uid}"]`);if(opt)opt.remove();
   renderUsersList();renderPwdList();logActivity(`Benjamin a supprimé l'utilisateur ${u?.name||uid}`);

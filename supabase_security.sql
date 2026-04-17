@@ -538,25 +538,49 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_auth_user();
 
+with missing_users as (
+  select
+    au.id,
+    lower(coalesce(au.email, '')) as email,
+    lower(regexp_replace(split_part(coalesce(au.email, ''), '@', 1), '[^a-z0-9_]+', '_', 'g')) as base_uid,
+    coalesce(nullif(trim(coalesce(au.raw_user_meta_data->>'full_name', '')), ''), split_part(coalesce(au.email, ''), '@', 1), 'Utilisateur') as full_name,
+    case
+      when lower(coalesce(au.raw_user_meta_data->>'role', 'assistante')) in ('admin','directeur_co','commercial','assistante','metreur')
+        then lower(au.raw_user_meta_data->>'role')
+      else 'assistante'
+    end as role,
+    case
+      when lower(coalesce(au.raw_user_meta_data->>'company', 'nemausus')) in ('nemausus','lambert','les-deux')
+        then lower(au.raw_user_meta_data->>'company')
+      else 'nemausus'
+    end as company
+  from auth.users au
+  left join public.profiles p on p.id = au.id
+  where p.id is null
+),
+ranked as (
+  select
+    m.*,
+    row_number() over (partition by m.base_uid order by m.id) as rn
+  from missing_users m
+),
+prepared as (
+  select
+    r.id,
+    r.email,
+    case
+      when r.rn = 1 and not exists (select 1 from public.profiles p2 where p2.app_uid = r.base_uid)
+        then r.base_uid
+      else r.base_uid || '_' || substr(replace(r.id::text, '-', ''), 1, 6)
+    end as app_uid,
+    r.full_name,
+    r.role,
+    r.company
+  from ranked r
+)
 insert into public.profiles (id, email, app_uid, full_name, role, company)
-select
-  au.id,
-  lower(coalesce(au.email, '')),
-  lower(regexp_replace(split_part(coalesce(au.email, ''), '@', 1), '[^a-z0-9_]+', '_', 'g')),
-  coalesce(nullif(trim(coalesce(au.raw_user_meta_data->>'full_name', '')), ''), split_part(coalesce(au.email, ''), '@', 1), 'Utilisateur'),
-  case
-    when lower(coalesce(au.raw_user_meta_data->>'role', 'assistante')) in ('admin','directeur_co','commercial','assistante','metreur')
-      then lower(au.raw_user_meta_data->>'role')
-    else 'assistante'
-  end,
-  case
-    when lower(coalesce(au.raw_user_meta_data->>'company', 'nemausus')) in ('nemausus','lambert','les-deux')
-      then lower(au.raw_user_meta_data->>'company')
-    else 'nemausus'
-  end
-from auth.users au
-left join public.profiles p on p.id = au.id
-where p.id is null
+select id, email, app_uid, full_name, role, company
+from prepared
 on conflict (id) do nothing;
 
 drop trigger if exists trg_profiles_updated_at on public.profiles;

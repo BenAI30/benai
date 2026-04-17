@@ -14,6 +14,36 @@ type CreateUserPayload = {
   app_uid?: string;
 };
 
+function sanitizeAppUid(seed: string): string {
+  const cleaned = String(seed || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return cleaned || "user";
+}
+
+async function ensureUniqueAppUid(
+  adminClient: ReturnType<typeof createClient>,
+  seed: string,
+  userId: string,
+): Promise<string> {
+  const base = sanitizeAppUid(seed);
+  let candidate = base;
+  for (let i = 0; i < 20; i++) {
+    const { data, error } = await adminClient
+      .from("profiles")
+      .select("id")
+      .eq("app_uid", candidate)
+      .maybeSingle();
+    if (error) return candidate;
+    if (!data || data.id === userId) return candidate;
+    const suffix = userId.replaceAll("-", "").slice(0, 6 + i);
+    candidate = `${base}_${suffix}`;
+  }
+  return `${base}_${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`;
+}
+
 function getAllowedOrigins(): Set<string> {
   const raw = Deno.env.get("CORS_ALLOWED_ORIGINS") ?? "";
   const envOrigins = raw
@@ -120,7 +150,7 @@ Deno.serve(async (req) => {
     const fullName = String(payload.full_name || "").trim();
     const role = payload.role;
     const company = payload.company;
-    const appUid = String(payload.app_uid || "").trim().toLowerCase();
+    const requestedAppUid = sanitizeAppUid(String(payload.app_uid || "").trim().toLowerCase() || email.split("@")[0] || "user");
 
     if (!email || !email.includes("@")) {
       return json(400, { error: "Email invalide" }, origin);
@@ -155,7 +185,7 @@ Deno.serve(async (req) => {
           full_name: fullName,
           role,
           company,
-          app_uid: appUid,
+          app_uid: requestedAppUid,
         },
       });
 
@@ -171,7 +201,7 @@ Deno.serve(async (req) => {
           full_name: fullName,
           role,
           company,
-          app_uid: appUid,
+          app_uid: requestedAppUid,
         },
       });
 
@@ -180,11 +210,24 @@ Deno.serve(async (req) => {
       }
     }
 
+    const resolvedAppUid = await ensureUniqueAppUid(adminClient, requestedAppUid, userId);
+    const { error: metadataUpdateError } = await adminClient.auth.admin.updateUserById(userId, {
+      user_metadata: {
+        full_name: fullName,
+        role,
+        company,
+        app_uid: resolvedAppUid,
+      },
+    });
+    if (metadataUpdateError) {
+      return json(400, { error: metadataUpdateError.message || "Impossible de finaliser le profil utilisateur" }, origin);
+    }
+
     const { error: profileError } = await adminClient.from("profiles").upsert(
       {
         id: userId,
         email,
-        app_uid: appUid || email.split("@")[0]?.toLowerCase(),
+        app_uid: resolvedAppUid,
         full_name: fullName,
         role,
         company,
