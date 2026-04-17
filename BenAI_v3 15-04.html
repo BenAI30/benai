@@ -1945,13 +1945,32 @@ async function trySupabaseSessionFromLocalCredentials(uid,pwd){
 
 async function createSupabaseUserProvisioning(payload){
   const client=getSupabaseClient();
-  if(!client||!currentSupabaseSession?.access_token)return {ok:false,error:'Session Supabase admin manquante'};
+  const session=await ensureSupabaseSession();
+  const accessToken=session?.access_token||'';
+  if(!client||!accessToken)return {ok:false,error:'Session Supabase admin manquante'};
   try{
-    const {data,error}=await client.functions.invoke('create-user',{body:payload});
-    if(error)return {ok:false,error:error.message||'Erreur fonction Supabase'};
-    return {ok:true,data};
+    const fnUrl=`${SUPABASE_CONFIG.url}/functions/v1/create-user`;
+    const res=await fetchWithTimeout(fnUrl,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        apikey:SUPABASE_CONFIG.publishableKey,
+        Authorization:'Bearer '+accessToken
+      },
+      body:JSON.stringify(payload)
+    },12000);
+    let bodyJson=null;
+    const rawBody=await res.text();
+    if(rawBody){
+      try{bodyJson=JSON.parse(rawBody);}catch(_){}
+    }
+    if(!res.ok){
+      const detail=bodyJson?.error||bodyJson?.message||rawBody||`HTTP ${res.status}`;
+      return {ok:false,error:String(detail)};
+    }
+    return {ok:true,data:bodyJson||{}};
   }catch(e){
-    return {ok:false,error:e.message||'Erreur réseau'};
+    return {ok:false,error:e?.message||'Erreur réseau create-user (CORS/connexion)'};
   }
 }
 
