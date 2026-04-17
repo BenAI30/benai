@@ -184,6 +184,7 @@ Deno.serve(async (req) => {
       {
         id: userId,
         email,
+        app_uid: appUid || email.split("@")[0]?.toLowerCase(),
         full_name: fullName,
         role,
         company,

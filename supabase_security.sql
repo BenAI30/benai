@@ -206,6 +206,58 @@ begin
 end;
 $$;
 
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  meta jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
+  full_name_val text;
+  role_val text;
+  company_val text;
+  base_uid text;
+  safe_uid text;
+begin
+  full_name_val := nullif(trim(coalesce(meta->>'full_name', '')), '');
+  if full_name_val is null then
+    full_name_val := split_part(coalesce(new.email, ''), '@', 1);
+  end if;
+
+  role_val := lower(coalesce(meta->>'role', 'assistante'));
+  if role_val not in ('admin','directeur_co','commercial','assistante','metreur') then
+    role_val := 'assistante';
+  end if;
+
+  company_val := lower(coalesce(meta->>'company', 'nemausus'));
+  if company_val not in ('nemausus','lambert','les-deux') then
+    company_val := 'nemausus';
+  end if;
+
+  base_uid := lower(coalesce(nullif(trim(coalesce(meta->>'app_uid', '')), ''), split_part(coalesce(new.email, ''), '@', 1), 'user'));
+  safe_uid := regexp_replace(base_uid, '[^a-z0-9_]+', '_', 'g');
+  if safe_uid = '' then
+    safe_uid := 'user';
+  end if;
+  if exists (select 1 from public.profiles p where p.app_uid = safe_uid and p.id <> new.id) then
+    safe_uid := safe_uid || '_' || substr(replace(new.id::text, '-', ''), 1, 6);
+  end if;
+
+  insert into public.profiles(id, email, app_uid, full_name, role, company)
+  values (new.id, lower(coalesce(new.email, '')), safe_uid, full_name_val, role_val, company_val)
+  on conflict (id) do update set
+    email = excluded.email,
+    app_uid = excluded.app_uid,
+    full_name = excluded.full_name,
+    role = excluded.role,
+    company = excluded.company,
+    updated_at = now();
+
+  return new;
+end;
+$$;
+
 -- =========
 -- Enable RLS
 -- =========
@@ -480,6 +532,32 @@ alter table public.absences
   drop constraint if exists absences_notifs_is_array;
 alter table public.absences
   add constraint absences_notifs_is_array check (jsonb_typeof(notifs) = 'array');
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute function public.handle_new_auth_user();
+
+insert into public.profiles (id, email, app_uid, full_name, role, company)
+select
+  au.id,
+  lower(coalesce(au.email, '')),
+  lower(regexp_replace(split_part(coalesce(au.email, ''), '@', 1), '[^a-z0-9_]+', '_', 'g')),
+  coalesce(nullif(trim(coalesce(au.raw_user_meta_data->>'full_name', '')), ''), split_part(coalesce(au.email, ''), '@', 1), 'Utilisateur'),
+  case
+    when lower(coalesce(au.raw_user_meta_data->>'role', 'assistante')) in ('admin','directeur_co','commercial','assistante','metreur')
+      then lower(au.raw_user_meta_data->>'role')
+    else 'assistante'
+  end,
+  case
+    when lower(coalesce(au.raw_user_meta_data->>'company', 'nemausus')) in ('nemausus','lambert','les-deux')
+      then lower(au.raw_user_meta_data->>'company')
+    else 'nemausus'
+  end
+from auth.users au
+left join public.profiles p on p.id = au.id
+where p.id is null
+on conflict (id) do nothing;
 
 drop trigger if exists trg_profiles_updated_at on public.profiles;
 create trigger trg_profiles_updated_at
