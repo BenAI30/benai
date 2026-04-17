@@ -1696,10 +1696,11 @@ const STORAGE_KEYS = {
 const SUPABASE_DEFAULT_URL='https://wsstfaqyixnsaimbycmw.supabase.co';
 // Clé publique uniquement (Publishable key), jamais la service_role.
 const SUPABASE_DEFAULT_PUBLISHABLE_KEY='sb_publishable_WDPUls7WDAvZLYPflwl3yg_su4VZ-_C';
-const SUPABASE_TABLES=['sav','notes','absences','annuaire','leads'];
+const SUPABASE_TABLES=['sav','notes','absences','annuaire','leads','app_settings'];
 const SUPABASE_FETCH_PAGE_SIZE=1000;
 const SUPABASE_TEST_ENDPOINT='/auth/v1/settings';
 const SHARED_AI_SETTING_KEY='shared_ai_api';
+const SHARED_CORE_DATA_KEY='shared_core_data_v1';
 let supabaseSyncTimer=null;
 let lastSupabaseSyncError='';
 let supabaseRetryTimer=null;
@@ -1717,6 +1718,7 @@ const SUPABASE_FULL_SHARED_SYNC_INTERVAL_MS=2*60*1000;
 let supabaseLastSharedSyncTs=0;
 let supabaseSharedDirty={sav:false,notes:false,absences:false,annuaire:false,leads:false};
 let supabaseSharedSignatures={sav:'',notes:'',absences:'',annuaire:'',leads:''};
+let sharedCoreLastUpdatedAt='';
 let sharedApiKeyRetryTimer=null;
 let sharedApiKeyRetryDelayMs=2500;
 let pendingSharedApiKey='';
@@ -1898,6 +1900,72 @@ function refreshSharedSignatures(markDirty=false){
   supabaseSharedDirty={sav:false,notes:false,absences:false,annuaire:false,leads:false};
 }
 
+function buildSharedCoreDataPayload(mem,annuaire,leads){
+  return {
+    version:1,
+    updated_at:new Date().toISOString(),
+    data:{
+      sav:Array.isArray(mem?.sav)?mem.sav:[],
+      notes:Array.isArray(mem?.notes)?mem.notes:[],
+      absences:Array.isArray(mem?.absences)?mem.absences:[],
+      annuaire:Array.isArray(annuaire)?annuaire:[],
+      leads:Array.isArray(leads)?leads:[]
+    }
+  };
+}
+
+async function pushSharedCoreDataToSupabase(mem,annuaire,leads){
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
+  const headers=getSupabaseHeaders();
+  if(!headers)return false;
+  try{
+    const payload=buildSharedCoreDataPayload(mem,annuaire,leads);
+    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/app_settings?on_conflict=key`,{
+      method:'POST',
+      headers:{...headers,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify([{key:SHARED_CORE_DATA_KEY,value:payload,updated_at:payload.updated_at}])
+    },10000);
+    if(!res.ok)return false;
+    sharedCoreLastUpdatedAt=payload.updated_at;
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
+async function loadSharedCoreDataFromSupabase(force=false){
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return false;
+  const headers=getSupabaseHeaders();
+  if(!headers)return false;
+  try{
+    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/app_settings?key=eq.${SHARED_CORE_DATA_KEY}&select=value`,{headers},10000);
+    if(!res.ok)return false;
+    const rows=await res.json();
+    const value=rows?.[0]?.value;
+    const data=value?.data||{};
+    const updatedAt=String(value?.updated_at||'');
+    if(!force&&updatedAt&&sharedCoreLastUpdatedAt&&updatedAt<=sharedCoreLastUpdatedAt)return false;
+    const remoteTotal=(data.sav?.length||0)+(data.notes?.length||0)+(data.absences?.length||0)+(data.annuaire?.length||0)+(data.leads?.length||0);
+    const localMemBefore=getMem();
+    const localTotal=(localMemBefore.sav?.length||0)+(localMemBefore.notes?.length||0)+(localMemBefore.absences?.length||0)+(getAnnuaire()?.length||0)+(getLeads()?.length||0);
+    if(remoteTotal===0&&localTotal>0)return false;
+    saveMem({
+      ...createEmptyMemState(),
+      ...localMemBefore,
+      sav:Array.isArray(data.sav)?data.sav:[],
+      notes:Array.isArray(data.notes)?data.notes:[],
+      absences:Array.isArray(data.absences)?data.absences:[]
+    },false);
+    saveAnnuaire(Array.isArray(data.annuaire)?data.annuaire:[],false);
+    saveLeads(Array.isArray(data.leads)?data.leads:[],false);
+    refreshSharedSignatures(false);
+    if(updatedAt)sharedCoreLastUpdatedAt=updatedAt;
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
 function normalizeAnthropicKey(raw){
   return String(raw||'').trim().replace(/^["']|["']$/g,'');
 }
@@ -2040,6 +2108,7 @@ function resetAppStorageRuntime(preserveSessionCopy=false){
   supabaseSharedDirty={sav:false,notes:false,absences:false,annuaire:false,leads:false};
   supabaseSharedSignatures={sav:'',notes:'',absences:'',annuaire:'',leads:''};
   supabaseLastSharedSyncTs=0;
+  sharedCoreLastUpdatedAt='';
   appStorageHydratedForUid='';
 }
 
@@ -2620,15 +2689,17 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
     return false;
   }
   try{
-    const [stateResult,sharedResult]=await Promise.allSettled([
+    const [stateResult,sharedResult,coreResult]=await Promise.allSettled([
       fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}`,{
       method:'POST',
       headers:{...headers,'Prefer':'resolution=merge-duplicates'},
       body:JSON.stringify([{uid:currentUser.id,payload:mem,updated_at:new Date().toISOString()}])
       },10000),
-      syncSharedTablesToSupabase(mem,annuaire,getLeads())
+      syncSharedTablesToSupabase(mem,annuaire,getLeads()),
+      pushSharedCoreDataToSupabase(mem,annuaire,getLeads())
     ]);
     const sharedOk=sharedResult.status==='fulfilled'&&!!sharedResult.value;
+    const coreOk=coreResult.status==='fulfilled'&&!!coreResult.value;
     let stateOk=false;
     if(stateResult.status==='fulfilled'){
       const stateRes=stateResult.value;
@@ -2643,7 +2714,7 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
         }
       }
     }
-    if(sharedOk){
+    if(sharedOk||coreOk){
       lastSupabaseSyncError='';
       supabaseLastPushOkTs=Date.now();
       renderSupabaseRuntimeStatus();
@@ -2679,6 +2750,13 @@ async function loadCoreDataFromSupabase(){
     return false;
   }
   try{
+    const sharedCoreOk=await loadSharedCoreDataFromSupabase();
+    if(sharedCoreOk){
+      lastSupabaseSyncError='';
+      supabaseLastPullOkTs=Date.now();
+      renderSupabaseRuntimeStatus();
+      return true;
+    }
     const [savRows,noteRows,absRows,annRows,leadRows]=await Promise.all([
       fetchSupabaseRowsPaged('sav',headers),
       fetchSupabaseRowsPaged('notes',headers),
@@ -6439,6 +6517,10 @@ async function startSupabaseRealtimeSync(){
       table
     },payload=>{
       if(!currentUser)return;
+      if(table==='app_settings'){
+        const changedKey=String(payload?.new?.key||payload?.old?.key||'');
+        if(changedKey!==SHARED_CORE_DATA_KEY&&changedKey!==SHARED_AI_SETTING_KEY)return;
+      }
       scheduleRealtimeCloudRefresh(`${table}:${payload?.eventType||'change'}`);
     });
   });
