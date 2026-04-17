@@ -2872,44 +2872,33 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
     return false;
   }
   try{
+    // Stratégie stable: pousser d'abord le miroir global partagé, puis le snapshot par uid.
+    const coreOk=await pushSharedCoreDataToSupabase(mem,annuaire,getLeads());
+    let stateOk=false;
     const statePayload=buildSupabaseStatePayload(mem,annuaire,getLeads());
-    const [stateResult,sharedResult,coreResult]=await Promise.allSettled([
-      fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}?on_conflict=uid`,{
-      method:'POST',
-      headers:{...headers,'Prefer':'resolution=merge-duplicates,return=minimal'},
-      body:JSON.stringify([{uid:currentUser.id,payload:statePayload,updated_at:new Date().toISOString()}])
-      },10000),
-      syncSharedTablesToSupabase(mem,annuaire,getLeads()),
-      pushSharedCoreDataToSupabase(mem,annuaire,getLeads())
-    ]);
-    const sharedOk=sharedResult.status==='fulfilled'&&!!sharedResult.value;
-    const coreOk=coreResult.status==='fulfilled'&&!!coreResult.value;
-    const stateOk=(stateResult.status==='fulfilled')&&(!!stateResult.value?.ok||stateResult.value?.status===404);
-    if(stateResult.status==='fulfilled'){
-      const stateRes=stateResult.value;
+    try{
+      const stateRes=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}?on_conflict=uid`,{
+        method:'POST',
+        headers:{...headers,'Prefer':'resolution=merge-duplicates,return=minimal'},
+        body:JSON.stringify([{uid:currentUser.id,payload:statePayload,updated_at:new Date().toISOString()}])
+      },10000);
+      stateOk=!!stateRes?.ok||stateRes?.status===404;
       if(!stateOk){
         let stateBody='';
         try{stateBody=await stateRes.text();}catch{}
-        if(isSupabaseDuplicateConflict(stateRes?.status,stateBody)){
-          stateOk=true;
-        }
-        const now=Date.now();
-        if(!stateOk&&now-supabaseLastStatePushWarnTs>30000){
-          supabaseLastStatePushWarnTs=now;
-          showDriveNotif(`⚠️ Avertissement sync état local: ${stateRes?.status||'?' }`);
-        }
+        if(isSupabaseDuplicateConflict(stateRes?.status,stateBody))stateOk=true;
       }
+    }catch(e){
+      stateOk=false;
     }
-    if(sharedOk||coreOk||stateOk){
+    if(coreOk||stateOk){
       lastSupabaseSyncError='';
       supabaseLastPushOkTs=Date.now();
       renderSupabaseRuntimeStatus();
       return true;
     }
     if(!lastSupabaseSyncError){
-      if(stateResult.status==='rejected')lastSupabaseSyncError=`${SUPABASE_CONFIG.table}: ${stateResult.reason?.message||'erreur réseau'}`;
-      else if(!stateOk)lastSupabaseSyncError='Échec sync tables partagées + état local.';
-      else lastSupabaseSyncError='Échec sync tables partagées.';
+      lastSupabaseSyncError='Échec sync miroir global + état local.';
     }
     renderSupabaseRuntimeStatus();
     return false;
@@ -2950,143 +2939,10 @@ async function loadCoreDataFromSupabase(){
       renderSupabaseRuntimeStatus();
       return true;
     }
-    const [savRows,noteRows,absRows,annRows,leadRows]=await Promise.all([
-      fetchSupabaseRowsPaged('sav',headers),
-      fetchSupabaseRowsPaged('notes',headers),
-      fetchSupabaseRowsPaged('absences',headers),
-      fetchSupabaseRowsPaged('annuaire',headers),
-      fetchSupabaseRowsPaged('leads',headers)
-    ]);
-    const localMemBefore=getMem();
-    const localLeadsBefore=getLeads();
-    const localAnnBefore=getAnnuaire();
-    const remoteTotal=(savRows?.length||0)+(noteRows?.length||0)+(absRows?.length||0)+(annRows?.length||0)+(leadRows?.length||0);
-    const localTotal=(localMemBefore.sav?.length||0)+(localMemBefore.notes?.length||0)+(localMemBefore.absences?.length||0)+(localAnnBefore?.length||0)+(localLeadsBefore?.length||0);
-    if(remoteTotal===0&&localTotal>0){
-      // Protection anti-perte: ne jamais écraser un local non vide avec un distant vide.
-      return false;
-    }
-    const mem=getMem();
-    mem.sav=(savRows||[]).map(s=>{
-      const payload=(s&&typeof s.payload==='object'&&s.payload!==null)?s.payload:{};
-      const parsedId=Number(s.legacy_id??payload.id??s.id);
-      const id=Number.isFinite(parsedId)?parsedId:(s.legacy_id??s.id??Date.now());
-      const statut=payload.statut||s.statut||(s.done?'regle':'nouveau');
-      const archive=typeof payload.archive==='boolean'?payload.archive:!!(s.archive||s.archived);
-      return {
-        id,
-        client:payload.client||s.client||'',
-        probleme:payload.probleme||payload.type||s.probleme||s.type||'',
-        societe:payload.societe||s.societe||'nemausus',
-        commercial:payload.commercial||s.commercial||'',
-        fournisseur:payload.fournisseur||s.fournisseur||'',
-        rappel:payload.rappel||s.rappel_date||s.date_rappel||null,
-        rappelDays:payload.rappelDays||'',
-        urgent:typeof payload.urgent==='boolean'?payload.urgent:!!s.urgent,
-        statut,
-        date_creation:payload.date_creation||(s.created_at?new Date(s.created_at).toLocaleDateString('fr-FR'):''),
-        by:payload.by||currentUser?.name||'BenAI',
-        actions:Array.isArray(payload.actions)?payload.actions:[],
-        commentaire:payload.commentaire||s.commentaire||'',
-        archive,
-        muteReminder:typeof payload.muteReminder==='boolean'?payload.muteReminder:!!s.mute_reminder,
-        date_reglement:payload.date_reglement||null
-      };
-    });
-    mem.notes=(noteRows||[]).map(n=>{
-      const payload=(n&&typeof n.payload==='object'&&n.payload!==null)?n.payload:{};
-      const parsedId=Number(n.legacy_id??payload.id??n.id);
-      const id=Number.isFinite(parsedId)?parsedId:(n.legacy_id??n.id??Date.now());
-      const ts=Number(n.ts??payload.ts??Date.now());
-      return {
-        id,
-        text:n.text||payload.text||payload.t||'',
-        date:payload.date||new Date(ts).toLocaleDateString('fr-FR'),
-        by:n.author_uid||payload.by||payload.from||'benjamin',
-        to:n.target_uid||payload.to||'all',
-        ts
-      };
-    }).filter(n=>String(n.text||'').trim());
-    mem.absences=(absRows||[]).map(a=>{
-      const payload=(a&&typeof a.payload==='object'&&a.payload!==null)?a.payload:{};
-      const parsedId=Number(a.legacy_id??payload.id??a.id);
-      const id=Number.isFinite(parsedId)?parsedId:(a.legacy_id??a.id??Date.now());
-      return {
-        id,
-        employe:a.employe||payload.employe||'',
-        type:a.type||payload.type||'Congé',
-        debut:a.debut||payload.debut||'',
-        fin:a.fin||payload.fin||'',
-        note:a.note||payload.note||'',
-        heureDebut:a.heure_debut||payload.heureDebut||'',
-        heureFin:a.heure_fin||payload.heureFin||'',
-        notifs:Array.isArray(a.notifs)?a.notifs:(Array.isArray(payload.notifs)?payload.notifs:['benjamin'])
-      };
-    });
-    // On évite une resynchronisation immédiate pendant un chargement distant.
-    saveMem(mem,false);
-    const annuaireLocal=(annRows||[]).map(a=>{
-      const payload=(a&&typeof a.payload==='object'&&a.payload!==null)?a.payload:{};
-      const parsedId=Number(a.legacy_id??payload.id??a.id);
-      return {
-        id:Number.isFinite(parsedId)?parsedId:(a.legacy_id??a.id??Date.now()),
-        prenom:a.prenom||payload.prenom||'',
-        nom:a.nom||payload.nom||'',
-        email:a.email||payload.email||'',
-        emailPro:a.email_pro||payload.emailPro||'',
-        tel:a.tel||payload.tel||'',
-        naissance:a.naissance||payload.naissance||'',
-        fonction:a.fonction||payload.fonction||'Autre',
-        societe:a.societe||payload.societe||'nemausus'
-      };
-    });
-    saveAnnuaire(annuaireLocal,false);
-    const leadsLocal=(leadRows||[]).map(l=>{
-      const payload=(l&&typeof l.payload==='object'&&l.payload!==null)?l.payload:{};
-      const parsedId=Number(l.legacy_id??payload.id??l.id);
-      const id=Number.isFinite(parsedId)?parsedId:(l.legacy_id??l.id??Date.now());
-      return {
-        id,
-        nom:payload.nom||l.nom||'',
-        telephone:payload.telephone||l.telephone||'',
-        adresse:payload.adresse||'',
-        ville:payload.ville||l.ville||'',
-        cp:payload.cp||l.cp||'',
-        type_projet:payload.type_projet||l.type_projet||'',
-        secteur:payload.secteur||'nimes',
-        source:payload.source||'MAG',
-        statut:payload.statut||l.statut||'gris',
-        sous_statut:payload.sous_statut||'a_rappeler',
-        rappel:payload.rappel||null,
-        date_rdv_fait:payload.date_rdv_fait||null,
-        montant_rdv:payload.montant_rdv||null,
-        montant_devis:payload.montant_devis||null,
-        date_devis:payload.date_devis||null,
-        rappel_devis:payload.rappel_devis||null,
-        prix_vendu:payload.prix_vendu||null,
-        date_signature:payload.date_signature||null,
-        produit_vendu:payload.produit_vendu||null,
-        raison_mort:payload.raison_mort||l.raison_mort||null,
-        commercial:payload.commercial||null,
-        commercial_user_id:payload.commercial_user_id||l.commercial_user_id||null,
-        suivi:payload.suivi||'',
-        commentaire:payload.commentaire||'',
-        rdv_history:Array.isArray(payload.rdv_history)?payload.rdv_history:[],
-        agenda_last_sync:payload.agenda_last_sync||null,
-        archive:typeof payload.archive==='boolean'?payload.archive:!!l.archive,
-        date_creation:payload.date_creation||l.created_at||new Date().toISOString(),
-        date_modification:payload.date_modification||l.updated_at||new Date().toISOString(),
-        timeline:Array.isArray(payload.timeline)?payload.timeline:[],
-        cree_par:payload.cree_par||currentUser?.id||'benjamin',
-        societe_crm:payload.societe_crm||l.societe_crm||'nemausus'
-      };
-    });
-    saveLeads(leadsLocal,false);
-    refreshSharedSignatures(false);
-    lastSupabaseSyncError='';
-    supabaseLastPullOkTs=Date.now();
+    // Mode durci: on évite les lectures table-par-table qui introduisent des erreurs RLS parasites.
+    lastSupabaseSyncError='Aucune source miroir disponible (shared_core_data_v1 / benai_state).';
     renderSupabaseRuntimeStatus();
-    return true;
+    return false;
   }catch(e){
     lastSupabaseSyncError=`Lecture cloud impossible: ${e?.message||e||'inconnue'}`;
     renderSupabaseRuntimeStatus();
