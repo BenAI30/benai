@@ -1709,6 +1709,10 @@ let supabaseSyncWarnTs=0;
 let supabaseRealtimeChannel=null;
 let supabaseRealtimeDebounceTimer=null;
 let supabaseRealtimeReady=false;
+let supabaseLastPushOkTs=0;
+let supabaseLastPullOkTs=0;
+let supabaseLastStatePushWarnTs=0;
+let supabaseAuthSubscription=null;
 let sharedApiKeyRetryTimer=null;
 let sharedApiKeyRetryDelayMs=2500;
 let pendingSharedApiKey='';
@@ -1836,6 +1840,33 @@ function getSupabaseHeaders(){
   return headers;
 }
 
+function hasSupabaseDataAuth(){
+  if(currentSupabaseSession?.access_token)return true;
+  return /^eyJ/.test(String(SUPABASE_CONFIG.publishableKey||'').trim());
+}
+
+function fmtRuntimeTs(ts){
+  if(!ts)return '—';
+  try{return new Date(ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}catch{return '—';}
+}
+
+function renderSupabaseRuntimeStatus(){
+  const sbMsg=document.getElementById('supabase-msg');
+  if(!sbMsg)return;
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url){
+    setStatusMessage(sbMsg,'var(--y)','⚠️ Supabase désactivé');
+    return;
+  }
+  if(lastSupabaseSyncError){
+    setStatusMessage(sbMsg,'var(--r)',`⚠️ Sync cloud: ${lastSupabaseSyncError}`);
+    return;
+  }
+  const pushTxt=supabaseLastPushOkTs?`push ${fmtRuntimeTs(supabaseLastPushOkTs)}`:'push —';
+  const pullTxt=supabaseLastPullOkTs?`pull ${fmtRuntimeTs(supabaseLastPullOkTs)}`:'pull —';
+  const rtTxt=supabaseRealtimeReady?'RT OK':'RT polling';
+  setStatusMessage(sbMsg,'var(--g)',`✅ Sync active (${pushTxt} · ${pullTxt} · ${rtTxt})`);
+}
+
 function normalizeAnthropicKey(raw){
   return String(raw||'').trim().replace(/^["']|["']$/g,'');
 }
@@ -1865,6 +1896,17 @@ function getSupabaseClient(){
       // Les données métier restent sur Supabase dans tous les cas.
       auth:{persistSession,autoRefreshToken:true,detectSessionInUrl:true}
     });
+    try{
+      const sub=supabaseClient.auth.onAuthStateChange((_event,session)=>{
+        currentSupabaseSession=session||null;
+        if(session?.access_token){
+          currentAuthMode='supabase';
+        }else if(currentAuthMode==='supabase'){
+          currentAuthMode='unknown';
+        }
+      });
+      supabaseAuthSubscription=sub?.data?.subscription||null;
+    }catch(e){}
   }
   return supabaseClient;
 }
@@ -2418,6 +2460,7 @@ function queueSupabaseSyncRetry(reason=''){
     if(ok){
       supabaseSyncFailStreak=0;
       supabaseRetryDelayMs=2000;
+      renderSupabaseRuntimeStatus();
       return;
     }
     supabaseSyncFailStreak++;
@@ -2426,6 +2469,7 @@ function queueSupabaseSyncRetry(reason=''){
       supabaseSyncWarnTs=Date.now();
       showDriveNotif('⚠️ Sync cloud instable: BenAI réessaie automatiquement.');
     }
+    renderSupabaseRuntimeStatus();
     queueSupabaseSyncRetry(`retry:${reason}`);
   },wait);
 }
@@ -2440,28 +2484,41 @@ async function flushSupabaseSyncNow(){
   if(ok){
     supabaseSyncFailStreak=0;
     supabaseRetryDelayMs=2000;
+    renderSupabaseRuntimeStatus();
     return true;
   }
   supabaseSyncFailStreak++;
   queueSupabaseSyncRetry('flush');
+  renderSupabaseRuntimeStatus();
   return false;
 }
 
 async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser){
     lastSupabaseSyncError='Supabase désactivé ou utilisateur non connecté.';
+    renderSupabaseRuntimeStatus();
+    return false;
+  }
+  if(!navigator.onLine){
+    lastSupabaseSyncError='Hors ligne: synchronisation en attente.';
+    renderSupabaseRuntimeStatus();
     return false;
   }
   // Tenter une sync même si la session Auth n'est pas encore prête.
-  // Cela évite de "masquer" des échecs en mode local.
   await ensureSupabaseSession();
+  if(!hasSupabaseDataAuth()){
+    lastSupabaseSyncError='Session Supabase inactive: reconnectez-vous pour synchroniser.';
+    renderSupabaseRuntimeStatus();
+    return false;
+  }
   const headers=getSupabaseHeaders();
   if(!headers){
     lastSupabaseSyncError='En-têtes Supabase invalides.';
+    renderSupabaseRuntimeStatus();
     return false;
   }
   try{
-    const [stateRes,sharedOk]=await Promise.all([
+    const [stateResult,sharedResult]=await Promise.allSettled([
       fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.table}`,{
       method:'POST',
       headers:{...headers,'Prefer':'resolution=merge-duplicates'},
@@ -2469,26 +2526,56 @@ async function syncMemToSupabase(mem,annuaire=getAnnuaire()){
       },10000),
       syncSharedTablesToSupabase(mem,annuaire,getLeads())
     ]);
-    const stateOk=!!stateRes?.ok||stateRes?.status===404;
-    if(!stateOk&&!lastSupabaseSyncError){
-      let stateBody='';
-      try{stateBody=await stateRes.text();}catch{}
-      lastSupabaseSyncError=`${SUPABASE_CONFIG.table}: ${stateRes?.status||'?' } ${stateBody||''}`.trim();
+    const sharedOk=sharedResult.status==='fulfilled'&&!!sharedResult.value;
+    let stateOk=false;
+    if(stateResult.status==='fulfilled'){
+      const stateRes=stateResult.value;
+      stateOk=!!stateRes?.ok||stateRes?.status===404;
+      if(!stateOk){
+        let stateBody='';
+        try{stateBody=await stateRes.text();}catch{}
+        const now=Date.now();
+        if(now-supabaseLastStatePushWarnTs>30000){
+          supabaseLastStatePushWarnTs=now;
+          showDriveNotif(`⚠️ Avertissement sync état local: ${stateRes?.status||'?' }`);
+        }
+      }
     }
-    const ok=!!sharedOk&&stateOk;
-    if(ok)lastSupabaseSyncError='';
-    return ok;
+    if(sharedOk){
+      lastSupabaseSyncError='';
+      supabaseLastPushOkTs=Date.now();
+      renderSupabaseRuntimeStatus();
+      return true;
+    }
+    if(!lastSupabaseSyncError){
+      if(stateResult.status==='rejected')lastSupabaseSyncError=`${SUPABASE_CONFIG.table}: ${stateResult.reason?.message||'erreur réseau'}`;
+      else if(!stateOk)lastSupabaseSyncError='Échec sync tables partagées + état local.';
+      else lastSupabaseSyncError='Échec sync tables partagées.';
+    }
+    renderSupabaseRuntimeStatus();
+    return false;
   }catch(e){
     lastSupabaseSyncError=`Erreur réseau sync: ${e?.message||e||'inconnue'}`;
+    renderSupabaseRuntimeStatus();
     return false;
   }
 }
 
 async function loadCoreDataFromSupabase(){
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!currentUser)return false;
+  if(!navigator.onLine)return false;
   await ensureSupabaseSession();
+  if(!hasSupabaseDataAuth()){
+    lastSupabaseSyncError='Session Supabase inactive: lecture cloud indisponible.';
+    renderSupabaseRuntimeStatus();
+    return false;
+  }
   const headers=getSupabaseHeaders();
-  if(!headers)return false;
+  if(!headers){
+    lastSupabaseSyncError='En-têtes Supabase invalides.';
+    renderSupabaseRuntimeStatus();
+    return false;
+  }
   try{
     const [savRows,noteRows,absRows,annRows,leadRows]=await Promise.all([
       fetchSupabaseRowsPaged('sav',headers),
@@ -2622,8 +2709,13 @@ async function loadCoreDataFromSupabase(){
       };
     });
     saveLeads(leadsLocal,false);
+    lastSupabaseSyncError='';
+    supabaseLastPullOkTs=Date.now();
+    renderSupabaseRuntimeStatus();
     return true;
   }catch(e){
+    lastSupabaseSyncError=`Lecture cloud impossible: ${e?.message||e||'inconnue'}`;
+    renderSupabaseRuntimeStatus();
     return false;
   }
 }
@@ -2740,6 +2832,7 @@ async function syncSupabasePostLogin(){
     sharedLoaded=await loadSharedApiKeyFromSupabase();
   }
   await startSupabaseRealtimeSync();
+  renderSupabaseRuntimeStatus();
   if(syncedCore){
     refreshVisibleDataAfterSupabaseSync();
     return;
@@ -5092,6 +5185,7 @@ function initOfflineDetection(){
       void flushSupabaseSyncNow();
       void refreshCoreDataFromCloudIfNeeded(true);
       void loadSharedApiKeyFromSupabase();
+      renderSupabaseRuntimeStatus();
     }
   });
   document.addEventListener('visibilitychange',()=>{
@@ -5099,6 +5193,8 @@ function initOfflineDetection(){
     if(currentUser?.id&&SUPABASE_CONFIG.enabled){
       void flushSupabaseSyncNow();
       void refreshCoreDataFromCloudIfNeeded(true);
+      void loadSharedApiKeyFromSupabase();
+      renderSupabaseRuntimeStatus();
     }
   });
   window.addEventListener('offline',update);
@@ -5829,6 +5925,7 @@ function initSettings(){
       const hasKey=!!(appStorage.getItem(STORAGE_KEYS.sbPublishable)||appStorage.getItem(STORAGE_KEYS.sbAnonLegacy)||SUPABASE_DEFAULT_PUBLISHABLE_KEY||'').trim();
       sbMsg.style.color=hasUrl&&hasKey?'var(--g)':'var(--y)';
       sbMsg.textContent=hasUrl&&hasKey?'✅ Supabase configuré':'⚠️ Renseignez URL et clé publishable Supabase';
+      renderSupabaseRuntimeStatus();
     }
   }
 }
@@ -5912,14 +6009,24 @@ function saveSupabaseSettings(){
   appStorage.setItem(STORAGE_KEYS.sbEnabled,'1');
   const configChanged=normalizeSupabaseUrl(previousUrl)!==url||previousKey!==key;
   if(configChanged){
+    stopSupabaseRealtimeSync();
+    if(supabaseAuthSubscription){
+      try{supabaseAuthSubscription.unsubscribe();}catch(e){}
+      supabaseAuthSubscription=null;
+    }
     supabaseClient=null;
     currentSupabaseSession=null;
+    currentAuthMode='unknown';
+    lastSupabaseSyncError='';
+    supabaseLastPushOkTs=0;
+    supabaseLastPullOkTs=0;
     setStatusMessage(msg,'var(--y)','✅ Configuration enregistrée — reconnectez-vous pour réactiver la session Supabase');
     applySupabaseConfigFromStorage();
     return true;
   }
   applySupabaseConfigFromStorage();
   setStatusMessage(msg,'var(--g)','✅ Configuration Supabase enregistrée');
+  renderSupabaseRuntimeStatus();
   return true;
 }
 
@@ -5936,6 +6043,7 @@ async function testSupabaseSettings(){
     const res=await fetch(url,{headers:{apikey:headers.apikey}});
     if(!res.ok)throw new Error('Connexion refusée');
     setStatusMessage(msg,'var(--g)','✅ Connexion Supabase OK');
+    renderSupabaseRuntimeStatus();
   }catch(e){
     setStatusMessage(msg,'var(--r)','⚠️ Test échoué : vérifiez URL/clé/policies');
   }
@@ -6202,6 +6310,7 @@ function stopSupabaseRealtimeSync(){
     try{client.removeChannel(supabaseRealtimeChannel);}catch(e){}
   }
   supabaseRealtimeChannel=null;
+  renderSupabaseRuntimeStatus();
 }
 async function startSupabaseRealtimeSync(){
   stopSupabaseRealtimeSync();
@@ -6224,6 +6333,7 @@ async function startSupabaseRealtimeSync(){
   });
   channel.subscribe(status=>{
     supabaseRealtimeReady=(status==='SUBSCRIBED');
+    renderSupabaseRuntimeStatus();
   });
   supabaseRealtimeChannel=channel;
   return true;
@@ -6245,6 +6355,12 @@ function startPolling(){
     checkRappelsLeads();
     runAutoBugDetectors();
     void refreshCoreDataFromCloudIfNeeded();
+    if(supabaseSyncFailStreak>0){
+      void flushSupabaseSyncNow();
+    }
+    if(Date.now()%30000<POLLING_INTERVAL_MS){
+      renderSupabaseRuntimeStatus();
+    }
     if(currentConv){
       const area=document.getElementById('thread-msgs');
       const mem=getMem();
