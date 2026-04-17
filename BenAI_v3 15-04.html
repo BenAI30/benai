@@ -1609,7 +1609,7 @@ function flushPersistRuntimeToSession(uid=currentUser?.id){
 function schedulePersistRuntimeToSession(uid=currentUser?.id){
   if(!uid)return;
   if(persistRuntimeMemTimer)clearTimeout(persistRuntimeMemTimer);
-  persistRuntimeMemTimer=setTimeout(()=>{persistRuntimeMemTimer=null;persistRuntimeToSession(uid);},200);
+  persistRuntimeMemTimer=setTimeout(()=>{persistRuntimeMemTimer=null;persistRuntimeToSession(uid);},0);
 }
 function hydrateRuntimeFromSession(uid=currentUser?.id){
   if(!uid)return false;
@@ -3852,7 +3852,7 @@ let sessionStack=[];
 
 async function logout(){
   flushPersistRuntimeToSession(currentUser?.id);
-  if(convListRenderTimer){clearTimeout(convListRenderTimer);convListRenderTimer=null;}
+  if(convListRenderRaf!=null){cancelAnimationFrame(convListRenderRaf);convListRenderRaf=null;}
   stopSupabaseRealtimeSync();
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
   if(supabaseRetryTimer){clearTimeout(supabaseRetryTimer);supabaseRetryTimer=null;}
@@ -4640,10 +4640,13 @@ function cpClick(el,val){
 function makeConvId(uid1,uid2){return [uid1,uid2].sort().join('_');}
 
 const INTERNAL_MSG_THREAD_MAX=400;
-let convListRenderTimer=null;
+let convListRenderRaf=null;
 function scheduleRenderConvList(){
-  if(convListRenderTimer)clearTimeout(convListRenderTimer);
-  convListRenderTimer=setTimeout(()=>{convListRenderTimer=null;renderConvList();},70);
+  if(convListRenderRaf!=null)return;
+  convListRenderRaf=requestAnimationFrame(()=>{
+    convListRenderRaf=null;
+    renderConvList();
+  });
 }
 
 // Génère dynamiquement les conversations d'un utilisateur
@@ -4698,6 +4701,7 @@ function renderConvList(){
     const unread=countUnread(currentUser.id,cid,mem,lr);
     const item=document.createElement('div');
     item.className='conv-item'+(conv.group?' conv-group':'')+(currentConv===cid?' active':'');
+    item.dataset.convId=cid;
     item.innerHTML=`<div class="conv-name">${conv.name}</div><div class="conv-preview">${last?esc(last.text.substring(0,30)):'Aucun message'}</div>${unread>0?`<span class="conv-unread-badge">${unread}</span>`:''}`;
     item.onclick=()=>openConv(cid,conv);
     list.appendChild(item);
@@ -4712,6 +4716,67 @@ function openConv(cid,conv){
   header.innerHTML=`<div class="thread-avatar" style="background:${conv.color}">${conv.initial}</div><div><div class="thread-name">${conv.name}</div><div class="thread-status">${members}</div></div>`;
   document.getElementById('thread-input').style.display='flex';
   renderThread(cid);
+}
+
+function createThreadMessageEl(cid,m,idx){
+  const mine=m.from===currentUser.id;
+  let sender=USERS[m.from]||getExtraUserById(m.from)||{color:'#666',initial:'?'};
+  if(m.motivationBenAI){
+    sender={color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B',name:'BenAI'};
+  }
+  const div=document.createElement('div');div.className='tmsg '+(mine?'mine':'theirs');
+  const actionsHtml=mine||currentUser.role==='admin'?`<div class="tmsg-actions"><button class="tmsg-act-btn" onclick="editMsg('${cid}',${idx})">✏️</button><button class="tmsg-act-btn" onclick="deleteMsg('${cid}',${idx})" style="color:var(--r)">🗑️</button></div>`:'';
+  div.innerHTML=`
+    ${!mine?`<div class="tmsg-av" style="background:${sender.color||'#666'}">${sender.initial||'?'}</div>`:''}
+    <div class="tmsg-body">
+      <div class="tmsg-bubble" style="${mine?'background:'+currentUser.color:''}">
+        ${actionsHtml}${esc(m.text)}
+      </div>
+      <div class="tmsg-time">${m.time||''}${m.edited?' (modifié)':''}</div>
+    </div>
+    ${mine?`<div class="tmsg-av" style="background:${currentUser.color}">${currentUser.initial}</div>`:''}`;
+  return div;
+}
+
+function patchConvListRowForCid(cid){
+  const list=document.getElementById('conv-list');
+  if(!list)return;
+  const item=list.querySelector('.conv-item[data-conv-id="'+String(cid).replace(/"/g,'')+'"]');
+  if(!item)return;
+  const mem=getMem();
+  const msgs=mem.messages[cid]||[];
+  const last=msgs[msgs.length-1];
+  const prev=item.querySelector('.conv-preview');
+  if(prev)prev.textContent=last?String(last.text||'').substring(0,30):'Aucun message';
+  const unread=countUnread(currentUser.id,cid,mem,getLastRead(currentUser.id));
+  let badge=item.querySelector('.conv-unread-badge');
+  if(unread>0){
+    if(!badge){
+      badge=document.createElement('span');
+      badge.className='conv-unread-badge';
+      item.appendChild(badge);
+    }
+    badge.textContent=String(unread);
+  }else if(badge){
+    badge.remove();
+  }
+}
+
+function tryAppendOneThreadMessage(cid){
+  if(document.getElementById('page-messages')?.style.display!=='flex'||currentConv!==cid)return false;
+  const mem=getMem();
+  const raw=mem.messages[cid]||[];
+  const L=raw.length;
+  if(!L||L>INTERNAL_MSG_THREAD_MAX)return false;
+  const area=document.getElementById('thread-msgs');
+  if(!area)return false;
+  const last=raw[L-1];
+  if(!last)return false;
+  const hadBubble=!!area.querySelector('.tmsg-bubble');
+  if(!hadBubble)area.innerHTML='';
+  area.appendChild(createThreadMessageEl(cid,last,L-1));
+  area.scrollTop=area.scrollHeight;
+  return true;
 }
 
 function renderThread(cid){
@@ -4730,23 +4795,7 @@ function renderThread(cid){
   const frag=document.createDocumentFragment();
   msgs.forEach((m,relIdx)=>{
     const idx=start+relIdx;
-    const mine=m.from===currentUser.id;
-    let sender=USERS[m.from]||getExtraUserById(m.from)||{color:'#666',initial:'?'};
-    if(m.motivationBenAI){
-      sender={color:'linear-gradient(135deg,#E8943A,#B45309)',initial:'B',name:'BenAI'};
-    }
-    const div=document.createElement('div');div.className='tmsg '+(mine?'mine':'theirs');
-    const actionsHtml=mine||currentUser.role==='admin'?`<div class="tmsg-actions"><button class="tmsg-act-btn" onclick="editMsg('${cid}',${idx})">✏️</button><button class="tmsg-act-btn" onclick="deleteMsg('${cid}',${idx})" style="color:var(--r)">🗑️</button></div>`:'';
-    div.innerHTML=`
-      ${!mine?`<div class="tmsg-av" style="background:${sender.color||'#666'}">${sender.initial||'?'}</div>`:''}
-      <div class="tmsg-body">
-        <div class="tmsg-bubble" style="${mine?'background:'+currentUser.color:''}">
-          ${actionsHtml}${esc(m.text)}
-        </div>
-        <div class="tmsg-time">${m.time||''}${m.edited?' (modifié)':''}</div>
-      </div>
-      ${mine?`<div class="tmsg-av" style="background:${currentUser.color}">${currentUser.initial}</div>`:''}`;
-    frag.appendChild(div);
+    frag.appendChild(createThreadMessageEl(cid,m,idx));
   });
   area.appendChild(frag);
   area.scrollTop=area.scrollHeight;
@@ -4758,7 +4807,15 @@ function sendMsg(){
   const mem=getMem();if(!mem.messages[currentConv])mem.messages[currentConv]=[];
   const now=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   mem.messages[currentConv].push({from:currentUser.id,text:txt,time:now,ts:Date.now()});
-  saveMem(mem);renderThread(currentConv);scheduleRenderConvList();
+  saveMem(mem);
+  markRead(currentUser.id,currentConv);
+  if(!tryAppendOneThreadMessage(currentConv)){
+    renderThread(currentConv);
+    scheduleRenderConvList();
+  }else{
+    patchConvListRowForCid(currentConv);
+    refreshMsgBadge();
+  }
   logActivity(`${currentUser.name} a envoyé un message`);
 }
 
@@ -4773,8 +4830,18 @@ function appendBenAIMotivationInternalMessage(recipientUid,plainText){
   saveMem(mem);
   try{logActivity(`BenAI a envoyé un message d'encouragement à ${getAllUsers().find(u=>u.id===recipientUid)?.name||recipientUid}`);}catch(_){}
   if(currentUser?.id===recipientUid&&document.getElementById('page-messages')?.style.display==='flex'){
-    scheduleRenderConvList();
-    if(currentConv===cid)renderThread(cid);
+    if(currentConv===cid){
+      markRead(recipientUid,cid);
+      if(!tryAppendOneThreadMessage(cid)){
+        renderThread(cid);
+        scheduleRenderConvList();
+      }else{
+        patchConvListRowForCid(cid);
+        refreshMsgBadge();
+      }
+    }else{
+      scheduleRenderConvList();
+    }
   }
   refreshMsgBadge();
 }
