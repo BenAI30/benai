@@ -1762,7 +1762,7 @@ const SUPABASE_CONFIG = {
 let supabaseClient=null;
 let currentSupabaseSession=null;
 let currentAuthMode='unknown';
-let runtimeMemState={sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};
+let runtimeMemState={sav:[],messages:{},msg_deletions:{},activity:[],notes:[],absences:[],tokens:{}};
 let runtimeLeadsState=[];
 const LEAD_SOURCE_DEFS=[
   {code:'MAG',icon:'📍',label:'Magasin'},
@@ -1929,6 +1929,7 @@ function refreshSharedSignatures(markDirty=false){
 
 function buildSharedCoreDataPayload(mem,annuaire,leads){
   const msgs=mem&&typeof mem.messages==='object'&&mem.messages?mem.messages:{};
+  const del=mem&&typeof mem.msg_deletions==='object'&&mem.msg_deletions?mem.msg_deletions:{};
   return {
     version:1,
     updated_at:new Date().toISOString(),
@@ -1939,7 +1940,8 @@ function buildSharedCoreDataPayload(mem,annuaire,leads){
       annuaire:Array.isArray(annuaire)?annuaire:[],
       leads:Array.isArray(leads)?leads:[],
       notif_feed:[],
-      messages:msgs
+      messages:msgs,
+      msg_deletions:del
     }
   };
 }
@@ -2021,7 +2023,28 @@ function mergeNotifFeeds(remoteFeed,localFeed){
 function crossNotifMsgKey(m){
   return `${String(m?.from||'')}:${Number(m?.ts)||0}:${String(m?.text||'').slice(0,120)}`;
 }
-function mergeMessagesMap(remoteMap,localMap){
+function mergeMsgDeletions(remoteDel,localDel){
+  const r=remoteDel&&typeof remoteDel==='object'?remoteDel:{};
+  const l=localDel&&typeof localDel==='object'?localDel:{};
+  const out={};
+  const cids=new Set([...Object.keys(r),...Object.keys(l)]);
+  const cap=400;
+  cids.forEach(cid=>{
+    const seen=new Set();
+    const arr=[];
+    [...(Array.isArray(r[cid])?r[cid]:[]),...(Array.isArray(l[cid])?l[cid]:[])].forEach(k=>{
+      const s=String(k||'').trim();
+      if(!s||seen.has(s))return;
+      seen.add(s);
+      arr.push(s);
+    });
+    if(arr.length>cap)arr.splice(0,arr.length-cap);
+    if(arr.length)out[cid]=arr;
+  });
+  return out;
+}
+function mergeMessagesMap(remoteMap,localMap,msgDeletionsByCid){
+  const del=msgDeletionsByCid&&typeof msgDeletionsByCid==='object'?msgDeletionsByCid:{};
   const r=remoteMap&&typeof remoteMap==='object'?remoteMap:{};
   const l=localMap&&typeof localMap==='object'?localMap:{};
   const out={};
@@ -2029,10 +2052,12 @@ function mergeMessagesMap(remoteMap,localMap){
   cids.forEach(cid=>{
     const a=Array.isArray(r[cid])?r[cid]:[];
     const b=Array.isArray(l[cid])?l[cid]:[];
+    const delSet=new Set(Array.isArray(del[cid])?del[cid]:[]);
     const by=new Map();
     [...a,...b].forEach(m=>{
       if(!m||typeof m!=='object')return;
       const k=crossNotifMsgKey(m);
+      if(delSet.has(k))return;
       const prev=by.get(k);
       if(!prev||(Number(m.ts||0)>Number(prev.ts||0))||(m.edited&&!prev.edited))by.set(k,m);
     });
@@ -2101,6 +2126,7 @@ function applyInboxNotifsFromSharedFeed(feed){
 function mergeSharedCoreData(remoteData,localData,mode='pull'){
   const remote=remoteData||{};
   const local=localData||{};
+  const msgDel=mergeMsgDeletions(remote.msg_deletions,local.msg_deletions);
   return {
     sav:mergeByKey(remote.sav,local.sav,x=>x?.id,pickLatestSav),
     notes:mergeByKey(remote.notes,local.notes,x=>x?.id,pickLatestNote),
@@ -2108,7 +2134,8 @@ function mergeSharedCoreData(remoteData,localData,mode='pull'){
     annuaire:mergeByKey(remote.annuaire,local.annuaire,x=>x?.id,pickLatestAnnuaire),
     leads:mergeByKey(remote.leads,local.leads,x=>x?.id,pickLatestLead),
     notif_feed:mergeNotifFeeds(remote.notif_feed,local.notif_feed),
-    messages:mergeMessagesMap(remote.messages,local.messages)
+    messages:mergeMessagesMap(remote.messages,local.messages,msgDel),
+    msg_deletions:msgDel
   };
 }
 
@@ -2146,7 +2173,7 @@ async function pushSharedCoreDataToSupabase(mem,annuaire,leads,notifFeedAppend){
       body:JSON.stringify([{key:SHARED_CORE_DATA_KEY,value:payload,updated_at:payload.updated_at}])
     },10000);
     if(!res.ok)return false;
-    saveMem({...createEmptyMemState(),...getMem(),sav:mergedData.sav,notes:mergedData.notes,absences:mergedData.absences,messages:mergedData.messages||{}},false);
+    saveMem({...createEmptyMemState(),...getMem(),sav:mergedData.sav,notes:mergedData.notes,absences:mergedData.absences,messages:mergedData.messages||{},msg_deletions:mergedData.msg_deletions||{}},false);
     saveAnnuaire(mergedData.annuaire,false);
     saveLeads(mergedData.leads,false);
     refreshSharedSignatures(false);
@@ -2186,6 +2213,7 @@ async function loadSharedCoreDataFromSupabase(force=false){
       annuaire:getAnnuaire()||[],
       leads:getLeads()||[],
       messages:localMemBefore.messages||{},
+      msg_deletions:localMemBefore.msg_deletions||{},
       notif_feed:[]
     },'pull');
     saveMem({
@@ -2194,7 +2222,8 @@ async function loadSharedCoreDataFromSupabase(force=false){
       sav:merged.sav,
       notes:merged.notes,
       absences:merged.absences,
-      messages:merged.messages||{}
+      messages:merged.messages||{},
+      msg_deletions:merged.msg_deletions||{}
     },false);
     saveAnnuaire(merged.annuaire,false);
     saveLeads(merged.leads,false);
@@ -2394,7 +2423,7 @@ function resetAppStorageRuntime(preserveSessionCopy=false){
   clearAppStorageCache();
   if(preserveSessionCopy)persistAppStorageCacheToSession();
   if(!preserveSessionCopy)clearRuntimeSession(currentUser?.id);
-  runtimeMemState={sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};
+  runtimeMemState={sav:[],messages:{},msg_deletions:{},activity:[],notes:[],absences:[],tokens:{}};
   runtimeLeadsState=[];
   supabaseSharedDirty={sav:false,notes:false,absences:false,annuaire:false,leads:false};
   supabaseSharedSignatures={sav:'',notes:'',absences:'',annuaire:'',leads:''};
@@ -3419,12 +3448,13 @@ function getRoundRobinCommercial(societe){
 // MÉMOIRE
 // ══════════════════════════════════════════
 function createEmptyMemState(){
-  return {sav:[],messages:{},activity:[],notes:[],absences:[],tokens:{}};
+  return {sav:[],messages:{},msg_deletions:{},activity:[],notes:[],absences:[],tokens:{}};
 }
 function getMem(){
   if(!runtimeMemState||typeof runtimeMemState!=='object')runtimeMemState=createEmptyMemState();
   if(!Array.isArray(runtimeMemState.sav))runtimeMemState.sav=[];
   if(!runtimeMemState.messages||typeof runtimeMemState.messages!=='object')runtimeMemState.messages={};
+  if(!runtimeMemState.msg_deletions||typeof runtimeMemState.msg_deletions!=='object')runtimeMemState.msg_deletions={};
   if(!Array.isArray(runtimeMemState.activity))runtimeMemState.activity=[];
   if(!Array.isArray(runtimeMemState.notes))runtimeMemState.notes=[];
   if(!Array.isArray(runtimeMemState.absences))runtimeMemState.absences=[];
@@ -4878,7 +4908,19 @@ function appendBenAIMotivationInternalMessage(recipientUid,plainText){
 function deleteMsg(cid,idx){
   if(currentUser.id!=='benjamin'){showDriveNotif('⚠️ Suppression réservée à Benjamin');return;}
   if(!confirm('Supprimer ce message définitivement ?'))return;
-  const mem=getMem();if(mem.messages[cid])mem.messages[cid].splice(idx,1);
+  const mem=getMem();
+  const arr=mem.messages[cid];
+  if(!Array.isArray(arr)||idx<0||idx>=arr.length)return;
+  const msg=arr[idx];
+  const key=crossNotifMsgKey(msg);
+  if(!mem.msg_deletions||typeof mem.msg_deletions!=='object')mem.msg_deletions={};
+  if(!Array.isArray(mem.msg_deletions[cid]))mem.msg_deletions[cid]=[];
+  if(key&&!mem.msg_deletions[cid].includes(key)){
+    mem.msg_deletions[cid].push(key);
+    if(mem.msg_deletions[cid].length>400)mem.msg_deletions[cid]=mem.msg_deletions[cid].slice(-400);
+  }
+  arr.splice(idx,1);
+  if(!arr.length)delete mem.messages[cid];
   saveMem(mem);renderThread(cid);scheduleRenderConvList();
 }
 
