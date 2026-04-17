@@ -1704,6 +1704,9 @@ let supabaseRetryTimer=null;
 let supabaseRetryDelayMs=2000;
 let supabaseSyncFailStreak=0;
 let supabaseSyncWarnTs=0;
+let supabaseRealtimeChannel=null;
+let supabaseRealtimeDebounceTimer=null;
+let supabaseRealtimeReady=false;
 const AUTO_BUG_NOTIF_COOLDOWN_MS=30*60*1000;
 let lastSelfHealToastTs=0;
 const LOGIN_REMEMBER_LOCAL_KEY='benai_login_user_local';
@@ -2687,6 +2690,7 @@ async function syncSupabasePostLogin(){
   await hydrateAppStorageFromSupabase(currentUser?.id);
   const syncedCore=await loadCoreDataFromSupabase();
   await loadSharedApiKeyFromSupabase();
+  await startSupabaseRealtimeSync();
   if(syncedCore){
     refreshVisibleDataAfterSupabaseSync();
     return;
@@ -3168,6 +3172,7 @@ function getConnexions(uid){
 }
 
 async function logout(){
+  stopSupabaseRealtimeSync();
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
   if(supabaseRetryTimer){clearTimeout(supabaseRetryTimer);supabaseRetryTimer=null;}
   supabaseRetryDelayMs=2000;
@@ -3250,6 +3255,7 @@ function switchBack(){
   document.getElementById('switch-panel').style.display='none';
   const u=USERS[prevUid]||getExtraUserById(prevUid);
   if(!u)return;
+  stopSupabaseRealtimeSync();
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
   chatHistory=[];currentConv=null;
   document.getElementById('chat-area').innerHTML='';
@@ -3265,6 +3271,7 @@ function switchBack(){
 function switchToUser(uid){
   if(currentUser.id!=='benjamin'){return;}// Seul Benjamin peut switcher
   document.getElementById('switch-panel').style.display='none';
+  stopSupabaseRealtimeSync();
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
   const u=USERS[uid]||getExtraUserById(uid);
   if(!u){alert('Utilisateur introuvable');return;}
@@ -6101,14 +6108,60 @@ async function refreshCoreDataFromCloudIfNeeded(force=false){
   if(!force&&now-lastCloudRefreshTs<CLOUD_REFRESH_MIN_INTERVAL_MS)return;
   cloudRefreshInFlight=true;
   lastCloudRefreshTs=now;
+  let ok=false;
   try{
-    const ok=await loadCoreDataFromSupabase();
+    ok=await loadCoreDataFromSupabase();
     if(ok)refreshVisibleDataAfterSupabaseSync();
   }catch(e){
     // silencieux: la surveillance de sync gère déjà les erreurs.
   }finally{
     cloudRefreshInFlight=false;
   }
+  return ok;
+}
+function scheduleRealtimeCloudRefresh(reason='realtime'){
+  if(supabaseRealtimeDebounceTimer)clearTimeout(supabaseRealtimeDebounceTimer);
+  supabaseRealtimeDebounceTimer=setTimeout(()=>{
+    supabaseRealtimeDebounceTimer=null;
+    void refreshCoreDataFromCloudIfNeeded(true);
+  },450);
+}
+function stopSupabaseRealtimeSync(){
+  if(supabaseRealtimeDebounceTimer){
+    clearTimeout(supabaseRealtimeDebounceTimer);
+    supabaseRealtimeDebounceTimer=null;
+  }
+  supabaseRealtimeReady=false;
+  const client=getSupabaseClient();
+  if(client&&supabaseRealtimeChannel){
+    try{client.removeChannel(supabaseRealtimeChannel);}catch(e){}
+  }
+  supabaseRealtimeChannel=null;
+}
+async function startSupabaseRealtimeSync(){
+  stopSupabaseRealtimeSync();
+  if(!shouldMonitorSupabaseSession())return false;
+  const client=getSupabaseClient();
+  if(!client)return false;
+  const session=await ensureSupabaseSession();
+  if(!session?.access_token)return false;
+  const channelName=`benai-rt-${normalizeId(currentUser?.id||'user')}-${Date.now()}`;
+  let channel=client.channel(channelName);
+  SUPABASE_TABLES.forEach(table=>{
+    channel=channel.on('postgres_changes',{
+      event:'*',
+      schema:'public',
+      table
+    },payload=>{
+      if(!currentUser)return;
+      scheduleRealtimeCloudRefresh(`${table}:${payload?.eventType||'change'}`);
+    });
+  });
+  channel.subscribe(status=>{
+    supabaseRealtimeReady=(status==='SUBSCRIBED');
+  });
+  supabaseRealtimeChannel=channel;
+  return true;
 }
 
 function startPolling(){
