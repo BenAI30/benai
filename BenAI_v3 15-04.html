@@ -2954,8 +2954,8 @@ function queueSupabaseSyncRetry(reason=''){
     supabaseRetryDelayMs=Math.min(supabaseRetryDelayMs*2,30000);
     if(supabaseSyncFailStreak>=3&&Date.now()-supabaseSyncWarnTs>20000){
       supabaseSyncWarnTs=Date.now();
-    const detail=lastSupabaseSyncError?` (${String(lastSupabaseSyncError).slice(0,90)})`:'';
-    showDriveNotif('⚠️ Sync cloud instable: BenAI réessaie automatiquement.'+detail);
+      const detail=lastSupabaseSyncError?` (${String(lastSupabaseSyncError).slice(0,90)})`:'';
+      showDriveNotif('⚠️ Sync cloud instable: BenAI réessaie automatiquement.'+detail);
     }
     renderSupabaseRuntimeStatus();
     queueSupabaseSyncRetry(`retry:${reason}`);
@@ -3713,6 +3713,9 @@ function getConnexions(uid){
   }catch{return[];}
 }
 
+// Pile de sessions — pour revenir à Benjamin sans mot de passe (déclaré avant logout pour clarté)
+let sessionStack=[];
+
 async function logout(){
   stopSupabaseRealtimeSync();
   if(pollingInterval){clearInterval(pollingInterval);pollingInterval=null;}
@@ -3761,8 +3764,6 @@ async function logout(){
   document.getElementById('chat-area').innerHTML='';
 }
 
-// Pile de sessions — pour revenir à Benjamin sans mot de passe
-let sessionStack=[];
 function isSwitchPreviewSession(){
   return !!(currentUser&&currentUser.id!=='benjamin'&&sessionStack.length>0);
 }
@@ -6319,29 +6320,51 @@ function renderUsersList(){
     const isCRM=(u.role==='commercial'||u.role==='directeur_co');
     const derniereConnexion=getConnexions(u.id)[0]?.date||null;
     const div=document.createElement('div');div.className='user-row';
-    let actionsHtml='';
-    if(u.id!=='benjamin'){
-      const uidArg=JSON.stringify(String(u.id));
-      actionsHtml+=`<button onclick="editUser(${uidArg})" style="padding:4px 8px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">✏️</button>`;
-      actionsHtml+=`<div onclick="toggleAccess(${uidArg})" class="toggle ${isBlocked?'':'on'}" title="${isBlocked?'Bloqué':'Actif'}"></div>`;
-      if(isCRM){
-        const bStyle=isBlocked?'background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3)':'background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3)';
-        const bText=isBlocked?'🔓 Débloquer':'🔒 Bloquer';
-        actionsHtml+=`<button onclick="toggleBlockCommercial(${uidArg})" style="padding:4px 8px;${bStyle};border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">${bText}</button>`;
-      }
-      actionsHtml+=`<button onclick="supprimerUtilisateur(${uidArg})" style="padding:4px 8px;background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">🗑️</button>`;
-    } else {
-      actionsHtml='<span style="font-size:10px;color:var(--t3)">Admin</span>';
-    }
-    div.innerHTML=`
-      <div class="user-av" style="background:${u.color}">${u.initial}</div>
-      <div class="user-info">
+    const av=document.createElement('div');
+    av.className='user-av';
+    av.style.background=u.color;
+    av.textContent=u.initial;
+    const info=document.createElement('div');
+    info.className='user-info';
+    info.innerHTML=`
         <div class="user-name">${esc(u.name)}</div>
         <div class="user-role">${ROLE_LABELS[u.role]||u.role} · ${u.societe==='les-deux'?'Nemausus & Lambert':u.societe==='nemausus'?'Nemausus':'Lambert'}</div>
         ${(u.role==='commercial'||u.role==='directeur_co')?`<div style="font-size:10px;color:var(--t3)">🚐 Véhicule : ${esc(u.vehicule||'Non renseigné')}</div>`:''}
-        <div style="font-size:10px;color:var(--t3)">${derniereConnexion?'Dernière connexion : '+derniereConnexion:'Jamais connecté'}</div>
-      </div>
-      ${actionsHtml}`;
+        <div style="font-size:10px;color:var(--t3)">${derniereConnexion?'Dernière connexion : '+derniereConnexion:'Jamais connecté'}</div>`;
+    div.append(av,info);
+    if(u.id!=='benjamin'){
+      const uid=u.id;
+      const btnStyle='padding:4px 8px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit';
+      const editBtn=document.createElement('button');
+      editBtn.type='button';
+      editBtn.style.cssText=btnStyle+';background:var(--a3);color:var(--a);border:1px solid var(--a)';
+      editBtn.textContent='✏️';
+      editBtn.addEventListener('click',()=>editUser(uid));
+      const togg=document.createElement('div');
+      togg.className='toggle '+(isBlocked?'':'on');
+      togg.title=isBlocked?'Bloqué':'Actif';
+      togg.addEventListener('click',()=>toggleAccess(uid));
+      div.append(editBtn,togg);
+      if(isCRM){
+        const blockBtn=document.createElement('button');
+        blockBtn.type='button';
+        blockBtn.style.cssText=btnStyle+';'+(isBlocked?'background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3)':'background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3)');
+        blockBtn.textContent=isBlocked?'🔓 Débloquer':'🔒 Bloquer';
+        blockBtn.addEventListener('click',()=>toggleBlockCommercial(uid));
+        div.appendChild(blockBtn);
+      }
+      const delBtn=document.createElement('button');
+      delBtn.type='button';
+      delBtn.style.cssText=btnStyle+';background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3)';
+      delBtn.textContent='🗑️';
+      delBtn.addEventListener('click',()=>supprimerUtilisateur(uid));
+      div.appendChild(delBtn);
+    }else{
+      const adm=document.createElement('span');
+      adm.style.cssText='font-size:10px;color:var(--t3)';
+      adm.textContent='Admin';
+      div.appendChild(adm);
+    }
     list.appendChild(div);
   });
 }
