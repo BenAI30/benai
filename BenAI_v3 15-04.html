@@ -4329,21 +4329,55 @@ async function login(){
   void syncSupabasePostLogin();
 }
 
-async function forgotPassword(){
-  const err=document.getElementById('login-err');
-  const rawLogin=(document.getElementById('login-user')?.value||'').trim();
-  let email='';
-  if(rawLogin.includes('@')){
-    email=rawLogin.toLowerCase();
-  }else{
-    const uid=normalizeId(rawLogin);
-    email=(await fetchLookupLoginEmail(rawLogin))||getEmailCandidateForUid(uid,rawLogin)||'';
-  }
-  if(!email||!email.includes('@')){
-    const manual=await benaiPrompt('Entrez votre email de connexion Supabase pour recevoir le lien de réinitialisation :',rawLogin.includes('@')?rawLogin:'','Réinitialisation');
-    if(manual===null||manual==='')return;
-    email=String(manual).trim().toLowerCase();
-  }
+function openLoginForgotEmailModal(defaultVal,err,onSubmit){
+  document.getElementById('login-forgot-email-overlay')?.remove();
+  const wrap=document.createElement('div');
+  wrap.id='login-forgot-email-overlay';
+  wrap.className='lead-modal open';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:12000;display:flex;align-items:center;justify-content:center;padding:16px';
+  wrap.innerHTML=`
+    <div class="lead-modal-box" style="max-width:420px" role="dialog" aria-modal="true" aria-labelledby="login-forgot-email-title" onclick="event.stopPropagation()">
+      <div class="lead-modal-header">
+        <div id="login-forgot-email-title" style="font-size:16px;font-weight:700">Réinitialisation du mot de passe</div>
+        <button type="button" id="login-forgot-email-close-x" style="background:transparent;border:none;color:var(--t2);font-size:20px;line-height:1;cursor:pointer;padding:4px 8px" aria-label="Fermer">×</button>
+      </div>
+      <div class="lead-modal-body">
+        <p style="font-size:13px;color:var(--t2);margin:0 0 10px;line-height:1.45">Entrez l’adresse e-mail de votre compte Supabase (celle qui reçoit le lien de connexion).</p>
+        <div class="form-group">
+          <div class="form-label">E-mail</div>
+          <input type="email" class="form-input" id="login-forgot-email-input" value="" placeholder="vous@exemple.fr" style="font-family:inherit">
+        </div>
+        <div id="login-forgot-email-inline-err" style="font-size:12px;color:var(--r);min-height:18px"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap">
+          <button type="button" id="login-forgot-email-cancel" style="padding:10px 16px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Annuler</button>
+          <button type="button" id="login-forgot-email-send" style="padding:10px 16px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Envoyer le lien</button>
+        </div>
+      </div>
+    </div>`;
+  const close=()=>{
+    document.removeEventListener('keydown',onKey);
+    wrap.remove();
+  };
+  const onKey=e=>{if(e.key==='Escape')close();};
+  document.addEventListener('keydown',onKey);
+  wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
+  const errEl=wrap.querySelector('#login-forgot-email-inline-err');
+  const inp=wrap.querySelector('#login-forgot-email-input');
+  if(inp&&defaultVal)inp.value=defaultVal;
+  wrap.querySelector('#login-forgot-email-close-x')?.addEventListener('click',close);
+  wrap.querySelector('#login-forgot-email-cancel')?.addEventListener('click',close);
+  wrap.querySelector('#login-forgot-email-send')?.addEventListener('click',()=>{
+    const v=(inp?.value||'').trim().toLowerCase();
+    if(!v||!v.includes('@')){if(errEl)errEl.textContent='Adresse e-mail invalide.';return;}
+    if(errEl)errEl.textContent='';
+    close();
+    void onSubmit(v);
+  });
+  document.body.appendChild(wrap);
+  if(inp){inp.focus();try{inp.select();}catch(e){}}
+}
+
+async function proceedForgotPasswordReset(email,err){
   if(!email||!email.includes('@')){
     if(err){
       err.style.color='var(--r)';
@@ -4379,6 +4413,23 @@ async function forgotPassword(){
       err.textContent='Échec de réinitialisation : '+(e?.message||'erreur réseau');
     }
   }
+}
+
+async function forgotPassword(){
+  const err=document.getElementById('login-err');
+  const rawLogin=(document.getElementById('login-user')?.value||'').trim();
+  let email='';
+  if(rawLogin.includes('@')){
+    email=rawLogin.toLowerCase();
+  }else{
+    const uid=normalizeId(rawLogin);
+    email=(await fetchLookupLoginEmail(rawLogin))||getEmailCandidateForUid(uid,rawLogin)||'';
+  }
+  if(!email||!email.includes('@')){
+    openLoginForgotEmailModal(rawLogin.includes('@')?rawLogin:'',err,v=>void proceedForgotPasswordReset(v,err));
+    return;
+  }
+  await proceedForgotPasswordReset(email,err);
 }
 
 function logConnexion(uid){
@@ -5472,13 +5523,47 @@ async function deleteMsg(cid,idx){
   saveMem(mem);renderThread(cid);scheduleRenderConvList();
 }
 
-async function editMsg(cid,idx){
+function editMsg(cid,idx){
   const mem=getMem();const msg=mem.messages[cid]?.[idx];if(!msg)return;
   if(msg.from!==currentUser.id&&currentUser.id!=='benjamin'){showDriveNotif('⚠️ Vous ne pouvez modifier que vos messages');return;}
-  const nouveau=await benaiPrompt('Modifier le message :',msg.text,'Messagerie');
-  if(nouveau===null||!nouveau.trim())return;
-  msg.text=nouveau.trim();msg.edited=true;
-  saveMem(mem);renderThread(cid);
+  document.getElementById('edit-msg-overlay')?.remove();
+  const wrap=document.createElement('div');
+  wrap.id='edit-msg-overlay';
+  wrap.className='lead-modal open';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4500;display:flex;align-items:center;justify-content:center;padding:16px';
+  wrap.innerHTML=`
+    <div class="lead-modal-box" style="max-width:520px;width:100%" role="dialog" aria-modal="true" aria-labelledby="edit-msg-title" onclick="event.stopPropagation()">
+      <div class="lead-modal-header">
+        <div id="edit-msg-title" style="font-size:16px;font-weight:700">Modifier le message</div>
+        <button type="button" id="edit-msg-close-x" style="background:transparent;border:none;color:var(--t2);font-size:20px;line-height:1;cursor:pointer;padding:4px 8px" aria-label="Fermer">×</button>
+      </div>
+      <div class="lead-modal-body">
+        <textarea id="edit-msg-body" class="form-input" rows="6" style="width:100%;resize:vertical;font-family:inherit;min-height:120px"></textarea>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">
+          <button type="button" id="edit-msg-cancel" style="padding:10px 16px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Annuler</button>
+          <button type="button" id="edit-msg-save" style="padding:10px 16px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Enregistrer</button>
+        </div>
+      </div>
+    </div>`;
+  const close=()=>{
+    document.removeEventListener('keydown',onKey);
+    wrap.remove();
+  };
+  const onKey=e=>{if(e.key==='Escape')close();};
+  document.addEventListener('keydown',onKey);
+  wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
+  wrap.querySelector('#edit-msg-close-x')?.addEventListener('click',close);
+  wrap.querySelector('#edit-msg-cancel')?.addEventListener('click',close);
+  wrap.querySelector('#edit-msg-save')?.addEventListener('click',()=>{
+    const nouveau=(document.getElementById('edit-msg-body')?.value||'').trim();
+    if(!nouveau)return;
+    msg.text=nouveau;msg.edited=true;
+    saveMem(mem);renderThread(cid);
+    close();
+  });
+  document.body.appendChild(wrap);
+  const ta=document.getElementById('edit-msg-body');
+  if(ta){ta.value=msg.text;ta.focus();try{ta.setSelectionRange(ta.value.length,ta.value.length);}catch(e){}}
 }
 
 // ══════════════════════════════════════════
@@ -6783,10 +6868,55 @@ function renderPaieList(){
   }).join('')}`;
 }
 
-async function askEmailPaie(idx){
-  const email=await benaiPrompt(`Email pour ${paieResults[idx].prenom} ${paieResults[idx].nom} :`,'','Email');
-  if(email===null||!email||!email.includes('@'))return;
-  paieResults[idx].email=email;renderPaieList();
+function askEmailPaie(idx){
+  const r=paieResults[idx];if(!r)return;
+  const label=`${r.prenom||''} ${r.nom||''}`.trim()||r.file||'';
+  document.getElementById('paie-email-overlay')?.remove();
+  const wrap=document.createElement('div');
+  wrap.id='paie-email-overlay';
+  wrap.className='lead-modal open';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4500;display:flex;align-items:center;justify-content:center;padding:16px';
+  wrap.innerHTML=`
+    <div class="lead-modal-box" style="max-width:420px" role="dialog" aria-modal="true" aria-labelledby="paie-email-title" onclick="event.stopPropagation()">
+      <div class="lead-modal-header">
+        <div>
+          <div id="paie-email-title" style="font-size:16px;font-weight:700">Email pour l’envoi</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:4px">${esc(label)}</div>
+        </div>
+        <button type="button" id="paie-email-close-x" style="background:transparent;border:none;color:var(--t2);font-size:20px;line-height:1;cursor:pointer;padding:4px 8px" aria-label="Fermer">×</button>
+      </div>
+      <div class="lead-modal-body">
+        <div class="form-group">
+          <div class="form-label">Adresse e-mail</div>
+          <input type="email" class="form-input" id="paie-email-input" placeholder="prenom.nom@exemple.fr" style="font-family:inherit">
+        </div>
+        <div id="paie-email-inline-err" style="font-size:12px;color:var(--r);min-height:18px"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap">
+          <button type="button" id="paie-email-cancel" style="padding:10px 16px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Annuler</button>
+          <button type="button" id="paie-email-save" style="padding:10px 16px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Enregistrer</button>
+        </div>
+      </div>
+    </div>`;
+  const close=()=>{
+    document.removeEventListener('keydown',onKey);
+    wrap.remove();
+  };
+  const onKey=e=>{if(e.key==='Escape')close();};
+  document.addEventListener('keydown',onKey);
+  wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
+  const errEl=wrap.querySelector('#paie-email-inline-err');
+  wrap.querySelector('#paie-email-close-x')?.addEventListener('click',close);
+  wrap.querySelector('#paie-email-cancel')?.addEventListener('click',close);
+  wrap.querySelector('#paie-email-save')?.addEventListener('click',()=>{
+    const email=(document.getElementById('paie-email-input')?.value||'').trim().toLowerCase();
+    if(!email||!email.includes('@')){if(errEl)errEl.textContent='Adresse e-mail invalide.';return;}
+    if(errEl)errEl.textContent='';
+    paieResults[idx].email=email;renderPaieList();
+    close();
+  });
+  document.body.appendChild(wrap);
+  const inp=document.getElementById('paie-email-input');
+  if(inp){inp.focus();}
 }
 
 // ══════════════════════════════════════════
@@ -7448,30 +7578,76 @@ async function modifierBenaiLoginUid(uid){
     return;
   }
   const actuel=String(u.id||'').trim();
-  const np=await benaiPrompt(`Nouvel identifiant de connexion pour ${u.name}\n${isSelfBenjamin?`(identifiant interne BenAI : ${actuel} — inchangé)\n`:`(actuel dans BenAI : ${actuel})\n`}\nLettres, chiffres et _ (accents et espaces seront normalisés).`,actuel,'Identifiant de connexion');
-  if(np===null||!String(np).trim())return;
-  const candidate=proposedLoginUidFromPseudoField(np,actuel);
-  if(!candidate||candidate==='user'){await benaiAlert('Identifiant invalide.');return;}
-  const reserved=new Set(['benjamin','benai','admin']);
-  if(reserved.has(candidate)){await benaiAlert('Identifiant réservé.');return;}
-  if(normalizeId(candidate)===normalizeId(actuel)){await benaiAlert('Identique à l’actuel.');return;}
-  if(getAllUsers().some(x=>normalizeId(x.id)===normalizeId(candidate)&&normalizeId(x.id)!==normalizeId(actuel))){
-    await benaiAlert('Cet identifiant est déjà utilisé.');
-    return;
-  }
-  const cloud=await updateSupabaseUserAppUidProvisioning({
-    target_user_id:authRaw,
-    new_app_uid:candidate
+  document.getElementById('benai-login-edit-overlay')?.remove();
+  const wrap=document.createElement('div');
+  wrap.id='benai-login-edit-overlay';
+  wrap.className='lead-modal open';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4500;display:flex;align-items:center;justify-content:center;padding:16px';
+  const hintSelf=isSelfBenjamin?`Identifiant interne BenAI : <strong>${esc(actuel)}</strong> (inchangé dans l’app).`:`Actuel dans BenAI : <strong>${esc(actuel)}</strong>.`;
+  wrap.innerHTML=`
+    <div class="lead-modal-box" style="max-width:460px" role="dialog" aria-modal="true" aria-labelledby="benai-login-edit-title" onclick="event.stopPropagation()">
+      <div class="lead-modal-header">
+        <div>
+          <div id="benai-login-edit-title" style="font-size:16px;font-weight:700">Identifiant de connexion</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:6px;line-height:1.45">${esc(u.name)} — ${hintSelf}<br>Lettres, chiffres et _ (accents et espaces seront normalisés).</div>
+        </div>
+        <button type="button" id="benai-login-close-x" style="background:transparent;border:none;color:var(--t2);font-size:20px;line-height:1;cursor:pointer;padding:4px 8px" aria-label="Fermer">×</button>
+      </div>
+      <div class="lead-modal-body">
+        <div class="form-group">
+          <div class="form-label">Nouvel identifiant</div>
+          <input type="text" class="form-input" id="benai-login-new" value="${esc(actuel)}" autocomplete="username" style="font-family:monospace;font-size:13px">
+        </div>
+        <div id="benai-login-inline-err" style="font-size:12px;color:var(--r);min-height:18px"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap">
+          <button type="button" id="benai-login-cancel" style="padding:10px 16px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Annuler</button>
+          <button type="button" id="benai-login-save" style="padding:10px 16px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Enregistrer</button>
+        </div>
+      </div>
+    </div>`;
+  const close=()=>{
+    document.removeEventListener('keydown',onKey);
+    wrap.remove();
+  };
+  const onKey=e=>{if(e.key==='Escape')close();};
+  document.addEventListener('keydown',onKey);
+  wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
+  wrap.querySelector('#benai-login-close-x')?.addEventListener('click',close);
+  wrap.querySelector('#benai-login-cancel')?.addEventListener('click',close);
+  const errEl=wrap.querySelector('#benai-login-inline-err');
+  wrap.querySelector('#benai-login-save')?.addEventListener('click',()=>{
+    const np=(document.getElementById('benai-login-new')?.value||'').trim();
+    if(!np){if(errEl)errEl.textContent='Saisissez un identifiant.';return;}
+    const candidate=proposedLoginUidFromPseudoField(np,actuel);
+    if(!candidate||candidate==='user'){if(errEl)errEl.textContent='Identifiant invalide.';return;}
+    const reserved=new Set(['benjamin','benai','admin']);
+    if(reserved.has(candidate)){if(errEl)errEl.textContent='Identifiant réservé.';return;}
+    if(normalizeId(candidate)===normalizeId(actuel)){if(errEl)errEl.textContent='Identique à l’actuel.';return;}
+    if(getAllUsers().some(x=>normalizeId(x.id)===normalizeId(candidate)&&normalizeId(x.id)!==normalizeId(actuel))){
+      if(errEl)errEl.textContent='Cet identifiant est déjà utilisé.';
+      return;
+    }
+    if(errEl)errEl.textContent='';
+    void (async()=>{
+      const cloud=await updateSupabaseUserAppUidProvisioning({
+        target_user_id:authRaw,
+        new_app_uid:candidate
+      });
+      if(!cloud.ok){await benaiAlert('Échec serveur : '+(cloud.error||'?'));return;}
+      const resolved=String(cloud.data?.app_uid||candidate).trim();
+      if(!isSelfBenjamin)applyBenAiLocalUserIdRename(actuel,resolved);
+      await syncExtraUsersFromSupabaseProfiles();
+      scheduleAppStoragePersist();
+      renderUsersList();
+      renderPwdList();
+      logActivity(`Benjamin a défini l’identifiant de connexion ${actuel} → ${resolved} (${u.name})`);
+      close();
+      await benaiAlert(`Identifiant de connexion mis à jour : ${resolved}`);
+    })();
   });
-  if(!cloud.ok){await benaiAlert('Échec serveur : '+(cloud.error||'?'));return;}
-  const resolved=String(cloud.data?.app_uid||candidate).trim();
-  if(!isSelfBenjamin)applyBenAiLocalUserIdRename(actuel,resolved);
-  await syncExtraUsersFromSupabaseProfiles();
-  scheduleAppStoragePersist();
-  renderUsersList();
-  renderPwdList();
-  logActivity(`Benjamin a défini l’identifiant de connexion ${actuel} → ${resolved} (${u.name})`);
-  await benaiAlert(`Identifiant de connexion mis à jour : ${resolved}`);
+  document.body.appendChild(wrap);
+  const inp=document.getElementById('benai-login-new');
+  if(inp){inp.focus();try{inp.select();}catch(e){}}
 }
 
 function getExtraUsers(){try{return JSON.parse(appStorage.getItem('benai_extra_users'))||[];}catch{return [];}}
@@ -7890,31 +8066,75 @@ function renderUsersList(){
   });
 }
 
-async function editUser(uid){
-  if(!canManageBenaiUsersAdmin()){await benaiAlert('Réservé à l’administrateur.');return;}
+function editUser(uid){
+  if(!canManageBenaiUsersAdmin()){void benaiAlert('Réservé à l’administrateur.');return;}
   const users=getAllUsers();const u=users.find(x=>x.id===uid);if(!u)return;
-  const nouveau=await benaiPrompt(`Modifier ${u.name}\n\nNom affiché (actuel: ${u.name}) :`,'','Nom affiché');
-  if(nouveau===null||!nouveau.trim())return;
+  const showVeh=u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general';
   let vehicule=u.vehicule||'';
-  if(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general'){
-    const vPrompt=await benaiPrompt(`Véhicule de société pour ${nouveau.trim()} (optionnel) :`,vehicule,'Véhicule');
-    if(vPrompt!==null)vehicule=vPrompt.trim();
-  }
-  // Mettre à jour dans USERS et extraUsers
-  if(USERS[uid]){
-    USERS[uid].name=nouveau.trim();
-    USERS[uid].vehicule=vehicule;
-  }
-  const extras=getExtraUsers();
-  const idx=extras.findIndex(e=>e.id===uid);
-  if(idx>-1){extras[idx].name=nouveau.trim();extras[idx].vehicule=vehicule;saveExtraUsers(extras);}
-  // Mettre à jour les builtin via stockage session override
-  const overrides=JSON.parse(appStorage.getItem('benai_name_overrides')||'{}');
-  overrides[uid]=nouveau.trim();
-  appStorage.setItem('benai_name_overrides',JSON.stringify(overrides));
-  renderUsersList();renderPwdList();
-  logActivity(`Benjamin a modifié le nom de ${uid} → ${nouveau.trim()}`);
-  await benaiAlert(`✅ Nom modifié : ${nouveau.trim()}`);
+  document.getElementById('user-edit-overlay')?.remove();
+  const wrap=document.createElement('div');
+  wrap.id='user-edit-overlay';
+  wrap.className='lead-modal open';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4500;display:flex;align-items:center;justify-content:center;padding:16px';
+  wrap.innerHTML=`
+    <div class="lead-modal-box" style="max-width:440px" role="dialog" aria-modal="true" aria-labelledby="user-edit-title" onclick="event.stopPropagation()">
+      <div class="lead-modal-header">
+        <div>
+          <div id="user-edit-title" style="font-size:16px;font-weight:700">Modifier l’utilisateur</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:4px">${esc(u.name)} <span style="opacity:.85">(${esc(uid)})</span></div>
+        </div>
+        <button type="button" id="user-edit-close-x" style="background:transparent;border:none;color:var(--t2);font-size:20px;line-height:1;cursor:pointer;padding:4px 8px" aria-label="Fermer">×</button>
+      </div>
+      <div class="lead-modal-body">
+        <div class="lead-modal-section">
+          <div class="form-group">
+            <div class="form-label">Nom affiché</div>
+            <input type="text" class="form-input" id="user-edit-name" value="${esc(u.name)}" style="font-family:inherit">
+          </div>
+        </div>
+        <div class="lead-modal-section" id="user-edit-veh-wrap" style="display:${showVeh?'block':'none'}">
+          <div class="form-group">
+            <div class="form-label">Véhicule de société (optionnel)</div>
+            <input type="text" class="form-input" id="user-edit-vehicule" value="${esc(vehicule)}" placeholder="ex. AB-123-CD" style="font-family:inherit">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap">
+          <button type="button" id="user-edit-cancel" style="padding:10px 16px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Annuler</button>
+          <button type="button" id="user-edit-save" style="padding:10px 16px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Enregistrer</button>
+        </div>
+      </div>
+    </div>`;
+  const close=()=>{
+    document.removeEventListener('keydown',onKey);
+    wrap.remove();
+  };
+  const onKey=e=>{if(e.key==='Escape')close();};
+  document.addEventListener('keydown',onKey);
+  wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
+  wrap.querySelector('#user-edit-close-x')?.addEventListener('click',close);
+  wrap.querySelector('#user-edit-cancel')?.addEventListener('click',close);
+  wrap.querySelector('#user-edit-save')?.addEventListener('click',()=>{
+    const nouveau=(document.getElementById('user-edit-name')?.value||'').trim();
+    if(!nouveau){void benaiAlert('Le nom affiché ne peut pas être vide.');return;}
+    if(showVeh)vehicule=(document.getElementById('user-edit-vehicule')?.value||'').trim();
+    if(USERS[uid]){
+      USERS[uid].name=nouveau;
+      USERS[uid].vehicule=vehicule;
+    }
+    const extras=getExtraUsers();
+    const idx=extras.findIndex(e=>e.id===uid);
+    if(idx>-1){extras[idx].name=nouveau;extras[idx].vehicule=vehicule;saveExtraUsers(extras);}
+    const overrides=JSON.parse(appStorage.getItem('benai_name_overrides')||'{}');
+    overrides[uid]=nouveau;
+    appStorage.setItem('benai_name_overrides',JSON.stringify(overrides));
+    renderUsersList();renderPwdList();
+    logActivity(`Benjamin a modifié le nom de ${uid} → ${nouveau}`);
+    close();
+    void benaiAlert(`✅ Nom modifié : ${nouveau}`);
+  });
+  document.body.appendChild(wrap);
+  const inp=document.getElementById('user-edit-name');
+  if(inp){inp.focus();try{inp.select();}catch(e){}}
 }
 
 function renderPwdList(){
@@ -7930,39 +8150,89 @@ function renderPwdList(){
   renderTeamPwdSettings();
 }
 
-async function changerMdp(uid,name){
-  if(currentUser?.role!=='admin'){await benaiAlert('⚠️ Réservé à l’administrateur');return;}
-  const nouveau=await benaiPrompt(`Nouveau mot de passe pour ${name} :\n\n✅ Minimum 6 caractères\n✅ Au moins 1 majuscule\n✅ Au moins 1 caractère spécial (!@#$%...)`,'','Mot de passe','password');
-  if(nouveau===null||!nouveau)return;
-  const err=validatePassword(nouveau);
-  if(err){await benaiAlert('⚠️ '+err);return;}
-  const u=findUserById(uid)||findUserById(normalizeId(uid));
-  const targetId=u?.id||uid;
-  const emailCandidate=(u?.email||getEmailCandidateForUid(targetId,'')||'').trim().toLowerCase();
-  const pwds=getPwds();
-  const hashed=await hashPassword(targetId,nouveau);
-  pwds[targetId]=hashed;
-  const nk=normalizeId(targetId);
-  if(nk&&nk!==targetId)pwds[nk]=hashed;
-  savePwds(pwds);
-  Object.keys(USERS).forEach(k=>{
-    if(normalizeId(k)===nk)USERS[k].pwd=hashed;
+function changerMdp(uid,name){
+  if(currentUser?.role!=='admin'){void benaiAlert('⚠️ Réservé à l’administrateur');return;}
+  document.getElementById('pwd-change-overlay')?.remove();
+  const wrap=document.createElement('div');
+  wrap.id='pwd-change-overlay';
+  wrap.className='lead-modal open';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4500;display:flex;align-items:center;justify-content:center;padding:16px';
+  wrap.innerHTML=`
+    <div class="lead-modal-box" style="max-width:420px" role="dialog" aria-modal="true" aria-labelledby="pwd-change-title" onclick="event.stopPropagation()">
+      <div class="lead-modal-header">
+        <div>
+          <div id="pwd-change-title" style="font-size:16px;font-weight:700">Mot de passe — ${esc(name)}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:6px;line-height:1.45">Minimum 6 caractères · au moins 1 majuscule · au moins 1 caractère spécial (!@#$%…)</div>
+        </div>
+        <button type="button" id="pwd-change-close-x" style="background:transparent;border:none;color:var(--t2);font-size:20px;line-height:1;cursor:pointer;padding:4px 8px" aria-label="Fermer">×</button>
+      </div>
+      <div class="lead-modal-body">
+        <div class="form-group">
+          <div class="form-label">Nouveau mot de passe</div>
+          <input type="password" class="form-input" id="pwd-change-p1" autocomplete="new-password" style="font-family:inherit">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Confirmer</div>
+          <input type="password" class="form-input" id="pwd-change-p2" autocomplete="new-password" style="font-family:inherit">
+        </div>
+        <div id="pwd-change-inline-err" style="font-size:12px;color:var(--r);min-height:18px;margin-bottom:4px"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap">
+          <button type="button" id="pwd-change-cancel" style="padding:10px 16px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Annuler</button>
+          <button type="button" id="pwd-change-save" style="padding:10px 16px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Enregistrer</button>
+        </div>
+      </div>
+    </div>`;
+  const close=()=>{
+    document.removeEventListener('keydown',onKey);
+    wrap.remove();
+  };
+  const onKey=e=>{if(e.key==='Escape')close();};
+  document.addEventListener('keydown',onKey);
+  wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
+  wrap.querySelector('#pwd-change-close-x')?.addEventListener('click',close);
+  wrap.querySelector('#pwd-change-cancel')?.addEventListener('click',close);
+  const errEl=wrap.querySelector('#pwd-change-inline-err');
+  wrap.querySelector('#pwd-change-save')?.addEventListener('click',()=>{
+    const nouveau=(document.getElementById('pwd-change-p1')?.value||'').trim();
+    const p2=(document.getElementById('pwd-change-p2')?.value||'').trim();
+    if(!nouveau){if(errEl)errEl.textContent='Saisissez un mot de passe.';return;}
+    if(nouveau!==p2){if(errEl)errEl.textContent='Les deux champs ne correspondent pas.';return;}
+    const vErr=validatePassword(nouveau);
+    if(vErr){if(errEl)errEl.textContent=vErr;return;}
+    if(errEl)errEl.textContent='';
+    void (async()=>{
+      const u=findUserById(uid)||findUserById(normalizeId(uid));
+      const targetId=u?.id||uid;
+      const emailCandidate=(u?.email||getEmailCandidateForUid(targetId,'')||'').trim().toLowerCase();
+      const pwds=getPwds();
+      const hashed=await hashPassword(targetId,nouveau);
+      pwds[targetId]=hashed;
+      const nk=normalizeId(targetId);
+      if(nk&&nk!==targetId)pwds[nk]=hashed;
+      savePwds(pwds);
+      Object.keys(USERS).forEach(k=>{
+        if(normalizeId(k)===nk)USERS[k].pwd=hashed;
+      });
+      const cloudPayload={password:nouveau};
+      const authRaw=u?.auth_uid||u?.authUid||'';
+      if(isLikelyUuid(String(authRaw||'')))cloudPayload.user_id=String(authRaw).trim();
+      else if(emailCandidate.includes('@'))cloudPayload.email=emailCandidate;
+      cloudPayload.app_uid=String(targetId||'').trim();
+      const cloud=await updateSupabaseUserPasswordProvisioning(cloudPayload);
+      close();
+      renderPwdList();
+      logActivity(`Benjamin a modifié le mot de passe de ${name}`);
+      if(cloud.ok){
+        await benaiAlert(`✅ Mot de passe de ${name} modifié (BenAI + cloud).`);
+      }else if(SUPABASE_CONFIG.enabled){
+        await benaiAlert(`✅ Mot de passe local enregistré pour ${name}.\n\n⚠️ Cloud : ${cloud.error||'non synchronisé'}\nDéployez la fonction Supabase « update-user-password » (même principe que delete-user), puis réessayez.`);
+      }else{
+        await benaiAlert(`✅ Mot de passe de ${name} modifié (stockage local).`);
+      }
+    })();
   });
-  const cloudPayload={password:nouveau};
-  const authRaw=u?.auth_uid||u?.authUid||'';
-  if(isLikelyUuid(String(authRaw||'')))cloudPayload.user_id=String(authRaw).trim();
-  else if(emailCandidate.includes('@'))cloudPayload.email=emailCandidate;
-  cloudPayload.app_uid=String(targetId||'').trim();
-  const cloud=await updateSupabaseUserPasswordProvisioning(cloudPayload);
-  renderPwdList();
-  logActivity(`Benjamin a modifié le mot de passe de ${name}`);
-  if(cloud.ok){
-    await benaiAlert(`✅ Mot de passe de ${name} modifié (BenAI + cloud).`);
-  }else if(SUPABASE_CONFIG.enabled){
-    await benaiAlert(`✅ Mot de passe local enregistré pour ${name}.\n\n⚠️ Cloud : ${cloud.error||'non synchronisé'}\nDéployez la fonction Supabase « update-user-password » (même principe que delete-user), puis réessayez.`);
-  }else{
-    await benaiAlert(`✅ Mot de passe de ${name} modifié (stockage local).`);
-  }
+  document.body.appendChild(wrap);
+  document.getElementById('pwd-change-p1')?.focus();
 }
 
 // PARAMÈTRES
@@ -10060,7 +10330,7 @@ function editObjectifCommercial(uid,name){
   if(inp){inp.focus();try{inp.select();}catch(e){}}
 }
 
-async function editObjectifSociete(socId){
+function editObjectifSociete(socId){
   if(currentUser?.role!=='admin'&&!isCRMScopePilotageRole(currentUser?.role))return;
   const label=socId==='lambert'?'Lambert SAS':'Nemausus Fermetures';
   const monthKey=(document.getElementById('crm-obj-soc-mois')?.value)||getDefaultObjCommMonthKey();
@@ -10070,14 +10340,55 @@ async function editObjectifSociete(socId){
   if(!ent.months||typeof ent.months!=='object')ent.months={};
   const hasM=Object.prototype.hasOwnProperty.call(ent.months,monthKey);
   const cur=hasM?Number(ent.months[monthKey]):Number(ent.caHT)||0;
-  const v=await benaiPrompt(`Objectif CA HT (€) pour ${label} — mois ${labelMois} (changez le mois dans le menu « Mois affiché » pour préparer les autres mois de l’année) :`,String(cur),`Objectif ${label}`);
-  if(v===null)return;
-  const n=Math.max(0,Number(String(v).replace(/\s/g,'').replace(',','.'))||0);
-  ent.months[monthKey]=n;
-  next[socId]=ent;
-  saveCrmSocieteObjectifs(next);
-  renderLeadsDashboard();
-  logActivity(`${currentUser?.name||'?'} a fixé l’objectif CA HT ${label} (${labelMois}) : ${n.toLocaleString('fr-FR')} €`);
+  document.getElementById('obj-soc-edit-overlay')?.remove();
+  const wrap=document.createElement('div');
+  wrap.id='obj-soc-edit-overlay';
+  wrap.className='lead-modal open';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4500;display:flex;align-items:center;justify-content:center;padding:16px';
+  wrap.innerHTML=`
+    <div class="lead-modal-box" style="max-width:440px" role="dialog" aria-modal="true" aria-labelledby="obj-soc-edit-title" onclick="event.stopPropagation()">
+      <div class="lead-modal-header">
+        <div>
+          <div id="obj-soc-edit-title" style="font-size:16px;font-weight:700">Objectif CA HT — ${esc(label)}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.45">Mois : <strong>${esc(labelMois)}</strong> · pour un autre mois, change d’abord « Mois affiché » sur le tableau de bord CRM.</div>
+        </div>
+        <button type="button" id="obj-soc-close-x" style="background:transparent;border:none;color:var(--t2);font-size:20px;line-height:1;cursor:pointer;padding:4px 8px" aria-label="Fermer">×</button>
+      </div>
+      <div class="lead-modal-body">
+        <div class="lead-modal-section">
+          <div class="form-group">
+            <div class="form-label">Montant cible (€ HT)</div>
+            <input type="number" class="form-input" id="obj-soc-ca" min="0" step="100" value="${Number(cur)||0}" inputmode="decimal" style="font-family:inherit">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap">
+          <button type="button" id="obj-soc-cancel" style="padding:10px 16px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Annuler</button>
+          <button type="button" id="obj-soc-save" style="padding:10px 16px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Enregistrer</button>
+        </div>
+      </div>
+    </div>`;
+  const close=()=>{
+    document.removeEventListener('keydown',onKey);
+    wrap.remove();
+  };
+  const onKey=e=>{if(e.key==='Escape')close();};
+  document.addEventListener('keydown',onKey);
+  wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
+  wrap.querySelector('#obj-soc-close-x')?.addEventListener('click',close);
+  wrap.querySelector('#obj-soc-cancel')?.addEventListener('click',close);
+  wrap.querySelector('#obj-soc-save')?.addEventListener('click',()=>{
+    const v=document.getElementById('obj-soc-ca')?.value;
+    const n=Math.max(0,Number(String(v).replace(/\s/g,'').replace(',','.'))||0);
+    ent.months[monthKey]=n;
+    next[socId]=ent;
+    saveCrmSocieteObjectifs(next);
+    renderLeadsDashboard();
+    logActivity(`${currentUser?.name||'?'} a fixé l’objectif CA HT ${label} (${labelMois}) : ${n.toLocaleString('fr-FR')} €`);
+    close();
+  });
+  document.body.appendChild(wrap);
+  const inp=document.getElementById('obj-soc-ca');
+  if(inp){inp.focus();try{inp.select();}catch(e){}}
 }
 
 // OUVRIR NOUVEAU LEAD
