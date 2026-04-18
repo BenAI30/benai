@@ -3088,7 +3088,8 @@ function initApp(silent=false){
   if(btnCorrect)btnCorrect.style.display=isBenAIDesktopAutocorrect()?'inline-flex':'none';
 
   // Page d'accueil selon rôle
-  const homePage=CRM_PAGES_ONLY.includes(u.role)?'leads':'benai';
+  const allowedHome=ROLE_PAGES[u.role]||ROLE_PAGES['assistante'];
+  const homePage=CRM_PAGES_ONLY.includes(u.role)?'leads':(allowedHome[0]||'guide');
 
   const mem=loadChatMem(u.id);
   chatHistory=mem.map(m=>({role:m.role,content:m.content}));
@@ -5976,10 +5977,10 @@ function renderGuidePage(){
   const pilotZoneLine=getBenaiPilotageSecteurShortLine();
   const roleGuideDirecteurCo=[
     `Périmètre du compte : ${pilotCompanyTitle}. ${pilotZoneLine} Les filtres secteur, les synthèses du tableau de bord, les exports « performance secteurs » et la liste des commerciaux dans les objectifs suivent ce même cadrage.`,
-    'Menus visibles : Leads CRM, Messages, Absences, Guide — signalement via « Signaler » (pas de liste des tickets).',
-    'Leads CRM — trois onglets : « À attribuer » (dossiers sans commercial assigné), « Tous les leads » (recherche, pastilles de statut, archives, alertes, bascule liste / kanban), puis « Dashboard » (KPI, secteurs, ventes, CA, équipe, pertes, exports, objectifs).',
+    'Menus visibles : Notes, Leads CRM, Messages, Absences, Guide — signalement via « Signaler » (pas de liste des tickets). L’assistant BenAI IA est réservé à l’administration et aux assistantes.',
+    'Leads CRM — trois onglets : « À attribuer » (dossiers sans commercial assigné), « Dossiers CRM » (recherche, pastilles, archives, alertes, liste / kanban), puis « Dashboard » (KPI, secteurs, ventes, CA, équipe, pertes, exports, objectifs).',
     '« À attribuer » : dossiers en attente d’attribution ; tu peux attribuer depuis la carte ou depuis la fiche (champ commercial). Tu peux aussi te porter le dossier comme un terrain.',
-    '« Tous les leads » : combine filtres (dont secteur = les zones de ton périmètre), recherche, pastilles Non traité / RDV / Devis / Vendu / Perdu / Archives / Alertes. Le filtre par société n’apparaît que si ton accès couvre les deux entités.',
+    '« Dossiers CRM » : tes dossiers assignés à toi sont affichés à part du pipeline des autres commerciaux ; tu peux aussi filtrer par vendeur. Combine filtres secteur (ton périmètre), recherche, pastilles Non traité / RDV / Devis / Vendu / Perdu / Archives / Alertes. Le filtre par société n’apparaît que si ton accès couvre les deux entités.',
     'Fiche lead : identité, projet, commentaire de création, secteur, source, suivi, commentaire, tunnel de statuts (selon attribution). Après attribution, tu peux ouvrir la fiche pour lire l’historique : la timeline liste chaque action (ouverture, changement de statut, attribution, montants…) avec date et auteur — c’est la trace d’audit.',
     'Pastille « non ouvert » sur un lead attribué : le commercial assigné n’a pas encore ouvert la fiche une première fois — signal de pilotage.',
     'Dashboard : barre « Aller à » pour naviguer ; blocs repliables. Tu y retrouves les secteurs visibles pour ton compte, le tableau du mois civil, les ventes & RDV, le CA par entreprise (une seule carte si ton compte est mono-société), le classement commerciaux filtré sur ton périmètre, les courbes 6 mois, pertes & archives, exports CSV / Excel, fusion de doublons, objectifs CA par vendeur.',
@@ -5989,7 +5990,7 @@ function renderGuidePage(){
   ];
   const roleGuideDirecteurGeneral=[
     `Même logique de périmètre que le dir. commercial : ${pilotCompanyTitle}. ${pilotZoneLine}`,
-    'Mêmes onglets CRM : À attribuer, Tous les leads, Dashboard — attribution, statuts, timeline, chiffres et exports comme le directeur commercial.',
+    'Mêmes onglets CRM : À attribuer, Dossiers CRM, Dashboard — même séparation « mes dossiers » / « équipe » que le directeur commercial ; timeline, chiffres et exports alignés sur ton périmètre.',
     'Tu peux t’appuyer sur la timeline des leads attribués pour cadrer la qualité des données (devis datés et chiffrés, vendu avec montant HT, perdu avec motif).',
     'Les rappels automatiques ciblent surtout le dir. commercial et les commerciaux ; le CRM reste disponible pour lecture ou action à la demande (comité, fin de mois, si le dir. co n’est pas joignable).',
     'Messages pour les arbitrages ; « Signaler » pour les incidents techniques répétés.'
@@ -8086,11 +8087,12 @@ const CRM_PAGES_ONLY=['directeur_co','directeur_general','commercial'];
 const ROLE_PAGES={
   admin:['benai','notes','messages','sav','leads','absences','annuaire','paie','admin','evolution','guide','bugs'],
   assistante:['benai','notes','messages','sav','leads','evolution','guide'],
-  metreur:['benai','notes','messages','absences','evolution','guide'],
+  // BenAI IA : admin + assistantes uniquement.
+  metreur:['notes','messages','absences','evolution','guide'],
   // SAV : réservé admin + assistantes (saisie par entité). Pilotage CRM sans accès SAV pour direction / terrain.
-  directeur_co:['benai','notes','messages','leads','absences','evolution','guide'],
-  directeur_general:['benai','notes','messages','leads','absences','evolution','guide'],
-  commercial:['benai','notes','messages','leads','absences','evolution','guide']
+  directeur_co:['notes','messages','leads','absences','evolution','guide'],
+  directeur_general:['notes','messages','leads','absences','evolution','guide'],
+  commercial:['notes','messages','leads','absences','evolution','guide']
 };
 /** Même périmètre CRM / pilotage (société, filtres, onglets) que le dir. commercial. */
 function isCRMScopePilotageRole(role){
@@ -8465,9 +8467,9 @@ function getDirecteurCoTutoSlides(){
     :'Si un collègue te prête sa session, tu peux vérifier en haut de l’écran que c’est bien ton compte.';
   return[
     {icon:'🏢',title:'Ton entreprise sur BenAI',desc:`Ce tutoriel décrit ce que tu vois dans BenAI pour : ${company}. ${zones} Filtres secteur, cartes du tableau de bord et commerciaux listés restent alignés sur ce périmètre.`,highlight:sessionHint},
-    {icon:'📊',title:'Menus visibles',desc:'Leads CRM, Messages, Absences, Guide. En cas de blocage : menu « Signaler » (la liste des tickets reste côté administration). Le CRM sert à attribuer, suivre et chiffrer les dossiers.',highlight:'Tu peux ouvrir Leads CRM quand tu en as besoin'},
-    {icon:'🧭',title:'Les trois onglets CRM',desc:'« À attribuer » : nouveaux dossiers sans commercial assigné. « Tous les leads » : le pipeline (recherche, pastilles de statut, liste ou kanban, archives, alertes). « Dashboard » : synthèses (KPI, secteurs, CA, équipe, exports, objectifs).',highlight:'Tu peux commencer par « À attribuer » pour enchaîner les nouveaux dossiers, si tu le souhaites'},
-    {icon:'🎛️',title:'Filtres liste & kanban',desc:'Tu peux combiner recherche texte, pastilles (Non traité, RDV, Devis, Vendu, Perdu, Archives, Alertes), filtre secteur (les zones de ton périmètre), filtre commercial. Le filtre par société n’apparaît que si ton accès couvre les deux entités.',highlight:'Tu peux réinitialiser les filtres si une vue semble vide'},
+    {icon:'📊',title:'Menus visibles',desc:'Notes, Leads CRM, Messages, Absences, Guide. En cas de blocage : « Signaler » (la liste des tickets reste côté administration). L’assistant BenAI IA est réservé à l’administration et aux assistantes.',highlight:'Le CRM sert à attribuer, suivre et chiffrer les dossiers'},
+    {icon:'🧭',title:'Les trois onglets CRM',desc:'« À attribuer » : nouveaux dossiers sans commercial assigné. « Dossiers CRM » : d’abord tes dossiers à ton nom, puis le pipeline équipe (recherche, pastilles, liste ou kanban, archives, alertes). « Dashboard » : synthèses (KPI, secteurs, CA, équipe, exports, objectifs).',highlight:'Tu peux commencer par « À attribuer » pour enchaîner les nouveaux dossiers, si tu le souhaites'},
+    {icon:'🎛️',title:'Filtres liste & kanban',desc:'Liste : section « Mes dossiers » séparée du « Pipeline équipe ». Kanban : sans filtre commercial, seuls tes dossiers à ton nom s’affichent pour ne pas mélanger avec les autres ; avec un filtre commercial, tu vois le kanban du vendeur choisi. Tu peux combiner recherche, pastilles, filtre secteur, filtre commercial. Filtre société seulement si ton accès couvre les deux entités.',highlight:'Réinitialise les filtres si une vue semble vide'},
     {icon:'🤝',title:'Attribuer ou reprendre un lead',desc:'Sur « À attribuer » ou dans la fiche : champ « Commercial » — tu peux choisir un vendeur, un autre dirigeant, ou toi-même pour porter le dossier. Changement = notification + entrée dans l’historique.',highlight:'Tu peux t’assigner comme un commercial'},
     {icon:'📇',title:'Ouvrir une fiche lead attribué',desc:'En cliquant un dossier : identité, projet, commentaire d’origine, secteur, source. Tu peux corriger les champs de base, suivi, commentaire, montants et dates selon les droits affichés.',highlight:'Une fiche à jour limite les doublons d’appels'},
     {icon:'📜',title:'Historique & timeline',desc:'Sur un lead attribué (ou sur le tien), la section Historique liste les actions : ouverture de fiche, changements de statut, d’attribution, de montants, etc., avec date et auteur — trace utile sur le terrain.',highlight:'Tu peux lire la timeline avant d’appeler le commercial ou le client'},
@@ -8484,7 +8486,7 @@ function getDirecteurGeneralTutoSlides(){
   const zones=getBenaiPilotageSecteurShortLine();
   return[
     {icon:'🏢',title:'Même périmètre que le dir. commercial',desc:`Tu consultes et agis sur les mêmes écrans, filtrés selon ton compte : ${company}. ${zones}`,highlight:'Tu as accès aux onglets CRM pilotage sur ton périmètre'},
-    {icon:'🧭',title:'Onglets & dashboard',desc:'À attribuer, Tous les leads, Dashboard — mêmes usages que le directeur commercial (attribution, statuts, chiffres, exports).',highlight:'Tu peux dépanner si le dir. co est momentanément indisponible'},
+    {icon:'🧭',title:'Onglets & dashboard',desc:'À attribuer, Dossiers CRM (mes dossiers / équipe), Dashboard — mêmes usages que le directeur commercial (attribution, statuts, chiffres, exports).',highlight:'Tu peux dépanner si le dir. co est momentanément indisponible'},
     {icon:'📜',title:'Timeline & qualité des fiches',desc:'Tu vois la même timeline sur les dossiers attribués ; tu peux t’en servir pour repérer les infos manquantes (devis datés, vendu avec montant, perdu avec motif).',highlight:'Des fiches complètes rendent les comités plus fiables'},
     {icon:'💬',title:'Messages & signalement',desc:'Messages pour les arbitrages rapides ; menu « Signaler » pour les incidents répétés (pas d’accès à la liste des tickets).',highlight:'Tu peux détailler le signalement pour faciliter la correction'}
   ];
@@ -8646,8 +8648,9 @@ function initLeadsPage(){
   tabs.innerHTML='';
   if(role==='admin'||isCRMScopePilotageRole(role)){
     const initial=readStoredCrmSubtab('non-attribues');
+    const leadsPilotTabLabel=role==='admin'?'📋 Tous les leads':'📋 Dossiers CRM';
     addCRMTab('non-attribues','⚠️ À attribuer',initial==='non-attribues');
-    addCRMTab('mes-leads','📋 Tous les leads',initial==='mes-leads');
+    addCRMTab('mes-leads',leadsPilotTabLabel,initial==='mes-leads');
     addCRMTab('dashboard','📊 Dashboard',initial==='dashboard');
     fillCommercialFilter();
     filters.style.display='flex';
@@ -8838,11 +8841,13 @@ function renderLeads(){
   list.style.margin='';
   list.style.width='';
 
-  // VUE DIRECTEUR CO — deux sections
+  // VUE DIRECTEUR CO / DG / ADMIN — non attribués + pipeline
   if(isCRMScopePilotageRole(role)||role==='admin'){
     const allLeads=getCompanyScopedLeads(getLeads()).filter(l=>!isLeadCrmArchivedView(l));
     const nonAttrib=allLeads.filter(isLeadInNonAttribQueue);
     const attrib=getFilteredLeads().filter(l=>!isLeadInNonAttribQueue(l));
+    const commFilterRaw=(role==='admin'||isCRMScopePilotageRole(role))?(document.getElementById('crm-filter-commercial')?.value||''):'';
+    const splitPilotageList=role!=='admin'&&isCRMScopePilotageRole(role)&&!commFilterRaw;
     let html='';
     // Section À ATTRIBUER
     if(nonAttrib.length>0){
@@ -8853,9 +8858,21 @@ function renderLeads(){
       html+=nonAttrib.map(l=>renderDispatchCard(l)).join('');
       html+='</div><div style="border-top:1px solid var(--b1);margin-bottom:12px"></div>';
     }
-    // Section LEADS EN COURS
-    html+=`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px">📋 Leads (${attrib.length})</div>`;
-    html+=attrib.map(l=>renderLeadCard(l,role)).join('');
+    if(splitPilotageList){
+      const mine=attrib.filter(l=>normalizeId(String(l.commercial||''))===normalizeId(String(currentUser.id)));
+      const team=attrib.filter(l=>normalizeId(String(l.commercial||''))!==normalizeId(String(currentUser.id)));
+      html+=`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--a);margin-bottom:8px">🎯 Mes dossiers (${mine.length})</div>`;
+      html+=`<div style="font-size:11px;color:var(--t3);margin:-4px 0 10px;line-height:1.45">Dossiers où tu es enregistré(e) comme commercial assigné — séparés du pipeline des autres vendeurs.</div>`;
+      html+=mine.map(l=>renderLeadCard(l,role)).join('')||(mine.length===0?'<div style="color:var(--t3);font-size:12px;padding:8px 0 14px">Aucun dossier à ton nom pour ces filtres.</div>':'');
+      html+=`<div style="border-top:1px solid var(--b1);margin:14px 0 10px"></div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px">👥 Pipeline équipe (${team.length})</div>
+        <div style="font-size:11px;color:var(--t3);margin:-4px 0 10px;line-height:1.45">Dossiers attribués aux autres commerciaux sur ton périmètre entreprise. Utilise le filtre « commercial » ci-dessus pour isoler un vendeur.</div>`;
+      html+=team.map(l=>renderLeadCard(l,role)).join('')||(team.length===0?'<div style="color:var(--t3);font-size:12px;padding:8px 0">Aucun autre dossier assigné avec les filtres actuels.</div>':'');
+    }else{
+      const secTitle=commFilterRaw?'📋 Leads filtrés':'📋 Leads';
+      html+=`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px">${secTitle} (${attrib.length})</div>`;
+      html+=attrib.map(l=>renderLeadCard(l,role)).join('');
+    }
     list.innerHTML=html||'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead</div>';
     return;
   }
@@ -9023,7 +9040,11 @@ function renderKanban(){
   const kanban=document.getElementById('leads-kanban');if(!kanban)return;
   kanban.style.display='flex';
   const role=currentUser?.role;
-  const leads=getFilteredLeads();
+  let leads=getFilteredLeads();
+  const commFilterRaw=(role==='admin'||isCRMScopePilotageRole(role))?(document.getElementById('crm-filter-commercial')?.value||''):'';
+  if(isCRMScopePilotageRole(role)&&role!=='admin'&&!commFilterRaw){
+    leads=leads.filter(l=>normalizeId(String(l.commercial||''))===normalizeId(String(currentUser.id)));
+  }
   const cols=[
     {id:'gris',label:'🔵 Non traité',cls:'ls-gris'},
     {id:'rdv',label:'📞 RDV pris',cls:'ls-rdv'},
@@ -12594,7 +12615,7 @@ try{
 
 const TUTO_SLIDES_BY_ROLE={
   commercial:[
-    {icon:'🎯',title:'Ton rôle en une phrase',desc:'Tu peux faire vivre chaque opportunité dans le CRM : appels, RDV, devis, signature ou perte documentée. BenAI affiche la liste ; tu peux y consigner la réalité terrain après chaque contact, quand tu le souhaites.',highlight:'Onglets visibles : Leads CRM, Messages, Absences, Guide — et « Signaler » pour un blocage technique (le SAV est géré par l’administration et les assistantes)'},
+    {icon:'🎯',title:'Ton rôle en une phrase',desc:'Tu peux faire vivre chaque opportunité dans le CRM : appels, RDV, devis, signature ou perte documentée. Le CRM affiche ta liste ; tu peux y consigner la réalité terrain après chaque contact, quand tu le souhaites.',highlight:'Onglets visibles : Notes, Leads CRM, Messages, Absences, Guide — et « Signaler » pour un blocage technique (le SAV est géré par l’administration et les assistantes). L’assistant BenAI IA est réservé à l’administration et aux assistantes.'},
     {icon:'🗺️',title:'Navigation CRM',desc:'Dans Leads CRM : « Mes leads » (liste ou kanban), puis « Mes ventes » (tableau des ventes et suivi d’objectifs).',highlight:'Tu peux basculer ☰ / ⊞ selon ce qui te convient le mieux'},
     {icon:'🔎',title:'Trier et filtrer',desc:'Les pastilles Tous, Non traité, RDV pris, Devis envoyé, Vendu, Perdu, Archives et Alertes aident à structurer la vue. La recherche texte retrouve nom, téléphone ou ville. Beaucoup d’équipes combinent Alertes et Non traité en premier regard.',highlight:'Tu peux adapter l’ordre de traitement à ta journée'},
     {icon:'➕',title:'Créer un lead (terrain / prospection)',desc:'Bouton + Nouveau lead : nom, téléphone, code postal et type de projet sont demandés à l’enregistrement. La source « ACTIF » t’attribue automatiquement le dossier ; pour les autres cas, l’organisation gère l’attribution selon vos règles.',highlight:'Un secteur cohérent avec le CP limite les erreurs de zone'},
@@ -12629,10 +12650,9 @@ const TUTO_SLIDES_BY_ROLE={
     {icon:'🎫',title:'Qualité & tickets',desc:'Tu gères les tickets depuis l’onglet réservé admin ; tu peux encourager l’équipe à utiliser « Signaler » (page, étapes, gravité).',highlight:'Un signalement précis limite les allers-retours'}
   ],
   metreur:[
-    {icon:'📐',title:'Métreur — usage BenAI',desc:'BenAI peut t’aider à transmettre les informations chantier rapidement et clairement.',highlight:'Souvent utile : Messages, Notes, Signaler'},
+    {icon:'📐',title:'Métreur — accès BenAI',desc:'Tu transmets les infos chantier via Messages et Notes. L’assistant BenAI IA est réservé à l’administration et aux assistantes.',highlight:'Souvent utile : Messages, Notes, « Signaler » en cas de blocage'},
     {icon:'💬',title:'Messages internes',desc:'Tu peux partager les infos chantier importantes avec la bonne personne via Messages.',highlight:'Messages = communication équipe'},
     {icon:'📝',title:'Notes personnelles',desc:'Tu peux utiliser Notes pour tes rappels et éléments à vérifier.',highlight:'Notes = organisation perso'},
-    {icon:'🤖',title:'BenAI IA',desc:'Tu peux t’appuyer sur BenAI IA pour reformuler un message, préparer un email ou clarifier une réponse.',highlight:'BenAI IA = aide de rédaction'},
     {icon:'🛟',title:'Signaler un problème',desc:'En cas de blocage, ouvre « Signaler » dans le menu avec une description précise.',highlight:'Contexte + action qui bloque aident beaucoup'},
     {icon:'✅',title:'Piste utile',desc:'Laisser une trace claire des infos chantier limite souvent les oublis côté équipe.',highlight:null},
   ],
