@@ -5796,9 +5796,19 @@ function exportSAVCSV(){
   if(currentUser.role==='assistante'&&(currentUser.societe==='nemausus'||currentUser.societe==='lambert')){
     savs=savs.filter(s=>s.societe===currentUser.societe);
   }
-  const header='Date,Client,Problème,Société,Commercial,Fournisseur,Statut,Urgent,Date rappel\n';
-  const rows=savs.map(s=>`${s.date_creation||''},${csv(s.client)},${csv(s.probleme)},${s.societe==='nemausus'?'Nemausus Fermetures':'Lambert SAS'},${csv(s.commercial)},${csv(s.fournisseur)},${s.statut},${s.urgent?'Oui':'Non'},${s.rappel||''}`).join('\n');
-  download('SAV_BenAI_'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.csv',header+rows,'text/csv');
+  const header=joinCsv(['Date','Client','Problème','Société','Commercial','Fournisseur','Statut','Urgent','Date rappel'])+'\n';
+  const rows=savs.map(s=>joinCsv([
+    s.date_creation||'',
+    csv(s.client),
+    csv(s.probleme),
+    s.societe==='nemausus'?'Nemausus Fermetures':'Lambert SAS',
+    csv(s.commercial),
+    csv(s.fournisseur),
+    csv(String(s.statut||'')),
+    s.urgent?'Oui':'Non',
+    s.rappel||''
+  ])).join('\n');
+  downloadCsv('SAV_BenAI_'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.csv',header+rows);
 }
 
 // ══════════════════════════════════════════
@@ -9874,7 +9884,8 @@ function renderLeadsDashboard(){
       <button onclick="exportLeadsExcel()" style="flex:1;min-width:220px;padding:8px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">📥 Exporter tous les leads</button>
       <button onclick="exportAllCRMTables()" style="flex:1;min-width:220px;padding:8px;background:var(--a3);color:var(--a);border:1px solid rgba(232,148,58,.35);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">📦 Télécharger tous les tableaux CRM</button>
       <button onclick="ouvrirFusion()" style="flex:1;min-width:220px;padding:8px;background:var(--bl2);color:var(--bl);border:1px solid rgba(96,165,250,.3);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">🔀 Fusionner leads en double</button>
-    </div>`;
+    </div>
+    <div style="font-size:10px;color:var(--t3);margin:-4px 0 12px;line-height:1.45">Les exports CSV sont en <strong>UTF-8</strong> avec séparateur <strong>;</strong> (réglage Excel France). Double-cliquez le fichier : les colonnes et les caractères accentués doivent s’afficher correctement.</div>`;
     html+=`<div class="secteur-card">
       <div class="secteur-title">📤 Exports individuels</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
@@ -10774,19 +10785,27 @@ function refreshLeadsBadge(){
 // EXPORT EXCEL
 function exportLeadsExcel(){
   const leads=getCompanyScopedLeads(getLeads());
-  const header='Date,Source,Nom,Téléphone,Ville,CP,Projet,Statut,Commercial,Secteur,Devis (€),CA (€),Suivi,Commentaire\n';
+  const header=joinCsv(['Date','Source','Nom','Téléphone','Ville','CP','Projet','Statut','Commercial','Secteur','Devis (€)','CA (€)','Suivi','Commentaire'])+'\n';
   const rows=leads.map(l=>{
     const comm=getAllUsers().find(u=>u.id===l.commercial);
-    return[
+    return joinCsv([
       new Date(l.date_creation||0).toLocaleDateString('fr-FR'),
-      l.source||'',csv(l.nom),csv(l.telephone),csv(l.ville),l.cp||'',
-      csv(l.type_projet),l.statut,comm?.name||'',
-      getLeadSecteurLabel(l.secteur),
-      l.montant_devis||'',l.prix_vendu||'',
-      csv(l.suivi),csv(l.commentaire)
-    ].join(',');
+      l.source||'',
+      csv(l.nom),
+      csv(l.telephone),
+      csv(l.ville),
+      l.cp||'',
+      csv(l.type_projet),
+      l.statut||'',
+      csv(comm?.name||''),
+      csv(getLeadSecteurLabel(l.secteur)),
+      l.montant_devis||'',
+      l.prix_vendu||'',
+      csv(l.suivi),
+      csv(l.commentaire)
+    ]);
   }).join('\n');
-  download('Leads_BenAI_'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.csv',header+rows,'text/csv;charset=utf-8');
+  downloadCsv('Leads_BenAI_'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.csv',header+rows);
   logActivity('Export leads Excel');
 }
 
@@ -10801,13 +10820,13 @@ function buildSecteurSynthDataRows(actifs,ids){
     const devis=sl.filter(l=>l.statut==='jaune');
     const ca=ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
     const pipeline=devis.reduce((sum,l)=>sum+Number(l.montant_devis||0),0);
-    return [csv(getLeadSecteurLabel(s)),sl.length,ventes.length,ca,devis.length,pipeline].join(',');
+    return joinCsv([csv(getLeadSecteurLabel(s)),sl.length,ventes.length,ca,devis.length,pipeline]);
   }).join('\n');
 }
 
 /** CSV complet (en-tête + lignes + ligne TOTAL optionnelle pour regroupement multi-secteurs). */
 function buildSecteurSynthCSVString(actifs,ids,withTotalRow){
-  const header='Secteur,Leads actifs,Ventes,CA signé (€),Devis en cours,Pipeline devis (€)\n';
+  const header=joinCsv(['Secteur','Leads actifs','Ventes','CA signé (€)','Devis en cours','Pipeline devis (€)'])+'\n';
   const body=buildSecteurSynthDataRows(actifs,ids);
   if(!withTotalRow||!ids.length)return header+body;
   const allSl=actifs.filter(l=>ids.includes(l.secteur));
@@ -10815,7 +10834,7 @@ function buildSecteurSynthCSVString(actifs,ids,withTotalRow){
   const devis=allSl.filter(l=>l.statut==='jaune');
   const ca=ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
   const pipeline=devis.reduce((sum,l)=>sum+Number(l.montant_devis||0),0);
-  const totalLine=[csv('TOTAL (sélection)'),allSl.length,ventes.length,ca,devis.length,pipeline].join(',');
+  const totalLine=joinCsv([csv('TOTAL (sélection)'),allSl.length,ventes.length,ca,devis.length,pipeline]);
   return header+body+'\n'+totalLine;
 }
 
@@ -10836,7 +10855,7 @@ function exportSecteurSyntheseFromDashboard(){
     fname=`CRM_Secteur_${sel}_${scopeLabel}_${stamp}.csv`;
     content=buildSecteurSynthCSVString(actifs,[sel],false);
   }
-  download(fname,content,'text/csv;charset=utf-8');
+  downloadCsv(fname,content);
   showDriveNotif('📥 Export secteur prêt');
   logActivity(`${currentUser?.name||'?'} a exporté synthèse secteurs (${sel})`);
 }
@@ -10852,49 +10871,56 @@ function buildCRMExportBundles(){
   const stamp=new Date().toISOString().slice(0,10);
   const scopeLabel=isCRMScopePilotageRole(currentUser?.role)?`scope_${currentUser.societe||'societe'}`:'scope_global';
 
-  const leadsHeader='Date,Source,Nom,Téléphone,Ville,CP,Projet,Statut,Commercial,Secteur,Hors secteur,Zone blanche,Devis (€),CA (€),Suivi,Commentaire\n';
+  const leadsHeader=joinCsv(['Date','Source','Nom','Téléphone','Ville','CP','Projet','Statut','Commercial','Secteur','Hors secteur','Zone blanche','Devis (€)','CA (€)','Suivi','Commentaire'])+'\n';
   const leadsRows=actifs.map(l=>{
     const comm=getAllUsers().find(u=>u.id===l.commercial);
-    return [
+    return joinCsv([
       new Date(l.date_creation||0).toLocaleDateString('fr-FR'),
       l.source||'',
-      csv(l.nom),csv(l.telephone),csv(l.ville),l.cp||'',
-      csv(l.type_projet),l.statut,csv(comm?.name||''),
+      csv(l.nom),
+      csv(l.telephone),
+      csv(l.ville),
+      l.cp||'',
+      csv(l.type_projet),
+      l.statut||'',
+      csv(comm?.name||''),
       csv(getLeadSecteurLabel(l.secteur)),
       l.hors_secteur?'Oui':'Non',
       (l.zone_blanche||l.secteur==='zone_blanche')?'Oui':'Non',
-      l.montant_devis||'',l.prix_vendu||'',
-      csv(l.suivi),csv(l.commentaire)
-    ].join(',');
+      l.montant_devis||'',
+      l.prix_vendu||'',
+      csv(l.suivi),
+      csv(l.commentaire)
+    ]);
   }).join('\n');
 
-  const ventesHeader='Mois,Source,Commercial,Client,Téléphone,Ville,Produit,HT (€),Date signature\n';
+  const ventesHeader=joinCsv(['Mois','Source','Commercial','Client','Téléphone','Ville','Produit','HT (€)','Date signature'])+'\n';
   const ventesRows=salesMonth.map(l=>{
     const comm=getAllUsers().find(u=>u.id===l.commercial);
-    return [currentMonth,l.source||'',csv(comm?.name||''),csv(l.nom),csv(l.telephone),csv(l.ville),csv(l.produit_vendu||l.type_projet),l.prix_vendu||'',l.date_signature||''].join(',');
+    return joinCsv([currentMonth,l.source||'',csv(comm?.name||''),csv(l.nom),csv(l.telephone),csv(l.ville),csv(l.produit_vendu||l.type_projet),l.prix_vendu||'',l.date_signature||'']);
   }).join('\n');
 
-  const secteurHeader='Secteur,Leads actifs,Ventes,CA signé (€),Devis en cours,Pipeline devis (€)\n';
+  const secteurHeader=joinCsv(['Secteur','Leads actifs','Ventes','CA signé (€)','Devis en cours','Pipeline devis (€)'])+'\n';
   const secteurRows=buildSecteurSynthDataRows(actifs,CRM_SECTEUR_IDS_ALL);
 
-  const srcHeader='Mois,Source,Leads,Ventes,CA signé (€)\n';
+  const srcHeader=joinCsv(['Mois','Source','Leads','Ventes','CA signé (€)'])+'\n';
   const srcRows=LEAD_SOURCE_CODES.map(src=>{
     const sl=leadsMonth.filter(l=>l.source===src);
     const ventes=sl.filter(l=>l.statut==='vert');
     const ca=ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
-    return [currentMonth,csv(LEAD_SOURCE_LABELS[src]||src),sl.length,ventes.length,ca].join(',');
+    return joinCsv([currentMonth,csv(LEAD_SOURCE_LABELS[src]||src),sl.length,ventes.length,ca]);
   }).join('\n');
 
   const ranking=getCommercialRankingMonth(actifs);
-  const rankHeader='Mois,Rang,Commercial,Ventes,CA signé (€)\n';
+  const rankHeader=joinCsv(['Mois','Rang','Commercial','Ventes','CA signé (€)'])+'\n';
   const rankRows=ranking.map((r,i)=>{
     const u=getAllUsers().find(x=>x.id===r.uid);
-    return [currentMonth,i+1,csv(u?.name||r.uid),r.ventes,r.ca].join(',');
+    return joinCsv([currentMonth,i+1,csv(u?.name||r.uid),r.ventes,r.ca]);
   }).join('\n');
 
   const lost=getLeadLostAnalytics(leadsMonth);
-  const lostHeader='Mois,Motif,Leads perdus\n';
-  const lostRows=(lost.rows||[]).map(r=>[currentMonth,csv(r.label),r.count].join(',')).join('\n');
+  const lostHeader=joinCsv(['Mois','Motif','Leads perdus'])+'\n';
+  const lostRows=(lost.rows||[]).map(r=>joinCsv([currentMonth,csv(r.label),r.count])).join('\n');
 
   return {
     currentMonth,
@@ -10916,7 +10942,7 @@ function exportCRMTable(key){
     showDriveNotif('⚠️ Tableau inconnu');
     return;
   }
-  download(item.filename,item.content,'text/csv;charset=utf-8');
+  downloadCsv(item.filename,item.content);
   showDriveNotif(`📥 Export ${key} prêt`);
   logActivity(`${currentUser?.name||'Utilisateur'} a exporté le tableau ${key}`);
 }
@@ -10924,7 +10950,7 @@ function exportCRMTable(key){
 function exportAllCRMTables(){
   const payload=buildCRMExportBundles();
   Object.values(payload.bundles).forEach(item=>{
-    download(item.filename,item.content,'text/csv;charset=utf-8');
+    downloadCsv(item.filename,item.content);
   });
   showDriveNotif(`📦 Tableaux CRM exportés (${formatMois(payload.currentMonth)})`);
   logActivity(`${currentUser?.name||'Utilisateur'} a exporté tous les tableaux CRM`);
@@ -11679,12 +11705,12 @@ function exportTableauVentes(){
   if(!Number.isFinite(py)||(py!==yNow&&py!==yPrev)){selectedMois=currentKey;appStorage.setItem('benai_ventes_mois',selectedMois);}
   const [yr,mo]=selectedMois.split('-').map(Number);
   const filtered=selectedMois?leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;}):leads;
-  const header='Source,Commercial,Client,Téléphone,Ville,Produit,Prix vente HT (€),Date signature\n';
+  const header=joinCsv(['Source','Commercial','Client','Téléphone','Ville','Produit','Prix vente HT (€)','Date signature'])+'\n';
   const rows=filtered.map(l=>{
     const comm=getAllUsers().find(u=>u.id===l.commercial);
-    return[l.source||'',csv(comm?.name||''),csv(l.nom),csv(l.telephone),csv(l.ville),csv(l.produit_vendu||l.type_projet),l.prix_vendu||'',l.date_signature||''].join(',');
+    return joinCsv([l.source||'',csv(comm?.name||''),csv(l.nom),csv(l.telephone),csv(l.ville),csv(l.produit_vendu||l.type_projet),l.prix_vendu||'',l.date_signature||'']);
   }).join('\n');
-  download(`Ventes_${selectedMois||'export'}.csv`,header+rows,'text/csv;charset=utf-8');
+  downloadCsv(`Ventes_${selectedMois||'export'}.csv`,header+rows);
 }
 
 // ══════════════════════════════════════════
@@ -12005,6 +12031,13 @@ const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&g
 const escAttr=s=>esc(s).replace(/'/g,'&#39;').replace(/"/g,'&quot;');
 const md=txt=>(txt||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
 const csv=s=>`"${(s||'').replace(/"/g,'""')}"`;
+/** Excel (liste FR) : point-virgule ; + BOM UTF-8 → colonnes correctes et accents (é, €) au double-clic. */
+const CSV_LIST_SEP=';';
+const CSV_UTF8_BOM='\uFEFF';
+function joinCsv(parts){return parts.join(CSV_LIST_SEP);}
+function downloadCsv(filename,content){
+  download(filename,CSV_UTF8_BOM+content,'text/csv;charset=utf-8');
+}
 const getUserColor=uid=>USERS[uid]?.color||getExtraUserById(uid)?.color||'#333';
 const getUserInitial=uid=>USERS[uid]?.initial||getExtraUserById(uid)?.initial||'?';
 const formatDate=d=>{if(!d)return '';try{return new Date(d).toLocaleDateString('fr-FR');}catch{return d;}};
