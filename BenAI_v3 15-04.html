@@ -11098,14 +11098,12 @@ function normalizeCommercialObjEntry(v){
 function getObjCommMonthOptions(){
   const keys=new Set();
   const now=new Date();
-  for(let i=-24;i<=12;i++){
-    const d=new Date(now.getFullYear(),now.getMonth()+i,1);
-    keys.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
-  }
+  const y=now.getFullYear();
+  for(let m=1;m<=12;m++)keys.add(`${y}-${String(m).padStart(2,'0')}`);
   try{
     getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert').forEach(l=>{
       const d=new Date(l.date_creation||0);
-      if(!isNaN(d.getTime()))keys.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+      if(!isNaN(d.getTime())&&d.getFullYear()===y)keys.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
     });
   }catch(e){}
   return[...keys].sort((a,b)=>b.localeCompare(a,'fr'));
@@ -11237,13 +11235,18 @@ function renderTableauVentes(container){
   const now=new Date();
   const canExportSales=currentUser?.role!=='commercial';
   // Sélecteur mois — toujours au moins une <option> (select vide = bug UI rectangle blanc sous certains navigateurs)
-  const currentKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const fromSales=[...new Set(leads.map(l=>{const d=new Date(l.date_creation||0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}))];
+  const yNow=now.getFullYear();
+  const currentKey=`${yNow}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const fromSales=[...new Set(leads.map(l=>{const d=new Date(l.date_creation||0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}))].filter(k=>{
+    const y=Number(String(k).split('-')[0]);
+    return Number.isFinite(y)&&y===yNow;
+  });
   let moisDispos=[...new Set([...fromSales,...getObjCommMonthOptions()])].sort((a,b)=>b.localeCompare(a,'fr'));
   if(!moisDispos.length)moisDispos=[currentKey];
   let selectedMois=appStorage.getItem('benai_ventes_mois')||currentKey;
   if(!moisDispos.includes(selectedMois)){
-    moisDispos=[selectedMois,...moisDispos].filter(Boolean).sort((a,b)=>b.localeCompare(a,'fr'));
+    selectedMois=currentKey;
+    appStorage.setItem('benai_ventes_mois',selectedMois);
   }
   const [yr,mo]=selectedMois.split('-').map(Number);
   const leadsFiltered=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;});
@@ -11315,8 +11318,13 @@ function formatMois(str){
 function exportTableauVentes(){
   if(currentUser?.role==='commercial')return;
   const leads=getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert');
-  const selectedMois=appStorage.getItem('benai_ventes_mois')||'';
-  const [yr,mo]=selectedMois?selectedMois.split('-').map(Number):[new Date().getFullYear(),new Date().getMonth()+1];
+  const now=new Date();
+  const yNow=now.getFullYear();
+  const currentKey=`${yNow}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  let selectedMois=appStorage.getItem('benai_ventes_mois')||currentKey;
+  const py=Number(String(selectedMois).split('-')[0]);
+  if(!Number.isFinite(py)||py!==yNow){selectedMois=currentKey;appStorage.setItem('benai_ventes_mois',selectedMois);}
+  const [yr,mo]=selectedMois.split('-').map(Number);
   const filtered=selectedMois?leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;}):leads;
   const header='Source,Commercial,Client,Téléphone,Ville,Produit,Prix vente HT (€),Date signature\n';
   const rows=filtered.map(l=>{
