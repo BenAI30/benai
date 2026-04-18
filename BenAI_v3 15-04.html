@@ -2883,6 +2883,25 @@ async function fetchSupabaseProfile(accessToken,userAuthId=''){
   }
 }
 
+/** Crée / met à jour la ligne profiles pour l’utilisateur connecté (RPC SQL ensure_my_profile). */
+async function rpcEnsureMySupabaseProfile(accessToken){
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!accessToken)return false;
+  try{
+    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/rpc/ensure_my_profile`,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        apikey:SUPABASE_CONFIG.publishableKey,
+        Authorization:'Bearer '+accessToken
+      },
+      body:'{}'
+    },8000);
+    return res.ok;
+  }catch(e){
+    return false;
+  }
+}
+
 function getColorForRole(role){
   return role==='admin'?'linear-gradient(135deg,#E8943A,#B45309)'
     : role==='assistante'?'linear-gradient(135deg,#22C55E,#15803D)'
@@ -2949,7 +2968,12 @@ async function trySupabaseLogin(resolvedEmail,pwd,rawLogin=''){
     }
     currentSupabaseSession=data.session;
     currentAuthMode='supabase';
-    const profile=await fetchSupabaseProfile(data.session.access_token,data.session.user?.id||'');
+    const uid=data.session.user?.id||'';
+    let profile=await fetchSupabaseProfile(data.session.access_token,uid);
+    if(!profile){
+      const repaired=await rpcEnsureMySupabaseProfile(data.session.access_token);
+      if(repaired)profile=await fetchSupabaseProfile(data.session.access_token,uid);
+    }
     if(!profile)return {ok:false,reason:'profile_missing'};
     const user=makeUserFromSupabaseProfile(profile,email);
     if(!user)return {ok:false,reason:'profile_invalid'};
@@ -3787,7 +3811,11 @@ async function saveSharedApiKeyToSupabase(rawKey){
     },10000);
     if(res.ok)return {ok:true};
     if(res.status===401||res.status===403){
-      const profile=await fetchSupabaseProfile(session.access_token,session.user?.id||'');
+      const aid=session.user?.id||'';
+      let profile=await fetchSupabaseProfile(session.access_token,aid);
+      if(!profile&&(await rpcEnsureMySupabaseProfile(session.access_token))){
+        profile=await fetchSupabaseProfile(session.access_token,aid);
+      }
       if(!profile)return {ok:false,reason:'profile_missing'};
       return {ok:false,reason:'forbidden'};
     }
@@ -3862,9 +3890,13 @@ async function syncSupabasePostLogin(){
     return;
   }
   if(currentSupabaseSession?.access_token){
-    const profile=await fetchSupabaseProfile(currentSupabaseSession.access_token,currentSupabaseSession.user?.id||'');
+    const uid=currentSupabaseSession.user?.id||'';
+    let profile=await fetchSupabaseProfile(currentSupabaseSession.access_token,uid);
+    if(!profile&&(await rpcEnsureMySupabaseProfile(currentSupabaseSession.access_token))){
+      profile=await fetchSupabaseProfile(currentSupabaseSession.access_token,uid);
+    }
     if(!profile){
-      showDriveNotif('⚠️ Profil Supabase manquant: ajoutez votre ligne admin dans la table profiles');
+      showDriveNotif('⚠️ Profil Supabase manquant : exécutez le script SQL ensure_my_profile (fichier supabase/patch_ensure_my_profile.sql) ou créez la ligne dans public.profiles.');
     }
   }
 }
@@ -4276,7 +4308,7 @@ async function login(){
         ?'Connexion impossible en ouvrant le fichier en local (file://).'
         :'Erreur réseau vers Supabase.';
     }else if(reason==='profile_missing'){
-      supabaseFailureLabel='Connexion Supabase OK mais profil manquant dans la table profiles.';
+      supabaseFailureLabel='Connexion Supabase OK mais profil manquant dans la table profiles. Déployez la fonction SQL ensure_my_profile (voir supabase/patch_ensure_my_profile.sql dans le dépôt), exécutez-la dans l’éditeur SQL Supabase, puis réessayez.';
     }else{
       supabaseFailureLabel='Connexion Supabase refusée : '+(supabaseAuthResult?.reason||'erreur inconnue');
     }
