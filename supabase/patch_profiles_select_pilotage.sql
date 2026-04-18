@@ -1,5 +1,7 @@
--- Permet au dir. commercial / DG de lire les profils de leur périmètre (liste commerciaux CRM, attribution).
--- À exécuter dans Supabase SQL Editor si vous ne réexécutez pas tout supabase_security.sql.
+-- Lecture des profils « même entreprise » : direction + commercial + assistante + métreur (CRM + messagerie).
+-- Sans cette politique, les commerciaux / assistantes ne reçoivent qu’UNE ligne (eux-mêmes) depuis l’API → équipe invisible.
+-- À exécuter dans Supabase SQL Editor (valider l’avertissement « opérations destructrices » : normal, c’est le DROP POLICY).
+-- Si vous ne réexécutez pas tout supabase_security.sql, exécuter UNIQUEMENT ce fichier après mise à jour du code BenAI.
 --
 -- Évite l’avertissement « public.profiles sans RLS » de l’éditeur (idempotent).
 

@@ -2022,6 +2022,16 @@ async function syncSupabasePostLogin(){
   void processPendingUserDeletes(true);
   void processPendingUserCreates(true);
   renderSupabaseRuntimeStatus();
+  if(roleNeedsPeerProfilesSyncFromSupabase(currentUser?.role)){
+    void syncExtraUsersFromSupabaseProfiles({quiet:true}).then(ok=>{
+      if(ok){
+        try{scheduleRenderConvList();}catch(_){}
+        if(document.getElementById('page-messages')?.style.display==='flex'){
+          try{renderConvList();}catch(_){}
+        }
+      }
+    });
+  }
   if(syncedCore){
     refreshVisibleDataAfterSupabaseSync();
     return;
@@ -2772,7 +2782,7 @@ function initApp(silent=false){
   migrateMotivationMessagesToBenaiThread();
   refreshSharedSignatures(false);
   if(roleNeedsPeerProfilesSyncFromSupabase(u?.role)){
-    void syncExtraUsersFromSupabaseProfiles().then(ok=>{
+    void syncExtraUsersFromSupabaseProfiles({quiet:true}).then(ok=>{
       if(!ok)return;
       if(u?.role==='admin'&&document.getElementById('page-annuaire')?.style.display==='flex'&&equipeUITab==='acces'){
         renderUsersList();
@@ -2913,6 +2923,16 @@ function showPage(page){
     renderConvList();
     const convs=getConvsForUser(currentUser.id);
     if(currentConv&&convs[currentConv])openConv(currentConv,convs[currentConv]);
+    if(roleNeedsPeerProfilesSyncFromSupabase(currentUser?.role)){
+      void syncExtraUsersFromSupabaseProfiles({quiet:true}).then(ok=>{
+        if(!ok)return;
+        try{
+          renderConvList();
+          const c2=getConvsForUser(currentUser.id);
+          if(currentConv&&c2[currentConv])openConv(currentConv,c2[currentConv]);
+        }catch(_){}
+      });
+    }
     showPageContext('messages');
   }
   if(page==='notes')renderNotes();
@@ -5580,17 +5600,46 @@ function roleNeedsPeerProfilesSyncFromSupabase(role){
   return r==='admin'||isCRMScopePilotageRole(r)||r==='commercial'||r==='assistante'||r==='metreur';
 }
 
-async function syncExtraUsersFromSupabaseProfiles(){
+async function syncExtraUsersFromSupabaseProfiles(opts){
+  opts=opts||{};
+  const quiet=!!opts.quiet;
   if(!currentUser||!roleNeedsPeerProfilesSyncFromSupabase(currentUser.role))return false;
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
   const session=await ensureSupabaseSession();
-  if(!session?.access_token)return false;
+  if(!session?.access_token){
+    if(!quiet&&['commercial','assistante','metreur'].includes(currentUser.role)){
+      showDriveNotif('⚠️ Session Supabase absente : connectez-vous avec votre email + mot de passe (compte cloud) pour charger l’équipe et la messagerie.');
+    }
+    return false;
+  }
   const headers=getSupabaseHeaders();
-  if(!headers)return false;
+  if(!headers){
+    if(!quiet&&['commercial','assistante','metreur'].includes(currentUser.role)){
+      showDriveNotif('⚠️ Impossible d’appeler Supabase (en-têtes). Réessayez ou reconnectez-vous.');
+    }
+    return false;
+  }
   try{
     const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/profiles?select=id,email,app_uid,full_name,role,company`,{headers},8000);
-    if(!res.ok)return false;
+    if(!res.ok){
+      let detail='';
+      try{detail=(await res.text()||'').slice(0,180);}catch(_){}
+      if(!quiet&&['commercial','assistante','metreur'].includes(currentUser.role)){
+        showDriveNotif(`⚠️ Sync équipe refusée (${res.status}). Réexécutez supabase/patch_profiles_select_pilotage.sql puis reconnectez-vous.${detail?' Détail : '+detail:''}`);
+      }
+      return false;
+    }
     const rows=await res.json();
+    if(!Array.isArray(rows)){
+      if(!quiet)showDriveNotif('⚠️ Réponse Supabase inattendue pour la liste des profils.');
+      return false;
+    }
+    if(!rows.length){
+      if(['commercial','assistante','metreur'].includes(currentUser.role)){
+        if(!quiet)showDriveNotif('⚠️ Aucun profil renvoyé par Supabase (droits RLS ou table vide). Vérifiez patch_profiles_select_pilotage.sql et la colonne company sur chaque ligne profiles.');
+        return false;
+      }
+    }
     const hiddenSet=new Set(getHiddenUserIds().map(normalizeId));
     const old=getExtraUsers().filter(u=>!hiddenSet.has(normalizeId(u.id)));
     const oldMap=new Map(old.map(u=>[u.id,u]));
@@ -5632,6 +5681,9 @@ async function syncExtraUsersFromSupabaseProfiles(){
     saveExtraUsers(merged);
     return true;
   }catch(e){
+    if(!quiet&&['commercial','assistante','metreur'].includes(currentUser?.role)){
+      showDriveNotif('⚠️ Erreur réseau lors de la sync équipe : '+String(e?.message||e).slice(0,120));
+    }
     return false;
   }
 }
