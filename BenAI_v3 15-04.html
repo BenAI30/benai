@@ -5099,7 +5099,8 @@ async function handleImageFile(file){
     const base64=await new Promise((res,rej)=>{reader.onload=e=>res(e.target.result.split(',')[1]);reader.onerror=rej;reader.readAsDataURL(file);});
     const userPrompt=document.getElementById('chat-input').value.trim()||'Décris et analyse cette image.';
     document.getElementById('chat-input').value='';
-    const apiKey=getApiKey();
+    const apiKey=await getApiKeyForChat();
+    if(!apiKey){typing.remove();showDriveNotif('⚠️ Clé API IA indisponible — Paramètres ou synchro équipe');throw new Error('Clé API manquante');}
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,system:currentUser.system+BENAI_CTX,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},{type:'text',text:userPrompt}]}]})
@@ -5126,7 +5127,8 @@ async function handleGenericPDF(file){
     }
     const userPrompt=document.getElementById('chat-input').value.trim()||'Analyse et résume ce document.';
     document.getElementById('chat-input').value='';
-    const apiKey=getApiKey();
+    const apiKey=await getApiKeyForChat();
+    if(!apiKey){typing.remove();showDriveNotif('⚠️ Clé API IA indisponible — Paramètres ou synchro équipe');throw new Error('Clé API manquante');}
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:currentUser.system+BENAI_CTX,messages:[{role:'user',content:[...imgs.map(img=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}})),{type:'text',text:userPrompt}]}]})
@@ -5151,7 +5153,8 @@ async function handleDevisPDF(file){
       await p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
       imgs.push(c.toDataURL('image/jpeg',0.82).split(',')[1]);
     }
-    const apiKey=getApiKey();
+    const apiKey=await getApiKeyForChat();
+    if(!apiKey){typing.remove();showDriveNotif('⚠️ Clé API IA indisponible — Paramètres ou synchro équipe');throw new Error('Clé API manquante');}
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4000,system:`Tu es BenAI. Analyse ce devis Hercule Pro et réponds UNIQUEMENT en JSON valide :{"devis":{"numero":"","date":"","validite":"","type_prestation":"","contact_nom":"","contact_tel":"","contact_email":""},"client":{"nom_prenom":"","telephone":"","email":"","adresse_facturation":"","adresse_chantier":""},"produits":[{"designation":"","dimensions":"","quantite":1,"pu_ht":0.00,"total_ht":0.00,"tva_taux":""}],"totaux":{"montant_brut_ht":0.00,"remise_pct":"","remise_montant":0.00,"total_ht_net":0.00,"tva_montant":0.00,"total_ttc":0.00}}`,
@@ -6057,7 +6060,7 @@ async function correctNoteSpelling(id,el){
   if(!isBenAIDesktopAutocorrect())return;
   const txt=el.value.trim();
   if(!txt||txt.split(' ').length<3)return;
-  const apiKey=getApiKey();if(!apiKey)return;
+  const apiKey=await getApiKeyForChat();if(!apiKey)return;
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -6828,7 +6831,7 @@ async function generateWeeklySummary(){
   if(currentUser?.id!=='benjamin')return;
   const todayKey='benai_weekly_'+new Date().toDateString();
   if(appStorage.getItem(todayKey))return;
-  const apiKey=getApiKey();if(!apiKey)return;
+  const apiKey=await getApiKeyForChat();if(!apiKey)return;
   const mem=getMem();
   const savs=mem.sav||[];
   const reglesSemaine=savs.filter(s=>{
@@ -6904,7 +6907,7 @@ let paieResults=[];
 async function processFichesPaie(input){
   const files=Array.from(input.files);if(!files.length)return;
   input.value='';
-  const apiKey=getApiKey();if(!apiKey){await benaiAlert('Clé API manquante');return;}
+  const apiKey=await getApiKeyForChat();if(!apiKey){await benaiAlert('Clé API manquante');return;}
   paieResults=[];
   document.getElementById('paie-empty').style.display='none';
   document.getElementById('paie-progress').style.display='block';
@@ -8762,7 +8765,7 @@ function getPriorityBadge(score){
 async function generateDailyBriefing(){
   const todayKey='benai_briefing_'+new Date().toDateString();
   if(appStorage.getItem(todayKey))return; // Déjà fait aujourd'hui
-  const apiKey=getApiKey();if(!apiKey)return;
+  const apiKey=await getApiKeyForChat();if(!apiKey)return;
   const ctx=buildBriefingContext();
   const typing=addTyping();
   try{
@@ -13195,31 +13198,46 @@ function isBenAIDesktopAutocorrect(){
     return true;
   }
 }
+/** Ne pas écraser spellcheck/autocorrect explicites (SAV, CRM, login…) ni les champs techniques. */
+function benaiSkipGlobalSpellcheck(el){
+  if(!el)return true;
+  if(el.getAttribute('data-benai-no-spell')==='1')return true;
+  if(el.closest&&el.closest('[data-benai-no-spell="1"]'))return true;
+  if(el.hasAttribute('spellcheck'))return true;
+  const t=String(el.type||'').toLowerCase();
+  if(['email','password','url','tel','number','date','datetime-local','month','week','time'].includes(t))return true;
+  if(t==='search')return true;
+  return false;
+}
+function benaiApplySpellcheckPolicy(el,isPhone){
+  if(benaiSkipGlobalSpellcheck(el))return;
+  if(isPhone){
+    el.spellcheck=false;
+    el.setAttribute('autocorrect','off');
+    el.setAttribute('autocapitalize','none');
+    return;
+  }
+  el.spellcheck=true;
+  el.setAttribute('autocorrect','on');
+  el.setAttribute('autocapitalize','sentences');
+}
 function enableSpellcheckEverywhere(){
   const isPhone=/iphone|ipad|ipod|android|mobile/i.test((navigator.userAgent||'').toLowerCase());
   document.querySelectorAll('input[type="text"],input[type="search"],textarea').forEach(el=>{
-    if(isPhone){
-      el.spellcheck=false;
-      el.setAttribute('autocorrect','off');
-      el.setAttribute('autocapitalize','none');
-      return;
-    }
-    el.spellcheck=true;
-    el.setAttribute('autocorrect','on');
-    el.setAttribute('autocapitalize','sentences');
+    if(el.hasAttribute('data-benai-spell-applied'))return;
+    el.setAttribute('data-benai-spell-applied','1');
+    benaiApplySpellcheckPolicy(el,isPhone);
   });
-  // Observer pour les éléments ajoutés dynamiquement
+  let spellMoTimer=null;
   new MutationObserver(()=>{
-    document.querySelectorAll('input[type="text"]:not([spellcheck]),textarea:not([spellcheck])').forEach(el=>{
-      if(isPhone){
-        el.spellcheck=false;
-        el.setAttribute('autocorrect','off');
-        el.setAttribute('autocapitalize','none');
-      }else{
-        el.spellcheck=true;
-        el.setAttribute('autocorrect','on');
-        el.setAttribute('autocapitalize','sentences');
-      }
+    if(spellMoTimer)return;
+    spellMoTimer=requestAnimationFrame(()=>{
+      spellMoTimer=null;
+      document.querySelectorAll('input[type="text"],input[type="search"],textarea').forEach(el=>{
+        if(el.hasAttribute('data-benai-spell-applied'))return;
+        el.setAttribute('data-benai-spell-applied','1');
+        benaiApplySpellcheckPolicy(el,isPhone);
+      });
     });
   }).observe(document.body,{childList:true,subtree:true});
 }
