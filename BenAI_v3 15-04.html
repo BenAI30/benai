@@ -457,18 +457,26 @@ body.light .bubble{color:var(--t1);}
 .crm-dash-kicker.k-pr{border-color:rgba(34,197,94,.35);}
 .crm-dash-kicker.k-ex{border-color:rgba(232,148,58,.4);}
 .crm-dash-grid-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;}
-.crm-dash-synth summary{cursor:pointer;list-style:none;font-size:13px;font-weight:600;color:var(--t1);display:flex;align-items:center;gap:8px;}
+.crm-dash-synth summary{cursor:pointer;list-style:none;color:var(--t1);display:flex;align-items:flex-start;gap:8px;}
+.crm-dash-synth summary::before{margin-top:3px;}
 .crm-dash-synth summary::-webkit-details-marker{display:none;}
 .crm-dash-synth summary::before{content:'▸';font-size:10px;color:var(--a);transition:transform .15s;}
 .crm-dash-synth[open] summary::before{transform:rotate(90deg);}
+.crm-dash-intro{font-size:12px;color:var(--t2);line-height:1.5;padding:11px 14px;margin:0 0 14px;border-radius:12px;border:1px solid var(--b1);background:var(--s3);box-shadow:0 1px 0 rgba(0,0,0,.04);}
+.crm-dash-intro strong{color:var(--t1);font-weight:700;}
 .crm-dash-grp{border:1px solid var(--b1);border-radius:14px;margin-bottom:12px;background:var(--s2);overflow:hidden;}
-.crm-dash-grp>summary{cursor:pointer;list-style:none;font-size:13px;font-weight:700;color:var(--t1);padding:11px 14px;display:flex;align-items:center;gap:10px;background:linear-gradient(180deg,var(--s3),var(--s2));border-bottom:1px solid var(--b1);user-select:none;}
+.crm-dash-grp>summary:hover{background:linear-gradient(180deg,var(--s2),var(--s1));}
+.crm-dash-grp>summary:focus-visible{outline:2px solid var(--a);outline-offset:-2px;}
 .crm-dash-grp>summary::-webkit-details-marker{display:none;}
-.crm-dash-grp>summary::before{content:'▸';font-size:11px;color:var(--a);width:14px;flex-shrink:0;transition:transform .15s;}
+.crm-dash-grp>summary::before{content:'▸';font-size:12px;color:var(--a);width:18px;flex-shrink:0;margin-top:2px;transition:transform .15s;}
 .crm-dash-grp[open]>summary::before{transform:rotate(90deg);}
+.crm-dash-sum-stack{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;flex:1;}
+.crm-dash-sum-line1{font-size:13px;font-weight:700;color:var(--t1);letter-spacing:.01em;line-height:1.25;}
+.crm-dash-sum-line2{font-size:11px;font-weight:500;color:var(--t3);line-height:1.4;max-width:100%;}
 .crm-dash-grp-body{padding:12px 14px;display:flex;flex-direction:column;gap:12px;}
 .crm-dash-grp-body>.secteur-card{margin-top:0;}
 .crm-dash-grp-body .crm-dash-kicker{margin-top:0;}
+.crm-dash-subtle{font-size:11px;color:var(--t3);line-height:1.45;margin:0 0 8px;}
 .crm-ent-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:12px;}
 .crm-ent-card{border-radius:14px;padding:14px 16px;border:1px solid var(--b1);background:var(--s3);}
 .crm-evo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:10px;margin-top:6px;}
@@ -9184,12 +9192,18 @@ function renderLeadsDashboard(){
   const nonAttrib=leads.filter(l=>!l.commercial&&l.statut==='gris').length;
   const alertes=leads.filter(l=>isLeadAlerte(l)).length;
   const rdvMonthTotal=leads.reduce((sum,l)=>sum+getLeadRdvDoneMonthCount(l,now),0);
-  html+=`<div class="crm-dash-kicker">${dashCommercial?'Mon pilotage':'Pilotage CRM'}</div>`;
+  const crmDashSummary=(l1,l2)=>`<summary><span class="crm-dash-sum-stack"><span class="crm-dash-sum-line1">${l1}</span><span class="crm-dash-sum-line2">${l2}</span></span></summary>`;
+  html+=`<div class="crm-dash-kicker">${dashCommercial?'Mon pilotage':'Tableau de bord CRM'}</div>`;
   html+=`<div class="crm-dash-grid-kpis" style="margin-bottom:12px">
-    <div class="stat-box"><div class="stat-box-val">${totalLeads}</div><div class="stat-box-lbl">Total leads</div></div>
-    <div class="stat-box"><div class="stat-box-val" style="color:var(--y)">${nonAttrib}</div><div class="stat-box-lbl">À attribuer</div></div>
-    <div class="stat-box"><div class="stat-box-val" style="color:var(--r)">${alertes}</div><div class="stat-box-lbl">Alertes</div></div>
+    <div class="stat-box" title="Tous les leads actifs (hors archives) dans votre périmètre"><div class="stat-box-val">${totalLeads}</div><div class="stat-box-lbl">Leads actifs</div></div>
+    <div class="stat-box" title="Leads non encore attribués à un commercial"><div class="stat-box-val" style="color:var(--y)">${nonAttrib}</div><div class="stat-box-lbl">À attribuer</div></div>
+    <div class="stat-box" title="Leads nécessitant une action prioritaire"><div class="stat-box-val" style="color:var(--r)">${alertes}</div><div class="stat-box-lbl">Alertes</div></div>
   </div>`;
+  if(dashPilotage){
+    html+=`<div class="crm-dash-intro"><strong>Mode d’emploi</strong> — les trois cases ci-dessus donnent la situation en un coup d’œil. Ensuite, chaque <strong>grand bloc</strong> se replie ou se déplie en cliquant sur sa ligne de titre (la flèche ▸ tourne quand c’est ouvert). Les trois premiers blocs sont ouverts pour le quotidien ; les autres se replient pour éviter la surcharge.</div>`;
+  } else if(dashCommercial){
+    html+=`<div class="crm-dash-intro">Ici : <strong>vos chiffres</strong> par secteur, <strong>vos objectifs</strong> (changez le mois dans les listes) et en bas de page le <strong>détail des ventes</strong> du mois choisi.</div>`;
+  }
   const rapportHead=genererRapportAlertes();
   if(rapportHead.total>0){
     html+=`<div class="secteur-card" style="border-color:var(--r);margin-bottom:12px">
@@ -9276,7 +9290,7 @@ function renderLeadsDashboard(){
   </div>`;
   if(dashCommercial){
     html+=`<details class="crm-dash-synth secteur-card" id="crm-dashboard-secteurs-export" open>
-    <summary>🗺️ Synthèse par secteur</summary>
+    ${crmDashSummary('🗺️ Mes secteurs','Répartition de vos leads par zone — sans export.')}
     <div style="padding-top:8px">
     <div style="font-size:11px;color:var(--t3);margin:0 0 10px;line-height:1.45">Vos leads <strong>actifs</strong> : répartition par secteur (lecture seule, sans export).</div>
     ${secteursSynthese.map(s=>`
@@ -9290,8 +9304,9 @@ function renderLeadsDashboard(){
   </details>`;
     html+=htmlSecteurTable;
   } else {
-    html+=`<details class="crm-dash-grp" open><summary>📍 Secteurs — vue globale & détail du mois</summary><div class="crm-dash-grp-body">
-    <div class="secteur-card"><div class="secteur-title" style="font-size:13px">🗺️ Synthèse géographique & export CSV</div>
+    html+=`<details class="crm-dash-grp" open>${crmDashSummary('📍 Secteurs & mois en cours','Carte par zone, export CSV, puis tableau détaillé du mois civil.')}<div class="crm-dash-grp-body">
+    <div class="crm-dash-subtle">D’abord la vue « toutes périodes » et l’export ; puis le tableau ne compte que les <strong>leads créés ce mois</strong> (date de création).</div>
+    <div class="secteur-card"><div class="secteur-title" style="font-size:13px">Export & résumé par zone</div>
     <div style="padding-top:4px">
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px">
       <label style="font-size:11px;color:var(--t3);display:flex;align-items:center;gap:6px;flex:1;min-width:200px">
@@ -9326,12 +9341,12 @@ function renderLeadsDashboard(){
   const panierMoyen=salesTotal.length?Math.round(caTotal/salesTotal.length):0;
   const txConv=totalLeads?Math.round((salesTotal.length/totalLeads)*100):0;
   if(dashPilotage){
-    html+=`<details class="crm-dash-grp" open><summary>💼 Ventes, RDV, sources & tableau</summary><div class="crm-dash-grp-body">`;
+    html+=`<details class="crm-dash-grp" open>${crmDashSummary('💼 Ventes, RDV & canaux','Totaux globaux, RDV du mois, origine des leads, puis liste détaillée des ventes.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">Les totaux « ventes » portent sur toutes les ventes signées ; les encarts « ce mois » utilisent le <strong>mois civil en cours</strong>.</div>`;
   } else {
     html+=`<div class="crm-dash-kicker k-ge">Ventes & activité</div>`;
   }
   html+=`<div class="secteur-card">
-    <div class="secteur-title">💼 Analyse ventes complète</div>
+    <div class="secteur-title">💼 Chiffres clés ventes</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
       <div class="stat-box"><div class="stat-box-val" style="color:var(--g)">${salesTotal.length}</div><div class="stat-box-lbl">Ventes signées</div></div>
       <div class="stat-box"><div class="stat-box-val" style="color:var(--g)">${caTotal.toLocaleString('fr-FR')} €</div><div class="stat-box-lbl">CA total signé</div></div>
@@ -9342,7 +9357,7 @@ function renderLeadsDashboard(){
   </div>`;
   const rdvTop=leads.map(l=>({lead:l,count:getLeadRdvDoneMonthCount(l,now)})).filter(x=>x.count>0).sort((a,b)=>b.count-a.count).slice(0,5);
   html+=`<div class="secteur-card">
-    <div class="secteur-title">📅 Pont Google Agenda — RDV réalisés (ce mois)</div>
+    <div class="secteur-title">📅 RDV réalisés ce mois</div>
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px">
       <div class="stat-box"><div class="stat-box-val" style="color:var(--bl)">${rdvMonthTotal}</div><div class="stat-box-lbl">RDV faits ce mois</div></div>
       <div class="stat-box"><div class="stat-box-val">${rdvTop.length}</div><div class="stat-box-lbl">Leads avec RDV</div></div>
@@ -9351,7 +9366,7 @@ function renderLeadsDashboard(){
   </div>`;
   if(!dashCommercial){
   if(dashPilotage){
-    html+=`<details class="crm-dash-grp" open><summary>🏢 Entreprises & objectifs CA (société)</summary><div class="crm-dash-grp-body">`;
+    html+=`<details class="crm-dash-grp" open>${crmDashSummary('🏢 CA par société','Nemausus et Lambert : objectif du mois choisi, barre de progression, pipeline devis.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">Choisissez le <strong>mois</strong> à analyser (chiffres = leads <em>créés</em> ce mois-là). Sans objectif saisi pour ce mois, c’est l’objectif de référence qui s’affiche.</div>`;
   }
   html+=`<div class="crm-dash-kicker k-pr" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;row-gap:8px;margin-top:0">
     <span>Performance par entreprise</span>
@@ -9412,7 +9427,7 @@ function renderLeadsDashboard(){
   }
   if(!dashCommercial){
   if(dashPilotage){
-    html+=`<details class="crm-dash-grp"><summary>👥 Performance équipe (classement & 6 mois)</summary><div class="crm-dash-grp-body">`;
+    html+=`<details class="crm-dash-grp">${crmDashSummary('👥 Équipe commerciale','Classement du mois et courbe de CA sur six mois par vendeur.')}<div class="crm-dash-grp-body">`;
   }
   const ranking=getCommercialRankingMonth(leads);
   html+=`<div class="secteur-card"><div class="secteur-title">🏆 Classement mensuel commerciaux</div>`;
@@ -9441,7 +9456,7 @@ function renderLeadsDashboard(){
   }
   // Analyse leads perdus
   if(dashPilotage){
-    html+=`<details class="crm-dash-grp"><summary>📋 Analyses perdues & archives</summary><div class="crm-dash-grp-body">`;
+    html+=`<details class="crm-dash-grp">${crmDashSummary('📋 Pertes & archives','Motifs des leads perdus ce mois, puis volumes d’archives.')}<div class="crm-dash-grp-body">`;
   }
   const lost=getLeadLostAnalytics(leadsMonth);
   html+=`<div class="secteur-card"><div class="secteur-title">📉 Analyse des leads perdus</div>`;
@@ -9471,7 +9486,7 @@ function renderLeadsDashboard(){
   }
   if(role==='admin'||isCRMScopePilotageRole(role)){
     if(dashPilotage){
-      html+=`<details class="crm-dash-grp"><summary>📤 Exports & actions</summary><div class="crm-dash-grp-body">`;
+      html+=`<details class="crm-dash-grp">${crmDashSummary('📤 Fichiers & outils','Téléchargements CSV / Excel et fusion des doublons.')}<div class="crm-dash-grp-body">`;
     } else {
       html+=`<div class="crm-dash-kicker k-ex">Exports & actions</div>`;
     }
@@ -9503,7 +9518,7 @@ function renderLeadsDashboard(){
     if(!objCommMonthKeys.includes(selObjComm))selObjComm=getDefaultObjCommMonthKey();
     appStorage.setItem('benai_obj_comm_mois',selObjComm);
     if(dashPilotage){
-      html+=`<details class="crm-dash-grp" open><summary>🎯 Objectifs par commercial</summary><div class="crm-dash-grp-body">`;
+      html+=`<details class="crm-dash-grp" open>${crmDashSummary('🎯 Objectifs commerciaux','CA réalisé vs cible : changez le mois pour préparer toute l’année.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">L’objectif <strong>hebdomadaire</strong> est le même toutes les semaines ; l’objectif <strong>mensuel</strong> est celui du mois affiché.</div>`;
     } else {
       html+=`<div class="crm-dash-kicker k-pr" style="margin-top:8px">${dashCommercial?'Mes objectifs & suivi CA':'Objectifs par commercial'}</div>`;
     }
