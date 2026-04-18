@@ -11109,6 +11109,39 @@ function renderTableauVentes(container){
   const leadsFiltered=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;});
   const total=leadsFiltered.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
   const srcIcons2=LEAD_SOURCE_ICONS;
+  const ventesTableCommercialOnly=currentUser?.role==='commercial';
+  const thPrix='Prix vente HT (€)';
+  const thead=ventesTableCommercialOnly
+    ?`<thead><tr style="background:var(--s3)">
+          <th style="padding:7px 10px;text-align:left;color:var(--t3);font-size:10px;text-transform:uppercase">Client</th>
+          <th style="padding:7px 10px;text-align:left;color:var(--t3);font-size:10px;text-transform:uppercase">Produit</th>
+          <th style="padding:7px 10px;text-align:right;color:var(--t3);font-size:10px;text-transform:uppercase">${thPrix}</th>
+        </tr></thead>`
+    :`<thead><tr style="background:var(--s3)">
+          <th style="padding:7px 10px;text-align:left;color:var(--t3);font-size:10px;text-transform:uppercase">Src</th>
+          <th style="padding:7px 10px;text-align:left;color:var(--t3);font-size:10px;text-transform:uppercase">Commercial</th>
+          <th style="padding:7px 10px;text-align:left;color:var(--t3);font-size:10px;text-transform:uppercase">Client</th>
+          <th style="padding:7px 10px;text-align:left;color:var(--t3);font-size:10px;text-transform:uppercase">Produit</th>
+          <th style="padding:7px 10px;text-align:right;color:var(--t3);font-size:10px;text-transform:uppercase">${thPrix}</th>
+        </tr></thead>`;
+  const tbody=leadsFiltered.map(l=>{
+    const comm=getAllUsers().find(u=>u.id===l.commercial);
+    if(ventesTableCommercialOnly){
+      return`<tr style="border-top:1px solid var(--b1)">
+              <td style="padding:8px 10px;font-weight:500">${esc(l.nom)}</td>
+              <td style="padding:8px 10px;color:var(--t2)">${esc(l.produit_vendu||l.type_projet||'—')}</td>
+              <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--g)">${Number(l.prix_vendu||0).toLocaleString('fr-FR')}</td>
+            </tr>`;
+    }
+    return`<tr style="border-top:1px solid var(--b1)">
+              <td style="padding:8px 10px">${srcIcons2[l.source]||'📋'}</td>
+              <td style="padding:8px 10px;font-weight:500">${esc(comm?.name||'—')}</td>
+              <td style="padding:8px 10px">${esc(l.nom)}</td>
+              <td style="padding:8px 10px;color:var(--t2)">${esc(l.produit_vendu||l.type_projet||'—')}</td>
+              <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--g)">${Number(l.prix_vendu||0).toLocaleString('fr-FR')}</td>
+            </tr>`;
+  }).join('');
+  const footColspan=ventesTableCommercialOnly?2:4;
   const html=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div style="font-size:15px;font-weight:700">📈 Tableau de ventes</div>
@@ -11122,27 +11155,10 @@ function renderTableauVentes(container){
     <div style="font-size:22px;font-weight:800;color:var(--g);margin-bottom:12px">${total.toLocaleString('fr-FR')} € HT <span style="font-size:12px;color:var(--t3);font-weight:400">${leadsFiltered.length} ventes</span></div>
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <thead><tr style="background:var(--s3)">
-          <th style="padding:7px 10px;text-align:left;color:var(--t3);font-size:10px;text-transform:uppercase">Src</th>
-          <th style="padding:7px 10px;text-align:left;color:var(--t3);font-size:10px;text-transform:uppercase">Commercial</th>
-          <th style="padding:7px 10px;text-align:left;color:var(--t3);font-size:10px;text-transform:uppercase">Client</th>
-          <th style="padding:7px 10px;text-align:left;color:var(--t3);font-size:10px;text-transform:uppercase">Produit</th>
-          <th style="padding:7px 10px;text-align:right;color:var(--t3);font-size:10px;text-transform:uppercase">HT (€)</th>
-        </tr></thead>
-        <tbody>
-          ${leadsFiltered.map(l=>{
-            const comm=getAllUsers().find(u=>u.id===l.commercial);
-            return `<tr style="border-top:1px solid var(--b1)">
-              <td style="padding:8px 10px">${srcIcons2[l.source]||'📋'}</td>
-              <td style="padding:8px 10px;font-weight:500">${esc(comm?.name||'—')}</td>
-              <td style="padding:8px 10px">${esc(l.nom)}</td>
-              <td style="padding:8px 10px;color:var(--t2)">${esc(l.produit_vendu||l.type_projet||'—')}</td>
-              <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--g)">${Number(l.prix_vendu||0).toLocaleString('fr-FR')}</td>
-            </tr>`;
-          }).join('')}
-        </tbody>
+        ${thead}
+        <tbody>${tbody}</tbody>
         <tfoot><tr style="background:var(--a3);border-top:2px solid var(--a)">
-          <td colspan="4" style="padding:8px 10px;font-weight:700;color:var(--a)">TOTAL</td>
+          <td colspan="${footColspan}" style="padding:8px 10px;font-weight:700;color:var(--a)">TOTAL</td>
           <td style="padding:8px 10px;text-align:right;font-weight:800;font-size:14px;color:var(--a)">${total.toLocaleString('fr-FR')}</td>
         </tr></tfoot>
       </table>
@@ -11162,7 +11178,7 @@ function exportTableauVentes(){
   const selectedMois=appStorage.getItem('benai_ventes_mois')||'';
   const [yr,mo]=selectedMois?selectedMois.split('-').map(Number):[new Date().getFullYear(),new Date().getMonth()+1];
   const filtered=selectedMois?leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;}):leads;
-  const header='Source,Commercial,Client,Téléphone,Ville,Produit,HT (€),Date signature\n';
+  const header='Source,Commercial,Client,Téléphone,Ville,Produit,Prix vente HT (€),Date signature\n';
   const rows=filtered.map(l=>{
     const comm=getAllUsers().find(u=>u.id===l.commercial);
     return[l.source||'',csv(comm?.name||''),csv(l.nom),csv(l.telephone),csv(l.ville),csv(l.produit_vendu||l.type_projet),l.prix_vendu||'',l.date_signature||''].join(',');
