@@ -2932,21 +2932,37 @@ function getColorForRole(role){
     : 'linear-gradient(135deg,#60A5FA,#1D4ED8)';
 }
 
+/** Aligné sur le CHECK SQL profiles.role — évite un rôle mal câblé (casse, espace) → UI « commercial » par défaut. */
+function normalizeProfileRole(raw){
+  const r=String(raw||'').trim().toLowerCase().replace(/\s+/g,'_').replace(/-/g,'_');
+  const allowed=['admin','directeur_co','directeur_general','commercial','assistante','metreur'];
+  if(allowed.includes(r))return r;
+  if(r==='dg'||r==='dir_gen'||r==='directeurgeneral')return 'directeur_general';
+  if(r==='dirco'||r==='directeurcommercial')return 'directeur_co';
+  return 'assistante';
+}
+function normalizeProfileCompany(raw){
+  const s=String(raw||'').trim().toLowerCase();
+  if(s==='nemausus'||s==='lambert'||s==='les-deux')return s;
+  return 'nemausus';
+}
+
 function makeUserFromSupabaseProfile(profile,emailFallback=''){
   if(!profile)return null;
   const parts=String(profile.full_name||'Utilisateur').trim().split(/\s+/).filter(Boolean);
   const firstName=parts[0]||'Utilisateur';
   const emailSlug=normalizeId(String((profile.email||emailFallback||'').split('@')[0]||firstName));
   let uid=normalizeId(profile.app_uid||emailSlug||firstName);
-  if(profile.role==='admin'&&/benjamin/i.test(String(profile.full_name||'')))uid='benjamin';
+  const roleNorm=normalizeProfileRole(profile.role);
+  if(roleNorm==='admin'&&/benjamin/i.test(String(profile.full_name||'')))uid='benjamin';
   return {
     id:uid,
     auth_uid:profile.id||'',
     email:(profile.email||emailFallback||'').trim().toLowerCase(),
     name:profile.full_name||firstName,
-    role:profile.role||'assistante',
-    societe:profile.company||'nemausus',
-    color:getColorForRole(profile.role),
+    role:roleNorm,
+    societe:normalizeProfileCompany(profile.company),
+    color:getColorForRole(roleNorm),
     initial:firstName.charAt(0).toUpperCase()||'U',
     builtin:false
   };
@@ -9236,7 +9252,7 @@ function detectBenAIClientSurface(){
 }
 
 function canUseBenAIMobileApp(role=currentUser?.role){
-  return role==='commercial'||role==='directeur_co';
+  return role==='commercial'||role==='directeur_co'||role==='directeur_general';
 }
 
 function makePngIcon(size){
@@ -9354,9 +9370,10 @@ const ROLE_PAGES={
   admin:['benai','notes','messages','sav','leads','absences','annuaire','paie','admin','evolution','guide','bugs'],
   assistante:['benai','notes','messages','sav','leads','evolution','guide','bugs'],
   metreur:['benai','notes','messages','absences','evolution','guide','bugs'],
-  directeur_co:['leads','messages','absences','evolution','guide','bugs'],
-  directeur_general:['leads','messages','absences','evolution','guide','bugs'],
-  commercial:['leads','messages','absences','evolution','guide','bugs']
+  // CRM pilotage + terrain : mêmes entrées menu (BenAI / Notes / SAV alignés sur les politiques Supabase société).
+  directeur_co:['benai','notes','messages','sav','leads','absences','evolution','guide','bugs'],
+  directeur_general:['benai','notes','messages','sav','leads','absences','evolution','guide','bugs'],
+  commercial:['benai','notes','messages','sav','leads','absences','evolution','guide','bugs']
 };
 /** Même périmètre CRM / pilotage (société, filtres, onglets) que le dir. commercial. */
 function isCRMScopePilotageRole(role){
@@ -9788,7 +9805,7 @@ function initLeadsPage(){
   if(filterSociete){
     filterSociete.style.display=canUseGlobalScopeFilters?'inline-flex':'none';
     if(!canUseGlobalScopeFilters)filterSociete.value='';
-    else if(role==='directeur_co'&&(currentUser.societe==='nemausus'||currentUser.societe==='lambert')){
+    else if(isCRMScopePilotageRole(role)&&(currentUser.societe==='nemausus'||currentUser.societe==='lambert')){
       filterSociete.innerHTML=currentUser.societe==='nemausus'
         ?'<option value="nemausus">Nemausus</option>'
         :'<option value="lambert">Lambert</option>';
@@ -9975,7 +9992,7 @@ function getFilteredLeads(){
   // Filtres UI
   if(secteurFilter)leads=leads.filter(l=>l.secteur===secteurFilter);
   if(societeFilter)leads=leads.filter(l=>getLeadCRMCompany(l)===societeFilter);
-  if(commFilter)leads=leads.filter(l=>l.commercial===commFilter);
+  if(commFilter)leads=leads.filter(l=>normalizeId(String(l.commercial||''))===normalizeId(String(commFilter)));
   if(currentLeadFilter==='gris')leads=leads.filter(l=>l.statut==='gris');
   else if(currentLeadFilter==='rdv')leads=leads.filter(l=>l.statut==='rdv');
   else if(currentLeadFilter==='jaune')leads=leads.filter(l=>l.statut==='jaune');
@@ -11749,15 +11766,19 @@ function fillProjetsSuggestions(){
 // FILTRE COMMERCIAL
 function fillCommercialFilter(){
   const sel=document.getElementById('crm-filter-commercial');if(!sel)return;
-  const commerciaux=getAllUsers().filter(u=>{
-    if(u.role!=='commercial')return false;
+  const prev=sel.value||'';
+  const assignables=getAllUsers().filter(u=>{
+    if(!(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general'))return false;
     if(currentUser?.role==='admin')return true;
     if(isCRMScopePilotageRole(currentUser?.role)){
       return currentUser.societe==='les-deux'||u.societe===currentUser.societe||u.societe==='les-deux';
     }
     return true;
   });
-  sel.innerHTML='<option value="">Tous commerciaux</option>'+commerciaux.map(c=>`<option value="${escAttr(String(c.id??''))}">${esc(c.name)}</option>`).join('');
+  sel.innerHTML='<option value="">Tous les porteurs (commerciaux + direction)</option>'+assignables.map(c=>`<option value="${escAttr(String(c.id??''))}">${esc(c.name)}</option>`).join('');
+  const opts=[...sel.options].map(o=>o.value);
+  if(prev&&opts.includes(prev))sel.value=prev;
+  else sel.value='';
 }
 function fillCommercialAssign(selected=''){
   const sel=document.getElementById('lead-commercial-assign');if(!sel)return;
