@@ -1274,7 +1274,7 @@ input[type=file]{display:none;}
               <button class="crm-filter f-jaune" onclick="filterLeads('jaune',this)">🟡 Devis envoyé</button>
               <button class="crm-filter f-vert" onclick="filterLeads('vert',this)">🟢 Vendu</button>
               <button class="crm-filter f-rouge" onclick="filterLeads('rouge',this)">🔴 Perdu</button>
-              <button class="crm-filter" onclick="filterLeads('archive',this)">📁 Archives</button>
+              <button class="crm-filter" onclick="filterLeads('archive',this)" title="Archives manuelles + leads créés avant l’année civile en cours">📁 Archives</button>
               <button class="crm-filter" onclick="filterLeads('alerte',this)" style="color:var(--r)">🚨 Alertes</button>
               <select id="crm-filter-secteur" onchange="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;outline:none">
                 <option value="">Tous secteurs</option>
@@ -4774,7 +4774,7 @@ function updateTokenInfo(usage){
 
 function getCRMContextForAI(){
   const leads=getCompanyScopedLeads(getLeads());
-  const actifs=leads.filter(l=>!l.archive);
+  const actifs=leads.filter(l=>!isLeadCrmArchivedView(l));
   const perdus=actifs.filter(l=>l.statut==='rouge');
   const vendus=actifs.filter(l=>l.statut==='vert');
   const devis=actifs.filter(l=>l.statut==='jaune');
@@ -4792,7 +4792,7 @@ function shouldGenerateLocalCRMReport(txt){
 
 function generateLocalCRMReport(){
   const scopedLeads=getCompanyScopedLeads(getLeads());
-  const actifs=scopedLeads.filter(l=>!l.archive);
+  const actifs=scopedLeads.filter(l=>!isLeadCrmArchivedView(l));
   const now=new Date();
   const month=now.getMonth(),year=now.getFullYear();
   const leadsMonth=actifs.filter(l=>{const d=new Date(l.date_creation||0);return d.getMonth()===month&&d.getFullYear()===year;});
@@ -6726,7 +6726,7 @@ function buildUsageHabitContextText(){
   ];
   try{
     const leads=getCompanyScopedLeads(getLeads());
-    const actifs=leads.filter(l=>!l.archive).length;
+    const actifs=leads.filter(l=>!isLeadCrmArchivedView(l)).length;
     lines.push(`CRM — leads actifs (périmètre société): ${actifs}`);
   }catch{}
   lines.push(`Version BenAI: ${typeof BENAI_VERSION!=='undefined'?BENAI_VERSION:'?'}`);
@@ -8571,6 +8571,19 @@ function saveLeads(l,sync=true){
     scheduleSupabaseSync(getMem(),getAnnuaire());
   }
 }
+function getLeadCreationYearValue(l){
+  const d=new Date(l?.date_creation||0);
+  if(isNaN(d.getTime()))return null;
+  return d.getFullYear();
+}
+/** Hors vues actives du CRM : archive manuelle OU création strictement avant l’année civile en cours. */
+function isLeadCrmArchivedView(l){
+  if(!l)return false;
+  if(l.archive)return true;
+  const y=getLeadCreationYearValue(l);
+  if(y===null)return false;
+  return y<new Date().getFullYear();
+}
 /** Objectifs CRM par entreprise : CA HT de référence + montants optionnels par mois (YYYY-MM). */
 function normalizeSocObjEntry(rawSoc,baseCaHT){
   const caHT=Math.max(0,Number(rawSoc?.caHT)||baseCaHT||0);
@@ -8851,7 +8864,7 @@ function showCRMTab(id){
 }
 
 function isLeadInNonAttribQueue(l){
-  return !!l&&!l.archive&&!l.commercial&&l.statut==='gris';
+  return !!l&&!isLeadCrmArchivedView(l)&&!l.commercial&&l.statut==='gris';
 }
 
 function renderNonAttribues(){
@@ -8919,8 +8932,8 @@ function getFilteredLeads(){
   }
   // Admin et pilotage CRM voient tout le périmètre société — aucun filtre « mes leads »
 
-  // Archive
-  if(currentLeadFilter!=='archive')leads=leads.filter(l=>!l.archive);
+  // Archives (manuel) + années civiles passées
+  if(currentLeadFilter!=='archive')leads=leads.filter(l=>!isLeadCrmArchivedView(l));
   // Filtres UI
   if(secteurFilter)leads=leads.filter(l=>l.secteur===secteurFilter);
   if(societeFilter)leads=leads.filter(l=>(l.societe_crm||'nemausus')===societeFilter);
@@ -8931,7 +8944,7 @@ function getFilteredLeads(){
   else if(currentLeadFilter==='vert')leads=leads.filter(l=>l.statut==='vert');
   else if(currentLeadFilter==='rouge')leads=leads.filter(l=>l.statut==='rouge');
   else if(currentLeadFilter==='alerte')leads=leads.filter(l=>isLeadAlerte(l));
-  else if(currentLeadFilter==='archive')leads=leads.filter(l=>l.archive);
+  else if(currentLeadFilter==='archive')leads=leads.filter(l=>isLeadCrmArchivedView(l));
   // Recherche
   if(search)leads=leads.filter(l=>
     (l.nom||'').toLowerCase().includes(search)||
@@ -8957,7 +8970,7 @@ function renderLeads(){
 
   // VUE DIRECTEUR CO — deux sections
   if(isCRMScopePilotageRole(role)||role==='admin'){
-    const allLeads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive);
+    const allLeads=getCompanyScopedLeads(getLeads()).filter(l=>!isLeadCrmArchivedView(l));
     const nonAttrib=allLeads.filter(isLeadInNonAttribQueue);
     const attrib=getFilteredLeads().filter(l=>l.commercial||l.statut!=='gris');
     let html='';
@@ -9062,7 +9075,7 @@ function renderLeadCardAssistante(l){
     const d=new Date(l.rappel);
     rdvInfo=`<div style="font-size:11px;color:var(--y);font-weight:600;margin-top:4px;padding:4px 8px;background:var(--y2);border-radius:6px">📞 Rappel le ${d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>`;
   }
-  return `<div class="lead-card statut-${l.statut||'gris'}" onclick="openLead(${l.id})">
+  return `<div class="lead-card statut-${l.statut||'gris'}" onclick="openLead(${l.id})" style="${isLeadCrmArchivedView(l)?'opacity:.6;':''}">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
       <span>${srcIcon}</span>
       <div class="lead-nom">${esc(l.nom)}</div>
@@ -9103,7 +9116,7 @@ function renderLeadCard(l,role){
   const rdvDone=getLeadRdvDoneCount(l);
   const rdvClientDone=getClientRdvDoneCount(l);
   const dernContact=dernAction?`<div style="font-size:10px;color:var(--t2);margin-top:3px">🕐 ${dernAction.date} — ${esc(dernAction.action)}</div>`:'';
-  return `<div class="lead-card statut-${l.statut}${alerte?' alerte24':''}${l.archive?';opacity:.6':''}" onclick="openLead(${l.id})" style="position:relative">
+  return `<div class="lead-card statut-${l.statut}${alerte?' alerte24':''}${isLeadCrmArchivedView(l)?';opacity:.6':''}" onclick="openLead(${l.id})" style="position:relative">
     ${alerte?'<div class="lead-alerte" style="position:absolute;top:10px;right:10px">⏰ Alerte</div>':''}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
       <span style="font-size:14px">${srcIcon}</span>
@@ -9195,7 +9208,7 @@ function getCommercialRankingMonth(leads){
 }
 
 function getArchivedLeadsStats(leads){
-  const arch=(leads||[]).filter(l=>l.archive);
+  const arch=(leads||[]).filter(l=>isLeadCrmArchivedView(l));
   const byStatut={vert:0,rouge:0,autre:0};
   arch.forEach(l=>{
     if(l.statut==='vert')byStatut.vert++;
@@ -9240,7 +9253,7 @@ function renderLeadsDashboard(){
   const role=currentUser?.role||'assistante';
   const dashCommercial=role==='commercial';
   const dashPilotage=!dashCommercial;
-  const leads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive);
+  const leads=getCompanyScopedLeads(getLeads()).filter(l=>!isLeadCrmArchivedView(l));
   const socMonthKeys=getObjCommMonthOptions();
   let selSocMois=appStorage.getItem('benai_lead_obj_soc_mois')||getDefaultObjCommMonthKey();
   if(!socMonthKeys.includes(selSocMois))selSocMois=getDefaultObjCommMonthKey();
@@ -9274,7 +9287,7 @@ function renderLeadsDashboard(){
   if(dashPilotage){
     html+=`<div class="crm-dash-intro"><strong>Mode d’emploi</strong> — les trois cases ci-dessus donnent la situation en un coup d’œil. Ensuite, chaque <strong>grand bloc</strong> se replie ou se déplie en cliquant sur sa ligne de titre (la flèche ▸ tourne quand c’est ouvert). Les trois premiers blocs sont ouverts pour le quotidien ; les autres se replient pour éviter la surcharge.</div>`;
   } else if(dashCommercial){
-    html+=`<div class="crm-dash-intro">Ici : <strong>vos chiffres</strong> par secteur, <strong>vos objectifs</strong> (changez le mois dans les listes) et en bas de page le <strong>détail des ventes</strong> du mois choisi.</div>`;
+    html+=`<div class="crm-dash-intro">Ici : <strong>vos chiffres</strong> par secteur, <strong>vos objectifs</strong> (listes de mois en <strong>${year-1}</strong> et <strong>${year}</strong> pour comparer au N-1) et en bas le <strong>détail des ventes</strong> avec rappel automatique du même mois année précédente.</div>`;
   }
   const rapportHead=genererRapportAlertes();
   if(rapportHead.total>0){
@@ -9438,7 +9451,7 @@ function renderLeadsDashboard(){
   </div>`;
   if(!dashCommercial){
   if(dashPilotage){
-    html+=`<details class="crm-dash-grp" open>${crmDashSummary('🏢 CA par société','Nemausus et Lambert : objectif du mois choisi, barre de progression, pipeline devis.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">Choisissez le <strong>mois</strong> à analyser (chiffres = leads <em>créés</em> ce mois-là). Sans objectif saisi pour ce mois, c’est l’objectif de référence qui s’affiche.</div>`;
+    html+=`<details class="crm-dash-grp" open>${crmDashSummary('🏢 CA par société','Nemausus et Lambert : objectif du mois choisi, barre de progression, pipeline devis.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">Choisissez le <strong>mois</strong> à analyser (chiffres = leads <em>créés</em> ce mois-là). Mois proposés : <strong>${year-1}</strong> et <strong>${year}</strong> pour comparer au <strong>N-1</strong>. Sans objectif saisi pour ce mois, c’est l’objectif de référence qui s’affiche.</div>`;
   }
   html+=`<div class="crm-dash-kicker k-pr" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;row-gap:8px;margin-top:0">
     <span>Performance par entreprise</span>
@@ -9448,7 +9461,7 @@ function renderLeadsDashboard(){
       </select>
     </label>
   </div>
-  <div style="font-size:11px;color:var(--t3);margin:-4px 0 10px;line-height:1.45">Chiffres du <strong>${formatMois(selSocMois)}</strong> (création des leads). Objectif : montant saisi pour ce mois, sinon <strong>objectif de référence</strong> (valeur par défaut entreprise).</div>`;
+  <div style="font-size:11px;color:var(--t3);margin:-4px 0 10px;line-height:1.45">Chiffres du <strong>${formatMois(selSocMois)}</strong> (création des leads). Passez au même mois en <strong>${year-1}</strong> pour le comparer à l’instant. Objectif : montant saisi pour ce mois, sinon <strong>objectif de référence</strong> (valeur par défaut entreprise).</div>`;
   const entreprises=[
     {id:'nemausus',label:'Nemausus Fermetures',color:'var(--a)'},
     {id:'lambert',label:'Lambert SAS',color:'var(--bl)'}
@@ -9528,7 +9541,7 @@ function renderLeadsDashboard(){
   }
   // Analyse leads perdus
   if(dashPilotage){
-    html+=`<details class="crm-dash-grp">${crmDashSummary('📋 Pertes & archives','Motifs des leads perdus ce mois, puis volumes d’archives.')}<div class="crm-dash-grp-body">`;
+    html+=`<details class="crm-dash-grp">${crmDashSummary('📋 Pertes & archives','Motifs des leads perdus ce mois, puis volumes (archives manuelles + leads d’années passées).')}<div class="crm-dash-grp-body">`;
   }
   const lost=getLeadLostAnalytics(leadsMonth);
   html+=`<div class="secteur-card"><div class="secteur-title">📉 Analyse des leads perdus</div>`;
@@ -9551,7 +9564,7 @@ function renderLeadsDashboard(){
       <div class="stat-box"><div class="stat-box-val" style="color:var(--g)">${arch.byStatut.vert}</div><div class="stat-box-lbl">Vendus</div></div>
       <div class="stat-box"><div class="stat-box-val" style="color:var(--r)">${arch.byStatut.rouge}</div><div class="stat-box-lbl">Perdus</div></div>
     </div>
-    <div style="margin-top:8px;font-size:11px;color:var(--t3)">Consultez l’onglet filtre “📁 Archives” dans Leads pour le détail.</div>
+    <div style="margin-top:8px;font-size:11px;color:var(--t3)">Filtre <strong>📁 Archives</strong> dans Leads : archives manuelles <em>et</em> leads créés avant <strong>${new Date().getFullYear()}</strong>.</div>
   </div>`;
   if(dashPilotage){
     html+=`</div></details>`;
@@ -9590,12 +9603,12 @@ function renderLeadsDashboard(){
     if(!objCommMonthKeys.includes(selObjComm))selObjComm=getDefaultObjCommMonthKey();
     appStorage.setItem('benai_obj_comm_mois',selObjComm);
     if(dashPilotage){
-      html+=`<details class="crm-dash-grp" open>${crmDashSummary('🎯 Objectifs commerciaux','CA réalisé vs cible : changez le mois pour préparer toute l’année.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">L’objectif <strong>hebdomadaire</strong> est le même toutes les semaines ; l’objectif <strong>mensuel</strong> est celui du mois affiché.</div>`;
+      html+=`<details class="crm-dash-grp" open>${crmDashSummary('🎯 Objectifs commerciaux','CA réalisé vs cible : mois N et N-1 pour comparer à l’année précédente.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">L’objectif <strong>hebdomadaire</strong> est le même toutes les semaines ; l’objectif <strong>mensuel</strong> est celui du mois affiché. Mois disponibles : <strong>${year-1}</strong> et <strong>${year}</strong>.</div>`;
     } else {
       html+=`<div class="crm-dash-kicker k-pr" style="margin-top:8px">${dashCommercial?'Mes objectifs & suivi CA':'Objectifs par commercial'}</div>`;
     }
     html+=`<div class="secteur-card"><div class="secteur-title" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
-      <span>${dashCommercial?'🎯 Mes objectifs (changer le mois pour toute l’année)':'🎯 Suivi & objectifs commerciaux'}</span>
+      <span>${dashCommercial?'🎯 Mes objectifs (mois N et N-1 pour comparer)':'🎯 Suivi & objectifs commerciaux'}</span>
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t3);font-weight:600">Mois affiché
         <select id="crm-obj-comm-mois" class="form-input" onchange="window.appStorage.setItem('benai_obj_comm_mois',this.value);renderLeadsDashboard()" style="padding:5px 10px;font-size:11px;border-radius:8px;min-width:128px">
           ${objCommMonthKeys.map(m=>`<option value="${m}"${m===selObjComm?' selected':''}>${formatMois(m)}</option>`).join('')}
@@ -9768,9 +9781,9 @@ function openLead(id){
     if(idx2!==-1){leads[idx2].commercial=null;saveLeads(leads);}
     showDriveNotif('⚠️ Commercial introuvable — lead remis en attente');
   }
-  // Bouton réouvrir si archivé
+  // Bouton réouvrir si archivé (manuel) ou hors année en cours
   const btnSave=document.getElementById('btn-save-lead');
-  if(l.archive&&btnSave){
+  if(isLeadCrmArchivedView(l)&&btnSave){
     btnSave.textContent='🔄 Réouvrir ce lead';
     btnSave.onclick=()=>rouvrirLead(id);
   } else if(btnSave){
@@ -10126,9 +10139,15 @@ async function rouvrirLead(id){
   const leads=getLeads();
   const idx=leads.findIndex(l=>l.id===id);if(idx===-1)return;
   leads[idx].archive=false;
+  const y=getLeadCreationYearValue(leads[idx]);
+  const curY=new Date().getFullYear();
+  if(y!==null&&y<curY){
+    leads[idx].date_creation=new Date().toISOString();
+    addLeadTimelineEntry(leads[idx],`Réouvert — remis dans le pipe (${curY}, nouvelle date de création)`,currentUser.name);
+  }else{
+    addLeadTimelineEntry(leads[idx],'Lead réouvert',currentUser.name);
+  }
   leads[idx].statut='gris';
-  const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  addLeadTimelineEntry(leads[idx],'Lead réouvert',currentUser.name);
   saveLeads(leads);
   closeLeadModal();renderLeads();refreshLeadsBadge();
   showDriveNotif('✅ Lead réouvert');
@@ -10330,7 +10349,7 @@ function fillCommercialAssign(selected=''){
 
 // ALERTES & RAPPELS
 function isLeadAlerte(l){
-  if(l.statut==='vert'||l.statut==='rouge'||l.archive)return false;
+  if(l.statut==='vert'||l.statut==='rouge'||isLeadCrmArchivedView(l))return false;
   if(l.statut==='rdv')return false;// RDV pris = traité
   if(!l.date_creation)return false;
   const h=getHeuresOuvrees(new Date(l.date_creation));
@@ -10348,7 +10367,7 @@ function getLeadAge(l){
 
 function getLeadNotifScopeForUser(){
   if(!currentUser)return [];
-  let scoped=getLeads().filter(l=>!l._deleted&&!l.archive&&l.statut!=='vert'&&l.statut!=='rouge');
+  let scoped=getLeads().filter(l=>!l._deleted&&!isLeadCrmArchivedView(l)&&l.statut!=='vert'&&l.statut!=='rouge');
   if(currentUser.role==='commercial'){
     scoped=scoped.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
   }else if(currentUser.role==='directeur_general'){
@@ -10408,7 +10427,7 @@ function checkLeadsAlertes(){
 function checkRappelsLeads(){
   if(!currentUser)return;
   const now=new Date();
-  const leads=getLeads().filter(l=>!l._deleted&&l.rappel&&(l.commercial===currentUser.id||currentUser.role==='directeur_co'||currentUser.id==='benjamin'));
+  const leads=getLeads().filter(l=>!l._deleted&&!isLeadCrmArchivedView(l)&&l.rappel&&(l.commercial===currentUser.id||currentUser.role==='directeur_co'||currentUser.id==='benjamin'));
   leads.forEach(l=>{
     const rappel=new Date(l.rappel);
     const diff=Math.abs(rappel-now)/60000;
@@ -10434,7 +10453,7 @@ function refreshLeadsBadge(){
   const role=currentUser?.role;
   if(role==='admin'){badge.style.display='none';return;}
   if(role==='directeur_general'){badge.style.display='none';return;}
-  let leads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive);
+  let leads=getCompanyScopedLeads(getLeads()).filter(l=>!isLeadCrmArchivedView(l));
   // Directeur co : badge = non attribués
   if(role==='directeur_co'){
     const n=leads.filter(l=>!l.commercial&&l.statut==='gris').length;
@@ -10504,7 +10523,7 @@ function exportSecteurSyntheseFromDashboard(){
     exportCRMTable('secteurs');
     return;
   }
-  const actifs=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive);
+  const actifs=getCompanyScopedLeads(getLeads()).filter(l=>!isLeadCrmArchivedView(l));
   const stamp=new Date().toISOString().slice(0,10);
   const scopeLabel=isCRMScopePilotageRole(currentUser?.role)?`scope_${currentUser.societe||'societe'}`:'scope_global';
   let fname,content;
@@ -10522,7 +10541,7 @@ function exportSecteurSyntheseFromDashboard(){
 
 function buildCRMExportBundles(){
   const scopedLeads=getCompanyScopedLeads(getLeads());
-  const actifs=scopedLeads.filter(l=>!l.archive);
+  const actifs=scopedLeads.filter(l=>!isLeadCrmArchivedView(l));
   const now=new Date();
   const currentMonth=appStorage.getItem('benai_ventes_mois')||`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const [yr,mo]=currentMonth.split('-').map(Number);
@@ -11099,11 +11118,17 @@ function getObjCommMonthOptions(){
   const keys=new Set();
   const now=new Date();
   const y=now.getFullYear();
-  for(let m=1;m<=12;m++)keys.add(`${y}-${String(m).padStart(2,'0')}`);
+  const yPrev=y-1;
+  for(let m=1;m<=12;m++){
+    keys.add(`${y}-${String(m).padStart(2,'0')}`);
+    keys.add(`${yPrev}-${String(m).padStart(2,'0')}`);
+  }
   try{
     getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert').forEach(l=>{
       const d=new Date(l.date_creation||0);
-      if(!isNaN(d.getTime())&&d.getFullYear()===y)keys.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+      if(isNaN(d.getTime()))return;
+      const yy=d.getFullYear();
+      if(yy===y||yy===yPrev)keys.add(`${yy}-${String(d.getMonth()+1).padStart(2,'0')}`);
     });
   }catch(e){}
   return[...keys].sort((a,b)=>b.localeCompare(a,'fr'));
@@ -11237,9 +11262,10 @@ function renderTableauVentes(container){
   // Sélecteur mois — toujours au moins une <option> (select vide = bug UI rectangle blanc sous certains navigateurs)
   const yNow=now.getFullYear();
   const currentKey=`${yNow}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const yPrev=yNow-1;
   const fromSales=[...new Set(leads.map(l=>{const d=new Date(l.date_creation||0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}))].filter(k=>{
     const y=Number(String(k).split('-')[0]);
-    return Number.isFinite(y)&&y===yNow;
+    return Number.isFinite(y)&&(y===yNow||y===yPrev);
   });
   let moisDispos=[...new Set([...fromSales,...getObjCommMonthOptions()])].sort((a,b)=>b.localeCompare(a,'fr'));
   if(!moisDispos.length)moisDispos=[currentKey];
@@ -11251,6 +11277,20 @@ function renderTableauVentes(container){
   const [yr,mo]=selectedMois.split('-').map(Number);
   const leadsFiltered=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;});
   const total=leadsFiltered.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
+  let compareLine='';
+  if(Number.isFinite(yr)&&Number.isFinite(mo)&&mo>=1&&mo<=12){
+    if(yr===yNow){
+      const prevKey=`${yPrev}-${String(mo).padStart(2,'0')}`;
+      const prevLeads=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yPrev&&d.getMonth()+1===mo;});
+      const prevTot=prevLeads.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
+      compareLine=`<div style="font-size:12px;color:var(--t2);margin:-6px 0 12px;line-height:1.45">↩️ <strong>N-1</strong> (${formatMois(prevKey)}) : <strong style="color:var(--t1)">${prevTot.toLocaleString('fr-FR')} €</strong> HT · ${prevLeads.length} vente(s) — même mois, année précédente.</div>`;
+    }else if(yr===yPrev){
+      const curKey=`${yNow}-${String(mo).padStart(2,'0')}`;
+      const curLeads=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yNow&&d.getMonth()+1===mo;});
+      const curTot=curLeads.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
+      compareLine=`<div style="font-size:12px;color:var(--t2);margin:-6px 0 12px;line-height:1.45">↪️ <strong>Année en cours</strong> (${formatMois(curKey)}) : <strong style="color:var(--t1)">${curTot.toLocaleString('fr-FR')} €</strong> HT · ${curLeads.length} vente(s) — même mois.</div>`;
+    }
+  }
   const srcIcons2=LEAD_SOURCE_ICONS;
   const ventesTableCommercialOnly=currentUser?.role==='commercial';
   const thPrix='Prix vente HT (€)';
@@ -11295,7 +11335,8 @@ function renderTableauVentes(container){
         ${canExportSales?`<button onclick="exportTableauVentes()" style="padding:6px 12px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📥 Export</button>`:''}
       </div>
     </div>
-    <div style="font-size:22px;font-weight:800;color:var(--g);margin-bottom:12px">${total.toLocaleString('fr-FR')} € HT <span style="font-size:12px;color:var(--t3);font-weight:400">${leadsFiltered.length} ventes</span></div>
+    <div style="font-size:22px;font-weight:800;color:var(--g);margin-bottom:4px">${total.toLocaleString('fr-FR')} € HT <span style="font-size:12px;color:var(--t3);font-weight:400">${leadsFiltered.length} ventes</span></div>
+    ${compareLine}
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         ${thead}
@@ -11320,10 +11361,11 @@ function exportTableauVentes(){
   const leads=getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert');
   const now=new Date();
   const yNow=now.getFullYear();
+  const yPrev=yNow-1;
   const currentKey=`${yNow}-${String(now.getMonth()+1).padStart(2,'0')}`;
   let selectedMois=appStorage.getItem('benai_ventes_mois')||currentKey;
   const py=Number(String(selectedMois).split('-')[0]);
-  if(!Number.isFinite(py)||py!==yNow){selectedMois=currentKey;appStorage.setItem('benai_ventes_mois',selectedMois);}
+  if(!Number.isFinite(py)||(py!==yNow&&py!==yPrev)){selectedMois=currentKey;appStorage.setItem('benai_ventes_mois',selectedMois);}
   const [yr,mo]=selectedMois.split('-').map(Number);
   const filtered=selectedMois?leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;}):leads;
   const header='Source,Commercial,Client,Téléphone,Ville,Produit,Prix vente HT (€),Date signature\n';
@@ -11374,7 +11416,7 @@ function makeGPSLink(adresse,ville,cp){
 // 🚨 RAPPORT ALERTES DIRECTEUR CO
 // ══════════════════════════════════════════
 function genererRapportAlertes(){
-  const leads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive&&l.statut!=='vert'&&l.statut!=='rouge');
+  const leads=getCompanyScopedLeads(getLeads()).filter(l=>!isLeadCrmArchivedView(l)&&l.statut!=='vert'&&l.statut!=='rouge');
   const now=new Date();
   const nonAttrib=leads.filter(l=>!l.commercial);
   const nonOuverts=leads.filter(l=>l.commercial&&!l.vu_date);
