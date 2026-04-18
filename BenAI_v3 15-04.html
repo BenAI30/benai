@@ -8190,6 +8190,8 @@ let lastCloudRefreshTs=0;
 let cloudRefreshInFlight=false;
 const CLOUD_REFRESH_MIN_INTERVAL_MS=7000;
 const POLLING_INTERVAL_MS=10000;
+/** Seuil « polling mort » : au-delà, les navigateurs peuvent déjà ralentir les timers (onglet en arrière-plan) — évite les faux rapports auto-bug ~90s. */
+const POLLING_STALE_MS=Math.max(240000,POLLING_INTERVAL_MS*15);
 
 async function refreshCoreDataFromCloudIfNeeded(force=false){
   if(!SUPABASE_CONFIG.enabled||!currentUser)return;
@@ -8303,6 +8305,7 @@ function startPolling(){
       }
     }
   },POLLING_INTERVAL_MS);
+  lastPollingHeartbeat=Date.now();
 }
 
 // ══════════════════════════════════════════
@@ -10915,13 +10918,18 @@ setupAutomaticBugHooks();
 function setupSafeSelfHealing(){
   if(window.__benaiSelfHealingReady)return;
   window.__benaiSelfHealingReady=true;
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible')lastPollingHeartbeat=Date.now();
+  });
   setInterval(async()=>{
     if(!currentUser)return;
     // Si le polling est tombé, on le relance automatiquement.
     const staleMs=Date.now()-lastPollingHeartbeat;
-    if(!pollingInterval||staleMs>90000){
+    const pollingMissing=!pollingInterval;
+    const pollingStale=document.visibilityState==='visible'&&staleMs>POLLING_STALE_MS;
+    if(pollingMissing||pollingStale){
       startPolling();
-      reportAutoBug('BenAI IA','Auto-correction: polling relancé automatiquement.','mineur',{autoFixed:true,staleMs});
+      reportAutoBug('BenAI IA','Auto-correction: polling relancé automatiquement.','mineur',{autoFixed:true,staleMs,visible:document.visibilityState==='visible'});
       if(Date.now()-lastSelfHealToastTs>15*60*1000){
         showDriveNotif('🩹 Auto-correction BenAI: surveillance relancée');
         lastSelfHealToastTs=Date.now();
