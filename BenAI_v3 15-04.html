@@ -1103,7 +1103,7 @@ input[type=file]{display:none;}
         </div>
         <div id="habit-ai-wrap" style="padding:12px 16px 14px;flex-shrink:0;border-bottom:1px solid var(--b1);background:var(--s2)">
           <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px">💡 Suggestions basées sur l’usage (IA)</div>
-          <div style="font-size:11px;color:var(--t3);line-height:1.45;margin-bottom:10px">Les pages ouvertes sont comptées <strong>localement</strong>. L’analyse ci-dessous = <strong>un appel API sur demande</strong> (tokens + latence affichés après coup). <strong>Désactivé par défaut</strong> pour éviter tout coût involontaire. Coût € = estimation code (Sonnet), non contractuelle.</div>
+          <div style="font-size:11px;color:var(--t3);line-height:1.45;margin-bottom:10px">Les pages ouvertes sont comptées <strong>localement</strong> (pour l’ordre d’usage). L’appel IA n’envoie <strong>ni volumes ni chiffres métier</strong> — seulement le rôle, la liste des noms de pages (sans compteurs) et la version. <strong>Un appel API sur demande</strong> (tokens + latence affichés après). <strong>Désactivé par défaut.</strong> Coût € = estimation code (Sonnet), non contractuelle.</div>
           <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);cursor:pointer;margin-bottom:10px">
             <input type="checkbox" id="habit-ai-enabled" onchange="saveHabitAiSettings()">
             Autoriser l’appel IA depuis ce panneau
@@ -6736,18 +6736,12 @@ function buildUsageHabitContextText(){
     pages=(o&&typeof o.pages==='object')?o.pages:{};
   }catch{}
   const top=Object.entries(pages).sort((a,b)=>b[1]-a[1]).slice(0,14);
-  const mem=getMem();
-  const savOpen=(mem.sav||[]).filter(s=>!s._deleted&&s.statut!=='regle').length;
+  const topPagesOnly=top.map(([p])=>p);
   const lines=[
-    `Utilisateur: ${currentUser?.name||'?'} (id: ${currentUser?.id||'?'}, rôle: ${currentUser?.role||'?'})`,
-    `Pages BenAI les plus ouvertes (compteurs cumulés sur cet appareil / ce profil stockage): ${top.length?top.map(([p,n])=>`${p}:${n}`).join(', '):'aucune donnée — naviguez dans l’app pour alimenter.'}`,
-    `SAV ouverts: ${savOpen}`
+    `Utilisateur: ${currentUser?.name||'?'} (rôle: ${currentUser?.role||'?'})`,
+    `Zones de l’app les plus consultées (ordre relatif sur cet appareil — sans volumes ni chiffres d’activité): ${topPagesOnly.length?topPagesOnly.join(', '):'aucune navigation enregistrée pour l’instant.'}`,
+    `Aucun volume (SAV, CRM, compteurs) n’est transmis à l’IA — uniquement les noms de pages ci-dessus et le rôle.`
   ];
-  try{
-    const leads=getCompanyScopedLeads(getLeads());
-    const actifs=leads.filter(l=>!isLeadCrmArchivedView(l)).length;
-    lines.push(`CRM — leads actifs (périmètre société): ${actifs}`);
-  }catch{}
   lines.push(`Version BenAI: ${typeof BENAI_VERSION!=='undefined'?BENAI_VERSION:'?'}`);
   return lines.join('\n');
 }
@@ -6778,7 +6772,7 @@ function hydrateHabitAiPanel(){
 
 async function runHabitImprovementSuggestions(){
   const btn=document.getElementById('habit-ai-run-btn');
-  const out=document.getElementById('habit-ai-output');
+  const outEl=document.getElementById('habit-ai-output');
   const met=document.getElementById('habit-ai-metrics');
   if(appStorage.getItem(HABIT_AI_ENABLED_KEY)!=='1'){
     showDriveNotif('Cochez d’abord « Autoriser l’appel IA » pour lancer une analyse (coût tokens).');
@@ -6800,21 +6794,21 @@ async function runHabitImprovementSuggestions(){
     const latency=Math.round(((typeof performance!=='undefined'&&performance.now)?performance.now():Date.now())-t0);
     const usage=data.usage||{};
     const inp=Number(usage.input_tokens||0);
-    const out=Number(usage.output_tokens||0);
-    trackTokens(currentUser.id,inp,out);
-    const costStr=estimateCost(inp,out);
+    const outTok=Number(usage.output_tokens||0);
+    trackTokens(currentUser.id,inp,outTok);
+    const costStr=estimateCost(inp,outTok);
     const costNum=Number(costStr);
     appStorage.setItem(HABIT_AI_LAST_METRICS_KEY,JSON.stringify({
       at:Date.now(),
       latencyMs:latency,
       input:inp,
-      output:out,
+      output:outTok,
       costEur:Number.isFinite(costNum)?costNum:costStr
     }));
-    if(met)met.textContent=`Dernier appel : ${latency} ms · ${inp} + ${out} tokens · ~${costStr} € (estim. Sonnet — indicatif)`;
-    if(out){
-      out.style.display='block';
-      out.textContent=(data.content&&data.content[0]&&data.content[0].text)?String(data.content[0].text):'(Réponse vide)';
+    if(met)met.textContent=`Dernier appel : ${latency} ms · ${inp} + ${outTok} tokens · ~${costStr} € (estim. Sonnet — indicatif)`;
+    if(outEl){
+      outEl.style.display='block';
+      outEl.textContent=(data.content&&data.content[0]&&data.content[0].text)?String(data.content[0].text):'(Réponse vide)';
     }
     try{logActivity(`${currentUser.name} a lancé l’analyse « suggestions usage » IA`);}catch{}
   }catch(e){
