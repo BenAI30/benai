@@ -938,6 +938,7 @@ input[type=file]{display:none;}
           </div>
           <button class="download-chat-btn" onclick="downloadMyChat()" title="Télécharger ma conversation">⬇️ Conversation</button>
         </div>
+        <div id="benai-quick-links" style="display:none;flex-shrink:0;padding:0 16px 10px"></div>
         <div class="chat-area" id="chat-area"></div>
         <div id="emoji-picker" class="emoji-picker">
           <div class="emoji-grid" id="emoji-grid"></div>
@@ -1012,8 +1013,8 @@ input[type=file]{display:none;}
               <div class="form-group"><div class="form-label">Problème</div><input type="text" class="form-input" id="sav-pb" placeholder="Ex: Volet roulant bloqué..." spellcheck="false" autocorrect="off" autocapitalize="off"></div>
             <div class="form-group"><div class="form-label">Société</div>
                 <select class="form-input" id="sav-soc">
-                  <option value="nemausus">Nemausus Fermetures</option>
-                  <option value="lambert">Lambert SAS</option>
+                  <option value="nemausus">Périmètre CRM — entité 1</option>
+                  <option value="lambert">Périmètre CRM — entité 2</option>
                 </select>
               </div>
             </div>
@@ -1060,10 +1061,9 @@ input[type=file]{display:none;}
       <div id="page-absences" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:8px;flex-shrink:0">
           <div><div class="page-title">🗓️ Absences & Congés</div><div class="page-sub" id="abs-page-sub">Rappels J-7 et la veille</div></div>
-          <div class="abs-admin-only" style="display:flex;gap:8px;flex-wrap:wrap">
+          <div class="abs-admin-only" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <button type="button" onclick="showAnnuaireTeamTab('annuaire')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">👥 Équipe</button>
-            <button type="button" onclick="downloadPlanningAbsences('nemausus')" style="background:var(--a3);border:1px solid var(--a);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--a);font-family:inherit;font-weight:600">📥 Nemausus</button>
-            <button type="button" onclick="downloadPlanningAbsences('lambert')" style="background:var(--bl2);border:1px solid var(--bl);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--bl);font-family:inherit;font-weight:600">📥 Lambert</button>
+            <span id="abs-export-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"></span>
             <button type="button" class="btn-primary" onclick="toggleAbsForm()">+ Nouvelle absence</button>
           </div>
         </div>
@@ -1307,7 +1307,7 @@ input[type=file]{display:none;}
         <div class="page-header" style="padding-bottom:0;flex-shrink:0">
           <div>
             <div class="page-title">📋 Leads CRM</div>
-            <div class="page-sub" id="leads-page-sub">Nemausus Fermetures</div>
+            <div class="page-sub" id="leads-page-sub">CRM — périmètre du compte</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             <!-- Recherche -->
@@ -1338,9 +1338,9 @@ input[type=file]{display:none;}
                 <option value="avignon">Avignon</option>
               </select>
               <select id="crm-filter-societe" onchange="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;outline:none">
-                <option value="">Toutes sociétés</option>
-                <option value="nemausus">Nemausus</option>
-                <option value="lambert">Lambert</option>
+                <option value="">Tous périmètres CRM</option>
+                <option value="nemausus">Entité 1</option>
+                <option value="lambert">Entité 2</option>
               </select>
               <select id="crm-filter-commercial" onchange="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;outline:none;display:none">
                 <option value="">Tous commerciaux</option>
@@ -1651,7 +1651,7 @@ input[type=file]{display:none;}
               </div>
               <div class="form-row">
                 <div class="form-group"><div class="form-label">Email perso <span style="color:var(--t3)">(fiches de paie)</span></div><input type="email" class="form-input" id="emp-email" placeholder="email.perso@gmail.com"></div>
-                <div class="form-group"><div class="form-label">Email pro</div><input type="email" class="form-input" id="emp-email-pro" placeholder="prenom@nemausus.fr"></div>
+                <div class="form-group"><div class="form-label">Email pro</div><input type="email" class="form-input" id="emp-email-pro" placeholder="prenom@entreprise.fr"></div>
               </div>
               <div class="form-row">
                 <div class="form-group"><div class="form-label">Téléphone</div><input type="text" class="form-input" id="emp-tel" placeholder="06..."></div>
@@ -3348,9 +3348,15 @@ async function finalizeBenAILocalUserAccount({uid,name,email,role,soc,fonction,p
   const pwds=getPwds();
   pwds[uid]=await hashPassword(uid,pwd);
   savePwds(pwds);
+  const orgHint=(()=>{
+    const s=String(soc||'').toLowerCase();
+    if(s==='les-deux')return'l’organisation (compte multi-périmètres CRM)';
+    if(s==='lambert')return'Lambert SAS';
+    return'Nemausus Fermetures';
+  })();
   const systemPrompt=CRM_PAGES_ONLY.includes(role)
-    ?`Tu es BenAI CRM, assistant de ${name} (${roleLabel}) chez Nemausus Fermetures.`
-    :`Tu es BenAI, l'assistant de ${name} (${fonction}) chez Nemausus Fermetures / Lambert SAS. Tu proposes toujours — ${name} décide toujours.`;
+    ?`Tu es BenAI CRM, assistant de ${name} (${roleLabel}) pour ${orgHint}.`
+    :`Tu es BenAI, l'assistant de ${name} (${fonction}) pour ${orgHint}. Tu proposes toujours — ${name} décide toujours.`;
   USERS[uid]={name,pwd:pwds[uid],role,color:newUser.color,initial:newUser.initial,system:systemPrompt};
   pushBenAINotif('👋 Bienvenue',`Bienvenue ${name} 👋 Ton accès BenAI est prêt. Tu peux ouvrir l’onglet Guide 📘 quand tu veux t’y repérer, puis enchaîner avec ce qui te semble utile aujourd’hui.`,'👋',uid);
   try{void navigator.clipboard.writeText(pwd);}catch(_){}
@@ -4907,6 +4913,7 @@ function showPage(page){
   });
   const el=document.getElementById('page-'+page);if(el)el.style.display='flex';
   const nav=document.getElementById('nav-'+page);if(nav)nav.classList.add('active');
+  if(page==='benai')syncBenaiQuickLinks();
   if(page==='sav'){updateSavPageSubtitle();renderSAV();markSAVVu();showPageContext('sav');}
   if(page==='admin')refreshAdmin();
   if(page==='messages'){
@@ -5751,6 +5758,7 @@ function toggleSavForm(){
   const isOpen=wrap.style.display!=='none';
   wrap.style.display=isOpen?'none':'block';
   if(!isOpen){
+    syncSavSocieteFormOptions();
     const socSelect=document.getElementById('sav-soc');
     if(socSelect){
       if(currentUser.role==='assistante'&&(currentUser.societe==='nemausus'||currentUser.societe==='lambert')){
@@ -5829,6 +5837,8 @@ async function addSAV(){
 }
 
 function renderSAV(){
+  const savForm=document.getElementById('sav-form-wrap');
+  if(!savForm||savForm.style.display==='none')syncSavSocieteFormOptions();
   const actionDrafts=captureSavActionDrafts();
   const mem=getMem();const list=document.getElementById('sav-list');
   let savs=(mem.sav||[]).filter(s=>!s._deleted);const isAdmin=currentUser.role==='admin';
@@ -5895,7 +5905,7 @@ function renderSAV(){
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
         ${priorityBadge}
         ${stateLabel[s.statut]||''}
-        <span class="badge ${s.societe==='nemausus'?'badge-nem':'badge-lam'}">${s.societe==='nemausus'?'Nemausus':'Lambert'}</span>
+        ${formatSavSocieteBadgeHtml(s.societe)}
         ${s.urgent?'<span class="badge badge-urgent">🚨 URGENT</span>':''}
         ${rappelBadge}
         <span style="font-size:10px;color:var(--t3);margin-left:auto">${s.date_creation||''}${daysSinceCreation>0?' · '+daysSinceCreation+'j':''}</span>
@@ -5939,6 +5949,7 @@ async function deleteSAV(id){
 
 function editSAV(id){
   const mem=getMem();const sid=String(id);const s=mem.sav.find(x=>String(x.id)===sid);if(!s)return;
+  syncSavSocieteFormOptions();
   document.getElementById('sav-client').value=s.client||'';
   document.getElementById('sav-commercial').value=s.commercial||'';
   document.getElementById('sav-pb').value=s.probleme||'';
@@ -6098,7 +6109,7 @@ function exportSAVCSV(){
     s.date_creation||'',
     csv(s.client),
     csv(s.probleme),
-    s.societe==='nemausus'?'Nemausus Fermetures':'Lambert SAS',
+    s.societe==='lambert'?'lambert':'nemausus',
     csv(s.commercial),
     csv(s.fournisseur),
     csv(String(s.statut||'')),
@@ -6270,6 +6281,7 @@ function configureAbsencesPageForRole(){
   document.querySelectorAll('#page-absences .abs-admin-only').forEach(el=>{
     el.style.display=isAd?'flex':'none';
   });
+  renderAbsencesExportButtons();
   const sub=document.getElementById('abs-page-sub');
   if(sub)sub.textContent=isAd?'Rappels J-7 et la veille':'Absences partagées avec vous (rappels aussi dans BenAI IA)';
   const wrap=document.getElementById('abs-form-wrap');
@@ -6738,7 +6750,7 @@ async function downloadPlanningAbsences(societe){
   const absences=(mem.absences||[]).filter(a=>!a._deleted).sort((a,b)=>new Date(a.debut)-new Date(b.debut));
   if(!absences.length){await benaiAlert('Aucune absence enregistrée');return;}
   const isNem=societe==='nemausus';
-  const label=isNem?'Nemausus Fermetures':'Lambert SAS';
+  const label=isNem?'Périmètre CRM 1':'Périmètre CRM 2';
   const color=isNem?'linear-gradient(135deg,#E8943A,#C4711A)':'linear-gradient(135deg,#3B82F6,#1D4ED8)';
   const borderColor=isNem?'#E8943A':'#3B82F6';
   const ann=getAnnuaireActive();
@@ -6840,7 +6852,7 @@ async function downloadPlanningAbsences(societe){
   const cal=buildCalendar(societe);
   const pageContent=cal||`<div style="padding:20px;color:#9CA3AF;text-align:center">Aucune absence enregistrée pour ${label}</div>`;
 
-  const fname=`Planning_absences_${isNem?'Nemausus':'Lambert'}_${new Date().toISOString().slice(0,10)}.html`;
+  const fname=`Planning_absences_${societe}_${new Date().toISOString().slice(0,10)}.html`;
   const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Planning ${label}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
@@ -7365,9 +7377,9 @@ async function runHabitImprovementSuggestions(){
 const EVOLUTIONS=[
   {id:1,tag:'Productivité',tagColor:'var(--a)',title:'Export SAV mensuel automatique',desc:'Chaque 1er du mois, BenAI prépare un export CSV du SAV du mois écoulé. Vous le recevez dans un rappel.'},
   {id:2,tag:'Communication',tagColor:'var(--bl)',title:'Modèles d\'emails SAV',desc:'Des modèles pré-rédigés pour les emails fournisseurs courants : pièce manquante, délai de livraison, réclamation qualité.'},
-  {id:3,tag:'Suivi',tagColor:'var(--g)',title:'Tableau de bord mensuel',desc:'Un récapitulatif mensuel des SAV par société avec les temps de résolution moyens.'},
+  {id:3,tag:'Suivi',tagColor:'var(--g)',title:'Tableau de bord mensuel',desc:'Un récapitulatif mensuel des SAV par périmètre CRM avec les temps de résolution moyens.'},
   {id:4,tag:'Sécurité',tagColor:'var(--r)',title:'Sauvegarde automatique hebdomadaire',desc:'Rappel chaque lundi pour télécharger la sauvegarde BenAI. Simple et fiable.'},
-  {id:5,tag:'Productivité',tagColor:'var(--a)',title:'Signatures email personnalisées',desc:'BenAI mémorise vos signatures Nemausus et Lambert pour les intégrer automatiquement dans les emails rédigés.'},
+  {id:5,tag:'Productivité',tagColor:'var(--a)',title:'Signatures email personnalisées',desc:'BenAI mémorise vos signatures par périmètre pour les intégrer automatiquement dans les emails rédigés.'},
 ];
 
 function getEvolVotes(){try{return JSON.parse(appStorage.getItem('benai_evol_votes'))||{};}catch{return{};}}
@@ -7648,8 +7660,8 @@ function renderSAVStatsAdmin(){
     <div class="stat-bar-wrap"><div class="stat-bar-label"><span>🟡 En cours</span><span>${en_cours}</span></div><div class="stat-bar"><div class="stat-bar-fill" style="width:${total?en_cours/total*100:0}%;background:var(--y)"></div></div></div>
     <div class="stat-bar-wrap"><div class="stat-bar-label"><span>🟢 Réglés</span><span>${regle}</span></div><div class="stat-bar"><div class="stat-bar-fill" style="width:${total?regle/total*100:0}%;background:var(--g)"></div></div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
-      <div style="background:rgba(232,148,58,.1);border-radius:8px;padding:8px;text-align:center;font-size:12px"><span style="color:var(--nem);font-weight:600">Nemausus</span><br><span style="font-size:18px;font-weight:700">${nem}</span></div>
-      <div style="background:var(--bl2);border-radius:8px;padding:8px;text-align:center;font-size:12px"><span style="color:var(--lam);font-weight:600">Lambert</span><br><span style="font-size:18px;font-weight:700">${lam}</span></div>
+      <div style="background:rgba(232,148,58,.1);border-radius:8px;padding:8px;text-align:center;font-size:12px" title="Dossiers rattachés au référentiel CRM entité 1"><span style="color:var(--nem);font-weight:600">Périmètre 1</span><br><span style="font-size:18px;font-weight:700">${nem}</span></div>
+      <div style="background:var(--bl2);border-radius:8px;padding:8px;text-align:center;font-size:12px" title="Dossiers rattachés au référentiel CRM entité 2"><span style="color:var(--lam);font-weight:600">Périmètre 2</span><br><span style="font-size:18px;font-weight:700">${lam}</span></div>
     </div>`;
 }
 
@@ -8344,7 +8356,7 @@ function renderUsersList(){
     info.innerHTML=`
         <div class="user-name">${esc(u.name)}</div>
         <div style="font-size:10px;color:var(--t3);margin-top:2px">${u.id==='benjamin'?'Identifiant interne':'Connexion'} : <code style="font-size:10px;background:var(--s2);padding:2px 6px;border-radius:4px">${esc(u.id)}</code>${u.id==='benjamin'&&canAssignBenaiLoginPseudo()?' <span style="opacity:.9">· pseudo à la connexion (Supabase) : bouton 🔑</span>':''}</div>
-        <div class="user-role">${ROLE_LABELS[u.role]||u.role} · ${u.societe==='les-deux'?'Nemausus & Lambert':u.societe==='nemausus'?'Nemausus':'Lambert'}</div>
+        <div class="user-role">${ROLE_LABELS[u.role]||u.role} · ${u.societe==='les-deux'?'Multi-périmètres CRM':u.societe==='nemausus'?'Périmètre CRM — entité 1':u.societe==='lambert'?'Périmètre CRM — entité 2':'—'}</div>
         ${(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general')?`<div style="font-size:10px;color:var(--t3)">🚐 Véhicule : ${esc(u.vehicule||'Non renseigné')}</div>`:''}
         <div style="font-size:10px;color:var(--t3)">${derniereConnexion?'Dernière connexion : '+derniereConnexion:'Jamais connecté'}</div>`;
     div.append(av,info);
@@ -8954,7 +8966,7 @@ function buildBriefingContext(){
   const nem=openSAV.filter(s=>s.societe==='nemausus').length;
   const lam=openSAV.filter(s=>s.societe==='lambert').length;
   return `Aujourd'hui: ${days[today]}, Benjamin est à ${site}.
-SAV: ${openSAV.length} ouvert(s) — Nemausus: ${nem}, Lambert: ${lam} — Urgents: ${urgentSAV.length}${urgentSAV.length>0?' ('+urgentSAV.slice(0,2).map(s=>s.client+' - '+s.probleme).join(', ')+')':''}
+SAV: ${openSAV.length} ouvert(s) — périmètre CRM 1: ${nem}, périmètre 2: ${lam} — Urgents: ${urgentSAV.length}${urgentSAV.length>0?' ('+urgentSAV.slice(0,2).map(s=>s.client+' - '+s.probleme).join(', ')+')':''}
 ${criticalSAV.length>0?'SAV sans réponse +5j: '+criticalSAV.map(s=>`${s.client} (${getSAVAgeDays(s)}j, fournisseur: ${s.fournisseur||'non renseigné'})`).join(', '):''}
 Messages non lus: ${unread}${unread>0?' — vérifier la messagerie':''}
 ${absToday.length>0?'Absents aujourd\'hui: '+absToday.map(a=>a.employe).join(', '):'Toute l\'équipe est présente'}
@@ -9619,7 +9631,8 @@ function getLeadFormSecteurOptionIds(){
 }
 function getBenaiPilotageCompanyTitle(){
   const slug=getCrmSecteurScopeSlug();
-  if(slug==='all')return'Nemausus Fermetures et Lambert SAS (compte « les deux »)';
+  // Comptes multi-périmètres : ne pas associer deux marques dans le même libellé côté interface.
+  if(slug==='all')return'Compte avec accès aux deux périmètres CRM (filtre entreprise quand disponible)';
   if(slug==='lambert')return'Lambert SAS uniquement';
   return'Nemausus Fermetures uniquement';
 }
@@ -9643,6 +9656,83 @@ function getSavPageSubtitle(){
 function updateSavPageSubtitle(){
   const el=document.getElementById('sav-page-sub');
   if(el)el.textContent=getSavPageSubtitle();
+}
+/** Affiche les pastilles « deux entités » seulement pour admin ou comptes explicitement multi-périmètres. */
+function shouldShowDualCrmEntityMarkers(){
+  return currentUser?.role==='admin'||currentUser?.societe==='les-deux';
+}
+/** Pastille SAV discrète (1 / 2) pour ne pas exposer les deux marques aux comptes mono-société. */
+function formatSavSocieteBadgeHtml(savSociete){
+  if(!shouldShowDualCrmEntityMarkers())return'';
+  const s=String(savSociete||'').toLowerCase();
+  const isN=s==='nemausus';
+  const cls=isN?'badge-nem':'badge-lam';
+  const title=isN?'Référentiel CRM — entité 1':'Référentiel CRM — entité 2';
+  const n=isN?'1':'2';
+  return`<span class="badge ${cls}" title="${title}">${n}</span>`;
+}
+/** Libellés du select « Société » du formulaire SAV (valeurs techniques inchangées). */
+function syncSavSocieteFormOptions(){
+  const sel=document.getElementById('sav-soc');
+  if(!sel)return;
+  const dual=currentUser?.role==='admin'||currentUser?.societe==='les-deux';
+  if(dual){
+    sel.innerHTML='<option value="nemausus">Périmètre CRM — entité 1</option><option value="lambert">Périmètre CRM — entité 2</option>';
+  }else{
+    const v=(currentUser?.societe==='lambert'?'lambert':'nemausus');
+    sel.innerHTML=`<option value="${v}">Périmètre de ton compte</option>`;
+  }
+}
+function renderAbsencesExportButtons(){
+  const host=document.getElementById('abs-export-actions');
+  if(!host)return;
+  if(currentUser?.role!=='admin'){
+    host.innerHTML='';
+    return;
+  }
+  const soc=String(currentUser?.societe||'les-deux');
+  const stA='background:var(--a3);border:1px solid var(--a);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--a);font-family:inherit;font-weight:600';
+  const stB='background:var(--bl2);border:1px solid var(--bl);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--bl);font-family:inherit;font-weight:600';
+  if(soc==='les-deux'){
+    host.innerHTML=
+      `<button type="button" onclick="downloadPlanningAbsences('nemausus')" style="${stA}" title="Export HTML — périmètre CRM entité 1 (réf. technique nemausus)">📥 Planning — périmètre 1</button>`+
+      `<button type="button" onclick="downloadPlanningAbsences('lambert')" style="${stB}" title="Export HTML — périmètre CRM entité 2 (réf. technique lambert)">📥 Planning — périmètre 2</button>`;
+  }else{
+    const key=soc==='lambert'?'lambert':'nemausus';
+    host.innerHTML=`<button type="button" onclick="downloadPlanningAbsences('${key}')" style="${stA}" title="Export HTML des absences pour ton périmètre">📥 Exporter le planning</button>`;
+  }
+}
+/** Bandeau raccourcis sous BenAI IA pour les rôles dont l’accueil n’est pas le CRM (assistante, métreur, admin…). */
+function syncBenaiQuickLinks(){
+  const wrap=document.getElementById('benai-quick-links');
+  if(!wrap)return;
+  if(!currentUser||CRM_PAGES_ONLY.includes(currentUser.role)){
+    wrap.style.display='none';
+    wrap.innerHTML='';
+    return;
+  }
+  const allowed=ROLE_PAGES[currentUser.role]||ROLE_PAGES['assistante'];
+  const items=[];
+  const push=(page,label)=>{if(allowed.includes(page))items.push(`<button type="button" class="dash-quick-btn" onclick="showPage('${page}')">${label}</button>`);};
+  push('leads','📋 Leads CRM');
+  push('sav','🔧 SAV');
+  push('messages','💬 Messages');
+  push('notes','📝 Notes');
+  push('absences','🗓️ Absences');
+  push('annuaire','👥 Équipe');
+  push('guide','📘 Guide');
+  push('evolution','🚀 Évolutions');
+  if(currentUser.role==='admin'){
+    items.push('<button type="button" class="dash-quick-btn" onclick="showPage(\'admin\')">📊 Pilotage</button>');
+    items.push('<button type="button" class="dash-quick-btn" onclick="showPage(\'bugs\')">🎫 Tickets</button>');
+  }
+  items.push('<button type="button" class="dash-quick-btn" onclick="openBugReportOverlay()">🛟 Signaler</button>');
+  if(!items.length){
+    wrap.style.display='none';
+    return;
+  }
+  wrap.style.display='block';
+  wrap.innerHTML='<div class="crm-dash-kicker k-ex" style="margin:0 0 8px">Accès rapide</div><div class="dash-quick-actions" style="margin:0;grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">'+items.join('')+'</div>';
 }
 function syncEvolutionHabitAiPanel(){
   const wrap=document.getElementById('habit-ai-wrap');
@@ -9868,12 +9958,12 @@ function initLeadsPage(){
     if(!canUseGlobalScopeFilters)filterSociete.value='';
     else if(isCRMScopePilotageRole(role)&&(currentUser.societe==='nemausus'||currentUser.societe==='lambert')){
       filterSociete.innerHTML=currentUser.societe==='nemausus'
-        ?'<option value="nemausus">Nemausus</option>'
-        :'<option value="lambert">Lambert</option>';
+        ?'<option value="nemausus">Périmètre du compte</option>'
+        :'<option value="lambert">Périmètre du compte</option>';
       filterSociete.value=currentUser.societe;
       filterSociete.disabled=true;
     }else if(canUseGlobalScopeFilters){
-      filterSociete.innerHTML='<option value="">Toutes sociétés</option><option value="nemausus">Nemausus</option><option value="lambert">Lambert</option>';
+      filterSociete.innerHTML='<option value="">Tous périmètres CRM</option><option value="nemausus">Entité 1</option><option value="lambert">Entité 2</option>';
       filterSociete.disabled=false;
     }
   }
@@ -10470,8 +10560,8 @@ function renderLeadsDashboard(){
   ];
   const secteurs=secteursAll.filter(s=>secteurScopeSet.has(s.id));
   const entPilotageList=secteurScopeSlug==='nemausus'?[{id:'nemausus',label:'Nemausus Fermetures',color:'var(--a)'}]:secteurScopeSlug==='lambert'?[{id:'lambert',label:'Lambert SAS',color:'var(--bl)'}]:[
-    {id:'nemausus',label:'Nemausus Fermetures',color:'var(--a)'},
-    {id:'lambert',label:'Lambert SAS',color:'var(--bl)'}
+    {id:'nemausus',label:'Entité CRM 1',color:'var(--a)'},
+    {id:'lambert',label:'Entité CRM 2',color:'var(--bl)'}
   ];
   let html='';
   const totalLeads=leads.length;
@@ -10510,7 +10600,7 @@ function renderLeadsDashboard(){
         <a class="crm-dash-navlink" href="#crm-dash-secteurs">Secteurs & mois</a>
         <a class="crm-dash-navlink" href="#crm-dash-tab-mois">Tableau du mois</a>
         <a class="crm-dash-navlink" href="#crm-dash-ventes-rdv">Ventes &amp; RDV</a>
-        <a class="crm-dash-navlink" href="#crm-dash-ca-soc">CA par société</a>
+        <a class="crm-dash-navlink" href="#crm-dash-ca-soc">${entPilotageList.length>1?'CA par entité':'CA'}</a>
         <a class="crm-dash-navlink" href="#crm-dash-detail-ventes">Détail ventes</a>
         <a class="crm-dash-navlink" href="#crm-dash-equipe">Équipe</a>
         <a class="crm-dash-navlink" href="#crm-dash-objectifs">Objectifs</a>
@@ -10662,9 +10752,9 @@ function renderLeadsDashboard(){
     html+=`<div id="crm-dash-detail-ventes" class="crm-dash-anchor"><div id="crm-dash-slot-ventes"></div></div></div></details>`;
   }
   if(dashPilotage){
-    html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-ca-soc">${crmDashSummary('🏢 CA par société',entPilotageList.length===1?`${entPilotageList[0].label} : objectif du mois choisi, barre de progression, pipeline devis.`:'Nemausus et Lambert : objectif du mois choisi, barre de progression, pipeline devis.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">Choisissez le <strong>mois</strong> à analyser (chiffres = leads <em>créés</em> ce mois-là). Mois proposés : <strong>${year-1}</strong> et <strong>${year}</strong> pour comparer au <strong>N-1</strong>. Sans objectif saisi pour ce mois, c’est l’objectif de référence qui s’affiche.</div>`;
+    html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-ca-soc">${crmDashSummary(entPilotageList.length>1?'🏢 CA par entité CRM':'🏢 CA',entPilotageList.length===1?`${entPilotageList[0].label} : objectif du mois choisi, barre de progression, pipeline devis.`:'Les deux périmètres CRM : objectif du mois choisi, barre de progression, pipeline devis.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">Choisissez le <strong>mois</strong> à analyser (chiffres = leads <em>créés</em> ce mois-là). Mois proposés : <strong>${year-1}</strong> et <strong>${year}</strong> pour comparer au <strong>N-1</strong>. Sans objectif saisi pour ce mois, c’est l’objectif de référence qui s’affiche.</div>`;
   }
-  const entKicker=entPilotageList.length===1?`Performance — ${entPilotageList[0].label}`:'Performance par entreprise';
+  const entKicker=entPilotageList.length===1?`Performance — ${entPilotageList[0].label}`:'Performance par entité CRM';
   html+=`<div class="crm-dash-kicker k-pr" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;row-gap:8px;margin-top:0">
     <span>${esc(entKicker)}</span>
     <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t2);font-weight:600;font-family:inherit">Mois affiché
@@ -11011,7 +11101,10 @@ function editObjectifCommercial(uid,name){
 
 function editObjectifSociete(socId){
   if(currentUser?.role!=='admin'&&!isCRMScopePilotageRole(currentUser?.role))return;
-  const label=socId==='lambert'?'Lambert SAS':'Nemausus Fermetures';
+  const slug=getCrmSecteurScopeSlug();
+  const label=slug==='all'
+    ?(socId==='lambert'?'Entité CRM 2':'Entité CRM 1')
+    :(socId==='lambert'?'Lambert SAS':'Nemausus Fermetures');
   const monthKey=(document.getElementById('crm-obj-soc-mois')?.value)||getDefaultObjCommMonthKey();
   const labelMois=formatMois(monthKey);
   const next=JSON.parse(JSON.stringify(getCrmSocieteObjectifs()));
@@ -13266,7 +13359,7 @@ Secteur : ${getLeadSecteurLabel(l.secteur)}
 ${l.commentaire?'Commentaire : '+l.commentaire:''}
 
 Bonne chance !
-BenAI — Nemausus Fermetures`);
+— BenAI`);
   window.location.href=`mailto:?subject=${sujet}&body=${corps}`;
   logActivity(`${currentUser.name} a exporté le lead ${l.nom} par email`);
 }
