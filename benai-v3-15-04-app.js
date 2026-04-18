@@ -1202,8 +1202,12 @@ function normalizeProfileRole(raw){
 }
 function normalizeProfileCompany(raw){
   const s=String(raw||'').trim().toLowerCase();
-  if(s==='nemausus'||s==='lambert'||s==='les-deux')return s;
-  return 'nemausus';
+  if(!s)return'';
+  const compact=s.replace(/[\s_-]+/g,'');
+  if(s==='nemausus'||compact==='nemaususfermetures'||s.includes('nemausus'))return'nemausus';
+  if(s==='lambert'||s.includes('lambert'))return'lambert';
+  if(s==='les-deux'||s==='lesdeux'||compact==='lesdeux'||s.includes('les deux')||s.includes('les-deux'))return'les-deux';
+  return'';
 }
 
 function makeUserFromSupabaseProfile(profile,emailFallback=''){
@@ -1227,11 +1231,25 @@ function makeUserFromSupabaseProfile(profile,emailFallback=''){
   };
 }
 
+function formatBenaiOrgScopeHint(socRaw){
+  const s=String(socRaw||'').trim().toLowerCase();
+  if(s==='lambert')return'Lambert SAS';
+  if(s==='nemausus')return'Nemausus Fermetures';
+  if(s==='les-deux')return'Nemausus Fermetures et Lambert SAS (compte multi-périmètres)';
+  return'';
+}
 function getSystemPromptForUser(user){
   if(USERS[user.id]?.system)return USERS[user.id].system;
-  return CRM_PAGES_ONLY.includes(user.role)
-    ?`Tu es BenAI CRM, assistant de ${user.name} (${ROLE_LABELS[user.role]||user.role}).`
-    :`Tu es BenAI, l'assistant de ${user.name}. Tu proposes toujours — ${user.name} décide toujours.`;
+  const org=formatBenaiOrgScopeHint(user.societe);
+  if(CRM_PAGES_ONLY.includes(user.role)){
+    return org
+      ?`Tu es BenAI CRM, assistant de ${user.name} (${ROLE_LABELS[user.role]||user.role}) pour ${org}.`
+      :`Tu es BenAI CRM, assistant de ${user.name} (${ROLE_LABELS[user.role]||user.role}). La société du profil n’est pas renseignée : rester neutre entre Nemausus Fermetures et Lambert SAS.`;
+  }
+  if(org){
+    return`Tu es BenAI, l'assistant de ${user.name}. Compte rattaché à ${org} : priorise cette entité dans les exemples et formulations ; ne présume pas l’autre entité sauf si ${user.name} en parle. Tu proposes toujours — ${user.name} décide toujours.`;
+  }
+  return`Tu es BenAI, l'assistant de ${user.name}. Société du profil non renseignée : rester neutre entre Nemausus Fermetures et Lambert SAS. Tu proposes toujours — ${user.name} décide toujours.`;
 }
 
 function isTransientSupabaseAuthFailure(message=''){
@@ -2224,6 +2242,19 @@ Produits : menuiserie alu, volets roulants/battants, portes, fenêtres, coulissa
 Logiciels : Hercule Pro (devis), All Manager (ERP). Clientèle : particuliers uniquement.
 RÈGLE ABSOLUE : Tu proposes — l'utilisateur décide toujours. Jamais d'action automatique.`;
 
+function getBenaiEnterpriseInstructionForChat(){
+  if(!currentUser)return'';
+  const s=String(currentUser.societe||'').trim().toLowerCase();
+  if(s==='lambert')return'\nPriorité conversation : le compte est rattaché à Lambert SAS — ne pas centrer les réponses sur Nemausus Fermetures sauf demande explicite.';
+  if(s==='nemausus')return'\nPriorité conversation : le compte est rattaché à Nemausus Fermetures — ne pas centrer les réponses sur Lambert SAS sauf demande explicite.';
+  if(s==='les-deux'||currentUser.role==='admin')return'';
+  return'\nSociété du profil non renseignée : rester symétrique entre Nemausus Fermetures et Lambert SAS ; demander quelle entité si le sujet l’exige.';
+}
+function buildBenaiAnthropicChatSystem(extraSuffix=''){
+  const extra=String(extraSuffix||'');
+  return(String(currentUser?.system||'')+BENAI_CTX+getBenaiEnterpriseInstructionForChat()+extra);
+}
+
 // ══════════════════════════════════════════
 // ÉTAT
 // ══════════════════════════════════════════
@@ -2906,11 +2937,18 @@ function formatSocieteLegaleCourt(s){
 function pilotageShowsDistinctEntityNames(){
   return currentUser?.role==='admin'||currentUser?.role==='directeur_general';
 }
-/** Même société CRM (ou compte multi-périmètre) — messagerie commercial ↔ assistante. */
+/** Slug société pour messagerie (ne pas assimiler un profil vide à Nemausus). */
+function normalizedSocieteSlugForMessaging(u){
+  const s=String(u?.societe??'').trim().toLowerCase();
+  if(s==='nemausus'||s==='lambert'||s==='les-deux')return s;
+  return'';
+}
+/** Même société CRM (ou compte multi-périmètre) — messagerie équipe par entité. */
 function societeMessagableOverlap(a,b){
-  const sa=String(a?.societe||'nemausus').trim().toLowerCase();
-  const sb=String(b?.societe||'nemausus').trim().toLowerCase();
+  const sa=normalizedSocieteSlugForMessaging(a);
+  const sb=normalizedSocieteSlugForMessaging(b);
   if(sa==='les-deux'||sb==='les-deux')return true;
+  if(!sa||!sb)return false;
   return sa===sb;
 }
 
@@ -3272,7 +3310,7 @@ async function sendChat(txtOverride){
     // Contexte intelligent Benjamin : planning + rappels
     const smartCtx=currentUser.id==='benjamin'?getBenjaminSmartContext():'';
     const msgs=chatHistory.filter(m=>m.role).map(m=>({role:m.role,content:m.content}));
-    const data=await requestAnthropicMessages({model:'claude-sonnet-4-20250514',max_tokens:1500,system:currentUser.system+BENAI_CTX+ctx+crmCtx+smartCtx,messages:msgs});
+    const data=await requestAnthropicMessages({model:'claude-sonnet-4-20250514',max_tokens:1500,system:buildBenaiAnthropicChatSystem(ctx+crmCtx+smartCtx),messages:msgs});
     const reply=data.content[0].text;
     const usage=data.usage||{};
     trackTokens(currentUser.id,usage.input_tokens||0,usage.output_tokens||0);
@@ -3495,7 +3533,7 @@ async function handleImageFile(file){
     if(!apiKey){typing.remove();showDriveNotif('⚠️ Clé API IA indisponible — Paramètres ou synchro équipe');throw new Error('Clé API manquante');}
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,system:currentUser.system+BENAI_CTX,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},{type:'text',text:userPrompt}]}]})
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,system:buildBenaiAnthropicChatSystem(),messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},{type:'text',text:userPrompt}]}]})
     });
     const data=await res.json();if(!res.ok)throw new Error(data.error?.message||'Erreur API');
     if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
@@ -3523,7 +3561,7 @@ async function handleGenericPDF(file){
     if(!apiKey){typing.remove();showDriveNotif('⚠️ Clé API IA indisponible — Paramètres ou synchro équipe');throw new Error('Clé API manquante');}
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:currentUser.system+BENAI_CTX,messages:[{role:'user',content:[...imgs.map(img=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}})),{type:'text',text:userPrompt}]}]})
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildBenaiAnthropicChatSystem(),messages:[{role:'user',content:[...imgs.map(img=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}})),{type:'text',text:userPrompt}]}]})
     });
     const data=await res.json();if(!res.ok)throw new Error(data.error?.message||'Erreur API');
     if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
@@ -3728,11 +3766,10 @@ function getConvsForUser(uid){
   const me=allUsers.find(u=>u.id===uid);
   const role=me?.role||'assistante';
 
-  // CRM only roles — voient uniquement les autres CRM + Benjamin
   const crmOnly=['commercial','directeur_co','directeur_general'];
   const isCRMOnly=crmOnly.includes(role);
-  /** Messagerie limitée au même « camp » société (Nemausus / Lambert / les-deux) : toute l’équipe métier peut s’écrire. */
-  const teamScopedMessaging=isCRMOnly||role==='metreur';
+  /** Messagerie limitée au même « camp » société (Nemausus / Lambert / les-deux) : CRM, métreur et assistantes d’entité. */
+  const teamScopedMessaging=isCRMOnly||role==='metreur'||role==='assistante';
 
   if(uid==='benjamin'){
     // Benjamin voit tout le monde
@@ -3749,7 +3786,7 @@ function getConvsForUser(uid){
       convs[makeConvId(uid,u.id)]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
     });
   } else {
-    // Assistante/métreur → Benjamin + toute l'équipe + BenAI (messages auto éventuels)
+    // Rôles hors périmètre « équipe société » (ex. admin non-Benjamin) → Benjamin + toute l'équipe listée
     const ben=allUsers.find(u=>u.id==='benjamin');
     if(ben)convs[makeConvId(uid,'benjamin')]={name:'Benjamin',other:'benjamin',color:ben.color,initial:ben.initial};
     addBenAIInternalConv(uid,convs);
@@ -6510,7 +6547,7 @@ async function syncExtraUsersFromSupabaseProfiles(){
         name:fullName,
         email,
         role:p?.role||prev?.role||'assistante',
-        societe:p?.company||prev?.societe||'nemausus',
+        societe:normalizeProfileCompany(p?.company)||normalizeProfileCompany(prev?.societe)||'',
         fonction:prev?.fonction||'',
         vehicule:prev?.vehicule||'',
         color:prev?.color||COLORS[(colorIdx.i++)%COLORS.length],
@@ -8299,10 +8336,11 @@ function getCrmSecteurScopeSlug(){
   const role=currentUser?.role;
   if(role==='admin')return'all';
   if(role==='directeur_co'||role==='directeur_general'||role==='assistante'){
-    const soc=currentUser?.societe||'nemausus';
+    const soc=String(currentUser?.societe||'').trim().toLowerCase();
     if(soc==='les-deux')return'all';
     if(soc==='lambert')return'lambert';
-    return'nemausus';
+    if(soc==='nemausus')return'nemausus';
+    return'all';
   }
   return'all';
 }
@@ -8365,11 +8403,12 @@ function formatSavSocieteBadgeHtml(savSociete){
 function syncSavSocieteFormOptions(){
   const sel=document.getElementById('sav-soc');
   if(!sel)return;
-  const dual=currentUser?.role==='admin'||currentUser?.role==='directeur_general'||currentUser?.societe==='les-deux';
+  const socRaw=String(currentUser?.societe||'').trim().toLowerCase();
+  const dual=currentUser?.role==='admin'||currentUser?.role==='directeur_general'||socRaw==='les-deux'||!socRaw;
   if(dual){
     sel.innerHTML='<option value="nemausus">Nemausus Fermetures</option><option value="lambert">Lambert SAS</option>';
   }else{
-    const v=(currentUser?.societe==='lambert'?'lambert':'nemausus');
+    const v=(socRaw==='lambert'?'lambert':'nemausus');
     const label=formatSocieteLegaleCourt(v);
     sel.innerHTML=`<option value="${v}">${label}</option>`;
   }
