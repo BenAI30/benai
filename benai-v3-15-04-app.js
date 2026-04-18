@@ -3065,7 +3065,7 @@ function initApp(silent=false){
   });
 
   // Afficher nav selon rôle
-  const allowed=ROLE_PAGES[u.role]||ROLE_PAGES['assistante'];
+  const allowed=getRolePagesForRole(u.role);
   allowed.forEach(p=>{
     const nav=document.getElementById('nav-'+p);
     if(nav)nav.style.display='flex';
@@ -3088,7 +3088,7 @@ function initApp(silent=false){
   if(btnCorrect)btnCorrect.style.display=isBenAIDesktopAutocorrect()?'inline-flex':'none';
 
   // Page d'accueil selon rôle
-  const allowedHome=ROLE_PAGES[u.role]||ROLE_PAGES['assistante'];
+  const allowedHome=getRolePagesForRole(u.role);
   const homePage=CRM_PAGES_ONLY.includes(u.role)?'leads':(allowedHome[0]||'guide');
 
   const mem=loadChatMem(u.id);
@@ -3110,7 +3110,7 @@ function initApp(silent=false){
   } else if(u.role!=='assistante'&&!CRM_PAGES_ONLY.includes(u.role)){
     checkAbsenceRemindersForUser(u.id);
   }
-  if(CRM_PAGES_ONLY.includes(u.role)&&(ROLE_PAGES[u.role]||[]).includes('absences')){
+  if(CRM_PAGES_ONLY.includes(u.role)&&getRolePagesForRole(u.role).includes('absences')){
     checkAbsenceRemindersForUser(u.id);
   }
   refreshSAVBadge();
@@ -3150,8 +3150,13 @@ function showPage(page){
   }
   const adminOnly=['admin','annuaire','paie'];
   if(adminOnly.includes(page)&&currentUser?.role!=='admin'){showPage('leads');return;}
+  if(page==='benai'&&currentUser&&!canAccessBenAIIAChat()){
+    const al=getRolePagesForRole(currentUser.role);
+    showPage(al[0]||'notes');
+    return;
+  }
   // Vérifier accès selon rôle
-  const allowed=ROLE_PAGES[currentUser?.role]||ROLE_PAGES['assistante'];
+  const allowed=getRolePagesForRole(currentUser?.role);
   const canOpenNotes=allowed.includes('notes');
   const canOpenMessages=allowed.includes('messages');
   const canOpenEvolution=allowed.includes('evolution');
@@ -3218,6 +3223,10 @@ function addTyping(){
 function scrollChat(){const c=document.getElementById('chat-area');c.scrollTop=c.scrollHeight;}
 
 async function sendChat(txtOverride){
+  if(!canAccessBenAIIAChat()){
+    await benaiAlert("L’assistant BenAI IA est réservé à l’administration et aux assistantes.");
+    return;
+  }
   const input=document.getElementById('chat-input');
   let txt=txtOverride||input.value.trim();
   if(!txt||busy)return;
@@ -3377,6 +3386,7 @@ ${lostTxt}
 // CORRIGER ORTHOGRAPHE
 async function correctSpelling(){
   if(!isBenAIDesktopAutocorrect())return;
+  if(!canAccessBenAIIAChat())return;
   const input=document.getElementById('chat-input');
   const txt=input.value.trim();
   if(!txt)return;
@@ -4569,7 +4579,7 @@ function hasAbsencesSharedWithUser(user){
 function updateNavAbsencesVisibility(){
   const nav=document.getElementById('nav-absences');
   if(!nav||!currentUser)return;
-  const allowed=ROLE_PAGES[currentUser.role]||ROLE_PAGES['assistante'];
+  const allowed=getRolePagesForRole(currentUser.role);
   if(!allowed.includes('absences')){
     nav.style.display='none';
     refreshAbsBadge();
@@ -4587,8 +4597,8 @@ function updateNavAbsencesVisibility(){
   if(!show){
     const absPage=document.getElementById('page-absences');
     if(absPage&&absPage.style.display==='flex'){
-      const al=ROLE_PAGES[currentUser.role]||ROLE_PAGES['assistante'];
-      const fallback=al.find(p=>p!=='absences')||al[0]||'benai';
+      const al=getRolePagesForRole(currentUser.role);
+      const fallback=al.find(p=>p!=='absences')||al[0]||'notes';
       showPage(fallback);
     }
   }
@@ -8094,6 +8104,17 @@ const ROLE_PAGES={
   directeur_general:['notes','messages','leads','absences','evolution','guide'],
   commercial:['notes','messages','leads','absences','evolution','guide']
 };
+/** Pages autorisées : ne jamais retomber sur « assistante » par défaut (sinon BenAI IA ouvert à tous si le rôle est inconnu). */
+function getRolePagesForRole(role){
+  const r=typeof role==='string'?role.trim():String(role||'').trim();
+  if(r&&ROLE_PAGES[r])return ROLE_PAGES[r];
+  return ROLE_PAGES.commercial;
+}
+/** Page chat BenAI IA + envoi au modèle (hors flux admin déjà protégés ailleurs). */
+function canAccessBenAIIAChat(){
+  const r=currentUser?.role;
+  return r==='admin'||r==='assistante';
+}
 /** Même périmètre CRM / pilotage (société, filtres, onglets) que le dir. commercial. */
 function isCRMScopePilotageRole(role){
   return role==='directeur_co'||role==='directeur_general';
@@ -8382,7 +8403,7 @@ function syncBenaiQuickLinks(){
     wrap.innerHTML='';
     return;
   }
-  const allowed=ROLE_PAGES[currentUser.role]||ROLE_PAGES['assistante'];
+  const allowed=getRolePagesForRole(currentUser.role);
   const items=[];
   const push=(page,label)=>{if(allowed.includes(page))items.push(`<button type="button" class="dash-quick-btn" onclick="showPage('${page}')">${label}</button>`);};
   push('leads','📋 Leads CRM');
@@ -11335,7 +11356,7 @@ function filterBugs(f,btn){
 
 function initBugsPage(){
   if(currentUser?.role!=='admin'){
-    const allowed=ROLE_PAGES[currentUser?.role]||ROLE_PAGES['assistante'];
+    const allowed=getRolePagesForRole(currentUser?.role);
     showPage(allowed[0]||'guide');
     return;
   }
