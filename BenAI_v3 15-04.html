@@ -2016,6 +2016,8 @@ loadAppStorageCacheFromSession();
 const BENAI_VERSION = '3.15';
 const GUIDE_REQUIRED_VERSION='3.21';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
+/** Même clé que appStorage : persistance navigateur (localStorage) car l’ACK guide est exclu du snapshot cloud. */
+const ROLE_GUIDE_ACK_LOCAL_PREFIX='benai_role_guide_ack_local_';
 const STORAGE_KEYS = {
   mem:'benai_v3',
   api:'benai_api',
@@ -7054,9 +7056,21 @@ function dismissEvol(id){
 function getRoleGuideAckKey(role){
   return `benai_role_guide_ack_${GUIDE_REQUIRED_VERSION}_${role||'assistante'}`;
 }
+function getRoleGuideAckLocalStorageKey(role){
+  return ROLE_GUIDE_ACK_LOCAL_PREFIX+getRoleGuideAckKey(role||'assistante');
+}
 function hasAcknowledgedRoleGuide(role){
   if(!currentUser||currentUser.id==='benjamin')return true;
-  return appStorage.getItem(getRoleGuideAckKey(role||currentUser.role))==='1';
+  const key=getRoleGuideAckKey(role||currentUser.role);
+  if(appStorage.getItem(key)==='1')return true;
+  try{
+    const lk=getRoleGuideAckLocalStorageKey(role||currentUser.role);
+    if(localStorage.getItem(lk)==='1'){
+      appStorage.setItem(key,'1');
+      return true;
+    }
+  }catch(e){}
+  return false;
 }
 function shouldForceRoleGuide(){
   if(!currentUser||currentUser.id==='benjamin')return false;
@@ -7064,7 +7078,9 @@ function shouldForceRoleGuide(){
 }
 function acknowledgeRoleGuide(){
   if(!currentUser)return;
-  appStorage.setItem(getRoleGuideAckKey(currentUser.role),'1');
+  const key=getRoleGuideAckKey(currentUser.role);
+  appStorage.setItem(key,'1');
+  try{localStorage.setItem(getRoleGuideAckLocalStorageKey(currentUser.role),'1');}catch(e){}
   renderGuidePage();
   showDriveNotif('✅ Guide validé');
 }
