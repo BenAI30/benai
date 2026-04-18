@@ -668,6 +668,7 @@ declare
   safe_uid text;
   uemail text;
 begin
+  set local row_security = off;
   for au in select * from auth.users where id = auth.uid() loop
     uemail := lower(coalesce(au.email, ''));
     meta := coalesce(au.raw_user_meta_data, '{}'::jsonb);

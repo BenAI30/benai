@@ -1,6 +1,12 @@
 -- Répare les comptes où auth.users existe mais public.profiles n’a pas été créé (trigger absent, erreur passée, etc.).
 -- Exécuter une fois dans Supabase → SQL Editor.
 -- BenAI appelle ensuite POST /rest/v1/rpc/ensure_my_profile avec le JWT utilisateur après connexion.
+--
+-- L’éditeur SQL peut afficher une alerte « public.profiles sans RLS » : c’est souvent un faux positif.
+-- Si une fenêtre s’ouvre : choisissez « Exécuter et activer RLS » (bouton vert). Ne choisissez pas « sans RLS ».
+-- La ligne suivante ne change rien si la RLS est déjà activée (idempotent).
+
+alter table if exists public.profiles enable row level security;
 
 create or replace function public.ensure_my_profile()
 returns void
@@ -17,7 +23,8 @@ declare
   safe_uid text;
   uemail text;
 begin
-  -- FOR … IN SELECT : aucun « INTO », l’avertissement « nouvelle table sans RLS » de l’éditeur disparaît.
+  -- PostgREST appelle la RPC avec le JWT utilisateur ; sans ceci, l’INSERT peut être bloqué par la RLS selon le propriétaire de la fonction.
+  set local row_security = off;
   for au in select * from auth.users where id = auth.uid() loop
     uemail := lower(coalesce(au.email, ''));
     meta := coalesce(au.raw_user_meta_data, '{}'::jsonb);

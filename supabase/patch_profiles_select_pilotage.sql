@@ -1,5 +1,9 @@
 -- Permet au dir. commercial / DG de lire les profils de leur périmètre (liste commerciaux CRM, attribution).
 -- À exécuter dans Supabase SQL Editor si vous ne réexécutez pas tout supabase_security.sql.
+--
+-- Évite l’avertissement « public.profiles sans RLS » de l’éditeur (idempotent).
+
+alter table if exists public.profiles enable row level security;
 
 drop policy if exists "profiles_self_or_admin_select" on public.profiles;
 create policy "profiles_self_or_admin_select"
