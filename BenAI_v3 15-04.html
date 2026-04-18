@@ -884,7 +884,7 @@ input[type=file]{display:none;}
     <div class="sidebar">
       <div class="sb-section" id="sb-collab">
         <div class="sb-label">Échanger</div>
-        <div class="sb-hint" id="sb-collab-hint">Messages, notes, assistant</div>
+        <div class="sb-hint" id="sb-collab-hint">Messages, notes, assistant IA</div>
         <div class="sb-item" onclick="showPage('messages')" id="nav-messages" title="Messages internes — conversations équipe">
           <span class="sb-icon">💬</span><span class="sb-txt">Messages</span>
           <span class="sb-badge" id="msg-badge" style="display:none"></span>
@@ -894,7 +894,7 @@ input[type=file]{display:none;}
       </div>
       <div class="sb-section" id="sb-metier">
         <div class="sb-label">Clients & dossiers</div>
-        <div class="sb-hint" id="sb-metier-hint">CRM et suivi SAV</div>
+        <div class="sb-hint" id="sb-metier-hint">Leads, devis, SAV</div>
         <div class="sb-item" id="nav-leads" style="display:none" onclick="showPage('leads')" title="Leads CRM — pipe et ventes">
           <span class="sb-icon">📋</span><span class="sb-txt">Leads CRM</span>
           <span class="sb-badge" id="leads-badge" style="display:none"></span>
@@ -906,7 +906,7 @@ input[type=file]{display:none;}
       </div>
       <div class="sb-section" id="sb-org">
         <div class="sb-label">Organisation</div>
-        <div class="sb-hint" id="sb-org-hint">RH, pilotage, équipe</div>
+        <div class="sb-hint" id="sb-org-hint">Équipe, absences, pilotage</div>
         <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')" title="Annuaire et fiches équipe"><span class="sb-icon">👥</span><span class="sb-txt">Équipe</span></div>
         <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')" title="Planning des absences"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span><span class="sb-badge-abs" id="abs-badge" style="display:none"></span></div>
         <div class="sb-item" id="nav-paie" style="display:none" onclick="showPage('paie')" title="Indicateurs paie"><span class="sb-icon">💰</span><span class="sb-txt">Paie</span></div>
@@ -4630,8 +4630,9 @@ function refreshSidebarSectionsVisibility(){
   });
 }
 
-/** Ordre menu : profils CRM d’abord (Leads / SAV), sinon flux quotidien (Messages…) puis organisation puis aide. */
+/** Menu latéral : même structure et le même ordre pour tous les rôles (seules les entrées autorisées s’affichent). */
 function applySidebarSectionOrderForRole(role){
+  void role;
   const sidebar=document.querySelector('.sidebar');
   const collab=document.getElementById('sb-collab');
   const metier=document.getElementById('sb-metier');
@@ -4644,14 +4645,13 @@ function applySidebarSectionOrderForRole(role){
   const hintCollab=document.getElementById('sb-collab-hint');
   const hintMetier=document.getElementById('sb-metier-hint');
   const hintOrg=document.getElementById('sb-org-hint');
-  if(collabLbl)collabLbl.textContent=CRM_PAGES_ONLY.includes(role)?'Messages':'Échanger';
-  if(metierLbl)metierLbl.textContent=CRM_PAGES_ONLY.includes(role)?'CRM & SAV':'Clients & dossiers';
+  if(collabLbl)collabLbl.textContent='Échanger';
+  if(metierLbl)metierLbl.textContent='Clients & dossiers';
   if(orgLbl)orgLbl.textContent='Organisation';
-  if(hintCollab)hintCollab.textContent=CRM_PAGES_ONLY.includes(role)?'Conversations internes':'Messages, notes, assistant';
-  if(hintMetier)hintMetier.textContent=CRM_PAGES_ONLY.includes(role)?'Pipe leads et SAV':'CRM, SAV chantier';
-  if(hintOrg)hintOrg.textContent=CRM_PAGES_ONLY.includes(role)?'Absences, guide, bugs':'Équipe, absences, pilotage';
-  const order=CRM_PAGES_ONLY.includes(role)?[metier,collab,org,aide]:[collab,metier,org,aide];
-  order.forEach(sec=>sidebar.appendChild(sec));
+  if(hintCollab)hintCollab.textContent='Messages, notes, assistant IA';
+  if(hintMetier)hintMetier.textContent='Leads, devis, SAV';
+  if(hintOrg)hintOrg.textContent='Équipe, absences, pilotage';
+  [collab,metier,org,aide].forEach(sec=>sidebar.appendChild(sec));
 }
 
 function initApp(silent=false){
@@ -9208,9 +9208,9 @@ const ROLE_PAGES={
   admin:['benai','notes','messages','sav','leads','absences','annuaire','paie','admin','evolution','guide','bugs'],
   assistante:['benai','notes','messages','sav','leads','absences','evolution','guide','bugs'],
   metreur:['benai','notes','messages','absences','evolution','guide','bugs'],
-  directeur_co:['leads','messages','absences','guide','bugs'],
-  directeur_general:['leads','messages','absences','guide','bugs'],
-  commercial:['leads','messages','absences','guide','bugs']
+  directeur_co:['leads','messages','absences','evolution','guide','bugs'],
+  directeur_general:['leads','messages','absences','evolution','guide','bugs'],
+  commercial:['leads','messages','absences','evolution','guide','bugs']
 };
 /** Même périmètre CRM / pilotage (société, filtres, onglets) que le dir. commercial. */
 function isCRMScopePilotageRole(role){
