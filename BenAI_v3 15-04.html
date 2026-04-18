@@ -10604,6 +10604,9 @@ function renderLeadsDashboard(){
     ${rdvTop.length?rdvTop.map(x=>`<div class="perf-row"><div class="perf-name">${esc(x.lead.nom)}</div><div class="perf-stats">${x.count} RDV</div><div class="perf-ca">${esc(x.lead.type_projet||'')}</div></div>`).join(''):`<div style="font-size:12px;color:var(--t3)">Aucun RDV réalisé enregistré ce mois.</div>`}
   </div>`;
   if(dashPilotage){
+    html+=`<div id="crm-dash-detail-ventes" class="crm-dash-anchor"><div id="crm-dash-slot-ventes"></div></div></div></details>`;
+  }
+  if(dashPilotage){
     html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-ca-soc">${crmDashSummary('🏢 CA par société',entPilotageList.length===1?`${entPilotageList[0].label} : objectif du mois choisi, barre de progression, pipeline devis.`:'Nemausus et Lambert : objectif du mois choisi, barre de progression, pipeline devis.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">Choisissez le <strong>mois</strong> à analyser (chiffres = leads <em>créés</em> ce mois-là). Mois proposés : <strong>${year-1}</strong> et <strong>${year}</strong> pour comparer au <strong>N-1</strong>. Sans objectif saisi pour ce mois, c’est l’objectif de référence qui s’affiche.</div>`;
   }
   const entKicker=entPilotageList.length===1?`Performance — ${entPilotageList[0].label}`:'Performance par entreprise';
@@ -10656,9 +10659,6 @@ function renderLeadsDashboard(){
     html+=`<div class="stat-box"><div style="font-size:16px">${srcIcons[src]}</div><div class="stat-box-val" style="font-size:16px">${sl.length}</div><div class="stat-box-lbl">${LEAD_SOURCE_LABELS[src]||src}</div><div style="font-size:10px;color:var(--g)">${v} ventes</div></div>`;
   });
   html+='</div></div>';
-  if(dashPilotage){
-    html+=`<div id="crm-dash-detail-ventes" class="crm-dash-anchor"><div id="crm-dash-slot-ventes"></div></div></div></details>`;
-  }
   }
   if(!dashCommercial){
   if(dashPilotage){
@@ -10715,7 +10715,7 @@ function renderLeadsDashboard(){
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
             <div style="width:28px;height:28px;border-radius:8px;background:${c.color};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff">${c.initial}</div>
             <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(c.name)}</div><div style="font-size:10px;color:var(--t3)">${contacts.ce_mois} contacts ce mois · ${contacts.cette_semaine} cette semaine${c.vehicule?` · 🚐 ${esc(c.vehicule)}`:''}</div></div>
-            ${!c._archivedCommercial&&(currentUser.role==='admin'||isCRMScopePilotageRole(currentUser.role))?`<button onclick="editObjectifCommercial(${JSON.stringify(c.id)},${JSON.stringify(c.name)})" style="background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
+            ${!c._archivedCommercial&&(currentUser.role==='admin'||isCRMScopePilotageRole(currentUser.role))?`<button type="button" class="crm-obj-comm-edit" data-uid="${escAttr(String(c.id??''))}" title="Modifier les objectifs CA" style="background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
           </div>
           <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Mensuel (${moisHuman}) — ${prog.ca_mois.toLocaleString('fr-FR')}€ / ${prog.obj.mensuel.toLocaleString('fr-FR')}€ · ${prog.ventes_mois} ventes</div>
           <div class="objectif-bar" style="margin-bottom:6px"><div class="objectif-bar-fill" style="width:${pctMois}%;background:${pctMois>=100?'var(--g)':pctMois>=75?'var(--a)':'var(--r)'}"></div></div>
@@ -10808,7 +10808,7 @@ function renderLeadsDashboard(){
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <div style="width:28px;height:28px;border-radius:8px;background:${c.color};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff">${c.initial}</div>
           <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(c.name)}</div><div style="font-size:10px;color:var(--t3)">${contacts.ce_mois} contacts ce mois · ${contacts.cette_semaine} cette semaine${c.vehicule?` · 🚐 ${esc(c.vehicule)}`:''}</div></div>
-          ${!c._archivedCommercial&&(currentUser.role==='admin'||isCRMScopePilotageRole(currentUser.role))?`<button onclick="editObjectifCommercial(${JSON.stringify(c.id)},${JSON.stringify(c.name)})" style="background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
+          ${!c._archivedCommercial&&(currentUser.role==='admin'||isCRMScopePilotageRole(currentUser.role))?`<button type="button" class="crm-obj-comm-edit" data-uid="${escAttr(String(c.id??''))}" title="Modifier les objectifs CA" style="background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
         </div>
         <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Mensuel (${moisHuman}) — ${prog.ca_mois.toLocaleString('fr-FR')}€ / ${prog.obj.mensuel.toLocaleString('fr-FR')}€ · ${prog.ventes_mois} ventes</div>
         <div class="objectif-bar" style="margin-bottom:6px"><div class="objectif-bar-fill" style="width:${pctMois}%;background:${pctMois>=100?'var(--g)':pctMois>=75?'var(--a)':'var(--r)'}"></div></div>
@@ -10826,6 +10826,13 @@ function renderLeadsDashboard(){
     list.style.margin='0 auto';
     list.style.width='100%';
     list.innerHTML=html;
+    list.querySelectorAll('.crm-obj-comm-edit').forEach(btn=>{
+      btn.addEventListener('click',ev=>{
+        ev.preventDefault();
+        const uid=btn.getAttribute('data-uid');
+        if(uid)editObjectifCommercial(uid);
+      });
+    });
     applyCrmDashboardDetailsOpenState(dashOpenIds);
     const slot=document.getElementById('crm-dash-slot-ventes');
     const detailVentes=document.getElementById('crm-dash-detail-ventes');
@@ -10843,6 +10850,7 @@ function renderLeadsDashboard(){
 
 function editObjectifCommercial(uid,name){
   document.getElementById('obj-comm-edit-overlay')?.remove();
+  const nameLabel=(name!=null&&String(name).trim()!=='')?String(name):resolveCrmCommercialLabel(uid);
   const monthKey=(document.getElementById('crm-obj-comm-mois')?.value)||getDefaultObjCommMonthKey();
   const all=getObjectifsCommerciaux();
   const curEnt=normalizeCommercialObjEntry(all[uid]||{});
@@ -10871,7 +10879,7 @@ function editObjectifCommercial(uid,name){
     <div class="lead-modal-box" style="max-width:520px;max-height:92vh;overflow-y:auto" role="dialog" aria-modal="true" aria-labelledby="obj-comm-edit-title" onclick="event.stopPropagation()">
       <div class="lead-modal-header">
         <div>
-          <div id="obj-comm-edit-title" style="font-size:16px;font-weight:700">Objectifs CA — ${esc(name)}</div>
+          <div id="obj-comm-edit-title" style="font-size:16px;font-weight:700">Objectifs CA — ${esc(nameLabel)}</div>
           <div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.45">Mois : <strong>${esc(labelMois)}</strong> · pour un autre mois, change d’abord « Mois affiché » sur le tableau de bord CRM.</div>
         </div>
         <button type="button" id="obj-comm-close-x" style="background:transparent;border:none;color:var(--t2);font-size:20px;line-height:1;cursor:pointer;padding:4px 8px" aria-label="Fermer">×</button>
@@ -10938,7 +10946,7 @@ function editObjectifCommercial(uid,name){
     });
     setObjectifCommercial(uid,monthKey,mensuel,hebdo,weeks);
   renderLeadsDashboard();
-    logActivity(`${currentUser.name} a mis à jour les objectifs de ${name} (${labelMois})`);
+    logActivity(`${currentUser.name} a mis à jour les objectifs de ${nameLabel} (${labelMois})`);
     close();
   });
   document.body.appendChild(wrap);
