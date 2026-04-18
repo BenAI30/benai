@@ -10749,9 +10749,14 @@ function checkMotivationsAuto(){
 function renderTableauVentes(container){
   const leads=getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert');
   const now=new Date();
-  // Sélecteur mois
-  const moisDispos=[...new Set(leads.map(l=>{const d=new Date(l.date_creation||0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}))].sort().reverse();
-  const selectedMois=appStorage.getItem('benai_ventes_mois')||`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  // Sélecteur mois — toujours au moins une <option> (select vide = bug UI rectangle blanc sous certains navigateurs)
+  const currentKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  let moisDispos=[...new Set(leads.map(l=>{const d=new Date(l.date_creation||0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}))].sort().reverse();
+  if(!moisDispos.length)moisDispos=[currentKey];
+  let selectedMois=appStorage.getItem('benai_ventes_mois')||currentKey;
+  if(!moisDispos.includes(selectedMois)){
+    moisDispos=[selectedMois,...moisDispos].filter(Boolean).sort().reverse();
+  }
   const [yr,mo]=selectedMois.split('-').map(Number);
   const leadsFiltered=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;});
   const total=leadsFiltered.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
