@@ -179,32 +179,33 @@ on conflict (key) do nothing;
 -- =========
 -- Helpers
 -- =========
+-- SECURITY DEFINER : lecture profiles sans repasser par la RLS de profiles (sinon récursion → HTTP 500 sur GET /profiles).
 create or replace function public.current_profile_role()
-returns text language sql stable as $$
-  select role from public.profiles where id = auth.uid()
+returns text language sql stable security definer set search_path = public as $$
+  select role from public.profiles where id = auth.uid() limit 1
 $$;
 
 create or replace function public.current_profile_company()
-returns text language sql stable as $$
-  select company from public.profiles where id = auth.uid()
+returns text language sql stable security definer set search_path = public as $$
+  select company from public.profiles where id = auth.uid() limit 1
 $$;
 
 create or replace function public.current_auth_uid_slug()
-returns text language sql stable as $$
+returns text language sql stable security definer set search_path = public, auth as $$
   select lower(split_part(coalesce((select email from auth.users where id = auth.uid()),''),'@',1))
 $$;
 
 create or replace function public.current_profile_app_uid()
-returns text language sql stable as $$
+returns text language sql stable security definer set search_path = public, auth as $$
   select coalesce(
-    nullif((select app_uid from public.profiles where id = auth.uid()),''),
-    nullif((select lower(split_part(email,'@',1)) from public.profiles where id = auth.uid()),''),
+    nullif((select app_uid from public.profiles where id = auth.uid() limit 1),''),
+    nullif((select lower(split_part(email,'@',1)) from public.profiles where id = auth.uid() limit 1),''),
     lower(split_part(coalesce((select email from auth.users where id = auth.uid()),''),'@',1))
   )
 $$;
 
 create or replace function public.set_updated_at()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public as $$
 begin
   new.updated_at = now();
   return new;

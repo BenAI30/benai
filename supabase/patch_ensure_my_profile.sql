@@ -1,10 +1,36 @@
--- Répare les comptes où auth.users existe mais public.profiles n’a pas été créé (trigger absent, erreur passée, etc.).
--- Exécuter une fois dans Supabase → SQL Editor.
--- BenAI appelle ensuite POST /rest/v1/rpc/ensure_my_profile avec le JWT utilisateur après connexion.
+-- Répare la connexion BenAI + Supabase :
+-- 1) Erreur HTTP 500 sur GET /profiles : les politiques RLS appelaient current_profile_* sans SECURITY DEFINER → récursion.
+-- 2) Erreur 404 sur rpc/ensure_my_profile : la fonction n’existait pas encore dans la base.
 --
--- L’éditeur SQL peut afficher une alerte « public.profiles sans RLS » : c’est souvent un faux positif.
--- Si une fenêtre s’ouvre : choisissez « Exécuter et activer RLS » (bouton vert). Ne choisissez pas « sans RLS ».
--- La ligne suivante ne change rien si la RLS est déjà activée (idempotent).
+-- Exécuter TOUT ce fichier une fois dans Supabase → SQL Editor, puis Run.
+-- Fenêtre « sans RLS » : bouton vert « Exécuter et activer RLS » uniquement.
+--
+-- BenAI appelle POST /rest/v1/rpc/ensure_my_profile après connexion si la ligne profiles manque.
+
+-- ========= Helpers (évite récursion RLS sur public.profiles) =========
+create or replace function public.current_profile_role()
+returns text language sql stable security definer set search_path = public as $$
+  select role from public.profiles where id = auth.uid() limit 1
+$$;
+
+create or replace function public.current_profile_company()
+returns text language sql stable security definer set search_path = public as $$
+  select company from public.profiles where id = auth.uid() limit 1
+$$;
+
+create or replace function public.current_auth_uid_slug()
+returns text language sql stable security definer set search_path = public, auth as $$
+  select lower(split_part(coalesce((select email from auth.users where id = auth.uid()),''),'@',1))
+$$;
+
+create or replace function public.current_profile_app_uid()
+returns text language sql stable security definer set search_path = public, auth as $$
+  select coalesce(
+    nullif((select app_uid from public.profiles where id = auth.uid() limit 1),''),
+    nullif((select lower(split_part(email,'@',1)) from public.profiles where id = auth.uid() limit 1),''),
+    lower(split_part(coalesce((select email from auth.users where id = auth.uid()),''),'@',1))
+  )
+$$;
 
 alter table if exists public.profiles enable row level security;
 
@@ -72,3 +98,6 @@ end;
 $$;
 
 grant execute on function public.ensure_my_profile() to authenticated;
+
+-- Recharge le cache schéma PostgREST (sinon erreur « function … not in schema cache » quelques secondes).
+notify pgrst, 'reload schema';
