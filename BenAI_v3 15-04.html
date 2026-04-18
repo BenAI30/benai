@@ -1541,10 +1541,10 @@ input[type=file]{display:none;}
         <div style="flex:1;overflow-y:auto;padding:16px">
           <!-- Filtres (Benjamin uniquement) -->
           <div id="bug-filter-bar" style="display:none;margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap">
-            <button class="crm-filter active" onclick="filterBugs('tous',this)">Tous</button>
-            <button class="crm-filter" onclick="filterBugs('ouvert',this)">🔴 Ouverts</button>
-            <button class="crm-filter" onclick="filterBugs('resolu',this)">🟢 Résolus</button>
-            <button class="crm-filter" onclick="filterBugs('bloquant',this)" style="color:var(--r)">🔴 Bloquants</button>
+            <button type="button" class="crm-filter" data-bug-filter="tous" onclick="filterBugs('tous',this)">Tous</button>
+            <button type="button" class="crm-filter active" data-bug-filter="ouvert" onclick="filterBugs('ouvert',this)">🔴 Ouverts</button>
+            <button type="button" class="crm-filter" data-bug-filter="resolu" onclick="filterBugs('resolu',this)">🟢 Résolus</button>
+            <button type="button" class="crm-filter" data-bug-filter="bloquant" onclick="filterBugs('bloquant',this)" style="color:var(--r)">🔴 Bloquants</button>
           </div>
           <div id="bugs-list"></div>
         </div>
@@ -10953,7 +10953,7 @@ function setupSafeSelfHealing(){
 }
 setupSafeSelfHealing();
 
-let currentBugFilter='tous';
+let currentBugFilter='ouvert';
 
 function openNewBug(){
   document.getElementById('bug-form-wrap').style.display='block';
@@ -11011,7 +11011,7 @@ function renderBugsList(){
   // Filtres admin
   if(currentBugFilter==='ouvert')bugs=bugs.filter(b=>b.statut==='ouvert');
   else if(currentBugFilter==='resolu')bugs=bugs.filter(b=>b.statut==='resolu');
-  else if(currentBugFilter==='bloquant')bugs=bugs.filter(b=>b.gravite==='bloquant');
+  else if(currentBugFilter==='bloquant')bugs=bugs.filter(b=>b.gravite==='bloquant'&&b.statut==='ouvert');
   if(!bugs.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun bug signalé 🎉</div>';return;}
   const graviteIcon={bloquant:'🔴',important:'🟡',mineur:'🟢'};
   list.innerHTML=bugs.map(b=>`
@@ -11041,6 +11041,10 @@ function resolveBug(id){
   const rep=document.getElementById('bug-rep-'+id)?.value.trim()||'Corrigé';
   b.statut='resolu';b.reponse=rep;b.date_resolution=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   saveBugs(bugs);
+  currentBugFilter='ouvert';
+  document.querySelectorAll('#bug-filter-bar .crm-filter').forEach(x=>x.classList.remove('active'));
+  const ouvBtn=document.querySelector('#bug-filter-bar [data-bug-filter="ouvert"]');
+  if(ouvBtn)ouvBtn.classList.add('active');
   renderBugsList();refreshBugsBadge();
   logActivity(`Benjamin a résolu un bug : ${b.page}`);
 }
