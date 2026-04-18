@@ -7353,6 +7353,28 @@ function renderGuidePage(){
     qrImgSrc=new URL('benai-guide-qr-mobile.png',document.baseURI||document.URL||window.location.href).href;
   }catch{}
   const qrFallbackEnc=encodeURIComponent(qrRemote);
+  const pilotCompanyTitle=getBenaiPilotageCompanyTitle();
+  const pilotZoneLine=getBenaiPilotageSecteurShortLine();
+  const roleGuideDirecteurCo=[
+    `Périmètre du compte : ${pilotCompanyTitle}. ${pilotZoneLine} Les filtres secteur, les synthèses du tableau de bord, les exports « performance secteurs » et la liste des commerciaux dans les objectifs suivent ce même cadrage.`,
+    'Menus visibles : Leads CRM, Messages, Absences, Guide, Bugs.',
+    'Leads CRM — trois onglets : « À attribuer » (dossiers gris sans commercial), « Tous les leads » (recherche, pastilles de statut, archives, alertes, bascule liste / kanban), puis « Dashboard » (KPI, secteurs, ventes, CA, équipe, pertes, exports, objectifs).',
+    '« À attribuer » : tu vois la file prioritaire ; attribution depuis la carte ou depuis la fiche (champ commercial). Tu peux t’attribuer un dossier pour le porter comme un terrain.',
+    '« Tous les leads » : combine filtres (dont secteur = uniquement les zones de ton compte), recherche, pastilles Non traité / RDV / Devis / Vendu / Perdu / Archives / Alertes. Le filtre société (Nemausus / Lambert) n’apparaît que si ton compte couvre les deux entreprises.',
+    'Fiche lead : identité, projet, commentaire de création, secteur, source, suivi, commentaire, tunnel de statuts (selon attribution). Après attribution, ouvre la fiche pour lire l’historique : la timeline liste chaque action (ouverture, changement de statut, attribution, montants…) avec date et auteur — c’est la trace d’audit.',
+    'Pastille « non ouvert » sur un lead attribué : le commercial assigné n’a pas encore ouvert la fiche une première fois — signal de pilotage.',
+    'Dashboard : barre « Aller à » pour naviguer ; blocs repliables. Tu y retrouves les secteurs visibles pour ton compte, le tableau du mois civil, les ventes & RDV, le CA par entreprise (une seule carte si ton compte est mono-société), le classement commerciaux filtré sur ton périmètre, les courbes 6 mois, pertes & archives, exports CSV / Excel, fusion de doublons, objectifs CA par vendeur.',
+    'Exports : menu secteur sur le dashboard + bouton « Performance secteurs » ; paquets « Télécharger tous les tableaux CRM » et export leads. Les fichiers respectent les leads et secteurs visibles pour toi.',
+    'Notifications : leads à attribuer, alertes métier, rappels devis selon les dossiers visibles ; le badge sur Leads suit surtout les dossiers à traiter sur ton périmètre.',
+    'Messages : demandes rapides à l’équipe. Absences : disponibilités. Bugs : tout dysfonctionnement (page, étapes, capture si possible).'
+  ];
+  const roleGuideDirecteurGeneral=[
+    `Même logique de périmètre que le dir. commercial : ${pilotCompanyTitle}. ${pilotZoneLine}`,
+    'Mêmes onglets CRM : À attribuer, Tous les leads, Dashboard — attribution, statuts, timeline, chiffres et exports comme le directeur commercial.',
+    'Tu peux t’appuyer sur la timeline des leads attribués pour cadrer la qualité des données (devis datés et chiffrés, vendu avec montant HT, perdu avec motif).',
+    'Les rappels automatiques ciblent surtout le dir. commercial et les commerciaux ; le CRM reste disponible pour lecture ou action à la demande (comité, fin de mois, absence du dir. co.).',
+    'Messages pour les arbitrages ; Bugs pour les incidents techniques répétés.'
+  ];
   const roleGuide={
     admin:[
       'Consulte le dashboard puis traite les alertes en priorité.',
@@ -7360,32 +7382,8 @@ function renderGuidePage(){
       'Attribue ou réattribue les leads CRM pour équilibrer la charge.',
       'Vérifie régulièrement les bugs et les connexions.'
     ],
-    directeur_co:[
-      'Menus visibles : Leads CRM, Messages, Absences, Guide, Bugs.',
-      'Leads CRM : trois onglets dans cet ordre — « À attribuer », « Tous les leads » (pipeline commercial : liste ou kanban), puis « Dashboard » (chiffres, objectifs, exports).',
-      'Tu peux filtrer par secteur (Nîmes / Avignon), par société (Nemausus / Lambert) et par commercial quand ton compte couvre tout le périmètre ; en dir. commercial sur une seule société, BenAI limite déjà la vue à cette entreprise.',
-      'Onglet « À attribuer » : tu vois les dossiers non traités sans commercial ; tu peux attribuer depuis la carte rapide, ou ouvrir la fiche et choisir un commercial — ou t’attribuer le lead toi-même si tu le portes.',
-      '« Tous les leads » : recherche, pastilles de statut, bascule liste / kanban, archives et alertes.',
-      '« Dashboard » : classement mensuel, objectifs CA HT par société et par mois, synthèse des pertes, exports CSV / Excel, fusion de doublons.',
-      'Périmètre CRM : société de ton compte (Nemausus seul, Lambert seul, ou « les deux ») ; les leads hors société n’apparaissent pas.',
-      'Notifications possibles : leads à attribuer, hors secteur, nouveaux leads équipe, rappels sur date de rappel, alerte « devis sans réponse » après 7 jours (selon les dossiers visibles pour toi).',
-      'Badge rouge sur Leads : nombre de dossiers « non traité » sans commercial sur ton périmètre ; il disparaît quand la file est vide.',
-      'Fiche lead : statut, champ commercial, timeline ; pastille « non ouvert » = le commercial assigné n’a pas encore ouvert la fiche (si tu t’assignes, c’est toi qui piloteras le statut).',
-      'Messages : utile pour demander une précision aux assistantes ; les décisions restent tracées dans la fiche.',
-      'Absences : tu vois les plannings pour anticiper les disponibilités.',
-      'Bugs : canal pour signaler un dysfonctionnement (écran, étapes, capture si possible).'
-    ],
-    directeur_general:[
-      'Même périmètre CRM que le directeur commercial : onglets « À attribuer », « Tous les leads », « Dashboard », plus filtres secteur / société / commercial.',
-      'Tu peux ouvrir le CRM quand tu veux : les mêmes écrans que le dir. commercial (file à attribuer, pipeline, tableau de bord).',
-      'Les rappels automatiques sur les relances ciblent surtout le dir. commercial et les commerciaux ; le dashboard et « Tous les leads » restent disponibles pour une lecture à la demande.',
-      'Tu peux attribuer, réattribuer, corriger statuts, montants, dates devis / signature, comme le dir. co. — utile en cas d’absence du responsable commercial.',
-      'Dashboard : vision par société, objectifs, pertes, tendances mensuelles, pipeline devis.',
-      'Les motifs de perte et la qualité des champs (CP, projet, montants) servent aux arbitrages stratégiques : exige des fiches complètes côté équipe plutôt que des dossiers brouillon.',
-      'Messages : canal privilégié pour demander une précision ; les décisions structurantes restent tracées dans la fiche lead (traçabilité).',
-      'Guide + tutoriel interactif : même base que le dir. co. ; forme les commerciaux sur la discipline de mise à jour après chaque action.',
-      'Encourage l’usage de l’onglet Bugs pour tout dysfonctionnement répété : un signalement détaillé accélère la correction par rapport à un simple message oral.'
-    ],
+    directeur_co:roleGuideDirecteurCo,
+    directeur_general:roleGuideDirecteurGeneral,
     commercial:[
       'Le CRM regroupe tes dossiers en charge : « Mes leads » pour la liste ou le kanban, « Mes ventes » pour les signatures et le suivi d’objectifs.',
       'Filtres, recherche, pastilles de statut et bascule liste / kanban servent à prioriser la journée (Non traité, RDV, devis, vendu, archives, alertes).',
@@ -9450,6 +9448,96 @@ function getDirecteursConcernedByLead(lead){
   return getAllUsers().filter(u=>u.role==='directeur_co'&&(u.societe==='les-deux'||u.societe===leadSoc));
 }
 
+/** Périmètre secteurs CRM (cartes dashboard, filtre liste, fiche lead) selon l’entreprise du compte. */
+function getCrmSecteurScopeSlug(){
+  const role=currentUser?.role;
+  if(role==='admin')return'all';
+  if(role==='directeur_co'||role==='directeur_general'||role==='assistante'){
+    const soc=currentUser?.societe||'nemausus';
+    if(soc==='les-deux')return'all';
+    if(soc==='lambert')return'lambert';
+    return'nemausus';
+  }
+  return'all';
+}
+function getCrmSecteurIdsForScopeSlug(slug){
+  if(slug==='nemausus')return['nimes','avignon','zone_blanche'];
+  if(slug==='lambert')return['bagnoles','zone_blanche'];
+  return['nimes','avignon','bagnoles','zone_blanche'];
+}
+function getLeadFormSecteurOptionIds(){
+  if(currentUser?.role==='commercial'){
+    const g=getAllowedCommercialSectors(currentUser);
+    if(g&&g.size)return[...g];
+    return['nimes','avignon'];
+  }
+  return getCrmSecteurIdsForScopeSlug(getCrmSecteurScopeSlug());
+}
+function getBenaiPilotageCompanyTitle(){
+  const slug=getCrmSecteurScopeSlug();
+  if(slug==='all')return'Nemausus Fermetures et Lambert SAS (compte « les deux »)';
+  if(slug==='lambert')return'Lambert SAS uniquement';
+  return'Nemausus Fermetures uniquement';
+}
+function getBenaiPilotageSecteurShortLine(){
+  const slug=getCrmSecteurScopeSlug();
+  if(slug==='all')return'Les quatre zones CRM : Nîmes, Avignon, Bagnols-sur-Cèze, zone blanche.';
+  if(slug==='lambert')return'Zones visibles pour toi : Bagnols-sur-Cèze (+ zone blanche). Pas les secteurs Nîmes / Avignon (réservés Nemausus).';
+  return'Zones visibles pour toi : Nîmes et Avignon (+ zone blanche). Pas le secteur Bagnols-sur-Cèze (réservé Lambert).';
+}
+/** Secteurs « posés » (hors zone blanche) dans le périmètre du compte — pour exports / regroupements CSV. */
+function getCrmSecteurCoreIdsInScope(){
+  return getCrmSecteurIdsForScopeSlug(getCrmSecteurScopeSlug()).filter(id=>id!=='zone_blanche');
+}
+function userMatchesCrmPilotageCommercial(u){
+  if(!u||u.role!=='commercial')return false;
+  if(currentUser?.role==='admin')return true;
+  if(!isCRMScopePilotageRole(currentUser?.role))return true;
+  return currentUser.societe==='les-deux'||u.societe===currentUser.societe||u.societe==='les-deux';
+}
+function buildCrmDashboardExportSecteurSelectHtml(){
+  const slug=getCrmSecteurScopeSlug();
+  const ids=getCrmSecteurIdsForScopeSlug(slug);
+  const core=getCrmSecteurCoreIdsInScope();
+  const parts=[];
+  if(ids.length>1)parts.push(`<option value="all">${slug==='all'?'Global — les 4 secteurs':'Toutes les zones visibles pour ton compte'}</option>`);
+  if(core.length>1||(slug==='all'&&core.length===3))parts.push(`<option value="core3">${slug==='all'?'Global — les 3 secteurs (hors zone blanche)':'Secteurs posés (hors zone blanche)'}</option>`);
+  else if(core.length===1&&ids.includes('zone_blanche'))parts.push(`<option value="core3">${CRM_SECTOR_LABELS[core[0]]||core[0]} — hors zone blanche</option>`);
+  ids.forEach(id=>{
+    parts.push(`<option value="${id}">${CRM_SECTOR_LABELS[id]||id} uniquement</option>`);
+  });
+  return parts.join('');
+}
+function getDirecteurCoTutoSlides(){
+  const company=getBenaiPilotageCompanyTitle();
+  const zones=getBenaiPilotageSecteurShortLine();
+  return[
+    {icon:'🏢',title:'Ton entreprise sur BenAI',desc:`Tout ce tutoriel concerne uniquement ton périmètre : ${company}. ${zones} Les filtres secteur, les cartes du tableau de bord et la liste des commerciaux suivent déjà ce cadrage — tu ne vois pas l’autre société « par erreur ».`,highlight:'Vérifie ton compte (Nemausus, Lambert ou les deux) si un collègue te prête sa session'},
+    {icon:'📊',title:'Menus visibles',desc:'Leads CRM, Messages, Absences, Guide, Bugs. Le CRM est ton outil principal pour attribuer, suivre et chiffrer.',highlight:'Ouvre Leads CRM en premier'},
+    {icon:'🧭',title:'Les trois onglets CRM',desc:'Dans l’ordre : « À attribuer » (dossiers gris sans commercial), « Tous les leads » (pipeline : recherche, pastilles de statut, liste ou kanban, archives, alertes), puis « Dashboard » (KPI, secteurs, CA, équipe, exports, objectifs).',highlight:'La file « À attribuer » reste la priorité quotidienne'},
+    {icon:'🎛️',title:'Filtres liste & kanban',desc:'Tu peux combiner recherche texte, pastilles (Non traité, RDV, Devis, Vendu, Perdu, Archives, Alertes), filtre secteur (uniquement les zones de ton compte), filtre commercial. Le filtre société n’apparaît que si ton compte couvre les deux entreprises.',highlight:'Réinitialise les filtres si une vue semble vide'},
+    {icon:'🤝',title:'Attribuer ou reprendre un lead',desc:'Sur la carte « À attribuer » ou dans la fiche : champ « Commercial » — choisis un vendeur, un autre dirigeant, ou toi-même pour porter le dossier. Changement = notification + entrée dans l’historique.',highlight:'Tu peux t’assigner comme un commercial'},
+    {icon:'📇',title:'Ouvrir une fiche lead attribué',desc:'Clique un dossier : tu lis identité, projet, commentaire d’origine, secteur, source. Tu peux corriger les champs de base, suivi, commentaire, montants et dates selon les droits affichés.',highlight:'Une fiche à jour évite les doublons d’appels'},
+    {icon:'📜',title:'Historique & timeline',desc:'Sur un lead attribué (ou sur le tien), la section Historique liste les actions dans l’ordre inverse : ouverture de fiche, changements de statut, d’attribution, de montants, etc., avec date et auteur. C’est ta trace d’audit terrain.',highlight:'Lis la timeline avant d’appeler le commercial ou le client'},
+    {icon:'👁️',title:'Pastille « non ouvert »',desc:'Indique que le commercial assigné n’a pas encore ouvert la fiche une première fois — signal de pilotage, pas une sanction.',highlight:'Souvent réglé par un rappel interne'},
+    {icon:'📈',title:'Dashboard — ce que tu y vois',desc:'Résumé KPI, blocs Secteurs & mois (tableau du mois civil, synthèses alignées sur ton périmètre secteur), ventes & RDV, CA par entreprise (une ou deux cartes selon ton compte), classement commerciaux, courbes 6 mois, pertes & archives, exports CSV / Excel, fusion de doublons, objectifs CA par vendeur.',highlight:'Barre « Aller à » pour sauter aux sections'},
+    {icon:'📥',title:'Exports',desc:'Depuis le dashboard : menu Export secteur + bouton Performance secteurs ; plus bas « Exporter tous les leads » et paquets CSV. Les fichiers respectent ton périmètre leads + secteurs visibles.',highlight:'UTF-8, séparateur ; pour Excel France'},
+    {icon:'🔔',title:'Badge & notifications',desc:'Le badge sur Leads compte surtout les dossiers à traiter sur ton périmètre (non attribués, alertes). Les notifications résument aussi les volumes à traiter.',highlight:'Quand tu agis, mets le CRM à jour pour faire retomber les alertes'},
+    {icon:'💬',title:'Messages, absences, bugs',desc:'Messages pour les accords rapides ; absences pour voir les disponibilités ; Bugs pour tout blocage technique avec contexte (page, clic, message d’erreur).',highlight:'Bugs = canal officiel des correctifs'},
+    {icon:'✅',title:'Routine dir. commercial',desc:'1) À attribuer. 2) Alertes + non traités visibles. 3) Ouvre les fiches sensibles (timeline). 4) Dashboard en fin de période. 5) Exige des champs devis / vendu / perdu remplis pour la qualité des stats.',highlight:'Le pilotage propre = CRM à jour'}
+  ];
+}
+function getDirecteurGeneralTutoSlides(){
+  const company=getBenaiPilotageCompanyTitle();
+  const zones=getBenaiPilotageSecteurShortLine();
+  return[
+    {icon:'🏢',title:'Même périmètre que le dir. commercial',desc:`Tu consultes et agis sur les mêmes écrans, filtrés selon ton compte : ${company}. ${zones}`,highlight:'Accès complet aux onglets CRM pilotage'},
+    {icon:'🧭',title:'Onglets & dashboard',desc:'À attribuer, Tous les leads, Dashboard — mêmes usages que le directeur commercial (attribution, statuts, chiffres, exports).',highlight:'Tu peux dépanner si le dir. co. est absent'},
+    {icon:'📜',title:'Timeline & qualité des fiches',desc:'Tu vois la même timeline sur les dossiers attribués ; utilise-la pour cadrer la complétude (devis datés, vendu avec montant, perdu avec motif).',highlight:'Données propres = comités fiables'},
+    {icon:'💬',title:'Messages & bugs',desc:'Messages pour les arbitrages rapides ; Bugs pour les incidents répétés.',highlight:'Signalement détaillé = correction plus rapide'}
+  ];
+}
+
 let currentLeadFilter='tous';
 let currentLeadId=null;
 let currentLeadStatut='gris';
@@ -9580,6 +9668,7 @@ function initLeadsPage(){
   if(filterSecteur){
     filterSecteur.style.display=canUseGlobalScopeFilters?'inline-flex':'none';
     if(!canUseGlobalScopeFilters)filterSecteur.value='';
+    else buildCrmPilotageSecteurFilter();
   }
   if(filterSociete){
     filterSociete.style.display=canUseGlobalScopeFilters?'inline-flex':'none';
@@ -10129,7 +10218,7 @@ function renderLeadsDashboard(){
   const now=new Date();
   const month=now.getMonth();const year=now.getFullYear();
   const leadsMonth=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getMonth()===month&&d.getFullYear()===year;});
-  const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
+  const commerciaux=getAllUsers().filter(u=>u.role==='commercial'&&userMatchesCrmPilotageCommercial(u));
   let commerciauxObj=dashCommercial?commerciaux.filter(c=>normalizeId(String(c.id))===normalizeId(String(currentUser.id))):commerciaux.slice();
   if(dashCommercial&&commerciauxObj.length===0&&currentUser?.role==='commercial'){
     commerciauxObj.push({
@@ -10149,6 +10238,7 @@ function renderLeadsDashboard(){
       const idN=normalizeId(a.id);
       if(!idN||activeIds.has(idN))return;
       if(!objKeys.has(idN))return;
+      if(!userMatchesCrmPilotageCommercial({role:'commercial',societe:a.societe||'',id:a.id}))return;
       commerciauxObj.push({
         id:a.id,
         name:`${String(a.name||a.id).trim()} (compte supprimé)`,
@@ -10161,11 +10251,18 @@ function renderLeadsDashboard(){
       });
     });
   }
-  const secteurs=[
+  const secteurScopeSlug=getCrmSecteurScopeSlug();
+  const secteurScopeSet=new Set(getCrmSecteurIdsForScopeSlug(secteurScopeSlug));
+  const secteursAll=[
     {id:'nimes',label:'Nîmes',color:'var(--a)'},
     {id:'avignon',label:'Avignon',color:'var(--bl)'},
     {id:'bagnoles',label:'Bagnols-sur-Cèze',color:'#22c55e'},
     {id:'zone_blanche',label:'Zone blanche',color:'var(--r)'}
+  ];
+  const secteurs=secteursAll.filter(s=>secteurScopeSet.has(s.id));
+  const entPilotageList=secteurScopeSlug==='nemausus'?[{id:'nemausus',label:'Nemausus Fermetures',color:'var(--a)'}]:secteurScopeSlug==='lambert'?[{id:'lambert',label:'Lambert SAS',color:'var(--bl)'}]:[
+    {id:'nemausus',label:'Nemausus Fermetures',color:'var(--a)'},
+    {id:'lambert',label:'Lambert SAS',color:'var(--bl)'}
   ];
   let html='';
   const totalLeads=leads.length;
@@ -10180,7 +10277,8 @@ function renderLeadsDashboard(){
     <div class="stat-box" title="Leads nécessitant une action prioritaire"><div class="stat-box-val" style="color:var(--r)">${alertes}</div><div class="stat-box-lbl">Alertes</div></div>
   </div>`;
   if(dashPilotage){
-    html+=`<div class="crm-dash-intro"><strong>Mode d’emploi</strong> — les trois cases ci-dessus résument la situation. Utilisez la barre <strong>Aller à</strong> pour sauter à une section ; chaque bloc se replie ou se déplie via sa ligne de titre. Par défaut seul <strong>Secteurs & mois</strong> reste ouvert pour une première vue lisible.</div>`;
+    const scopeHint=secteurScopeSlug==='all'?'':`<div style="font-size:12px;color:var(--t2);margin:0 0 8px;line-height:1.55"><strong>Périmètre compte :</strong> ${esc(getBenaiPilotageCompanyTitle())}. ${esc(getBenaiPilotageSecteurShortLine())}</div>`;
+    html+=`<div class="crm-dash-intro">${scopeHint}<strong>Mode d’emploi</strong> — les trois cases ci-dessus résument la situation. Utilisez la barre <strong>Aller à</strong> pour sauter à une section ; chaque bloc se replie ou se déplie via sa ligne de titre. Par défaut seul <strong>Secteurs & mois</strong> reste ouvert pour une première vue lisible.</div>`;
   } else if(dashCommercial){
     html+=`<div class="crm-dash-intro">Ici : votre <strong>tableau de ventes</strong> (détail par mois, comparaison N-1) et <strong>vos objectifs</strong>. Les vues secteurs, chiffres par secteur, RDV agrégés et analyses de pertes restent réservées à la direction commerciale, au DG et à l’administration.</div>`;
   }
@@ -10303,14 +10401,7 @@ function renderLeadsDashboard(){
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px">
       <label style="font-size:11px;color:var(--t3);display:flex;align-items:center;gap:6px;flex:1;min-width:200px">
         <span style="white-space:nowrap">Export :</span>
-        <select id="crm-dash-export-secteur" class="form-input" style="flex:1;min-width:160px;padding:6px 10px;font-size:12px;border-radius:8px">
-          <option value="all">Global — les 4 secteurs</option>
-          <option value="core3">Global — les 3 secteurs (hors zone blanche)</option>
-          <option value="nimes">Nîmes uniquement</option>
-          <option value="avignon">Avignon uniquement</option>
-          <option value="bagnoles">Bagnols-sur-Cèze uniquement</option>
-          <option value="zone_blanche">Zone blanche uniquement</option>
-        </select>
+        <select id="crm-dash-export-secteur" class="form-input" style="flex:1;min-width:160px;padding:6px 10px;font-size:12px;border-radius:8px">${buildCrmDashboardExportSecteurSelectHtml()}</select>
       </label>
       <button type="button" onclick="exportSecteurSyntheseFromDashboard()" title="CSV : même colonnes que l’export Performance secteurs" style="padding:8px 14px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.4);border-radius:10px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📥 Export CSV</button>
     </div>
@@ -10356,10 +10447,11 @@ function renderLeadsDashboard(){
     ${rdvTop.length?rdvTop.map(x=>`<div class="perf-row"><div class="perf-name">${esc(x.lead.nom)}</div><div class="perf-stats">${x.count} RDV</div><div class="perf-ca">${esc(x.lead.type_projet||'')}</div></div>`).join(''):`<div style="font-size:12px;color:var(--t3)">Aucun RDV réalisé enregistré ce mois.</div>`}
   </div>`;
   if(dashPilotage){
-    html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-ca-soc">${crmDashSummary('🏢 CA par société','Nemausus et Lambert : objectif du mois choisi, barre de progression, pipeline devis.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">Choisissez le <strong>mois</strong> à analyser (chiffres = leads <em>créés</em> ce mois-là). Mois proposés : <strong>${year-1}</strong> et <strong>${year}</strong> pour comparer au <strong>N-1</strong>. Sans objectif saisi pour ce mois, c’est l’objectif de référence qui s’affiche.</div>`;
+    html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-ca-soc">${crmDashSummary('🏢 CA par société',entPilotageList.length===1?`${entPilotageList[0].label} : objectif du mois choisi, barre de progression, pipeline devis.`:'Nemausus et Lambert : objectif du mois choisi, barre de progression, pipeline devis.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">Choisissez le <strong>mois</strong> à analyser (chiffres = leads <em>créés</em> ce mois-là). Mois proposés : <strong>${year-1}</strong> et <strong>${year}</strong> pour comparer au <strong>N-1</strong>. Sans objectif saisi pour ce mois, c’est l’objectif de référence qui s’affiche.</div>`;
   }
+  const entKicker=entPilotageList.length===1?`Performance — ${entPilotageList[0].label}`:'Performance par entreprise';
   html+=`<div class="crm-dash-kicker k-pr" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;row-gap:8px;margin-top:0">
-    <span>Performance par entreprise</span>
+    <span>${esc(entKicker)}</span>
     <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t2);font-weight:600;font-family:inherit">Mois affiché
       <select id="crm-obj-soc-mois" class="form-input" onchange="window.appStorage.setItem('benai_lead_obj_soc_mois',this.value);renderLeadsDashboard()" style="padding:5px 10px;font-size:11px;border-radius:8px;min-width:140px">
         ${socMonthKeys.map(m=>`<option value="${m}"${m===selSocMois?' selected':''}>${formatMois(m)}</option>`).join('')}
@@ -10367,13 +10459,9 @@ function renderLeadsDashboard(){
     </label>
   </div>
   <div style="font-size:11px;color:var(--t3);margin:-4px 0 10px;line-height:1.45">Chiffres du <strong>${formatMois(selSocMois)}</strong> (création des leads). Passez au même mois en <strong>${year-1}</strong> pour le comparer à l’instant. Objectif : montant saisi pour ce mois, sinon <strong>objectif de référence</strong> (valeur par défaut entreprise).</div>`;
-  const entreprises=[
-    {id:'nemausus',label:'Nemausus Fermetures',color:'var(--a)'},
-    {id:'lambert',label:'Lambert SAS',color:'var(--bl)'}
-  ];
   const socCanEdit=currentUser.role==='admin'||isCRMScopePilotageRole(currentUser.role);
   html+=`<div class="crm-ent-grid">`;
-  entreprises.forEach(ent=>{
+  entPilotageList.forEach(ent=>{
     const sl=leadsMonthSoc.filter(l=>getLeadCRMCompany(l)===ent.id);
     const total=sl.length;
     const ventes=sl.filter(l=>l.statut==='vert');
@@ -10783,7 +10871,10 @@ function openLead(id){
   document.getElementById('lead-ville').value=l.ville||'';
   document.getElementById('lead-cp').value=l.cp||'';
   document.getElementById('lead-projet').value=l.type_projet||'';
-  document.getElementById('lead-secteur').value=l.secteur||'nimes';
+  applyLeadModalSecteurOptions(false);
+  const allowedSect=getLeadFormSecteurOptionIds();
+  const sv=l.secteur||'nimes';
+  document.getElementById('lead-secteur').value=allowedSect.includes(sv)?sv:(allowedSect[0]||'nimes');
   const leadHorsSecteurJustif=document.getElementById('lead-hors-secteur-justif');
   if(leadHorsSecteurJustif)leadHorsSecteurJustif.value=l.justification_hors_secteur||'';
   document.getElementById('lead-suivi').value=l.suivi||'';
@@ -10865,7 +10956,7 @@ function resetLeadForm(){
    'lead-prix-vendu','lead-date-signature','lead-produit-vendu'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
   });
-  document.getElementById('lead-secteur').value='nimes';
+  applyLeadModalSecteurOptions(false);
   const leadHorsSecteurJustif=document.getElementById('lead-hors-secteur-justif');
   if(leadHorsSecteurJustif)leadHorsSecteurJustif.value='';
   const leadSectorAlert=document.getElementById('lead-sector-alert');
@@ -11277,6 +11368,22 @@ function resolveLeadSectorByCP(cpRaw){
   if(CRM_SECTOR_SETS.nimes.has(cp))return {cp,secteur:'nimes',isKnown:true,isZoneBlanche:false,ownerSociete:'nemausus',label:CRM_SECTOR_LABELS.nimes};
   return {cp,secteur:'zone_blanche',isKnown:false,isZoneBlanche:true,ownerSociete:'zone_blanche',label:CRM_SECTOR_LABELS.zone_blanche};
 }
+function buildCrmPilotageSecteurFilter(){
+  const el=document.getElementById('crm-filter-secteur');
+  if(!el)return;
+  const ids=getCrmSecteurIdsForScopeSlug(getCrmSecteurScopeSlug());
+  el.innerHTML='<option value="">Tous secteurs</option>'+ids.map(id=>`<option value="${id}">${CRM_SECTOR_LABELS[id]||id}</option>`).join('');
+}
+function applyLeadModalSecteurOptions(preserveValue){
+  const sel=document.getElementById('lead-secteur');
+  if(!sel)return;
+  const ids=getLeadFormSecteurOptionIds();
+  const prev=preserveValue?String(sel.value||''):'';
+  sel.innerHTML=ids.map(id=>`<option value="${id}">${CRM_SECTOR_LABELS[id]||id}</option>`).join('');
+  const fallback=ids[0]||'nimes';
+  if(prev&&ids.includes(prev))sel.value=prev;
+  else sel.value=fallback;
+}
 function getAllowedCommercialSectors(user){
   if(!user||user.role!=='commercial')return new Set();
   if(user.societe==='lambert')return new Set(['bagnoles']);
@@ -11591,17 +11698,23 @@ function buildSecteurSynthCSVString(actifs,ids,withTotalRow){
 
 function exportSecteurSyntheseFromDashboard(){
   const sel=(document.getElementById('crm-dash-export-secteur')?.value)||'all';
-  if(sel==='all'){
-    exportCRMTable('secteurs');
-    return;
-  }
   const actifs=getCompanyScopedLeads(getLeads()).filter(l=>!isLeadCrmArchivedView(l));
   const stamp=new Date().toISOString().slice(0,10);
   const scopeLabel=isCRMScopePilotageRole(currentUser?.role)?`scope_${currentUser.societe||'societe'}`:'scope_global';
+  const scopedIds=getCrmSecteurIdsForScopeSlug(getCrmSecteurScopeSlug());
+  if(sel==='all'){
+    const fname=`CRM_Secteurs_${scopeLabel}_${stamp}.csv`;
+    const content=buildSecteurSynthCSVString(actifs,scopedIds,scopedIds.length>1);
+    downloadCsv(fname,content);
+    showDriveNotif('📥 Export secteur prêt');
+    logActivity(`${currentUser?.name||'?'} a exporté synthèse secteurs (périmètre)`);
+    return;
+  }
   let fname,content;
   if(sel==='core3'){
-    fname=`CRM_Secteurs_3horsZB_${scopeLabel}_${stamp}.csv`;
-    content=buildSecteurSynthCSVString(actifs,CRM_SECTEUR_IDS_CORE3,true);
+    const cluster=getCrmSecteurCoreIdsInScope();
+    fname=`CRM_Secteurs_horsZB_${scopeLabel}_${stamp}.csv`;
+    content=buildSecteurSynthCSVString(actifs,cluster.length?cluster:CRM_SECTEUR_IDS_CORE3,cluster.length>1);
   }else{
     fname=`CRM_Secteur_${sel}_${scopeLabel}_${stamp}.csv`;
     content=buildSecteurSynthCSVString(actifs,[sel],false);
@@ -11650,7 +11763,7 @@ function buildCRMExportBundles(){
   }).join('\n');
 
   const secteurHeader=joinCsv(['Secteur','Leads actifs','Ventes','CA signé (€)','Devis en cours','Pipeline devis (€)'])+'\n';
-  const secteurRows=buildSecteurSynthDataRows(actifs,CRM_SECTEUR_IDS_ALL);
+  const secteurRows=buildSecteurSynthDataRows(actifs,getCrmSecteurIdsForScopeSlug(getCrmSecteurScopeSlug()));
 
   const srcHeader=joinCsv(['Mois','Source','Leads','Ventes','CA signé (€)'])+'\n';
   const srcRows=LEAD_SOURCE_CODES.map(src=>{
@@ -13329,28 +13442,6 @@ const TUTO_SLIDES_BY_ROLE={
     {icon:'🐛',title:'Onglet Bugs — à utiliser vite',desc:'Si un écran bloque, qu’un bouton ne répond pas ou qu’un message d’erreur apparaît, ouvre l’onglet Bugs depuis le menu. Décris la page, l’action juste avant le problème et la gravité : BenAI prépare un rapport structuré (copiable) pour accélérer la correction.',highlight:'Plus le signalement est précis, plus la correction va vite'},
     {icon:'✅',title:'Routine A → Z (mémo)',desc:'1) Alertes + non traités. 2) Appel + mise à jour statut. 3) RDV → Agenda, puis RDV fait après passage. 4) Devis → montants / dates + relance. 5) Vendu : prix HT exact ; Perdu : motif. 6) Jaunes anciens. 7) Bugs si l’outil bloque.',highlight:'Le commercial exemplaire ferme la journée avec un CRM à jour'},
   ],
-  directeur_co:[
-    {icon:'📊',title:'Ton espace',desc:'Leads CRM, Messages, Absences, Guide, Bugs. Le CRM te montre les dossiers de ta société (ou des deux si ton compte est « les deux ») : attribution, pipeline, chiffres.',highlight:'Ouvre Leads CRM pour voir la file et le pipeline'},
-    {icon:'🧭',title:'Les trois onglets CRM',desc:'Dans l’ordre : À attribuer (dossiers non traités sans commercial), Tous les leads (pipeline commercial complet : filtres, recherche, liste ou kanban), puis Dashboard (objectifs CA HT, pertes, exports, fusion de doublons).',highlight:'L’onglet « À attribuer » est en premier — même si le badge est à zéro, tu y vois la file ; ensuite tu passes au pipeline ou au dashboard'},
-    {icon:'🎛️',title:'Filtres (quand ton compte le permet)',desc:'Secteur, société, commercial : tu peux combiner pour zoomer sur un point de vente ou un collaborateur. Avec un compte une seule société, le filtre société est déjà calé sur ton entreprise.',highlight:'Réinitialise les filtres si une vue te semble trop vide'},
-    {icon:'🤝',title:'Attribution',desc:'Sur la fiche, le champ « Commercial » est éditable : tu peux choisir un commercial ou te l’attribuer pour porter le dossier toi-même. Les changements tracent la timeline et envoient une notification au destinataire.',highlight:'Tu peux t’assigner comme un commercial'},
-    {icon:'📈',title:'Dashboard',desc:'Classement, volumes par statut, motifs de perte, exports CSV / Excel, fusion de doublons, objectifs mensuels par société.',highlight:'Utile en réunion pour s’appuyer sur des chiffres'},
-    {icon:'👁️',title:'Pastille « non ouvert »',desc:'Indique qu’aucune ouverture de fiche n’a encore été enregistrée pour le commercial assigné — information de pilotage, pas une sanction.',highlight:'Souvent corrigeable par un rappel ou une mise à jour'},
-    {icon:'📞',title:'Pipeline et données',desc:'Les écrans proposent devis avec dates et montants, RDV, pertes motivées ; une alerte « devis sans réponse » peut apparaître au-delà de 7 jours selon les dossiers.',highlight:'Des champs remplis = des indicateurs lisibles'},
-    {icon:'🧾',title:'Exports et fusion',desc:'CSV / Excel pour aller plus loin ; fusion de deux leads en choisissant le dossier maître.',highlight:'Pratique après salon ou double saisie'},
-    {icon:'💬',title:'Messages & absences',desc:'Messages pour les échanges rapides ; absences pour voir qui est disponible.',highlight:'Complément au CRM'},
-    {icon:'🐛',title:'Bugs',desc:'Signalement structuré (page, étapes, gravité) pour les blocages techniques.',highlight:'Canal prévu pour les correctifs'},
-  ],
-  directeur_general:[
-    {icon:'📊',title:'Même écran CRM',desc:'Tu vois les mêmes onglets que le directeur commercial : À attribuer, Tous les leads, Dashboard, avec filtres secteur / société / commercial.',highlight:'Accès lecture et action comme le dir. commercial'},
-    {icon:'🔔',title:'Rythme',desc:'Les rappels automatiques ciblent surtout le dir. commercial et les commerciaux ; toi tu peux consulter le CRM à ton rythme (avant comité, fin de mois, etc.).',highlight:'Le dashboard reste disponible quand tu en as besoin'},
-    {icon:'⚠️',title:'À attribuer',desc:'Tu peux assigner ou réattribuer un dossier non traité, rééquilibrer la charge ou reprendre un dossier sensible, comme le dir. commercial.',highlight:'Même file prioritaire en premier onglet'},
-    {icon:'📈',title:'Dashboard',desc:'Graphiques, objectifs, pertes, comparaisons par société ou par mois.',highlight:'Vision dirigeants'},
-    {icon:'🧾',title:'Exports et fusion',desc:'Téléchargements et fusion de doublons comme pour le dir. commercial.',highlight:'Pense à exporter avant grosses manipulations'},
-    {icon:'🧩',title:'Qualité des fiches',desc:'Tu peux t’appuyer sur les mêmes champs (vendu avec prix, perdu avec motif, devis daté) pour cadrer le standard en interne.',highlight:'Les données visibles sont les mêmes que pour la direction commerciale'},
-    {icon:'💬',title:'Avec le dir. commercial',desc:'Messages pour partager des priorités ; en interne vous pouvez clarifier qui attribue en premier.',highlight:'BenAI autorise les deux profils côte à côte'},
-    {icon:'🐛',title:'Bugs',desc:'Même onglet Bugs pour tout incident (écran, export, synchro).',highlight:'Signalement détaillé = reproduction plus rapide'},
-  ],
   assistante:[
     {icon:'🧭',title:'Ta place dans BenAI',desc:'Tu es souvent le premier contact humain avec le client et le premier saisisseur dans l’outil. Un lead propre ici évite trois appels inutiles au commercial. Tu as aussi SAV, Messages, Notes, BenAI IA.',highlight:'Menus : BenAI, Notes, Messages, SAV, Leads CRM, Absences, Évolutions, Guide, Bugs'},
     {icon:'📥',title:'Entrants : avant même le CRM',desc:'Quand le téléphone sonne, note mentalement nom + projet + CP + téléphone. Si le client existe déjà, ouvre « Mes leads », cherche-le, complète plutôt que de dupliquer.',highlight:'Doublon = confusion pour le commercial'},
@@ -13395,7 +13486,10 @@ const TUTO_MOBILE_INSTALL_SLIDE={
 };
 
 function getRoleTutoSlides(role){
-  const slides=TUTO_SLIDES_BY_ROLE[role]||TUTO_SLIDES_BY_ROLE.default;
+  let slides;
+  if(role==='directeur_co')slides=getDirecteurCoTutoSlides();
+  else if(role==='directeur_general')slides=getDirecteurGeneralTutoSlides();
+  else slides=TUTO_SLIDES_BY_ROLE[role]||TUTO_SLIDES_BY_ROLE.default;
   return canUseBenAIMobileApp(role)?[...slides,TUTO_MOBILE_INSTALL_SLIDE]:slides.slice();
 }
 
