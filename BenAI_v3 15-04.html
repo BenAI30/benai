@@ -8943,6 +8943,25 @@ function registerLeadRdvDone(lead,source='manuel',dateISO=''){
   return true;
 }
 
+// INIT PAGE LEADS — mémorise le sous-onglet CRM pour ne pas renvoyer au dashboard à chaque showPage('leads') / init.
+function crmSubtabStorageKey(){
+  return'benai_crm_subtab_'+normalizeId(currentUser?.id||'guest');
+}
+function getCrmSubtabsForRole(role){
+  if(role==='admin'||isCRMScopePilotageRole(role))return['dashboard','non-attribues','mes-leads'];
+  if(role==='assistante')return['mes-leads'];
+  return['dashboard','mes-leads'];
+}
+function readStoredCrmSubtab(fallback){
+  const allowed=getCrmSubtabsForRole(currentUser?.role);
+  if(allowed.length===1)return allowed[0];
+  try{
+    const v=String(appStorage.getItem(crmSubtabStorageKey())||'').trim();
+    if(v&&allowed.includes(v))return v;
+  }catch{}
+  return allowed.includes(fallback)?fallback:(allowed.includes('dashboard')?'dashboard':allowed[0]);
+}
+
 // INIT PAGE LEADS
 function initLeadsPage(){
   const role=currentUser?.role;
@@ -8982,8 +9001,7 @@ function initLeadsPage(){
     addCRMTab('mes-leads','📋 Tous les leads',false);
     fillCommercialFilter();
     filters.style.display='flex';
-    // Admin + pilotage : ouverture sur le dashboard (synthèse) — pas sur « À attribuer »
-    showCRMTab('dashboard');
+    showCRMTab(readStoredCrmSubtab('dashboard'));
   } else if(role==='assistante'){
     // Assistante : onglet unique — saisie + ses leads
     addCRMTab('mes-leads','📋 Mes leads',true);
@@ -8993,7 +9011,7 @@ function initLeadsPage(){
     addCRMTab('dashboard','📊 Mon pilotage',true);
     addCRMTab('mes-leads','📋 Mes leads',false);
     filters.style.display='flex';
-    showCRMTab('dashboard');
+    showCRMTab(readStoredCrmSubtab('dashboard'));
   }
   refreshLeadsBadge();
   checkLeadsAlertes();
@@ -9011,6 +9029,11 @@ function addCRMTab(id,label,active){
 }
 
 function showCRMTab(id){
+  try{
+    if(currentUser?.id&&getCrmSubtabsForRole(currentUser.role).includes(id)){
+      appStorage.setItem(crmSubtabStorageKey(),id);
+    }
+  }catch{}
   document.querySelectorAll('.crm-tab').forEach(t=>t.classList.remove('active'));
   const tab=document.getElementById('crm-tab-'+id);
   if(tab)tab.classList.add('active');
