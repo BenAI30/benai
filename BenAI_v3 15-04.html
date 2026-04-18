@@ -8464,13 +8464,13 @@ function initLeadsPage(){
 
   tabs.innerHTML='';
   if(role==='admin'||isCRMScopePilotageRole(role)){
-    addCRMTab('non-attribues','⚠️ À attribuer',true);
+    addCRMTab('dashboard','📊 Dashboard',true);
+    addCRMTab('non-attribues','⚠️ À attribuer',false);
     addCRMTab('mes-leads','📋 Tous les leads',false);
-    addCRMTab('dashboard','📊 Dashboard',false);
     fillCommercialFilter();
     filters.style.display='flex';
-    // Dir. co / dir. général arrivent sur le dashboard
-    showCRMTab(isCRMScopePilotageRole(role)?'dashboard':'non-attribues');
+    // Admin + pilotage : ouverture sur le dashboard (synthèse) — pas sur « À attribuer »
+    showCRMTab('dashboard');
   } else if(role==='assistante'){
     // Assistante : onglet unique — saisie + ses leads
     addCRMTab('mes-leads','📋 Mes leads',true);
