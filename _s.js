@@ -3454,7 +3454,9 @@ function scheduleRenderConvList(){
 }
 
 function normalizedSocieteSlugForMessaging(u){
-  const s=String(u?.societe??'').trim().toLowerCase();
+  if(!u)return'';
+  if(u.role==='directeur_general')return'les-deux';
+  const s=String(u.societe??'').trim().toLowerCase();
   if(s==='nemausus'||s==='lambert'||s==='les-deux')return s;
   return'';
 }

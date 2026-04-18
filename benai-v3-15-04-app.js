@@ -2939,7 +2939,10 @@ function pilotageShowsDistinctEntityNames(){
 }
 /** Slug société pour messagerie (ne pas assimiler un profil vide à Nemausus). */
 function normalizedSocieteSlugForMessaging(u){
-  const s=String(u?.societe??'').trim().toLowerCase();
+  if(!u)return'';
+  /** DG : périmètre global réel — doit apparaître dans les fils Lambert et Nemausus même si `company` du profil est vide ou partiel. */
+  if(u.role==='directeur_general')return'les-deux';
+  const s=String(u.societe??'').trim().toLowerCase();
   if(s==='nemausus'||s==='lambert'||s==='les-deux')return s;
   return'';
 }
