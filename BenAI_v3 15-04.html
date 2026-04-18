@@ -1403,14 +1403,14 @@ input[type=file]{display:none;}
               </div>
               <div class="form-row">
                 <div class="form-group"><div class="form-label">Ville *</div><input type="text" class="form-input" id="lead-ville" placeholder="Ville (auto ou manuel)"></div>
-                <div class="form-group"><div class="form-label">Code postal *</div><input type="text" class="form-input" id="lead-cp" placeholder="Code postal" oninput="updateLeadSectorSignals()"></div>
+                <div class="form-group"><div class="form-label">Code postal *</div><input type="text" class="form-input" id="lead-cp" placeholder="Code postal" oninput="onLeadCpInputAssistanteSync()"></div>
               </div>
               <div class="form-row">
                 <div class="form-group"><div class="form-label">Type de projet *</div>
                   <input type="text" class="form-input" id="lead-projet" placeholder="Ex: Volets roulants, pergola..." list="projets-list">
                   <datalist id="projets-list"></datalist>
                 </div>
-                <div class="form-group"><div class="form-label">Secteur</div>
+                <div class="form-group"><div class="form-label">Secteur <span id="lead-secteur-assistante-hint" style="display:none;font-size:10px;font-weight:500;color:var(--t3)">— automatique selon le code postal</span></div>
                   <select class="form-input" id="lead-secteur" onchange="updateLeadSectorSignals()">
                     <option value="nimes">Nîmes</option>
                     <option value="avignon">Avignon</option>
@@ -4731,7 +4731,7 @@ function initApp(silent=false){
   if(u.role==='admin'){
     checkAbsenceReminders();
     refreshAdmin();
-  } else if(!CRM_PAGES_ONLY.includes(u.role)){
+  } else if(u.role!=='assistante'&&!CRM_PAGES_ONLY.includes(u.role)){
     checkAbsenceRemindersForUser(u.id);
   }
   if(CRM_PAGES_ONLY.includes(u.role)&&(ROLE_PAGES[u.role]||[]).includes('absences')){
@@ -7404,18 +7404,18 @@ function renderGuidePage(){
       'Bugs : en cas de blocage ou d’erreur, ouvre l’onglet Bugs et décris la page et ce que tu faisais.'
     ],
     assistante:[
-      'Menus BenAI : BenAI (IA), Notes, Messages, SAV, Leads CRM, Absences, Évolutions, Guide, Bugs — tu relies l’accueil client aux outils métier.',
+      'Menus BenAI : BenAI (IA), Notes, Messages, SAV, Leads CRM, Évolutions, Guide, Bugs — tu relies l’accueil client aux outils métier. Les absences sont saisies par l’administration.',
       'Leads CRM : onglet « Mes leads » pour retrouver et compléter les dossiers que tu as saisis ; la recherche texte aide à retrouver un client vite.',
-      'Création : + Nouveau lead — nom, téléphone, adresse, code postal, type de projet obligatoires ; complète ville, commentaire, secteur pour limiter les erreurs d’affectation.',
-      'Attribution : si un directeur commercial existe sur la société, le lead peut rester « à attribuer » jusqu’à sa décision ; sans dir. co., un commercial peut être choisi automatiquement (répartition).',
-      'Dans la fiche d’un lead que tu as créé : tu peux modifier les informations de base et le texte (suivi, commentaire) ; le tunnel de statuts détaillés (Non traité, devis, vendu…) est surtout piloté une fois le commercial assigné.',
+      'Création : + Nouveau lead — nom, téléphone, adresse complète, code postal, type de projet obligatoires ; le secteur est calculé automatiquement à partir du code postal ; complète ville et commentaire pour le terrain.',
+      'Tu enregistres le contact : pas de recherche de doublon à ta charge — la direction commerciale est prévenue dans son interface si un dossier similaire existe déjà.',
+      'Attribution et RDV : ce n’est pas ton rôle ; le directeur commercial attribue les commerciaux et pilote les rendez-vous une fois le dossier pris en charge.',
+      'Dans la fiche d’un lead que tu as créé : tu peux modifier les informations de base et le texte (suivi, commentaire) ; ne modifie pas le tunnel commercial (statuts, montants) une fois le dossier attribué.',
       'Qualité de saisie : un commentaire clair (« client veut store salon, budget approx… ») transmet tout de suite le contexte au terrain ; mentionne la source réelle (téléphone, site, magasin…).',
       'SAV : menu dédié — crée les dossiers chantier avec rappel (souvent 5 jours) ; les notifications partent aux bonnes parties prenantes selon les règles BenAI.',
-      'Messages : canal prioritaire pour alerter l’équipe (client sur place, urgence, conflit planning) ; cite toujours le nom du client ou l’ID lead.',
+      'Messages : pour échanger calmement avec l’équipe (passage de consigne, question, coordination) ; cite le nom du client ou l’ID lead. Les alertes « leads urgents » ne t’envoient pas de notification automatique pour rester sur la messagerie.',
       'Notes : bloc-notes perso BenAI ; pour toute info client utile au magasin, privilégie la fiche lead ou un message à l’équipe.',
-      'Absences : renseigne les tiennes ; option de partage avec les autres assistantes pour les rappels J-7 / veille / jour J selon la case prévue sur le formulaire.',
       'Évolutions : lis les nouveautés produit. Bugs : dès qu’une page ou un bouton bloque le travail, ouvre Bugs — c’est le canal officiel ; décris l’écran, les clics avant l’erreur et le message affiché pour obtenir un rapport structuré et une correction plus rapide.',
-      'Routine : file des appels entrants → fiche lead complète ou complément sur lead existant → message pour un passage de relais immédiat si besoin → SAV si problème installation.'
+      'Routine : appels entrants → fiche lead (coordonnées complètes) → message à l’équipe si besoin de relais → SAV si problème installation.'
     ],
     metreur:[
       'Utilise la messagerie interne pour transmettre les infos chantier.',
@@ -9297,7 +9297,7 @@ const CRM_ROLES=['directeur_co','directeur_general','commercial'];
 const CRM_PAGES_ONLY=['directeur_co','directeur_general','commercial'];
 const ROLE_PAGES={
   admin:['benai','notes','messages','sav','leads','absences','annuaire','paie','admin','evolution','guide','bugs'],
-  assistante:['benai','notes','messages','sav','leads','absences','evolution','guide','bugs'],
+  assistante:['benai','notes','messages','sav','leads','evolution','guide','bugs'],
   metreur:['benai','notes','messages','absences','evolution','guide','bugs'],
   directeur_co:['leads','messages','absences','evolution','guide','bugs'],
   directeur_general:['leads','messages','absences','evolution','guide','bugs'],
@@ -9849,11 +9849,12 @@ function renderNonAttribues(){
   list.style.margin='';
   list.style.width='';
   const leads=getCompanyScopedLeads(getLeads()).filter(isLeadInNonAttribQueue);
+  const dupBanner=isCRMScopePilotageRole(currentUser?.role)?formatDuplicatePilotageBannerHtml(getDuplicateLeadClustersForPilotage()):'';
   if(!leads.length){
-    list.innerHTML='<div style="color:var(--g);font-size:14px;padding:32px;text-align:center;font-weight:600">✅ Tous les leads sont attribués !</div>';
+    list.innerHTML=dupBanner+'<div style="color:var(--g);font-size:14px;padding:32px;text-align:center;font-weight:600">✅ Tous les leads sont attribués !</div>';
     return;
   }
-  list.innerHTML='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--r);margin-bottom:10px;padding:0 2px">'+leads.length+' lead(s) en attente d\'attribution</div>'+leads.map(l=>renderDispatchCard(l)).join('');
+  list.innerHTML=dupBanner+'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--r);margin-bottom:10px;padding:0 2px">'+leads.length+' lead(s) en attente d\'attribution</div>'+leads.map(l=>renderDispatchCard(l)).join('');
 }
 
 function setCRMView(view){
@@ -10351,6 +10352,9 @@ function renderLeadsDashboard(){
   const alertes=leads.filter(l=>isLeadAlerte(l)).length;
   const rdvMonthTotal=leads.reduce((sum,l)=>sum+getLeadRdvDoneMonthCount(l,now),0);
   const crmDashSummary=(l1,l2)=>`<summary><span class="crm-dash-sum-stack"><span class="crm-dash-sum-line1">${l1}</span><span class="crm-dash-sum-line2">${l2}</span></span></summary>`;
+  if(crmDashPilotDirCo){
+    html+=formatDuplicatePilotageBannerHtml(getDuplicateLeadClustersForPilotage(leads));
+  }
   html+=`<div class="crm-dash-kicker">${dashCommercial?'Mes ventes':'Tableau de bord CRM'}</div>`;
   html+=`<div class="crm-dash-grid-kpis" style="margin-bottom:12px${dashCommercial?';grid-template-columns:repeat(2,minmax(0,1fr))':''}">
     <div class="stat-box" title="Tous les leads actifs (hors archives) dans votre périmètre"><div class="stat-box-val">${totalLeads}</div><div class="stat-box-lbl">Leads actifs</div></div>
@@ -10947,10 +10951,26 @@ function openNewLead(){
   document.getElementById('lead-timeline').style.display='none';
   const actWrapNew=document.getElementById('lead-action-wrap');
   if(actWrapNew)actWrapNew.style.display=canViewLeadFullTimeline()?'block':'none';
+  applyLeadModalAssistanteUi();
   updateLeadSectorSignals();
   document.getElementById('lead-modal').classList.add('open');
 }
 
+function getLeadModalSubtitleHtml(l,role){
+  if(role==='assistante'){
+    return`<span class="lead-secteur">${getLeadSecteurLabel(l.secteur)}</span><span>${getLeadAge(l)}</span>${l.vu_date?`<span class="lead-vu">👁️ Vu le ${l.vu_date}</span>`:''}`;
+  }
+  const rdvLeadCount=getLeadRdvDoneCount(l);
+  const rdvClientCount=getClientRdvDoneCount(l);
+  let tail='';
+  if(rdvLeadCount!==rdvClientCount)tail+=`<span style="color:var(--t2)">Fiche actuelle: ${rdvLeadCount}</span>`;
+  if(l.vu_date)tail+=`<span class="lead-vu">👁️ Vu le ${l.vu_date}</span>`;
+  else if(role==='admin'||isCRMScopePilotageRole(role))tail+='<span class="lead-non-vu">👁️ Non ouvert</span>';
+  return`<span class="lead-secteur">${getLeadSecteurLabel(l.secteur)}</span>
+    <span>${getLeadAge(l)}</span>
+    <span style="color:var(--g)">📅 ${rdvClientCount} RDV chez ce client</span>
+    ${tail}`;
+}
 // OUVRIR FICHE LEAD EXISTANT
 function openLead(id){
   const leads=getLeads();const l=leads.find(x=>x.id===id);if(!l)return;
@@ -10967,15 +10987,7 @@ function openLead(id){
     saveLeads(leads);
   }
   document.getElementById('modal-lead-nom').textContent=l.nom;
-  const rdvLeadCount=getLeadRdvDoneCount(l);
-  const rdvClientCount=getClientRdvDoneCount(l);
-  document.getElementById('modal-lead-sub').innerHTML=`
-    <span class="lead-secteur">${getLeadSecteurLabel(l.secteur)}</span>
-    <span>${getLeadAge(l)}</span>
-    <span style="color:var(--g)">📅 ${rdvClientCount} RDV chez ce client</span>
-    ${rdvLeadCount!==rdvClientCount?`<span style="color:var(--t2)">Fiche actuelle: ${rdvLeadCount}</span>`:''}
-    ${l.vu_date?`<span class="lead-vu">👁️ Vu le ${l.vu_date}</span>`:(role==='admin'||isCRMScopePilotageRole(role))?'<span class="lead-non-vu">👁️ Non ouvert</span>':''}
-  `;
+  document.getElementById('modal-lead-sub').innerHTML=getLeadModalSubtitleHtml(l,role);
   resetLeadForm();
   // Remplir champs
   document.getElementById('lead-nom').value=l.nom||'';
@@ -11051,9 +11063,15 @@ function openLead(id){
   const btnAgenda=document.getElementById('btn-agenda-lead');
   const btnRdvDone=document.getElementById('btn-rdv-done-lead');
   const btnEmail=document.getElementById('btn-export-lead');
-  if(btnAgenda)btnAgenda.style.display=(l.rappel||l.date_rdv)?'inline-block':'none';
-  if(btnRdvDone)btnRdvDone.style.display='inline-block';
+  if(role==='assistante'){
+    if(btnAgenda)btnAgenda.style.display='none';
+    if(btnRdvDone)btnRdvDone.style.display='none';
+  }else{
+    if(btnAgenda)btnAgenda.style.display=(l.rappel||l.date_rdv)?'inline-block':'none';
+    if(btnRdvDone)btnRdvDone.style.display='inline-block';
+  }
   if(btnEmail)btnEmail.style.display='inline-block';
+  applyLeadModalAssistanteUi();
   updateLeadSectorSignals();
 }
 
@@ -11087,6 +11105,7 @@ function resetLeadForm(){
   if(box){box.style.background='';box.style.borderColor='var(--b1)';}
   selectStatut('gris',null,true);
   selectSourceByVal('MAG');
+  applyLeadModalAssistanteUi();
 }
 
 function selectSource(btn){
@@ -11210,11 +11229,15 @@ async function saveLead(){
   const ville=villeEl?.value.trim()||adresse.split(/\d{5}/)?.[1]?.trim()||'';
   const cp2=cpEl?.value.trim()||'';
   const projet=document.getElementById('lead-projet').value.trim();
+  if(currentUser?.role==='assistante')detectSecteurByCP(cp2);
   const sectorState=updateLeadSectorSignals()||computeLeadSectorState(cp2);
   const justifHorsSecteur=(document.getElementById('lead-hors-secteur-justif')?.value||'').trim();
-  const historicalLead=findHistoricalLeadByIdentity(nom,adresse,cp2,currentLeadId);
-  const historicalProposal=getCommercialHistoryProposal(historicalLead);
-  const effectiveSource=historicalLead?'ANCIEN_CLIENT':currentLeadSource;
+  let historicalLead=null,historicalProposal=null,effectiveSource=currentLeadSource;
+  if(currentUser?.role!=='assistante'){
+    historicalLead=findHistoricalLeadByIdentity(nom,adresse,cp2,currentLeadId);
+    historicalProposal=getCommercialHistoryProposal(historicalLead);
+    if(historicalLead)effectiveSource='ANCIEN_CLIENT';
+  }
   const missing=[];
   if(!nom)missing.push('Nom');
   if(!tel)missing.push('Téléphone');
@@ -11226,8 +11249,8 @@ async function saveLead(){
   const raisonMort=document.getElementById('lead-raison-mort').value;
   const prixVenduRaw=(document.getElementById('lead-prix-vendu')?.value||'').trim();
   const prixVenduValue=Number(prixVenduRaw);
-  if(currentLeadStatut==='rouge'&&!raisonMort)missing.push('Raison du refus');
-  if(currentLeadStatut==='vert'){
+  if(currentUser?.role!=='assistante'&&currentLeadStatut==='rouge'&&!raisonMort)missing.push('Raison du refus');
+  if(currentUser?.role!=='assistante'&&currentLeadStatut==='vert'){
     if(!prixVenduRaw)missing.push('Prix final vendu HT');
     else if(!Number.isFinite(prixVenduValue)||prixVenduValue<=0)missing.push('Prix final vendu HT (> 0)');
   }
@@ -11273,6 +11296,44 @@ async function saveLead(){
     commercial_historique_nom:historicalProposal?.name||null,
     proposition_reaffectation:!!(historicalProposal&&historicalProposal.isActive),
   };
+  if(currentUser?.role==='assistante'&&currentLeadId){
+    const idxAs=leads.findIndex(l=>l.id===currentLeadId);
+    if(idxAs!==-1){
+      const oldAs=leads[idxAs];
+      Object.assign(data,{
+        statut:oldAs.statut,
+        sous_statut:oldAs.sous_statut||'a_rappeler',
+        rappel:oldAs.rappel||null,
+        date_rdv_fait:oldAs.date_rdv_fait||null,
+        montant_rdv:oldAs.montant_rdv||null,
+        montant_devis:oldAs.montant_devis||null,
+        date_devis:oldAs.date_devis||null,
+        rappel_devis:oldAs.rappel_devis||null,
+        prix_vendu:oldAs.prix_vendu||null,
+        date_signature:oldAs.date_signature||null,
+        produit_vendu:oldAs.produit_vendu||null,
+        raison_mort:oldAs.raison_mort||null,
+        commercial:oldAs.commercial||null,
+        commercial_user_id:oldAs.commercial_user_id||null
+      });
+    }
+  }
+  if(currentUser?.role==='assistante'&&!currentLeadId){
+    Object.assign(data,{
+      statut:'gris',
+      sous_statut:'a_rappeler',
+      rappel:null,
+      date_rdv_fait:null,
+      montant_rdv:null,
+      montant_devis:null,
+      date_devis:null,
+      rappel_devis:null,
+      prix_vendu:null,
+      date_signature:null,
+      produit_vendu:null,
+      raison_mort:null
+    });
+  }
   if(currentLeadId){
     const idx=leads.findIndex(l=>l.id===currentLeadId);
     if(idx!==-1){
@@ -11531,7 +11592,7 @@ function updateLeadSectorSignals(){
       alertEl.textContent='';
     }
   }
-  if(justifWrap)justifWrap.style.display=state.outOfSector?'block':'none';
+  if(justifWrap)justifWrap.style.display=(state.outOfSector&&currentUser?.role!=='assistante')?'block':'none';
   return state;
 }
 function normalizeLeadIdentityText(value){
@@ -11552,6 +11613,30 @@ function findHistoricalLeadByIdentity(nom,adresse,cp,currentId){
     .filter(l=>String(l.id)!==String(currentId||'')&&getLeadIdentityKey(l.nom,l.adresse,l.cp)===key)
     .sort((a,b)=>new Date(b.date_modification||b.date_creation||0)-new Date(a.date_modification||a.date_creation||0))[0]||null;
 }
+function getDuplicateLeadClustersForPilotage(leadsIn){
+  const base=Array.isArray(leadsIn)?leadsIn:getCompanyScopedLeads(getLeads().filter(l=>!l._deleted&&!isLeadCrmArchivedView(l)));
+  const byKey=new Map();
+  base.forEach(l=>{
+    const k=getLeadIdentityKey(l.nom,l.adresse,l.cp);
+    if(!k)return;
+    if(!byKey.has(k))byKey.set(k,[]);
+    byKey.get(k).push(l);
+  });
+  return[...byKey.values()].filter(a=>a.length>1);
+}
+function formatDuplicatePilotageBannerHtml(clusters){
+  if(!clusters?.length)return'';
+  const lines=clusters.slice(0,4).map(arr=>{
+    const names=arr.map(l=>esc(l.nom||'Sans nom')).join(' · ');
+    return`<div style="font-size:12px;color:var(--t2);margin-top:4px">→ ${names}</div>`;
+  }).join('');
+  const more=clusters.length>4?`<div style="font-size:11px;color:var(--t3);margin-top:4px">… et ${clusters.length-4} autre(s)</div>`:'';
+  return`<div class="sav-form" style="margin:0 0 12px;border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.08)">
+    <div style="font-size:13px;font-weight:700;color:var(--y)">⚠️ Doublons probables (même nom + même code postal + même adresse)</div>
+    <div style="font-size:12px;color:var(--t2);line-height:1.45;margin-top:4px">Les assistantes ne vérifient pas les doublons à la saisie : ouvrez les fiches ci-dessous et fusionnez ou archivez si besoin.</div>
+    ${lines}${more}
+  </div>`;
+}
 function getCommercialHistoryProposal(lead){
   if(!lead?.commercial)return null;
   const user=getAllUsers().find(u=>u.id===lead.commercial);
@@ -11570,6 +11655,19 @@ function detectSecteurByCP(cp){
   const secteurSel=document.getElementById('lead-secteur');
   if(secteurSel)secteurSel.value=state.secteur;
   updateLeadSectorSignals();
+}
+/** CP : recalcul secteur (assistante = toujours auto depuis le CP). */
+function onLeadCpInputAssistanteSync(){
+  const raw=document.getElementById('lead-cp')?.value||'';
+  if(currentUser?.role==='assistante')detectSecteurByCP(raw);
+  updateLeadSectorSignals();
+}
+function applyLeadModalAssistanteUi(){
+  const hint=document.getElementById('lead-secteur-assistante-hint');
+  const sel=document.getElementById('lead-secteur');
+  const isAs=currentUser?.role==='assistante';
+  if(hint)hint.style.display=isAs?'inline':'none';
+  if(sel)sel.disabled=!!isAs;
 }
 
 // Fermer suggestions si clic ailleurs
@@ -11652,6 +11750,8 @@ function getLeadNotifScopeForUser(){
   let scoped=getLeads().filter(l=>!l._deleted&&!isLeadCrmArchivedView(l)&&l.statut!=='vert'&&l.statut!=='rouge');
   if(currentUser.role==='commercial'){
     scoped=scoped.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
+  }else if(currentUser.role==='assistante'){
+    scoped=scoped.filter(l=>l.cree_par===currentUser.id||l.cree_par===currentUser.name);
   }else if(isCRMScopePilotageRole(currentUser.role)){
     scoped=getCompanyScopedLeads(scoped);
   }else if(currentUser.role==='admin'&&currentUser.id!=='benjamin'){
@@ -11663,6 +11763,7 @@ function getLeadNotifScopeForUser(){
 function checkLeadSmartNotifications(){
   if(!currentUser)return;
   if(currentUser.role==='admin')return;
+  if(currentUser.role==='assistante')return;
   const scoped=getLeadNotifScopeForUser();
   if(!scoped.length)return;
   const nonAttribues=scoped.filter(l=>isLeadInNonAttribQueue(l)).length;
@@ -13559,18 +13660,16 @@ const TUTO_SLIDES_BY_ROLE={
     {icon:'✅',title:'Routine A → Z (mémo)',desc:'1) Alertes + non traités. 2) Appel + mise à jour statut. 3) RDV → Agenda, puis RDV fait après passage. 4) Devis → montants / dates + relance. 5) Vendu : prix HT exact ; Perdu : motif. 6) Jaunes anciens. 7) Bugs si l’outil bloque.',highlight:'Le commercial exemplaire ferme la journée avec un CRM à jour'},
   ],
   assistante:[
-    {icon:'🧭',title:'Ta place dans BenAI',desc:'Tu es souvent le premier contact humain avec le client et le premier saisisseur dans l’outil. Un lead propre ici évite trois appels inutiles au commercial. Tu as aussi SAV, Messages, Notes, BenAI IA.',highlight:'Menus : BenAI, Notes, Messages, SAV, Leads CRM, Absences, Évolutions, Guide, Bugs'},
-    {icon:'📥',title:'Entrants : avant même le CRM',desc:'Quand le téléphone sonne, note mentalement nom + projet + CP + téléphone. Si le client existe déjà, ouvre « Mes leads », cherche-le, complète plutôt que de dupliquer.',highlight:'Doublon = confusion pour le commercial'},
-    {icon:'➕',title:'Créer un lead A → Z',desc:'Leads CRM → + Nouveau lead. Champs obligatoires : nom, téléphone, code postal, type de projet. Ajoute adresse, ville, commentaire détaillé, secteur. Indique la source (magasin, site, téléphone…) pour orienter la suite du dossier.',highlight:'Sans CP ou projet, BenAI refuse l’enregistrement'},
-    {icon:'🏷️',title:'Attribution automatique ou manuelle',desc:'Si un directeur commercial existe, le lead peut rester sans commercial jusqu’à sa décision. S’il n’y a pas de dir. co., BenAI peut attribuer automatiquement selon la répartition interne. Un champ commercial vide au départ est courant tant le dir. co. n’a pas arbitré.',highlight:'À l’attribution, une notification part vers le commercial concerné'},
-    {icon:'📝',title:'Après ton échange client',desc:'Mets à jour commentaire ou suivi avec ce qui s’est dit (« rappeler mardi matin », « veut volets seulement »). Les statuts avancés (devis, vendu…) seront surtout tenus par le commercial une fois le dossier sur lui, mais ta saisie initiale oriente toute la suite.',highlight:'Une phrase claire vaut un long téléphone'},
-    {icon:'📅',title:'RDV et Agenda',desc:'Si tu fixes un rendez-vous, renseigne les infos nécessaires puis utilise le bouton Agenda dans la fiche : Google Calendar s’ouvre avec le client. Vérifie fuseau / horaire avant de valider le créneau.',highlight:'Les compléments sur la fiche sont visibles par l’équipe terrain'},
-    {icon:'🔧',title:'SAV chantier',desc:'Menu SAV → Nouveau : client, nature du problème, fournisseur, détail utile au suivi, date de rappel. Les notifications suivent les règles BenAI.',highlight:'SAV ≠ lead vente : garde les sujets séparés'},
-    {icon:'💬',title:'Messages d’urgence',desc:'Client sur place, litige, urgence planning ? Envoie un message avec NOM + contexte concret (qui, quoi, quand).',highlight:'Copie/colle le numéro de téléphone du lead dans le message si besoin'},
-    {icon:'📝',title:'Notes perso',desc:'Notes sert à ton organisation (rappels perso, liste de tâches). Pour toute info client utile au magasin, privilégie la fiche lead ou un message à l’équipe.',highlight:'CRM et Messages portent le partage ; Notes garde ton mémo perso'},
-    {icon:'📆',title:'Absences',desc:'Déclare les tiennes. La case « partager avec les assistantes » contrôle si les collègues voient les rappels J-7 / veille / jour J — décoche pour une absence privée si l’entreprise le permet.',highlight:'Anticipe pour que la permanence téléphonique s’organise'},
-    {icon:'🐛',title:'Bugs — prioritaire en cas de souci',desc:'Dès qu’une fonction plante ou affiche une erreur, passe par l’onglet Bugs : c’est le canal prévu pour la correction (page, action, message d’erreur, gravité). Évolutions sert à lire les nouveautés produit ; Bugs sert à faire avancer les correctifs.',highlight:'Ton retour terrain est souvent le premier signal — sois précis'},
-    {icon:'✅',title:'Routine assistante',desc:'Matin : messages + SAV rappels du jour. Journée : chaque appel → fiche CRM complète ou complément. Soir : vérifier que rien d’urgent ne reste dans Messages.',highlight:'Un CRM propre en fin de service aide toute l’équipe le lendemain'},
+    {icon:'🧭',title:'Ta place dans BenAI',desc:'Tu es souvent le premier contact avec le client et tu saisis le dossier dans l’outil. Un lead propre évite des allers-retours inutiles. Tu as BenAI IA, Notes, Messages, SAV, Leads CRM, Évolutions, Guide, Bugs.',highlight:'Les absences sont gérées par l’administration'},
+    {icon:'📥',title:'Entrants : saisir le contact',desc:'Quand le téléphone sonne : note nom, projet, code postal, téléphone. Tu crées le lead avec ces infos — tu ne cherches pas toi-même si un doublon existe ; la direction commerciale voit une alerte dans son CRM en cas de dossier similaire.',highlight:'Le code postal détermine automatiquement le secteur'},
+    {icon:'➕',title:'Créer un lead',desc:'Leads CRM → + Nouveau lead. Obligatoires : nom, téléphone, adresse, code postal, type de projet. Le secteur se remplit selon le CP. Ajoute ville et surtout un commentaire clair (source : magasin, site, téléphone…).',highlight:'Tu ne planifies pas de RDV commercial ici — tu enregistres la prise de contact'},
+    {icon:'🏷️',title:'Après ta saisie',desc:'Le directeur commercial attribue un vendeur quand c’est nécessaire ; sans dir. co., une attribution automatique peut s’appliquer. Tu peux compléter commentaire ou suivi sur tes fiches ; le tunnel avancé (devis, vendu…) est tenu par le terrain une fois le dossier attribué.',highlight:'Pas de notification « leads urgents » automatique sur ton compte — la messagerie sert à communiquer calmement'},
+    {icon:'📝',title:'Compléter une fiche',desc:'Mets à jour commentaire ou suivi avec ce qui s’est dit (« client veut devis pergola », « rappeler semaine prochaine »). Évite de modifier statuts ou montants une fois le dossier pris en charge par un commercial.',highlight:'Une phrase claire vaut un long téléphone'},
+    {icon:'🔧',title:'SAV chantier',desc:'Menu SAV → Nouveau : client, problème, fournisseur, rappel. Les notifications suivent les règles BenAI.',highlight:'SAV ≠ lead vente : garde les sujets séparés'},
+    {icon:'💬',title:'Messages',desc:'Écris à l’équipe pour les consignes, questions ou coordination ; indique le nom du client ou l’identifiant du lead. Pas besoin de dramatiser : c’est l’outil d’échange du quotidien.',highlight:'Les vraies urgences terrain passent aussi par le téléphone ou la fiche une fois le dossier attribué'},
+    {icon:'📝',title:'Notes perso',desc:'Notes sert à ton organisation personnelle. Pour toute info utile au magasin ou au commercial, privilégie la fiche lead ou un message.',highlight:'CRM et Messages portent le partage'},
+    {icon:'🐛',title:'Bugs — en cas de blocage',desc:'Onglet Bugs : page concernée, ce que tu faisais, message d’erreur. Évolutions = nouveautés ; Bugs = correctifs.',highlight:'Un signalement précis accélère la correction'},
+    {icon:'✅',title:'Routine',desc:'Journée : chaque appel pertinent → fiche lead complète. Messages pour la coordination. SAV si problème installation.',highlight:'Tu poses les bases ; le commercial pilote la suite'},
   ],
   admin:[
     {icon:'🛡️',title:'Espace administrateur',desc:'Tu pilotes l’activité globale : tableau de bord synthétique, SAV, messages, notes, et accès CRM complet selon les droits des comptes.',highlight:'Priorité : alertes visibles sur le tableau de bord'},
