@@ -2248,7 +2248,7 @@ function hasDirecteurCommercial(){
   return getAllUsers().some(u=>u.role==='directeur_co');
 }
 function getRoundRobinCommercial(societe){
-  const users=getAllUsers().filter(u=>u.role==='commercial'&&(u.societe===societe||u.societe==='les-deux'));
+  const users=getAllUsers().filter(u=>isCrmSalesActorRole(u.role)&&(u.societe===societe||u.societe==='les-deux'));
   if(!users.length)return null;
   const key='benai_rr_idx_'+(societe||'all');
   let idx=parseInt(appStorage.getItem(key)||'0',10);
@@ -3129,7 +3129,7 @@ function initApp(silent=false){
   refreshNotifBadge();
   requestNotifPermission();
   // Motivations automatiques pour commerciaux
-  if(u.role==='commercial')setTimeout(()=>checkMotivationsAuto(),5000);
+  if(isCrmSalesActorRole(u.role)&&!isCRMScopePilotageRole(u.role))setTimeout(()=>checkMotivationsAuto(),5000);
   // Rappel anniversaires pour Benjamin
   if(u.id==='benjamin')setTimeout(()=>checkAnniversaires(),3000);
   // Tuto première utilisation (tous les rôles non-admin Benjamin)
@@ -8270,7 +8270,7 @@ function canAccessLeadByCompany(lead){
     if(userSoc==='lambert')return leadSoc==='lambert';
     return leadSoc==='nemausus';
   }
-  if(currentUser.role==='commercial'){
+  if(isCrmSalesActorRole(currentUser.role)&&!isCRMScopePilotageRole(currentUser.role)){
     return normalizeId(lead.commercial)===normalizeId(currentUser.id);
   }
   if(currentUser.role==='assistante'){
@@ -8281,7 +8281,7 @@ function canAccessLeadByCompany(lead){
 function getCompanyScopedLeads(list){
   let leads=(list||getLeads()).filter(l=>l&&!l._deleted);
   if(!currentUser)return leads;
-  if(currentUser.role==='commercial'){
+  if(isCrmSalesActorRole(currentUser.role)&&!isCRMScopePilotageRole(currentUser.role)){
     return leads.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
   }
   if(!isCRMScopePilotageRole(currentUser.role))return leads;
@@ -8312,7 +8312,7 @@ function getCrmSecteurIdsForScopeSlug(slug){
   return['nimes','avignon','bagnoles','zone_blanche'];
 }
 function getLeadFormSecteurOptionIds(){
-  if(currentUser?.role==='commercial'){
+  if(isCrmSalesActorRole(currentUser?.role)&&!isCRMScopePilotageRole(currentUser?.role)){
     const g=getAllowedCommercialSectors(currentUser);
     if(g&&g.size)return[...g];
     return['nimes','avignon'];
@@ -8435,7 +8435,7 @@ function getCrmSecteurCoreIdsInScope(){
   return getCrmSecteurIdsForScopeSlug(getCrmSecteurScopeSlug()).filter(id=>id!=='zone_blanche');
 }
 function userMatchesCrmPilotageCommercial(u){
-  if(!u||u.role!=='commercial')return false;
+  if(!u||!isCrmSalesActorRole(u.role))return false;
   if(currentUser?.role==='admin')return true;
   if(!isCRMScopePilotageRole(currentUser?.role))return true;
   return currentUser.societe==='les-deux'||u.societe===currentUser.societe||u.societe==='les-deux';
@@ -8813,8 +8813,8 @@ function getFilteredLeads(){
   let leads=getLeads().filter(l=>!l._deleted);
 
   // RÈGLES STRICTES PAR RÔLE
-  if(role==='commercial'){
-    // Commercial voit UNIQUEMENT ses leads assignés
+  if(isCrmSalesActorRole(role)&&!isCRMScopePilotageRole(role)){
+    // Terrain (commercial sans pilotage) : uniquement ses leads assignés
     leads=leads.filter(l=>l.commercial===currentUser.id);
   } else if(role==='assistante'){
     // Assistante voit uniquement les leads qu'elle a créés
@@ -9214,7 +9214,7 @@ function renderLeadsDashboard(){
   if(list)list.style.display='flex';
   const dashOpenIds=captureCrmDashboardDetailsOpenState();
   const role=currentUser?.role||'assistante';
-  const dashCommercial=role==='commercial';
+  const dashCommercial=isCrmSalesActorRole(role)&&!isCRMScopePilotageRole(role);
   const dashPilotage=!dashCommercial;
   const crmDashPilotDirCo=isCRMScopePilotageRole(role);
   const leads=getCompanyScopedLeads(getLeads()).filter(l=>!isLeadCrmArchivedView(l));
@@ -9228,13 +9228,13 @@ function renderLeadsDashboard(){
   const now=new Date();
   const month=now.getMonth();const year=now.getFullYear();
   const leadsMonth=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getMonth()===month&&d.getFullYear()===year;});
-  const commerciaux=getAllUsers().filter(u=>u.role==='commercial'&&userMatchesCrmPilotageCommercial(u));
+  const commerciaux=getAllUsers().filter(u=>isCrmSalesActorRole(u.role)&&userMatchesCrmPilotageCommercial(u));
   let commerciauxObj=dashCommercial?commerciaux.filter(c=>normalizeId(String(c.id))===normalizeId(String(currentUser.id))):enrichCommerciauxObjWithLeadAssignments(commerciaux.slice(),leads);
-  if(dashCommercial&&commerciauxObj.length===0&&currentUser?.role==='commercial'){
+  if(dashCommercial&&commerciauxObj.length===0&&isCrmSalesActorRole(currentUser?.role)){
     commerciauxObj.push({
       id:currentUser.id,
       name:currentUser.name||'Commercial',
-      role:'commercial',
+      role:currentUser.role||'commercial',
       societe:currentUser.societe||'',
       vehicule:currentUser.vehicule||'',
       color:currentUser.color||'linear-gradient(135deg,#E8943A,#B45309)',
@@ -9248,7 +9248,7 @@ function renderLeadsDashboard(){
       const idN=normalizeId(a.id);
       if(!idN||activeIds.has(idN))return;
       if(!objKeys.has(idN))return;
-      if(!userMatchesCrmPilotageCommercial({role:'commercial',societe:a.societe||'',id:a.id}))return;
+      if(!userMatchesCrmPilotageCommercial({role:a.role||'commercial',societe:a.societe||'',id:a.id}))return;
       commerciauxObj.push({
         id:a.id,
         name:`${String(a.name||a.id).trim()} (compte supprimé)`,
@@ -10494,7 +10494,9 @@ function applyLeadModalSecteurOptions(preserveValue){
   else sel.value=fallback;
 }
 function getAllowedCommercialSectors(user){
-  if(!user||user.role!=='commercial')return new Set();
+  if(!user)return new Set();
+  if(!isCrmSalesActorRole(user.role))return new Set();
+  if(isCRMScopePilotageRole(user.role))return new Set();
   if(user.societe==='lambert')return new Set(['bagnoles']);
   if(user.societe==='les-deux')return new Set(['nimes','avignon','bagnoles']);
   return new Set(['nimes','avignon']);
@@ -10503,7 +10505,7 @@ function computeLeadSectorState(cpRaw){
   const selectedSecteur=document.getElementById('lead-secteur')?.value||'nimes';
   const detected=resolveLeadSectorByCP(cpRaw);
   const allowedSectors=getAllowedCommercialSectors(currentUser);
-  const outOfSectorByRole=currentUser?.role==='commercial'&&(!allowedSectors.size||!allowedSectors.has(detected.secteur));
+  const outOfSectorByRole=isCrmSalesActorRole(currentUser?.role)&&!isCRMScopePilotageRole(currentUser?.role)&&(!allowedSectors.size||!allowedSectors.has(detected.secteur));
   const selectedMismatch=detected.isKnown&&selectedSecteur!==detected.secteur;
   return {...detected,selectedSecteur,outOfSectorByRole,selectedMismatch,outOfSector:detected.isZoneBlanche||outOfSectorByRole};
 }
@@ -10696,13 +10698,13 @@ function getLeadAge(l){
 function getLeadNotifScopeForUser(){
   if(!currentUser)return [];
   let scoped=getLeads().filter(l=>!l._deleted&&!isLeadCrmArchivedView(l)&&l.statut!=='vert'&&l.statut!=='rouge');
-  if(currentUser.role==='commercial'){
+  if(isCrmSalesActorRole(currentUser.role)&&!isCRMScopePilotageRole(currentUser.role)){
     scoped=scoped.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
   }else if(currentUser.role==='assistante'){
     scoped=scoped.filter(l=>l.cree_par===currentUser.id||l.cree_par===currentUser.name);
-  }else if(currentUser.role==='directeur_co'){
+  }else if(currentUser.role==='directeur_co'||currentUser.role==='directeur_general'){
     scoped=getCompanyScopedLeads(scoped);
-  }else if(currentUser.role==='directeur_general'||currentUser.role==='metreur'){
+  }else if(currentUser.role==='metreur'){
     scoped=[];
   }else if(currentUser.role==='admin'&&currentUser.id!=='benjamin'){
     scoped=[];
@@ -10716,7 +10718,7 @@ function checkLeadSmartNotifications(){
   if(!currentUser)return;
   if(currentUser.role==='admin')return;
   if(currentUser.role==='assistante')return;
-  if(currentUser.role==='directeur_general'||currentUser.role==='metreur')return;
+  if(currentUser.role==='metreur')return;
   const scoped=getLeadNotifScopeForUser();
   if(!scoped.length)return;
   const nonAttribues=scoped.filter(l=>isLeadInNonAttribQueue(l)).length;
@@ -10761,12 +10763,12 @@ function checkLeadsAlertes(){
 function checkRappelsLeads(){
   if(!currentUser)return;
   if(currentUser.role==='admin')return;
-  if(currentUser.role==='directeur_general'||currentUser.role==='metreur')return;
+  if(currentUser.role==='metreur')return;
   const now=new Date();
   let leads=getLeads().filter(l=>!l._deleted&&!isLeadCrmArchivedView(l)&&l.rappel);
-  if(currentUser.role==='commercial'){
+  if(isCrmSalesActorRole(currentUser.role)&&!isCRMScopePilotageRole(currentUser.role)){
     leads=leads.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
-  }else if(currentUser.role==='directeur_co'){
+  }else if(isCRMScopePilotageRole(currentUser.role)){
     leads=leads.filter(canAccessLeadByCompany);
   }else if(currentUser.id!=='benjamin'){
     leads=leads.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
@@ -10795,16 +10797,15 @@ function refreshLeadsBadge(){
   const badge=document.getElementById('leads-badge');if(!badge)return;
   const role=currentUser?.role;
   if(role==='admin'){badge.style.display='none';return;}
-  if(role==='directeur_general'){badge.style.display='none';return;}
   let leads=getCompanyScopedLeads(getLeads()).filter(l=>!isLeadCrmArchivedView(l));
-  // Directeur co : badge = non attribués
-  if(role==='directeur_co'){
+  // Direction commerciale / DG : badge = leads non attribués (pilotage)
+  if(role==='directeur_co'||role==='directeur_general'){
     const n=leads.filter(l=>!l.commercial&&l.statut==='gris').length;
     if(n>0){badge.style.display='flex';badge.textContent=n;badge.style.background='var(--r)';}
     else badge.style.display='none';
     return;
   }
-  if(role==='commercial')leads=leads.filter(l=>l.commercial===currentUser.id);
+  if(isCrmSalesActorRole(role)&&!isCRMScopePilotageRole(role))leads=leads.filter(l=>l.commercial===currentUser.id);
   const alertes=leads.filter(l=>isLeadAlerte(l)).length;
   if(alertes>0){badge.style.display='flex';badge.textContent=alertes;badge.style.background='var(--r)';}
   else{const n=leads.filter(l=>l.statut==='gris').length;
@@ -11711,7 +11712,7 @@ ${histTxt}`;
 
 // Vérifier motivations automatiques
 function checkMotivationsAuto(){
-  if(!currentUser||currentUser.role!=='commercial')return;
+  if(!currentUser||!isCrmSalesActorRole(currentUser.role)||isCRMScopePilotageRole(currentUser.role))return;
   const uid=currentUser.id;
   const prog=getProgressionCommercial(uid);
   const pct=prog.obj.mensuel>0?prog.ca_mois/prog.obj.mensuel:0;
@@ -11759,7 +11760,7 @@ function checkMotivationsAuto(){
 function renderTableauVentes(container){
   const leads=getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert');
   const now=new Date();
-  const canExportSales=currentUser?.role!=='commercial';
+  const canExportSales=!isCrmSalesActorRole(currentUser?.role)||isCRMScopePilotageRole(currentUser?.role);
   // Sélecteur mois — toujours au moins une <option> (select vide = bug UI rectangle blanc sous certains navigateurs)
   const yNow=now.getFullYear();
   const currentKey=`${yNow}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -11793,7 +11794,7 @@ function renderTableauVentes(container){
     }
   }
   const srcIcons2=LEAD_SOURCE_ICONS;
-  const ventesTableCommercialOnly=currentUser?.role==='commercial';
+  const ventesTableCommercialOnly=isCrmSalesActorRole(currentUser?.role)&&!isCRMScopePilotageRole(currentUser?.role);
   const thPrix='Prix vente HT (€)';
   const thead=ventesTableCommercialOnly
     ?`<thead><tr style="background:var(--s3)">
@@ -11857,7 +11858,7 @@ function formatMois(str){
 }
 
 function exportTableauVentes(){
-  if(currentUser?.role==='commercial')return;
+  if(isCrmSalesActorRole(currentUser?.role)&&!isCRMScopePilotageRole(currentUser?.role))return;
   const leads=getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert');
   const now=new Date();
   const yNow=now.getFullYear();
@@ -12183,8 +12184,8 @@ function getSocieteFromUser(uid){
 }
 
 function getAutoAttribution(societe){
-  // Attribution automatique si un seul commercial sur la société
-  const commerciaux=getAllUsers().filter(u=>u.role==='commercial'&&(u.societe===societe||u.societe==='les-deux'));
+  // Attribution automatique si un seul porteur de ventes (commercial / dir. co / DG) sur la société
+  const commerciaux=getAllUsers().filter(u=>isCrmSalesActorRole(u.role)&&(u.societe===societe||u.societe==='les-deux'));
   if(commerciaux.length===1)return commerciaux[0].id;
   return null;
 }
@@ -12533,7 +12534,7 @@ async function checkUpdate(){
       let notes=[];
       if(data.notes_admin&&role==='admin')notes=notes.concat(data.notes_admin);
       if(data.notes_directeur_co&&role==='directeur_co')notes=notes.concat(data.notes_directeur_co);
-      if(data.notes_commercial&&role==='commercial')notes=notes.concat(data.notes_commercial);
+      if(data.notes_commercial&&(role==='commercial'||role==='directeur_co'||role==='directeur_general'))notes=notes.concat(data.notes_commercial);
       if(data.notes_assistante&&(role==='assistante'||role==='metreur'))notes=notes.concat(data.notes_assistante);
       // Fallback si pas de notes filtrées
       if(!notes.length)notes=Array.isArray(data.notes)?data.notes:[data.notes||'Améliorations et corrections'];
