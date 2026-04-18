@@ -6538,7 +6538,7 @@ function renderGuidePage(){
   };
   const common=[
     'BenAI suggère toujours, vous décidez toujours.',
-    'Sur mobile, installe BenAI via “📲 Installer” pour un accès direct.',
+    ...(canInstallMobile?['Sur mobile, installe BenAI via « 📲 Installer » pour un accès direct.']:[]),
     'En cas d’anomalie, signale-la depuis l’onglet Bugs.'
   ];
   const actions=roleGuide[role]||roleGuide.assistante;
