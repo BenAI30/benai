@@ -6389,8 +6389,19 @@ function getAllUsers(){
   return[...base,...extras];
 }
 
-function benaiJsonAttr(v){
-  return JSON.stringify(v==null?'':String(v));
+/** Échappement attribut HTML (guillemets doubles). */
+function benaiEscAttr(s){
+  return String(s??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+}
+function benaiEquipeBtnEdit(el){const uid=el?.getAttribute?.('data-buid');if(uid)editUser(uid);}
+function benaiEquipeBtnToggle(el){const uid=el?.getAttribute?.('data-buid');if(uid)void toggleAccess(uid);}
+function benaiEquipeBtnBlock(el){const uid=el?.getAttribute?.('data-buid');if(uid)void toggleBlockCommercial(uid);}
+function benaiEquipeBtnDel(el){const uid=el?.getAttribute?.('data-buid');if(uid)void supprimerUtilisateur(uid);}
+function benaiEquipeBtnPseudo(el){const uid=el?.getAttribute?.('data-buid');if(uid)void modifierBenaiLoginUid(uid);}
+function benaiEquipeBtnPwd(el){
+  const id=el?.getAttribute?.('data-buid');
+  const name=el?.getAttribute?.('data-bname')||'';
+  if(id)changerMdp(id,name);
 }
 /** Comptes BenAI sans fiche annuaire associée (ex. Benjamin). */
 function getBenaiUsersWithoutLinkedAnnuaireFiche(){
@@ -6407,7 +6418,8 @@ function getBenaiUsersWithoutLinkedAnnuaireFiche(){
   });
 }
 function buildBenaiAccountControlsHtml(u){
-  const ja=benaiJsonAttr;
+  const bu=benaiEscAttr(String(u.id??''));
+  const bn=benaiEscAttr(String(u.name??''));
   const access=getAccess();
   const isBlocked=access[u.id]===false;
   const isCRM=(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general');
@@ -6420,27 +6432,26 @@ function buildBenaiAccountControlsHtml(u){
     :`<div style="font-size:10px;color:var(--t3);margin-top:2px">Connexion : <code style="font-size:10px;background:var(--s2);padding:2px 6px;border-radius:4px">${esc(u.id)}</code></div>`;
   let actions='';
   if(u.id!=='benjamin'){
-    const uid=u.id;
     const btnStyle='padding:4px 8px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit';
-    actions=`<button type="button" style="${btnStyle};background:var(--a3);color:var(--a);border:1px solid var(--a)" onclick="editUser(${ja(uid)})" title="Modifier">✏️</button>
-<div class="toggle ${isBlocked?'':'on'}" onclick="void toggleAccess(${ja(uid)})" title="${isBlocked?'Bloqué':'Actif'}" style="flex-shrink:0"></div>`;
+    actions=`<button type="button" style="${btnStyle};background:var(--a3);color:var(--a);border:1px solid var(--a)" data-buid="${bu}" onclick="benaiEquipeBtnEdit(this)" title="Modifier">✏️</button>
+<div class="toggle ${isBlocked?'':'on'}" data-buid="${bu}" onclick="benaiEquipeBtnToggle(this)" title="${isBlocked?'Bloqué':'Actif'}" style="flex-shrink:0"></div>`;
     if(isCRM){
-      actions+=`<button type="button" style="${btnStyle};${isBlocked?'background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3)':'background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3)'}" onclick="void toggleBlockCommercial(${ja(uid)})">${isBlocked?'🔓 Débloquer':'🔒 Bloquer'}</button>`;
+      actions+=`<button type="button" style="${btnStyle};${isBlocked?'background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3)':'background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3)'}" data-buid="${bu}" onclick="benaiEquipeBtnBlock(this)">${isBlocked?'🔓 Débloquer':'🔒 Bloquer'}</button>`;
     }
-    actions+=`<button type="button" style="${btnStyle};background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3)" onclick="void supprimerUtilisateur(${ja(uid)})" title="Supprimer">🗑️</button>`;
+    actions+=`<button type="button" style="${btnStyle};background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3)" data-buid="${bu}" onclick="benaiEquipeBtnDel(this)" title="Supprimer">🗑️</button>`;
     if(canAssignBenaiLoginPseudo()){
-      actions+=`<button type="button" style="${btnStyle};background:var(--s2);color:var(--t1);border:1px solid var(--b1)" title="Identifiant de connexion" onclick="void modifierBenaiLoginUid(${ja(uid)})">🔑</button>`;
+      actions+=`<button type="button" style="${btnStyle};background:var(--s2);color:var(--t1);border:1px solid var(--b1)" title="Identifiant de connexion" data-buid="${bu}" onclick="benaiEquipeBtnPseudo(this)">🔑</button>`;
     }
   }else{
     actions='<span style="font-size:10px;color:var(--t3)">Admin</span>';
     if(canAssignBenaiLoginPseudo()){
-      actions+=`<button type="button" style="padding:4px 8px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit;background:var(--s2);color:var(--t1);border:1px solid var(--b1)" onclick="void modifierBenaiLoginUid(${ja('benjamin')})">🔑</button>`;
+      actions+=`<button type="button" style="padding:4px 8px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit;background:var(--s2);color:var(--t1);border:1px solid var(--b1)" data-buid="benjamin" onclick="benaiEquipeBtnPseudo(this)">🔑</button>`;
     }
   }
   const pwdRow=currentUser?.role==='admin'?`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--b1)">
     <span style="font-size:10px;color:var(--t3)">Mot de passe</span>
     <span style="font-size:11px;color:var(--t3);font-family:JetBrains Mono,monospace;background:var(--bg);padding:4px 10px;border-radius:6px">•••• sécurisé</span>
-    <button type="button" class="equipe-link-btn" onclick="changerMdp(${ja(u.id)},${ja(u.name)})" style="padding:4px 10px;font-size:11px;font-weight:600">Modifier</button>
+    <button type="button" class="equipe-link-btn" data-buid="${bu}" data-bname="${bn}" onclick="benaiEquipeBtnPwd(this)" style="padding:4px 10px;font-size:11px;font-weight:600">Modifier</button>
   </div>`:'';
   return`<div class="emp-benai-panel" style="border-top:1px solid var(--b1);margin-top:10px;padding-top:10px;width:100%;box-sizing:border-box">
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-bottom:6px">Compte BenAI</div>
