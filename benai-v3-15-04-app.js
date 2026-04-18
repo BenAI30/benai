@@ -3069,7 +3069,7 @@ function initApp(silent=false){
   migrateLegacyBenaiReadToMem();
   migrateMotivationMessagesToBenaiThread();
   refreshSharedSignatures(false);
-  if(u?.role==='admin'||isCRMScopePilotageRole(u?.role)){
+  if(roleNeedsPeerProfilesSyncFromSupabase(u?.role)){
     void syncExtraUsersFromSupabaseProfiles().then(ok=>{
       if(!ok)return;
       if(u?.role==='admin'&&document.getElementById('page-annuaire')?.style.display==='flex'){
@@ -3078,6 +3078,9 @@ function initApp(silent=false){
       }
       if(isCRMScopePilotageRole(u?.role)&&document.getElementById('page-leads')?.style.display==='flex'){
         try{renderLeads();}catch(_){}
+      }
+      if(document.getElementById('page-messages')?.style.display==='flex'){
+        try{scheduleRenderConvList();}catch(_){}
       }
     });
   }
@@ -6558,9 +6561,15 @@ function resolveCrmCommercialLabel(uid){
   return String(uid);
 }
 
+/** Rôles qui ont besoin de la liste complète des profils (même société) : messagerie, CRM, sync équipe. */
+function roleNeedsPeerProfilesSyncFromSupabase(role){
+  const r=String(role||'').trim();
+  return r==='admin'||isCRMScopePilotageRole(r)||r==='commercial'||r==='assistante'||r==='metreur';
+}
+
 async function syncExtraUsersFromSupabaseProfiles(){
   if(!currentUser)return false;
-  if(currentUser.role!=='admin'&&!isCRMScopePilotageRole(currentUser.role))return false;
+  if(!roleNeedsPeerProfilesSyncFromSupabase(currentUser.role))return false;
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
   const session=await ensureSupabaseSession();
   if(!session?.access_token)return false;
@@ -8775,14 +8784,18 @@ function initLeadsPage(){
   refreshLeadsBadge();
   checkLeadsAlertes();
   checkRappelsLeads();
-  if(isCRMScopePilotageRole(role)){
+  if(roleNeedsPeerProfilesSyncFromSupabase(role)){
     void syncExtraUsersFromSupabaseProfiles().then(ok=>{
       if(!ok)return;
       try{
-        const aid=(document.querySelector('.crm-tab.active')||{}).id||'';
-        if(aid==='crm-tab-non-attribues')renderNonAttribues();
-        else renderLeads();
-        fillCommercialFilter();
+        if(canUseGlobalScopeFilters){
+          const aid=(document.querySelector('.crm-tab.active')||{}).id||'';
+          if(aid==='crm-tab-non-attribues')renderNonAttribues();
+          else renderLeads();
+          fillCommercialFilter();
+        }else{
+          renderLeads();
+        }
       }catch(_){}
     });
   }

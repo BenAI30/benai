@@ -284,9 +284,9 @@ on public.profiles for select
 using (
   id = auth.uid()
   or public.current_profile_role() = 'admin'
-  -- Dir. commercial / DG : annuaire CRM (attribution leads) = profils de la même entreprise (+ « les-deux »).
+  -- Même périmètre entreprise : pilotage CRM + terrain + assistantes + métreur (messagerie, listes, attribution).
   or (
-    public.current_profile_role() in ('directeur_co','directeur_general')
+    public.current_profile_role() in ('directeur_co','directeur_general','commercial','assistante','metreur')
     and (
       public.current_profile_company() = 'les-deux'
       or public.profiles.company = public.current_profile_company()

@@ -12,7 +12,7 @@ using (
   id = auth.uid()
   or public.current_profile_role() = 'admin'
   or (
-    public.current_profile_role() in ('directeur_co','directeur_general')
+    public.current_profile_role() in ('directeur_co','directeur_general','commercial','assistante','metreur')
     and (
       public.current_profile_company() = 'les-deux'
       or public.profiles.company = public.current_profile_company()

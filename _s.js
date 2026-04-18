@@ -2771,11 +2771,15 @@ function initApp(silent=false){
   migrateLegacyBenaiReadToMem();
   migrateMotivationMessagesToBenaiThread();
   refreshSharedSignatures(false);
-  if(u?.role==='admin'){
+  if(roleNeedsPeerProfilesSyncFromSupabase(u?.role)){
     void syncExtraUsersFromSupabaseProfiles().then(ok=>{
-      if(ok&&document.getElementById('page-annuaire')?.style.display==='flex'&&equipeUITab==='acces'){
+      if(!ok)return;
+      if(u?.role==='admin'&&document.getElementById('page-annuaire')?.style.display==='flex'&&equipeUITab==='acces'){
         renderUsersList();
         renderPwdList();
+      }
+      if(document.getElementById('page-messages')?.style.display==='flex'){
+        try{scheduleRenderConvList();}catch(_){}
       }
     });
   }
@@ -5571,8 +5575,13 @@ function unhideUserId(uid){
   const hidden=getHiddenUserIds().filter(h=>normalizeId(h)!==normalized);
   saveHiddenUserIds(hidden);
 }
+function roleNeedsPeerProfilesSyncFromSupabase(role){
+  const r=String(role||'').trim();
+  return r==='admin'||isCRMScopePilotageRole(r)||r==='commercial'||r==='assistante'||r==='metreur';
+}
+
 async function syncExtraUsersFromSupabaseProfiles(){
-  if(!currentUser||currentUser.role!=='admin')return false;
+  if(!currentUser||!roleNeedsPeerProfilesSyncFromSupabase(currentUser.role))return false;
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
   const session=await ensureSupabaseSession();
   if(!session?.access_token)return false;
