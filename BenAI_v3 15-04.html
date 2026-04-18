@@ -2673,6 +2673,37 @@ async function deleteSupabaseUserProvisioning(payload){
   }
 }
 
+async function updateSupabaseUserPasswordProvisioning(body){
+  const client=getSupabaseClient();
+  await ensureSupabaseSession();
+  const accessToken=currentSupabaseSession?.access_token||'';
+  if(!client||!accessToken)return {ok:false,error:'Session Supabase manquante'};
+  try{
+    const fnUrl=`${SUPABASE_CONFIG.url}/functions/v1/update-user-password`;
+    const res=await fetchWithTimeout(fnUrl,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        apikey:SUPABASE_CONFIG.publishableKey,
+        Authorization:'Bearer '+accessToken
+      },
+      body:JSON.stringify(body)
+    },12000);
+    let bodyJson=null;
+    const rawBody=await res.text();
+    if(rawBody){
+      try{bodyJson=JSON.parse(rawBody);}catch(_){}
+    }
+    if(!res.ok){
+      const detail=bodyJson?.error||bodyJson?.message||rawBody||`HTTP ${res.status}`;
+      return {ok:false,error:String(detail)};
+    }
+    return {ok:true,data:bodyJson||{}};
+  }catch(e){
+    return {ok:false,error:e?.message||'Erreur réseau update-user-password (CORS/connexion)'};
+  }
+}
+
 const PENDING_USER_DELETE_KEY='benai_pending_user_deletes';
 let pendingUserDeleteInFlight=false;
 let pendingUserDeleteLastRunTs=0;
@@ -7019,12 +7050,38 @@ function renderPwdList(){
 }
 
 async function changerMdp(uid,name){
+  if(currentUser?.role!=='admin'){alert('⚠️ Réservé à l’administrateur');return;}
   const nouveau=prompt(`Nouveau mot de passe pour ${name} :\n\n✅ Minimum 6 caractères\n✅ Au moins 1 majuscule\n✅ Au moins 1 caractère spécial (!@#$%...)`);
   if(!nouveau)return;
   const err=validatePassword(nouveau);
   if(err){alert('⚠️ '+err);return;}
-  const pwds=getPwds();pwds[uid]=await hashPassword(uid,nouveau);savePwds(pwds);if(USERS[uid])USERS[uid].pwd=pwds[uid];
-  renderPwdList();logActivity(`Benjamin a modifié le mot de passe de ${name}`);alert(`✅ Mot de passe de ${name} modifié !`);
+  const u=findUserById(uid)||findUserById(normalizeId(uid));
+  const targetId=u?.id||uid;
+  const emailCandidate=(u?.email||getEmailCandidateForUid(targetId,'')||'').trim().toLowerCase();
+  const pwds=getPwds();
+  const hashed=await hashPassword(targetId,nouveau);
+  pwds[targetId]=hashed;
+  const nk=normalizeId(targetId);
+  if(nk&&nk!==targetId)pwds[nk]=hashed;
+  savePwds(pwds);
+  Object.keys(USERS).forEach(k=>{
+    if(normalizeId(k)===nk)USERS[k].pwd=hashed;
+  });
+  const cloudPayload={password:nouveau};
+  const authRaw=u?.auth_uid||u?.authUid||'';
+  if(isLikelyUuid(String(authRaw||'')))cloudPayload.user_id=String(authRaw).trim();
+  else if(emailCandidate.includes('@'))cloudPayload.email=emailCandidate;
+  cloudPayload.app_uid=String(targetId||'').trim();
+  const cloud=await updateSupabaseUserPasswordProvisioning(cloudPayload);
+  renderPwdList();
+  logActivity(`Benjamin a modifié le mot de passe de ${name}`);
+  if(cloud.ok){
+    alert(`✅ Mot de passe de ${name} modifié (BenAI + cloud).`);
+  }else if(SUPABASE_CONFIG.enabled){
+    alert(`✅ Mot de passe local enregistré pour ${name}.\n\n⚠️ Cloud : ${cloud.error||'non synchronisé'}\nDéployez la fonction Supabase « update-user-password » (même principe que delete-user), puis réessayez.`);
+  }else{
+    alert(`✅ Mot de passe de ${name} modifié (stockage local).`);
+  }
 }
 
 // PARAMÈTRES
@@ -7109,7 +7166,24 @@ async function changerMonMdp(){
   const pwd=document.getElementById('new-pwd').value.trim();const msg=document.getElementById('pwd-msg');
   const err=validatePassword(pwd);
   if(err){msg.style.color='var(--r)';msg.textContent='⚠️ '+err;return;}
-  const pwds=getPwds();pwds[currentUser.id]=await hashPassword(currentUser.id,pwd);savePwds(pwds);
+  const client=getSupabaseClient();
+  if(client&&currentSupabaseSession?.access_token){
+    try{
+      const {error}=await client.auth.updateUser({password:pwd});
+      if(error)throw error;
+    }catch(e){
+      msg.style.color='var(--r)';
+      msg.textContent='⚠️ Supabase : '+(e?.message||e);
+      return;
+    }
+  }
+  const pwds=getPwds();
+  const hashed=await hashPassword(currentUser.id,pwd);
+  pwds[currentUser.id]=hashed;
+  const nk=normalizeId(currentUser.id);
+  if(nk&&nk!==currentUser.id)pwds[nk]=hashed;
+  savePwds(pwds);
+  if(USERS[currentUser.id])USERS[currentUser.id].pwd=hashed;
   document.getElementById('new-pwd').value='';msg.style.color='var(--g)';msg.textContent='✅ Modifié !';
   setTimeout(()=>msg.textContent='',2000);logActivity(`${currentUser.name} a changé son mot de passe`);
 }

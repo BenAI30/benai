@@ -9,7 +9,7 @@ type CreateUserPayload = {
   email: string;
   password: string;
   full_name: string;
-  role: "admin" | "directeur_co" | "commercial" | "assistante" | "metreur";
+  role: "admin" | "directeur_co" | "directeur_general" | "commercial" | "assistante" | "metreur";
   company: "nemausus" | "lambert" | "les-deux";
   app_uid?: string;
 };
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
       return json(400, { error: "Nom complet manquant" }, origin);
     }
 
-    const allowedRoles = ["admin", "directeur_co", "commercial", "assistante", "metreur"];
+    const allowedRoles = ["admin", "directeur_co", "directeur_general", "commercial", "assistante", "metreur"];
     const allowedCompanies = ["nemausus", "lambert", "les-deux"];
     if (!allowedRoles.includes(role)) {
       return json(400, { error: "Rôle invalide" }, origin);
