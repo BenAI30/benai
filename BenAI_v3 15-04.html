@@ -8916,9 +8916,22 @@ function renderLeadsDashboard(){
   html+=`<div class="secteur-card" id="crm-dashboard-secteurs-export">
     <div class="secteur-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
       <span>🧭 Synthèse par secteur</span>
-      <button type="button" onclick="exportCRMTable('secteurs')" title="Même fichier que « Performance secteurs » dans les exports" style="padding:8px 14px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.4);border-radius:10px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📥 Export CSV</button>
     </div>
-    <div style="font-size:11px;color:var(--t3);margin:-4px 0 10px;line-height:1.45">Leads <strong>actifs non archivés</strong> du périmètre visible (société / rôle). Le CSV contient par secteur : volume, ventes, CA signé, devis en cours, pipeline.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px">
+      <label style="font-size:11px;color:var(--t3);display:flex;align-items:center;gap:6px;flex:1;min-width:200px">
+        <span style="white-space:nowrap">Export :</span>
+        <select id="crm-dash-export-secteur" class="form-input" style="flex:1;min-width:160px;padding:6px 10px;font-size:12px;border-radius:8px">
+          <option value="all">Global — les 4 secteurs</option>
+          <option value="core3">Global — les 3 secteurs (hors zone blanche)</option>
+          <option value="nimes">Nîmes uniquement</option>
+          <option value="avignon">Avignon uniquement</option>
+          <option value="bagnoles">Bagnols-sur-Cèze uniquement</option>
+          <option value="zone_blanche">Zone blanche uniquement</option>
+        </select>
+      </label>
+      <button type="button" onclick="exportSecteurSyntheseFromDashboard()" title="CSV : même colonnes que l’export Performance secteurs" style="padding:8px 14px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.4);border-radius:10px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📥 Export CSV</button>
+    </div>
+    <div style="font-size:11px;color:var(--t3);margin:-4px 0 10px;line-height:1.45">Leads <strong>actifs non archivés</strong> du périmètre visible (société / rôle). Colonnes CSV : secteur, leads, ventes, CA signé, devis en cours, pipeline devis.</div>
     ${secteursSynthese.map(s=>`
       <div class="perf-row">
         <div class="perf-name" style="color:${s.color}">${s.label}</div>
@@ -9902,6 +9915,57 @@ function exportLeadsExcel(){
   logActivity('Export leads Excel');
 }
 
+const CRM_SECTEUR_IDS_ALL=['nimes','avignon','bagnoles','zone_blanche'];
+const CRM_SECTEUR_IDS_CORE3=['nimes','avignon','bagnoles'];
+
+/** Lignes CSV (sans en-tête) pour synthèse secteurs — ids = codes secteur (ex. nimes). */
+function buildSecteurSynthDataRows(actifs,ids){
+  return ids.map(s=>{
+    const sl=actifs.filter(l=>l.secteur===s);
+    const ventes=sl.filter(l=>l.statut==='vert');
+    const devis=sl.filter(l=>l.statut==='jaune');
+    const ca=ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
+    const pipeline=devis.reduce((sum,l)=>sum+Number(l.montant_devis||0),0);
+    return [csv(getLeadSecteurLabel(s)),sl.length,ventes.length,ca,devis.length,pipeline].join(',');
+  }).join('\n');
+}
+
+/** CSV complet (en-tête + lignes + ligne TOTAL optionnelle pour regroupement multi-secteurs). */
+function buildSecteurSynthCSVString(actifs,ids,withTotalRow){
+  const header='Secteur,Leads actifs,Ventes,CA signé (€),Devis en cours,Pipeline devis (€)\n';
+  const body=buildSecteurSynthDataRows(actifs,ids);
+  if(!withTotalRow||!ids.length)return header+body;
+  const allSl=actifs.filter(l=>ids.includes(l.secteur));
+  const ventes=allSl.filter(l=>l.statut==='vert');
+  const devis=allSl.filter(l=>l.statut==='jaune');
+  const ca=ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
+  const pipeline=devis.reduce((sum,l)=>sum+Number(l.montant_devis||0),0);
+  const totalLine=[csv('TOTAL (sélection)'),allSl.length,ventes.length,ca,devis.length,pipeline].join(',');
+  return header+body+'\n'+totalLine;
+}
+
+function exportSecteurSyntheseFromDashboard(){
+  const sel=(document.getElementById('crm-dash-export-secteur')?.value)||'all';
+  if(sel==='all'){
+    exportCRMTable('secteurs');
+    return;
+  }
+  const actifs=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive);
+  const stamp=new Date().toISOString().slice(0,10);
+  const scopeLabel=isCRMScopePilotageRole(currentUser?.role)?`scope_${currentUser.societe||'societe'}`:'scope_global';
+  let fname,content;
+  if(sel==='core3'){
+    fname=`CRM_Secteurs_3horsZB_${scopeLabel}_${stamp}.csv`;
+    content=buildSecteurSynthCSVString(actifs,CRM_SECTEUR_IDS_CORE3,true);
+  }else{
+    fname=`CRM_Secteur_${sel}_${scopeLabel}_${stamp}.csv`;
+    content=buildSecteurSynthCSVString(actifs,[sel],false);
+  }
+  download(fname,content,'text/csv;charset=utf-8');
+  showDriveNotif('📥 Export secteur prêt');
+  logActivity(`${currentUser?.name||'?'} a exporté synthèse secteurs (${sel})`);
+}
+
 function buildCRMExportBundles(){
   const scopedLeads=getCompanyScopedLeads(getLeads());
   const actifs=scopedLeads.filter(l=>!l.archive);
@@ -9935,16 +9999,8 @@ function buildCRMExportBundles(){
     return [currentMonth,l.source||'',csv(comm?.name||''),csv(l.nom),csv(l.telephone),csv(l.ville),csv(l.produit_vendu||l.type_projet),l.prix_vendu||'',l.date_signature||''].join(',');
   }).join('\n');
 
-  const secteurs=['nimes','avignon','bagnoles','zone_blanche'];
   const secteurHeader='Secteur,Leads actifs,Ventes,CA signé (€),Devis en cours,Pipeline devis (€)\n';
-  const secteurRows=secteurs.map(s=>{
-    const sl=actifs.filter(l=>l.secteur===s);
-    const ventes=sl.filter(l=>l.statut==='vert');
-    const devis=sl.filter(l=>l.statut==='jaune');
-    const ca=ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
-    const pipeline=devis.reduce((sum,l)=>sum+Number(l.montant_devis||0),0);
-    return [csv(getLeadSecteurLabel(s)),sl.length,ventes.length,ca,devis.length,pipeline].join(',');
-  }).join('\n');
+  const secteurRows=buildSecteurSynthDataRows(actifs,CRM_SECTEUR_IDS_ALL);
 
   const srcHeader='Mois,Source,Leads,Ventes,CA signé (€)\n';
   const srcRows=LEAD_SOURCE_CODES.map(src=>{
