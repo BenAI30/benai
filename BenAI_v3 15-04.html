@@ -7433,21 +7433,21 @@ function renderGuidePage(){
   const roleGuideDirecteurCo=[
     `Périmètre du compte : ${pilotCompanyTitle}. ${pilotZoneLine} Les filtres secteur, les synthèses du tableau de bord, les exports « performance secteurs » et la liste des commerciaux dans les objectifs suivent ce même cadrage.`,
     'Menus visibles : Leads CRM, Messages, Absences, Guide, Bugs.',
-    'Leads CRM — trois onglets : « À attribuer » (dossiers gris sans commercial), « Tous les leads » (recherche, pastilles de statut, archives, alertes, bascule liste / kanban), puis « Dashboard » (KPI, secteurs, ventes, CA, équipe, pertes, exports, objectifs).',
-    '« À attribuer » : tu vois la file prioritaire ; attribution depuis la carte ou depuis la fiche (champ commercial). Tu peux t’attribuer un dossier pour le porter comme un terrain.',
-    '« Tous les leads » : combine filtres (dont secteur = uniquement les zones de ton compte), recherche, pastilles Non traité / RDV / Devis / Vendu / Perdu / Archives / Alertes. Le filtre société (Nemausus / Lambert) n’apparaît que si ton compte couvre les deux entreprises.',
+    'Leads CRM — trois onglets : « À attribuer » (dossiers sans commercial assigné), « Tous les leads » (recherche, pastilles de statut, archives, alertes, bascule liste / kanban), puis « Dashboard » (KPI, secteurs, ventes, CA, équipe, pertes, exports, objectifs).',
+    '« À attribuer » : dossiers en attente d’attribution ; tu peux attribuer depuis la carte ou depuis la fiche (champ commercial). Tu peux aussi te porter le dossier comme un terrain.',
+    '« Tous les leads » : combine filtres (dont secteur = les zones de ton périmètre), recherche, pastilles Non traité / RDV / Devis / Vendu / Perdu / Archives / Alertes. Le filtre par société n’apparaît que si ton accès couvre les deux entités.',
     'Fiche lead : identité, projet, commentaire de création, secteur, source, suivi, commentaire, tunnel de statuts (selon attribution). Après attribution, ouvre la fiche pour lire l’historique : la timeline liste chaque action (ouverture, changement de statut, attribution, montants…) avec date et auteur — c’est la trace d’audit.',
     'Pastille « non ouvert » sur un lead attribué : le commercial assigné n’a pas encore ouvert la fiche une première fois — signal de pilotage.',
     'Dashboard : barre « Aller à » pour naviguer ; blocs repliables. Tu y retrouves les secteurs visibles pour ton compte, le tableau du mois civil, les ventes & RDV, le CA par entreprise (une seule carte si ton compte est mono-société), le classement commerciaux filtré sur ton périmètre, les courbes 6 mois, pertes & archives, exports CSV / Excel, fusion de doublons, objectifs CA par vendeur.',
     'Exports : menu secteur sur le dashboard + bouton « Performance secteurs » ; paquets « Télécharger tous les tableaux CRM » et export leads. Les fichiers respectent les leads et secteurs visibles pour toi.',
     'Notifications : leads à attribuer, alertes métier, rappels devis selon les dossiers visibles ; le badge sur Leads suit surtout les dossiers à traiter sur ton périmètre.',
-    'Messages : demandes rapides à l’équipe. Absences : disponibilités. Bugs : tout dysfonctionnement (page, étapes, capture si possible).'
+    'Messages : échanges rapides avec l’équipe. Absences : tu peux consulter le planning si ton équipe le renseigne. Bugs : signaler un dysfonctionnement (page, étapes, capture si possible).'
   ];
   const roleGuideDirecteurGeneral=[
     `Même logique de périmètre que le dir. commercial : ${pilotCompanyTitle}. ${pilotZoneLine}`,
     'Mêmes onglets CRM : À attribuer, Tous les leads, Dashboard — attribution, statuts, timeline, chiffres et exports comme le directeur commercial.',
     'Tu peux t’appuyer sur la timeline des leads attribués pour cadrer la qualité des données (devis datés et chiffrés, vendu avec montant HT, perdu avec motif).',
-    'Les rappels automatiques ciblent surtout le dir. commercial et les commerciaux ; le CRM reste disponible pour lecture ou action à la demande (comité, fin de mois, absence du dir. co.).',
+    'Les rappels automatiques ciblent surtout le dir. commercial et les commerciaux ; le CRM reste disponible pour lecture ou action à la demande (comité, fin de mois, si le dir. co n’est pas joignable).',
     'Messages pour les arbitrages ; Bugs pour les incidents techniques répétés.'
   ];
   const roleGuide={
@@ -9588,9 +9588,9 @@ function getBenaiPilotageCompanyTitle(){
 }
 function getBenaiPilotageSecteurShortLine(){
   const slug=getCrmSecteurScopeSlug();
-  if(slug==='all')return'Les quatre zones CRM : Nîmes, Avignon, Bagnols-sur-Cèze, zone blanche.';
-  if(slug==='lambert')return'Zones visibles pour toi : Bagnols-sur-Cèze (+ zone blanche). Pas les secteurs Nîmes / Avignon (réservés Nemausus).';
-  return'Zones visibles pour toi : Nîmes et Avignon (+ zone blanche). Pas le secteur Bagnols-sur-Cèze (réservé Lambert).';
+  if(slug==='all')return'Les quatre zones CRM sont visibles : Nîmes, Avignon, Bagnols-sur-Cèze, zone blanche.';
+  if(slug==='lambert')return'Zones visibles pour ton compte : Bagnols-sur-Cèze et zone blanche.';
+  return'Zones visibles pour ton compte : Nîmes, Avignon et zone blanche.';
 }
 /** Secteurs « posés » (hors zone blanche) dans le périmètre du compte — pour exports / regroupements CSV. */
 function getCrmSecteurCoreIdsInScope(){
@@ -9643,20 +9643,24 @@ function buildCrmDashboardExportSecteurSelectHtml(){
 function getDirecteurCoTutoSlides(){
   const company=getBenaiPilotageCompanyTitle();
   const zones=getBenaiPilotageSecteurShortLine();
+  const slug=getCrmSecteurScopeSlug();
+  const sessionHint=slug==='all'
+    ?'Si un collègue te prête sa session, vérifie en haut de l’écran que le compte affiché correspond bien à ton périmètre (société / accès).'
+    :'Si un collègue te prête sa session, vérifie en haut de l’écran que c’est bien ton compte.';
   return[
-    {icon:'🏢',title:'Ton entreprise sur BenAI',desc:`Tout ce tutoriel concerne uniquement ton périmètre : ${company}. ${zones} Les filtres secteur, les cartes du tableau de bord et la liste des commerciaux suivent déjà ce cadrage — tu ne vois pas l’autre société « par erreur ».`,highlight:'Vérifie ton compte (Nemausus, Lambert ou les deux) si un collègue te prête sa session'},
-    {icon:'📊',title:'Menus visibles',desc:'Leads CRM, Messages, Absences, Guide, Bugs. Le CRM est ton outil principal pour attribuer, suivre et chiffrer.',highlight:'Ouvre Leads CRM en premier'},
-    {icon:'🧭',title:'Les trois onglets CRM',desc:'Dans l’ordre : « À attribuer » (dossiers gris sans commercial), « Tous les leads » (pipeline : recherche, pastilles de statut, liste ou kanban, archives, alertes), puis « Dashboard » (KPI, secteurs, CA, équipe, exports, objectifs).',highlight:'La file « À attribuer » reste la priorité quotidienne'},
-    {icon:'🎛️',title:'Filtres liste & kanban',desc:'Tu peux combiner recherche texte, pastilles (Non traité, RDV, Devis, Vendu, Perdu, Archives, Alertes), filtre secteur (uniquement les zones de ton compte), filtre commercial. Le filtre société n’apparaît que si ton compte couvre les deux entreprises.',highlight:'Réinitialise les filtres si une vue semble vide'},
-    {icon:'🤝',title:'Attribuer ou reprendre un lead',desc:'Sur la carte « À attribuer » ou dans la fiche : champ « Commercial » — choisis un vendeur, un autre dirigeant, ou toi-même pour porter le dossier. Changement = notification + entrée dans l’historique.',highlight:'Tu peux t’assigner comme un commercial'},
-    {icon:'📇',title:'Ouvrir une fiche lead attribué',desc:'Clique un dossier : tu lis identité, projet, commentaire d’origine, secteur, source. Tu peux corriger les champs de base, suivi, commentaire, montants et dates selon les droits affichés.',highlight:'Une fiche à jour évite les doublons d’appels'},
-    {icon:'📜',title:'Historique & timeline',desc:'Sur un lead attribué (ou sur le tien), la section Historique liste les actions dans l’ordre inverse : ouverture de fiche, changements de statut, d’attribution, de montants, etc., avec date et auteur. C’est ta trace d’audit terrain.',highlight:'Lis la timeline avant d’appeler le commercial ou le client'},
-    {icon:'👁️',title:'Pastille « non ouvert »',desc:'Indique que le commercial assigné n’a pas encore ouvert la fiche une première fois — signal de pilotage, pas une sanction.',highlight:'Souvent réglé par un rappel interne'},
-    {icon:'📈',title:'Dashboard — ce que tu y vois',desc:'Résumé KPI, Secteurs & mois (souvent replié en premier pour toi), ventes & RDV, CA par entreprise, détail ventes, équipe puis tout de suite Objectifs commerciaux (ouvert par défaut), pertes & archives, exports. Les objectifs listent l’annuaire vendeurs + les attributions visibles sur les leads.',highlight:'Barre « Aller à » : lien Objectifs après Équipe'},
+    {icon:'🏢',title:'Ton entreprise sur BenAI',desc:`Ce tutoriel décrit ce que tu vois dans BenAI pour : ${company}. ${zones} Filtres secteur, cartes du tableau de bord et commerciaux listés restent alignés sur ce périmètre.`,highlight:sessionHint},
+    {icon:'📊',title:'Menus visibles',desc:'Leads CRM, Messages, Absences, Guide, Bugs. Le CRM sert à attribuer, suivre et chiffrer les dossiers.',highlight:'Tu peux ouvrir Leads CRM quand tu en as besoin'},
+    {icon:'🧭',title:'Les trois onglets CRM',desc:'« À attribuer » : nouveaux dossiers sans commercial assigné. « Tous les leads » : le pipeline (recherche, pastilles de statut, liste ou kanban, archives, alertes). « Dashboard » : synthèses (KPI, secteurs, CA, équipe, exports, objectifs).',highlight:'Tu peux commencer par « À attribuer » pour enchaîner les nouveaux dossiers, si tu le souhaites'},
+    {icon:'🎛️',title:'Filtres liste & kanban',desc:'Tu peux combiner recherche texte, pastilles (Non traité, RDV, Devis, Vendu, Perdu, Archives, Alertes), filtre secteur (les zones de ton périmètre), filtre commercial. Le filtre par société n’apparaît que si ton accès couvre les deux entités.',highlight:'Tu peux réinitialiser les filtres si une vue semble vide'},
+    {icon:'🤝',title:'Attribuer ou reprendre un lead',desc:'Sur « À attribuer » ou dans la fiche : champ « Commercial » — choisis un vendeur, un autre dirigeant, ou toi-même pour porter le dossier. Changement = notification + entrée dans l’historique.',highlight:'Tu peux t’assigner comme un commercial'},
+    {icon:'📇',title:'Ouvrir une fiche lead attribué',desc:'En cliquant un dossier : identité, projet, commentaire d’origine, secteur, source. Tu peux corriger les champs de base, suivi, commentaire, montants et dates selon les droits affichés.',highlight:'Une fiche à jour limite les doublons d’appels'},
+    {icon:'📜',title:'Historique & timeline',desc:'Sur un lead attribué (ou sur le tien), la section Historique liste les actions : ouverture de fiche, changements de statut, d’attribution, de montants, etc., avec date et auteur — trace utile sur le terrain.',highlight:'Tu peux lire la timeline avant d’appeler le commercial ou le client'},
+    {icon:'👁️',title:'Pastille « non ouvert »',desc:'Indique que le commercial assigné n’a pas encore ouvert la fiche une première fois — simple indicateur de suivi, pas une sanction.',highlight:'Souvent levé avec un rappel interne'},
+    {icon:'📈',title:'Dashboard — ce que tu y vois',desc:'Résumé KPI, Secteurs & mois (souvent replié en premier pour toi), ventes & RDV, CA par entreprise, détail ventes, équipe puis Objectifs commerciaux (ouvert par défaut), pertes & archives, exports. Les objectifs listent l’annuaire vendeurs + les attributions visibles sur les leads.',highlight:'Barre « Aller à » : lien Objectifs après Équipe'},
     {icon:'📥',title:'Exports',desc:'Depuis le dashboard : menu Export secteur + bouton Performance secteurs ; plus bas « Exporter tous les leads » et paquets CSV. Les fichiers respectent ton périmètre leads + secteurs visibles.',highlight:'UTF-8, séparateur ; pour Excel France'},
-    {icon:'🔔',title:'Badge & notifications',desc:'Le badge sur Leads compte surtout les dossiers à traiter sur ton périmètre (non attribués, alertes). Les notifications résument aussi les volumes à traiter.',highlight:'Quand tu agis, mets le CRM à jour pour faire retomber les alertes'},
-    {icon:'💬',title:'Messages, absences, bugs',desc:'Messages pour les accords rapides ; absences pour voir les disponibilités ; Bugs pour tout blocage technique avec contexte (page, clic, message d’erreur).',highlight:'Bugs = canal officiel des correctifs'},
-    {icon:'✅',title:'Routine dir. commercial',desc:'1) À attribuer. 2) Alertes + non traités visibles. 3) Ouvre les fiches sensibles (timeline). 4) Dashboard en fin de période. 5) Exige des champs devis / vendu / perdu remplis pour la qualité des stats.',highlight:'Le pilotage propre = CRM à jour'}
+    {icon:'🔔',title:'Badge & notifications',desc:'Le badge sur Leads compte surtout les dossiers à traiter sur ton périmètre (non attribués, alertes). Les notifications résument aussi les volumes à traiter.',highlight:'Tu peux mettre à jour les statuts des dossiers traités pour faire baisser les alertes'},
+    {icon:'💬',title:'Messages, absences, bugs',desc:'Messages pour les accords rapides ; onglet Absences si tu consultes les disponibilités saisies par l’équipe ; Bugs pour signaler un blocage technique (page, clic, message d’erreur).',highlight:'Bugs = canal utile pour les correctifs'},
+    {icon:'✅',title:'Pistes pour t’organiser',desc:'Exemples : parcourir les dossiers à attribuer, repérer alertes ou non traités, ouvrir les fiches sensibles (timeline), consulter le dashboard en fin de période. Des champs devis / vendu / perdu renseignés améliorent la qualité des statistiques.',highlight:'Tu restes libre d’adapter la routine à ton équipe'}
   ];
 }
 function getDirecteurGeneralTutoSlides(){
@@ -9664,7 +9668,7 @@ function getDirecteurGeneralTutoSlides(){
   const zones=getBenaiPilotageSecteurShortLine();
   return[
     {icon:'🏢',title:'Même périmètre que le dir. commercial',desc:`Tu consultes et agis sur les mêmes écrans, filtrés selon ton compte : ${company}. ${zones}`,highlight:'Accès complet aux onglets CRM pilotage'},
-    {icon:'🧭',title:'Onglets & dashboard',desc:'À attribuer, Tous les leads, Dashboard — mêmes usages que le directeur commercial (attribution, statuts, chiffres, exports).',highlight:'Tu peux dépanner si le dir. co. est absent'},
+    {icon:'🧭',title:'Onglets & dashboard',desc:'À attribuer, Tous les leads, Dashboard — mêmes usages que le directeur commercial (attribution, statuts, chiffres, exports).',highlight:'Tu peux dépanner si le dir. co est momentanément indisponible'},
     {icon:'📜',title:'Timeline & qualité des fiches',desc:'Tu vois la même timeline sur les dossiers attribués ; utilise-la pour cadrer la complétude (devis datés, vendu avec montant, perdu avec motif).',highlight:'Données propres = comités fiables'},
     {icon:'💬',title:'Messages & bugs',desc:'Messages pour les arbitrages rapides ; Bugs pour les incidents répétés.',highlight:'Signalement détaillé = correction plus rapide'}
   ];
