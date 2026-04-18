@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#E8943A">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="BenAI">
 <link rel="manifest" id="benai-manifest" href="">
 <meta name="description" content="BenAI — Assistant Nemausus Fermetures & Lambert SAS">
@@ -14,6 +14,7 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+html{color-scheme:light;}
 :root{
   --bg:#080808;--s1:#101010;--s2:#161616;--s3:#1E1E1E;--b1:#242424;--b2:#2E2E2E;
   --t1:#F2EFE8;--t2:#A8A49C;--t3:#5A5650;
@@ -680,7 +681,7 @@ input[type=file]{display:none;}
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
-<body>
+<body class="light">
 
 <!-- ══ LOGIN ══ -->
 <div id="login-screen">
@@ -819,10 +820,7 @@ input[type=file]{display:none;}
     <div class="sp-title">⚙️ Paramètres <button onclick="toggleSettings()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px">✕</button></div>
     <div class="sp-section">
       <div class="sp-label">Affichage</div>
-      <div style="display:flex;gap:6px">
-        <button onclick="setTheme('dark')" id="btn-dark" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">🌙 Sombre</button>
-        <button onclick="setTheme('light')" id="btn-light" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t1);font-family:inherit;font-size:12px;cursor:pointer">☀️ Clair</button>
-      </div>
+      <div style="font-size:12px;color:var(--t2);line-height:1.5;padding:9px 11px;background:var(--s3);border:1px solid var(--b1);border-radius:8px">☀️ <strong>Mode clair</strong> appliqué en permanence, y compris si Windows ou macOS est en thème sombre.</div>
     </div>
     <div class="sp-section" id="tuto-settings-section" style="display:none">
       <div class="sp-label">Aide</div>
@@ -7977,16 +7975,10 @@ function toggleSettings(){
   if(!isOpen)initSettings();
 }
 
-function getStoredTheme(){
-  return appStorage.getItem('benai_theme')==='light'?'light':'dark';
-}
-
-function applyTheme(theme=getStoredTheme()){
-  document.body.classList.toggle('light',theme==='light');
-  const btnDark=document.getElementById('btn-dark');
-  const btnLight=document.getElementById('btn-light');
-  if(btnDark)btnDark.style.borderColor=theme==='dark'?'var(--a)':'var(--b1)';
-  if(btnLight)btnLight.style.borderColor=theme==='light'?'var(--a)':'var(--b1)';
+/** Thème toujours clair (ignore benai_theme et le réglage « sombre » du système). */
+function applyTheme(){
+  document.body.classList.add('light');
+  try{document.documentElement.style.setProperty('color-scheme','light');}catch(e){}
 }
 
 function initSettings(){
@@ -8022,9 +8014,8 @@ function initSettings(){
   }
 }
 
-function setTheme(theme){
-  appStorage.setItem('benai_theme',theme);
-  applyTheme(theme);
+function setTheme(){
+  applyTheme();
 }
 
 async function changerMonMdp(){
