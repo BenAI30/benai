@@ -406,6 +406,25 @@ body.light .bubble{color:var(--t1);}
 .lead-modal-body{padding:16px 20px;}
 .lead-modal-section{margin-bottom:16px;}
 .lead-modal-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px;}
+/* DIALOGUE BENAI (remplace alert / confirm / prompt navigateur) */
+#benai-dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10050;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(5px);}
+#benai-dialog-overlay.open{display:flex;}
+.benai-dialog-box{width:100%;max-width:420px;background:var(--s1);border:1px solid var(--b1);border-radius:18px;box-shadow:0 24px 64px rgba(0,0,0,.65);overflow:hidden;font-family:'Outfit',sans-serif;}
+.benai-dialog-head{padding:14px 18px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,rgba(232,148,58,.14),transparent);}
+.benai-dialog-head-icon{width:38px;height:38px;border-radius:11px;background:var(--a3);border:1px solid rgba(232,148,58,.4);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.benai-dialog-title{font-size:15px;font-weight:700;color:var(--t1);letter-spacing:-.02em;}
+.benai-dialog-body{padding:16px 20px 14px;}
+.benai-dialog-msg{font-size:13px;line-height:1.65;color:var(--t2);white-space:pre-wrap;word-break:break-word;}
+.benai-dialog-field{margin-top:14px;}
+.benai-dialog-input{width:100%;padding:11px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:14px;outline:none;transition:border-color .15s;}
+.benai-dialog-input:focus{border-color:var(--a);}
+.benai-dialog-actions{display:flex;justify-content:flex-end;gap:10px;padding:12px 20px 18px;border-top:1px solid var(--b1);background:var(--s2);}
+.benai-dialog-btn{padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;transition:opacity .15s,border-color .15s,transform .12s;}
+.benai-dialog-btn:active{transform:scale(.98);}
+.benai-dialog-btn-primary{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;}
+.benai-dialog-btn-primary:hover{opacity:.92;}
+.benai-dialog-btn-secondary{background:transparent;color:var(--t2);border:1px solid var(--b2);}
+.benai-dialog-btn-secondary:hover{border-color:var(--a);color:var(--a);}
 .statut-btn{padding:7px 14px;border-radius:8px;border:2px solid transparent;font-size:12px;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s;}
 .statut-btn:hover{opacity:.8;}
 .statut-btn.selected{border-color:currentColor;box-shadow:0 0 0 2px currentColor;}
@@ -646,6 +665,26 @@ input[type=file]{display:none;}
 
 <!-- OFFLINE BANNER -->
 <div id="offline-banner">📵 Mode hors-ligne — BenAI IA indisponible, les autres fonctionnalités restent actives</div>
+
+<!-- DIALOGUE THÉMATIQUE (alert / confirm / prompt) -->
+<div id="benai-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="benai-dialog-title">
+  <div class="benai-dialog-box" onclick="event.stopPropagation()">
+    <div class="benai-dialog-head">
+      <div class="benai-dialog-head-icon" id="benai-dialog-icon">💬</div>
+      <div class="benai-dialog-title" id="benai-dialog-title">BenAI</div>
+    </div>
+    <div class="benai-dialog-body">
+      <div class="benai-dialog-msg" id="benai-dialog-message"></div>
+      <div class="benai-dialog-field" id="benai-dialog-field" style="display:none">
+        <input type="text" class="benai-dialog-input" id="benai-dialog-input" autocomplete="off" />
+      </div>
+    </div>
+    <div class="benai-dialog-actions">
+      <button type="button" class="benai-dialog-btn benai-dialog-btn-secondary" id="benai-dialog-btn-cancel">Annuler</button>
+      <button type="button" class="benai-dialog-btn benai-dialog-btn-primary" id="benai-dialog-btn-ok">OK</button>
+    </div>
+  </div>
+</div>
 
 <!-- TUTO PREMIÈRE UTILISATION -->
 <div id="tuto-overlay">
@@ -1542,6 +1581,111 @@ input[type=file]{display:none;}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let _benaiDlgTail=Promise.resolve();
+function benaiDialogQueue(task){
+  const run=_benaiDlgTail.then(()=>task());
+  _benaiDlgTail=run.catch(()=>{});
+  return run;
+}
+let _benaiDlgResolver=null;
+function _benaiDlgClose(val){
+  const overlay=document.getElementById('benai-dialog-overlay');
+  if(overlay){
+    overlay.classList.remove('open');
+    overlay.onclick=null;
+  }
+  document.removeEventListener('keydown',_benaiDlgKeydown,true);
+  const r=_benaiDlgResolver;
+  _benaiDlgResolver=null;
+  window._benaiDlgKind=null;
+  if(r)r(val);
+}
+function _benaiDlgKeydown(e){
+  const k=window._benaiDlgKind;
+  if(!k)return;
+  if(e.key==='Escape'){
+    e.preventDefault();
+    e.stopPropagation();
+    if(k==='alert')_benaiDlgClose();
+    else _benaiDlgClose(k==='confirm'?false:null);
+  }else if(e.key==='Enter'){
+    e.preventDefault();
+    e.stopPropagation();
+    const ok=document.getElementById('benai-dialog-btn-ok');
+    if(ok)ok.click();
+  }
+}
+function _openBenaiDialog(opts){
+  return new Promise(resolve=>{
+    const overlay=document.getElementById('benai-dialog-overlay');
+    const msgEl=document.getElementById('benai-dialog-message');
+    const titleEl=document.getElementById('benai-dialog-title');
+    const iconEl=document.getElementById('benai-dialog-icon');
+    const fieldWrap=document.getElementById('benai-dialog-field');
+    const inp=document.getElementById('benai-dialog-input');
+    const btnOk=document.getElementById('benai-dialog-btn-ok');
+    const btnCancel=document.getElementById('benai-dialog-btn-cancel');
+    if(!overlay||!msgEl||!titleEl||!btnOk||!btnCancel){
+      resolve(opts.kind==='confirm'?false:opts.kind==='prompt'?null:undefined);
+      return;
+    }
+    if(iconEl)iconEl.textContent=opts.kind==='confirm'?'❔':opts.kind==='prompt'?'✏️':'💬';
+    window._benaiDlgKind=opts.kind;
+    _benaiDlgResolver=resolve;
+    titleEl.textContent=opts.title||'BenAI';
+    msgEl.textContent=opts.message||'';
+    if(opts.kind==='prompt'){
+      fieldWrap.style.display='block';
+      inp.type=opts.inputType==='password'?'password':'text';
+      inp.value=opts.defaultValue!=null?String(opts.defaultValue):'';
+      btnCancel.style.display='';
+    }else{
+      fieldWrap.style.display='none';
+      inp.value='';
+      btnCancel.style.display=opts.kind==='confirm'?'':'none';
+    }
+    const onOk=()=>{
+      btnOk.removeEventListener('click',onOk);
+      btnCancel.removeEventListener('click',onCancel);
+      if(opts.kind==='prompt')_benaiDlgClose(inp.value);
+      else if(opts.kind==='confirm')_benaiDlgClose(true);
+      else _benaiDlgClose(undefined);
+    };
+    const onCancel=()=>{
+      btnOk.removeEventListener('click',onOk);
+      btnCancel.removeEventListener('click',onCancel);
+      if(opts.kind==='prompt')_benaiDlgClose(null);
+      else if(opts.kind==='confirm')_benaiDlgClose(false);
+    };
+    btnOk.addEventListener('click',onOk);
+    btnCancel.addEventListener('click',onCancel);
+    overlay.onclick=e=>{if(e.target===overlay){if(opts.kind==='alert')onOk();else onCancel();}};
+    document.addEventListener('keydown',_benaiDlgKeydown,true);
+    overlay.classList.add('open');
+    requestAnimationFrame(()=>{
+      if(opts.kind==='prompt'){
+        inp.focus();
+        try{inp.select();}catch(_){}
+      }else btnOk.focus();
+    });
+  });
+}
+function benaiAlert(message,title){
+  return benaiDialogQueue(()=>_openBenaiDialog({kind:'alert',message:String(message??''),title:title||'BenAI'}));
+}
+function benaiConfirm(message,title){
+  return benaiDialogQueue(()=>_openBenaiDialog({kind:'confirm',message:String(message??''),title:title||'Confirmation'}));
+}
+function benaiPrompt(message,defaultValue,title,inputType){
+  return benaiDialogQueue(()=>_openBenaiDialog({
+    kind:'prompt',
+    message:String(message??''),
+    defaultValue:defaultValue!=null?String(defaultValue):'',
+    title:title||'Saisie',
+    inputType:inputType==='password'?'password':'text'
+  }));
+}
 
 const APP_STORAGE_SUPABASE_KEY_PREFIX='user_state_';
 const APP_STORAGE_SESSION_KEY='benai_session_app_storage_v1';
@@ -4051,8 +4195,8 @@ async function forgotPassword(){
     email=(await fetchLookupLoginEmail(rawLogin))||getEmailCandidateForUid(uid,rawLogin)||'';
   }
   if(!email||!email.includes('@')){
-    const manual=prompt('Entrez votre email de connexion Supabase pour recevoir le lien de réinitialisation :',rawLogin.includes('@')?rawLogin:'');
-    if(!manual)return;
+    const manual=await benaiPrompt('Entrez votre email de connexion Supabase pour recevoir le lien de réinitialisation :',rawLogin.includes('@')?rawLogin:'','Réinitialisation');
+    if(manual===null||manual==='')return;
     email=String(manual).trim().toLowerCase();
   }
   if(!email||!email.includes('@')){
@@ -4068,7 +4212,7 @@ async function forgotPassword(){
       err.style.color='var(--r)';
       err.textContent='Réinitialisation indisponible : Supabase non configuré.';
     }
-    alert('Réinitialisation indisponible sur cet appareil.\nContactez un administrateur BenAI.');
+    await benaiAlert('Réinitialisation indisponible sur cet appareil.\nContactez un administrateur BenAI.');
     return;
   }
   if(err){
@@ -4083,7 +4227,7 @@ async function forgotPassword(){
       err.style.color='var(--g)';
       err.textContent='Lien envoyé. Vérifiez votre boîte mail.';
     }
-    alert(`Un email de réinitialisation a été envoyé à ${email}.\nPensez à vérifier les spams.`);
+    await benaiAlert(`Un email de réinitialisation a été envoyé à ${email}.\nPensez à vérifier les spams.`);
   }catch(e){
     if(err){
       err.style.color='var(--r)';
@@ -4217,7 +4361,7 @@ function switchBack(){
   })();
 }
 
-function switchToUser(uid){
+async function switchToUser(uid){
   if(currentUser.id!=='benjamin'){return;}// Seul Benjamin peut switcher
   flushPersistRuntimeToSession(currentUser?.id);
   document.getElementById('switch-panel').style.display='none';
@@ -4229,9 +4373,9 @@ function switchToUser(uid){
   supabaseSyncFailStreak=0;
   lastSupabaseSyncError='';
   const u=USERS[uid]||getExtraUserById(uid);
-  if(!u){alert('Utilisateur introuvable');return;}
+  if(!u){await benaiAlert('Utilisateur introuvable');return;}
   const access=getAccess();
-  if(access[uid]===false){alert(`Accès bloqué pour ${u.name}`);return;}
+  if(access[uid]===false){await benaiAlert(`Accès bloqué pour ${u.name}`);return;}
   if(currentUser)sessionStack.push(currentUser.id);
   chatHistory=[];currentConv=null;
   document.getElementById('chat-area').innerHTML='';
@@ -5164,9 +5308,9 @@ function appendBenAIMotivationInternalMessage(recipientUid,plainText){
   refreshMsgBadge();
 }
 
-function deleteMsg(cid,idx){
+async function deleteMsg(cid,idx){
   if(currentUser.id!=='benjamin'){showDriveNotif('⚠️ Suppression réservée à Benjamin');return;}
-  if(!confirm('Supprimer ce message définitivement ?'))return;
+  if(!await benaiConfirm('Supprimer ce message définitivement ?'))return;
   const mem=getMem();
   const arr=mem.messages[cid];
   if(!Array.isArray(arr)||idx<0||idx>=arr.length)return;
@@ -5183,11 +5327,11 @@ function deleteMsg(cid,idx){
   saveMem(mem);renderThread(cid);scheduleRenderConvList();
 }
 
-function editMsg(cid,idx){
+async function editMsg(cid,idx){
   const mem=getMem();const msg=mem.messages[cid]?.[idx];if(!msg)return;
   if(msg.from!==currentUser.id&&currentUser.id!=='benjamin'){showDriveNotif('⚠️ Vous ne pouvez modifier que vos messages');return;}
-  const nouveau=prompt('Modifier le message :',msg.text);
-  if(!nouveau||!nouveau.trim())return;
+  const nouveau=await benaiPrompt('Modifier le message :',msg.text,'Messagerie');
+  if(nouveau===null||!nouveau.trim())return;
   msg.text=nouveau.trim();msg.edited=true;
   saveMem(mem);renderThread(cid);
 }
@@ -5220,7 +5364,7 @@ function filterSAV(filter,btn){
   btn.classList.add('active');renderSAV();
 }
 
-function addSAV(){
+async function addSAV(){
   const client=document.getElementById('sav-client').value.trim();
   const pb=document.getElementById('sav-pb').value.trim();
   const soc=document.getElementById('sav-soc').value;
@@ -5235,7 +5379,7 @@ function addSAV(){
   if(!client)missing.push('Client');
   if(!pb)missing.push('Problème');
   if(missing.length){
-    alert('Champs requis ou invalides : '+missing.join(', '));
+    await benaiAlert('Champs requis ou invalides : '+missing.join(', '));
     return;
   }
   const mem=getMem();
@@ -5341,8 +5485,8 @@ function getClientHistory(client,excludeId,mem){
   return (mem.sav||[]).filter(s=>!s._deleted&&s.client===client&&s.id!==excludeId).slice(0,5);
 }
 
-function deleteSAV(id){
-  if(!confirm('Supprimer ce SAV définitivement ?'))return;
+async function deleteSAV(id){
+  if(!await benaiConfirm('Supprimer ce SAV définitivement ?'))return;
   const mem=getMem();
   const sav=mem.sav.find(s=>s.id===id);
   if(!sav)return;
@@ -5367,14 +5511,14 @@ function editSAV(id){
   document.getElementById('sav-form-wrap').scrollIntoView({behavior:'smooth'});
 }
 
-function saveEditSAV(id){
+async function saveEditSAV(id){
   const client=document.getElementById('sav-client').value.trim();
   const pb=document.getElementById('sav-pb').value.trim();
   const missing=[];
   if(!client)missing.push('Client');
   if(!pb)missing.push('Problème');
   if(missing.length){
-    alert('Champs vides : '+missing.join(', '));
+    await benaiAlert('Champs vides : '+missing.join(', '));
     return;
   }
   const mem=getMem();const idx=mem.sav.findIndex(s=>s.id===id);if(idx===-1)return;
@@ -5536,8 +5680,8 @@ async function correctNoteSpelling(id,el){
 }
 
 
-function deleteNote(id){
-  if(!confirm('Supprimer cette note ?'))return;
+async function deleteNote(id){
+  if(!await benaiConfirm('Supprimer cette note ?'))return;
   const mem=getMem();
   const n=(mem.notes||[]).find(x=>noteIdEq(x.id,id));
   if(!n)return;
@@ -5666,7 +5810,7 @@ function resetAbsenceFormForCreate(){
   setAbsFormModeCreate();
 }
 
-function addAbsence(){
+async function addAbsence(){
   if(currentUser?.role!=='admin')return;
   const emp=document.getElementById('abs-emp-select')?.value||'';
   const debut=document.getElementById('abs-debut').value;
@@ -5675,9 +5819,9 @@ function addAbsence(){
   const heureFin=document.getElementById('abs-heure-fin')?.value||'';
   const type=document.getElementById('abs-type').value;
   const note=document.getElementById('abs-note').value.trim();
-  if(!emp){alert('Sélectionnez un employé');return;}
-  if(!debut||!fin){alert('Remplissez les dates');return;}
-  if(new Date(fin)<new Date(debut)){alert('⚠️ La date de fin doit être après le début');return;}
+  if(!emp){await benaiAlert('Sélectionnez un employé');return;}
+  if(!debut||!fin){await benaiAlert('Remplissez les dates');return;}
+  if(new Date(fin)<new Date(debut)){await benaiAlert('⚠️ La date de fin doit être après le début');return;}
   const notifs=buildAbsenceNotifsArray();
   const mem=getMem();
   if(!mem.absences)mem.absences=[];
@@ -5701,9 +5845,9 @@ function addAbsence(){
   toggleAbsForm();renderAbsences();logActivity(`Benjamin a enregistré une absence pour ${emp}`);
 }
 
-function deleteAbsence(id){
+async function deleteAbsence(id){
   if(currentUser?.role!=='admin')return;
-  if(!confirm('Supprimer cette absence ?'))return;
+  if(!await benaiConfirm('Supprimer cette absence ?'))return;
   const mem=getMem();
   const abs=(mem.absences||[]).find(a=>absenceIdEq(a.id,id));
   if(!abs)return;
@@ -5730,13 +5874,13 @@ function editAbsence(id){
   document.getElementById('abs-form-wrap').scrollIntoView({behavior:'smooth'});
 }
 
-function saveEditAbsence(id){
+async function saveEditAbsence(id){
   if(currentUser?.role!=='admin')return;
   const emp=document.getElementById('abs-emp-select')?.value||'';
   const debut=document.getElementById('abs-debut').value;
   const fin=document.getElementById('abs-fin').value;
-  if(!emp||!debut||!fin){alert('Remplissez tous les champs obligatoires');return;}
-  if(new Date(fin)<new Date(debut)){alert('⚠️ La date de fin doit être après le début');return;}
+  if(!emp||!debut||!fin){await benaiAlert('Remplissez tous les champs obligatoires');return;}
+  if(new Date(fin)<new Date(debut)){await benaiAlert('⚠️ La date de fin doit être après le début');return;}
   const notifs=buildAbsenceNotifsArray();
   const mem=getMem();const idx=(mem.absences||[]).findIndex(a=>absenceIdEq(a.id,id));if(idx===-1)return;
   mem.absences[idx]={...mem.absences[idx],employe:emp,debut,fin,
@@ -5919,7 +6063,7 @@ function toggleEmpForm(){
   if(show)requestAnimationFrame(()=>{try{w.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(_){}});
 }
 
-function addEmploye(){
+async function addEmploye(){
   const prenom=document.getElementById('emp-prenom').value.trim();
   const nom=document.getElementById('emp-nom').value.trim();
   const email=document.getElementById('emp-email').value.trim();
@@ -5928,7 +6072,7 @@ function addEmploye(){
   const naissance=document.getElementById('emp-naissance').value;
   const fonction=document.getElementById('emp-fonction').value;
   const soc=document.getElementById('emp-soc').value;
-  if(!prenom||!nom){alert('Prénom et Nom sont obligatoires');return;}
+  if(!prenom||!nom){await benaiAlert('Prénom et Nom sont obligatoires');return;}
   const ann=getAnnuaire();
   ann.push({id:Date.now(),prenom,nom,email,emailPro,tel,naissance,fonction,societe:soc,sync_ts:Date.now(),_deleted:false});
   saveAnnuaire(ann);
@@ -5938,8 +6082,8 @@ function addEmploye(){
   renderAnnuaire();logActivity(`Benjamin a ajouté ${prenom} ${nom} dans l'annuaire`);
 }
 
-function deleteEmploye(id){
-  if(!confirm('Supprimer cet employé de l\'annuaire ?'))return;
+async function deleteEmploye(id){
+  if(!await benaiConfirm('Supprimer cet employé de l\'annuaire ?'))return;
   const ann=getAnnuaire();
   const emp=ann.find(e=>e.id===id);
   if(!emp)return;
@@ -5966,10 +6110,10 @@ function editEmploye(id){
   document.getElementById('emp-form-wrap').scrollIntoView({behavior:'smooth'});
 }
 
-function saveEditEmploye(id){
+async function saveEditEmploye(id){
   const prenom=document.getElementById('emp-prenom').value.trim();
   const nom=document.getElementById('emp-nom').value.trim();
-  if(!prenom||!nom){alert('Prénom et Nom sont obligatoires');return;}
+  if(!prenom||!nom){await benaiAlert('Prénom et Nom sont obligatoires');return;}
   const ann=getAnnuaire();
   const idx=ann.findIndex(e=>e.id===id);if(idx===-1)return;
   ann[idx]={
@@ -6078,11 +6222,11 @@ function fillAbsEmpList(opts={}){
 }
 
 // PLANNING ABSENCES - téléchargement CSV
-function downloadPlanningAbsences(societe){
+async function downloadPlanningAbsences(societe){
   if(currentUser?.role!=='admin')return;
   const mem=getMem();
   const absences=(mem.absences||[]).filter(a=>!a._deleted).sort((a,b)=>new Date(a.debut)-new Date(b.debut));
-  if(!absences.length){alert('Aucune absence enregistrée');return;}
+  if(!absences.length){await benaiAlert('Aucune absence enregistrée');return;}
   const isNem=societe==='nemausus';
   const label=isNem?'Nemausus Fermetures':'Lambert SAS';
   const color=isNem?'linear-gradient(135deg,#E8943A,#C4711A)':'linear-gradient(135deg,#3B82F6,#1D4ED8)';
@@ -6342,7 +6486,7 @@ let paieResults=[];
 async function processFichesPaie(input){
   const files=Array.from(input.files);if(!files.length)return;
   input.value='';
-  const apiKey=getApiKey();if(!apiKey){alert('Clé API manquante');return;}
+  const apiKey=getApiKey();if(!apiKey){await benaiAlert('Clé API manquante');return;}
   paieResults=[];
   document.getElementById('paie-empty').style.display='none';
   document.getElementById('paie-progress').style.display='block';
@@ -6379,7 +6523,7 @@ async function processFichesPaie(input){
   renderPaieList();
   const autoReady=paieResults.filter(r=>r.email&&r.found&&!r.error);
   if(autoReady.length){
-    const ok=confirm(`✅ ${autoReady.length} fiche(s) ont un email perso trouvé.\n\nOuvrir automatiquement les brouillons Outlook maintenant ?`);
+    const ok=await benaiConfirm(`✅ ${autoReady.length} fiche(s) ont un email perso trouvé.\n\nOuvrir automatiquement les brouillons Outlook maintenant ?`);
     if(ok)openPaieBatchDrafts();
   }
 }
@@ -6429,9 +6573,9 @@ function renderPaieList(){
   }).join('')}`;
 }
 
-function askEmailPaie(idx){
-  const email=prompt(`Email pour ${paieResults[idx].prenom} ${paieResults[idx].nom} :`);
-  if(!email||!email.includes('@'))return;
+async function askEmailPaie(idx){
+  const email=await benaiPrompt(`Email pour ${paieResults[idx].prenom} ${paieResults[idx].nom} :`,'','Email');
+  if(email===null||!email||!email.includes('@'))return;
   paieResults[idx].email=email;renderPaieList();
 }
 
@@ -6605,9 +6749,9 @@ function renderEvolution(){
   }).join('');
 }
 
-function validateEvol(id){
+async function validateEvol(id){
   const e=EVOLUTIONS.find(x=>x.id===id);
-  if(e)alert(`✅ Noté ! "${e.title}" sera développé dans la prochaine mise à jour BenAI.`);
+  if(e)await benaiAlert(`✅ Noté ! "${e.title}" sera développé dans la prochaine mise à jour BenAI.`);
   dismissEvol(id);
 }
 function dismissEvol(id){
@@ -6943,38 +7087,38 @@ function applyBenAiLocalUserIdRename(oldUid,newUid){
 }
 
 async function modifierBenaiLoginUid(uid){
-  if(!canAssignBenaiLoginPseudo()){alert('Seul Benjamin peut modifier l’identifiant de connexion.');return;}
+  if(!canAssignBenaiLoginPseudo()){await benaiAlert('Seul Benjamin peut modifier l’identifiant de connexion.');return;}
   const u=findUserById(uid)||findUserById(normalizeId(uid));
   if(!u)return;
   const isSelfBenjamin=normalizeId(uid)==='benjamin';
   if(isSelfBenjamin){
-    if(!confirm('Tu définis le pseudo pour te connecter à BenAI (Supabase). Ton compte dans l’app reste « Benjamin » ; seul le mot de passe / email côté Supabase compte pour la connexion. Continuer ?'))return;
+    if(!await benaiConfirm('Tu définis le pseudo pour te connecter à BenAI (Supabase). Ton compte dans l’app reste « Benjamin » ; seul le mot de passe / email côté Supabase compte pour la connexion. Continuer ?'))return;
   }
   let authRaw=String(u.auth_uid||u.authUid||'').trim();
   if(isSelfBenjamin&&(!authRaw||!isLikelyUuid(authRaw))){
     authRaw=String(currentUser?.auth_uid||currentUser?.authUid||'').trim();
   }
   if(!isLikelyUuid(authRaw)){
-    alert('Compte sans identifiant Supabase (auth). Connecte-toi avec email + mot de passe Supabase une fois pour lier la session, puis réessaie.');
+    await benaiAlert('Compte sans identifiant Supabase (auth). Connecte-toi avec email + mot de passe Supabase une fois pour lier la session, puis réessaie.');
     return;
   }
   const actuel=String(u.id||'').trim();
-  const np=prompt(`Nouvel identifiant de connexion pour ${u.name}\n${isSelfBenjamin?`(identifiant interne BenAI : ${actuel} — inchangé)\n`:`(actuel dans BenAI : ${actuel})\n`}\nLettres, chiffres et _ (accents et espaces seront normalisés).`,actuel);
+  const np=await benaiPrompt(`Nouvel identifiant de connexion pour ${u.name}\n${isSelfBenjamin?`(identifiant interne BenAI : ${actuel} — inchangé)\n`:`(actuel dans BenAI : ${actuel})\n`}\nLettres, chiffres et _ (accents et espaces seront normalisés).`,actuel,'Identifiant de connexion');
   if(np===null||!String(np).trim())return;
   const candidate=proposedLoginUidFromPseudoField(np,actuel);
-  if(!candidate||candidate==='user'){alert('Identifiant invalide.');return;}
+  if(!candidate||candidate==='user'){await benaiAlert('Identifiant invalide.');return;}
   const reserved=new Set(['benjamin','benai','admin']);
-  if(reserved.has(candidate)){alert('Identifiant réservé.');return;}
-  if(normalizeId(candidate)===normalizeId(actuel)){alert('Identique à l’actuel.');return;}
+  if(reserved.has(candidate)){await benaiAlert('Identifiant réservé.');return;}
+  if(normalizeId(candidate)===normalizeId(actuel)){await benaiAlert('Identique à l’actuel.');return;}
   if(getAllUsers().some(x=>normalizeId(x.id)===normalizeId(candidate)&&normalizeId(x.id)!==normalizeId(actuel))){
-    alert('Cet identifiant est déjà utilisé.');
+    await benaiAlert('Cet identifiant est déjà utilisé.');
     return;
   }
   const cloud=await updateSupabaseUserAppUidProvisioning({
     target_user_id:authRaw,
     new_app_uid:candidate
   });
-  if(!cloud.ok){alert('Échec serveur : '+(cloud.error||'?'));return;}
+  if(!cloud.ok){await benaiAlert('Échec serveur : '+(cloud.error||'?'));return;}
   const resolved=String(cloud.data?.app_uid||candidate).trim();
   if(!isSelfBenjamin)applyBenAiLocalUserIdRename(actuel,resolved);
   await syncExtraUsersFromSupabaseProfiles();
@@ -6982,7 +7126,7 @@ async function modifierBenaiLoginUid(uid){
   renderUsersList();
   renderPwdList();
   logActivity(`Benjamin a défini l’identifiant de connexion ${actuel} → ${resolved} (${u.name})`);
-  alert(`Identifiant de connexion mis à jour : ${resolved}`);
+  await benaiAlert(`Identifiant de connexion mis à jour : ${resolved}`);
 }
 
 function getExtraUsers(){try{return JSON.parse(appStorage.getItem('benai_extra_users'))||[];}catch{return [];}}
@@ -7092,8 +7236,8 @@ function regenNewUserPwd(){
   if(el)el.value=generateBenAIPassword(14);
 }
 
-function showAddUser(){
-  if(!canManageBenaiUsersAdmin()){alert('Réservé à l’administrateur.');return;}
+async function showAddUser(){
+  if(!canManageBenaiUsersAdmin()){await benaiAlert('Réservé à l’administrateur.');return;}
   const f=document.getElementById('add-user-form');
   const isOpen=f.style.display!=='none';
   f.style.display=isOpen?'none':'block';
@@ -7119,7 +7263,7 @@ function showAddUser(){
 }
 
 async function creerUtilisateur(){
-  if(!canManageBenaiUsersAdmin()){alert('Réservé à l’administrateur.');return;}
+  if(!canManageBenaiUsersAdmin()){await benaiAlert('Réservé à l’administrateur.');return;}
   const sel=document.getElementById('new-user-ann-select');
   const val=sel?.value||'';
   let pwd=(document.getElementById('new-user-pwd')?.value||'').trim();
@@ -7194,12 +7338,12 @@ async function creerUtilisateur(){
 }
 
 async function supprimerUtilisateur(uid){
-  if(!canManageBenaiUsersAdmin()){alert('Réservé à l’administrateur.');return;}
-  if(normalizeId(uid)==='benjamin'){alert('Benjamin ne peut pas être supprimé.');return;}
+  if(!canManageBenaiUsersAdmin()){await benaiAlert('Réservé à l’administrateur.');return;}
+  if(normalizeId(uid)==='benjamin'){await benaiAlert('Benjamin ne peut pas être supprimé.');return;}
   const u=findUserById(uid)||findUserById(normalizeId(uid));
-  if(!u){alert('Utilisateur introuvable.');return;}
+  if(!u){await benaiAlert('Utilisateur introuvable.');return;}
   const effectiveId=u.id;
-  if(!confirm(`Supprimer ${u.name||effectiveId} définitivement ? Cette action est irréversible.`))return;
+  if(!await benaiConfirm(`Supprimer ${u.name||effectiveId} définitivement ? Cette action est irréversible.`))return;
   const emailForCloud=(u.email||getEmailCandidateForUid(effectiveId,'')||'').trim().toLowerCase();
   let remoteDeleted=false;
   const remoteRes=await deleteSupabaseUserProvisioning({
@@ -7241,8 +7385,8 @@ async function supprimerUtilisateur(uid){
   else showDriveNotif(`✅ ${u.name||effectiveId} retiré de BenAI (cloud en attente si besoin)`);
 }
 
-function toggleAccess(uid){
-  if(!canManageBenaiUsersAdmin()){alert('Réservé à l’administrateur.');return;}
+async function toggleAccess(uid){
+  if(!canManageBenaiUsersAdmin()){await benaiAlert('Réservé à l’administrateur.');return;}
   const access=getAccess();
   access[uid]=access[uid]===false?true:false;
   saveAccess(access);renderUsersList();
@@ -7401,14 +7545,14 @@ function renderUsersList(){
   });
 }
 
-function editUser(uid){
-  if(!canManageBenaiUsersAdmin()){alert('Réservé à l’administrateur.');return;}
+async function editUser(uid){
+  if(!canManageBenaiUsersAdmin()){await benaiAlert('Réservé à l’administrateur.');return;}
   const users=getAllUsers();const u=users.find(x=>x.id===uid);if(!u)return;
-  const nouveau=prompt(`Modifier ${u.name}\n\nNom affiché (actuel: ${u.name}) :`);
-  if(!nouveau||!nouveau.trim())return;
+  const nouveau=await benaiPrompt(`Modifier ${u.name}\n\nNom affiché (actuel: ${u.name}) :`,'','Nom affiché');
+  if(nouveau===null||!nouveau.trim())return;
   let vehicule=u.vehicule||'';
   if(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general'){
-    const vPrompt=prompt(`Véhicule de société pour ${nouveau.trim()} (optionnel) :`,vehicule);
+    const vPrompt=await benaiPrompt(`Véhicule de société pour ${nouveau.trim()} (optionnel) :`,vehicule,'Véhicule');
     if(vPrompt!==null)vehicule=vPrompt.trim();
   }
   // Mettre à jour dans USERS et extraUsers
@@ -7425,7 +7569,7 @@ function editUser(uid){
   appStorage.setItem('benai_name_overrides',JSON.stringify(overrides));
   renderUsersList();renderPwdList();
   logActivity(`Benjamin a modifié le nom de ${uid} → ${nouveau.trim()}`);
-  alert(`✅ Nom modifié : ${nouveau.trim()}`);
+  await benaiAlert(`✅ Nom modifié : ${nouveau.trim()}`);
 }
 
 function renderPwdList(){
@@ -7442,11 +7586,11 @@ function renderPwdList(){
 }
 
 async function changerMdp(uid,name){
-  if(currentUser?.role!=='admin'){alert('⚠️ Réservé à l’administrateur');return;}
-  const nouveau=prompt(`Nouveau mot de passe pour ${name} :\n\n✅ Minimum 6 caractères\n✅ Au moins 1 majuscule\n✅ Au moins 1 caractère spécial (!@#$%...)`);
-  if(!nouveau)return;
+  if(currentUser?.role!=='admin'){await benaiAlert('⚠️ Réservé à l’administrateur');return;}
+  const nouveau=await benaiPrompt(`Nouveau mot de passe pour ${name} :\n\n✅ Minimum 6 caractères\n✅ Au moins 1 majuscule\n✅ Au moins 1 caractère spécial (!@#$%...)`,'','Mot de passe','password');
+  if(nouveau===null||!nouveau)return;
   const err=validatePassword(nouveau);
-  if(err){alert('⚠️ '+err);return;}
+  if(err){await benaiAlert('⚠️ '+err);return;}
   const u=findUserById(uid)||findUserById(normalizeId(uid));
   const targetId=u?.id||uid;
   const emailCandidate=(u?.email||getEmailCandidateForUid(targetId,'')||'').trim().toLowerCase();
@@ -7468,11 +7612,11 @@ async function changerMdp(uid,name){
   renderPwdList();
   logActivity(`Benjamin a modifié le mot de passe de ${name}`);
   if(cloud.ok){
-    alert(`✅ Mot de passe de ${name} modifié (BenAI + cloud).`);
+    await benaiAlert(`✅ Mot de passe de ${name} modifié (BenAI + cloud).`);
   }else if(SUPABASE_CONFIG.enabled){
-    alert(`✅ Mot de passe local enregistré pour ${name}.\n\n⚠️ Cloud : ${cloud.error||'non synchronisé'}\nDéployez la fonction Supabase « update-user-password » (même principe que delete-user), puis réessayez.`);
+    await benaiAlert(`✅ Mot de passe local enregistré pour ${name}.\n\n⚠️ Cloud : ${cloud.error||'non synchronisé'}\nDéployez la fonction Supabase « update-user-password » (même principe que delete-user), puis réessayez.`);
   }else{
-    alert(`✅ Mot de passe de ${name} modifié (stockage local).`);
+    await benaiAlert(`✅ Mot de passe de ${name} modifié (stockage local).`);
   }
 }
 
@@ -7711,19 +7855,19 @@ function exportData(){
 function importData(input){
   const file=input.files[0];if(!file)return;
   const reader=new FileReader();
-  reader.onload=e=>{
+  reader.onload=async e=>{
     try{
       const backup=JSON.parse(e.target.result);
       if(!backup.data)throw new Error('Format invalide');
-      if(!confirm(`Restaurer la sauvegarde du ${new Date(backup.date).toLocaleDateString('fr-FR')} ?\n\nToutes les données actuelles seront remplacées.`))return;
+      if(!await benaiConfirm(`Restaurer la sauvegarde du ${new Date(backup.date).toLocaleDateString('fr-FR')} ?\n\nToutes les données actuelles seront remplacées.`))return;
       saveMem(backup.data);
       savePwds(backup.pwds||{});
       saveExtraUsers(backup.extras||[]);
       saveAccess(backup.access||{});
       if(backup.annuaire)saveAnnuaire(backup.annuaire);
-      alert('✅ Données restaurées ! La page va se recharger.');
+      await benaiAlert('✅ Données restaurées ! La page va se recharger.');
       location.reload();
-    }catch(err){alert('❌ Erreur : fichier de sauvegarde invalide');}
+    }catch(err){await benaiAlert('❌ Erreur : fichier de sauvegarde invalide');}
   };
   reader.readAsText(file);input.value='';
 }
@@ -8083,8 +8227,8 @@ async function autoBackupToDrive(){
 
 async function manualBackupToDrive(){
   const clientId=getGDriveClientId();
-  if(!clientId){alert('⚠️ Configure ton Client ID Google Drive dans les paramètres.');return;}
-  if(!window.google?.accounts?.oauth2){alert('⚠️ Google Identity Services non chargé. Vérifie ta connexion internet.');return;}
+  if(!clientId){await benaiAlert('⚠️ Configure ton Client ID Google Drive dans les paramètres.');return;}
+  if(!window.google?.accounts?.oauth2){await benaiAlert('⚠️ Google Identity Services non chargé. Vérifie ta connexion internet.');return;}
   if(!gdriveTokenClient)initGDriveClient();
   if(!gdriveTokenClient)return;
   // Forcer la popup d'autorisation
@@ -9104,23 +9248,25 @@ function renderLeadsDashboard(){
   if(list)list.appendChild(tvDiv);
 }
 
-function editObjectifCommercial(uid,name){
+async function editObjectifCommercial(uid,name){
   const obj=getObjectifsCommerciaux();
   const cur=obj[uid]||{mensuel:0,hebdo:0};
-  const mensuel=prompt(`Objectif CA mensuel (€) pour ${name} :`,cur.mensuel);
+  const mensuel=await benaiPrompt(`Objectif CA mensuel (€) pour ${name} :`,String(cur.mensuel),'Objectifs commercial');
   if(mensuel===null)return;
-  const hebdo=prompt(`Objectif CA hebdo (€) pour ${name} :`,cur.hebdo);
+  const hebdo=await benaiPrompt(`Objectif CA hebdo (€) pour ${name} :`,String(cur.hebdo),'Objectifs commercial');
   if(hebdo===null)return;
   setObjectifCommercial(uid,mensuel,hebdo);
   renderLeadsDashboard();
   logActivity(`${currentUser.name} a fixé les objectifs de ${name}`);
 }
 
-function editObjectif(secteur){
+async function editObjectif(secteur){
   const obj=getLeadObjectifs();const s=obj[secteur]||{leads:0,ca:0};
   const label=getLeadSecteurLabel(secteur);
-  const newLeads=prompt(`Objectif leads/mois — ${label} :`,s.leads);if(newLeads===null)return;
-  const newCA=prompt(`Objectif CA/mois (€ HT) — ${label} :`,s.ca);if(newCA===null)return;
+  const newLeads=await benaiPrompt(`Objectif leads/mois — ${label} :`,String(s.leads),'Objectifs secteur');
+  if(newLeads===null)return;
+  const newCA=await benaiPrompt(`Objectif CA/mois (€ HT) — ${label} :`,String(s.ca),'Objectifs secteur');
+  if(newCA===null)return;
   obj[secteur]={leads:parseInt(newLeads)||0,ca:parseInt(newCA)||0};
   saveLeadObjectifs(obj);renderLeadsDashboard();
 }
@@ -9377,7 +9523,7 @@ function autoPushLeadToGoogleAgenda(lead,force=false){
 }
 
 // SAUVEGARDER LEAD
-function saveLead(){
+async function saveLead(){
   const nom=document.getElementById('lead-nom').value.trim();
   const tel=document.getElementById('lead-tel').value.trim();
   const adresse=document.getElementById('lead-adresse').value.trim();
@@ -9411,7 +9557,7 @@ function saveLead(){
     else if(!Number.isFinite(prixVenduValue)||prixVenduValue<=0)missing.push('Prix final vendu HT (> 0)');
   }
   if(missing.length){
-    alert('Champs vides : '+missing.join(', '));
+    await benaiAlert('Champs vides : '+missing.join(', '));
     return;
   }
   const leads=getLeads();
@@ -9567,8 +9713,8 @@ function saveLead(){
 
 function srcIcons(){return LEAD_SOURCE_ICONS;}
 
-function rouvrirLead(id){
-  if(!confirm('Réouvrir ce lead ?'))return;
+async function rouvrirLead(id){
+  if(!await benaiConfirm('Réouvrir ce lead ?'))return;
   const leads=getLeads();
   const idx=leads.findIndex(l=>l.id===id);if(idx===-1)return;
   leads[idx].archive=false;
@@ -9581,9 +9727,9 @@ function rouvrirLead(id){
   logActivity(`${currentUser.name} a réouvert le lead : ${leads[idx].nom}`);
 }
 
-function deleteLead(){
-  if(currentUser.id!=='benjamin'){alert('Suppression réservée à Benjamin');return;}
-  if(!confirm('Supprimer ce lead définitivement ?'))return;
+async function deleteLead(){
+  if(currentUser.id!=='benjamin'){await benaiAlert('Suppression réservée à Benjamin');return;}
+  if(!await benaiConfirm('Supprimer ce lead définitivement ?'))return;
   const leads=getLeads();
   const l=leads.find(x=>x.id===currentLeadId);
   if(!l)return;
@@ -10329,9 +10475,9 @@ function openNewBug(){
   document.getElementById('bug-desc').value='';
 }
 
-function saveBug(){
+async function saveBug(){
   const desc=document.getElementById('bug-desc').value.trim();
-  if(!desc){alert('Décrivez le bug');return;}
+  if(!desc){await benaiAlert('Décrivez le bug');return;}
   const bugs=getBugs();
   const now=new Date();
   const pageVal=document.getElementById('bug-page').value;
@@ -10722,12 +10868,12 @@ function genererRapportAlertes(){
 // ══════════════════════════════════════════
 // 🔒 BLOQUER COMMERCIAL
 // ══════════════════════════════════════════
-function toggleBlockCommercial(uid){
-  if(!canManageBenaiUsersAdmin()){alert('Réservé à l’administrateur.');return;}
+async function toggleBlockCommercial(uid){
+  if(!canManageBenaiUsersAdmin()){await benaiAlert('Réservé à l’administrateur.');return;}
   const access=getAccess();
   const u=getAllUsers().find(x=>x.id===uid);
   const isBlocked=access[uid]===false;
-  if(!confirm(`${isBlocked?'Débloquer':'Bloquer'} ${u?.name||uid} du CRM ?`))return;
+  if(!await benaiConfirm(`${isBlocked?'Débloquer':'Bloquer'} ${u?.name||uid} du CRM ?`))return;
   access[uid]=isBlocked?true:false;
   saveAccess(access);
   renderUsersList();
@@ -10934,9 +11080,9 @@ function toggleFusionSelect(id){
   renderFusionList();
 }
 
-function confirmerFusion(){
+async function confirmerFusion(){
   if(fusionSelectIds.length!==2){showDriveNotif('⚠️ Sélectionnez exactement 2 leads');return;}
-  if(!confirm('Fusionner ces 2 leads ? Le premier sera conservé, le second supprimé.'))return;
+  if(!await benaiConfirm('Fusionner ces 2 leads ? Le premier sera conservé, le second supprimé.'))return;
   const leads=getLeads();
   const [id1,id2]=fusionSelectIds;
   const l1=leads.find(l=>l.id===id1);
@@ -11552,13 +11698,13 @@ function shouldShowTuto(){
 }
 
 async function installUpdate(version,notes){
-  if(!confirm(`Installer BenAI v${version} ?\n\nBenAI va se recharger.`))return;
+  if(!await benaiConfirm(`Installer BenAI v${version} ?\n\nBenAI va se recharger.`))return;
   try{
     const res=await fetch(`https://raw.githubusercontent.com/BenAI30/benai/main/index.html?t=${Date.now()}`);
     if(!res.ok)throw new Error('Impossible de télécharger');
     const html=await res.text();
     document.open();document.write(html);document.close();
-  }catch(e){alert('❌ Erreur : '+e.message);}
+  }catch(e){await benaiAlert('❌ Erreur : '+e.message);}
 }
 </script>
 </body>
