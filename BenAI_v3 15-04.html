@@ -2014,7 +2014,7 @@ window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
 const BENAI_VERSION = '3.15';
-const GUIDE_REQUIRED_VERSION='3.18';
+const GUIDE_REQUIRED_VERSION='3.19';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 const STORAGE_KEYS = {
   mem:'benai_v3',
@@ -7116,7 +7116,7 @@ function renderGuidePage(){
     ],
     commercial:[
       'Tu ne vois que tes leads : ceux dont le champ « commercial » est ton compte ; rien d’autre n’apparaît dans la liste (confidentialité).',
-      'Onglets CRM : « Mon pilotage » (tableaux de bord sur ton portefeuille) et « Mes leads » (liste ou kanban, filtres, recherche).',
+      'Onglets CRM : « Mes ventes » (tableau des signatures + objectifs personnels ; pas les vues secteurs / RDV agrégés / pertes — réservées direction) et « Mes leads » (liste ou kanban, filtres, recherche).',
       'Bouton + Nouveau lead : tu peux créer un dossier (ex. prospection terrain) ; la source ACTIF t’attribue automatiquement le lead ; sinon l’attribution est gérée côté organisation.',
       'Filtres rapides : Tous, Non traité, RDV pris, Devis envoyé, Vendu, Perdu, Archives, Alertes — plus recherche texte et bascule liste / kanban.',
       'La timeline sur la fiche regroupe les actions enregistrées sur le dossier : mets-la à jour en enregistrant après chaque étape pour garder une suite claire.',
@@ -9040,7 +9040,7 @@ function initLeadsPage(){
     filters.style.display='none'; // Pas de filtres pour l'assistante
     showCRMTab('mes-leads');
   } else {
-    addCRMTab('dashboard','📊 Mon pilotage',true);
+    addCRMTab('dashboard','📊 Mes ventes',true);
     addCRMTab('mes-leads','📋 Mes leads',false);
     filters.style.display='flex';
     showCRMTab(readStoredCrmSubtab('dashboard'));
@@ -9556,16 +9556,16 @@ function renderLeadsDashboard(){
   const alertes=leads.filter(l=>isLeadAlerte(l)).length;
   const rdvMonthTotal=leads.reduce((sum,l)=>sum+getLeadRdvDoneMonthCount(l,now),0);
   const crmDashSummary=(l1,l2)=>`<summary><span class="crm-dash-sum-stack"><span class="crm-dash-sum-line1">${l1}</span><span class="crm-dash-sum-line2">${l2}</span></span></summary>`;
-  html+=`<div class="crm-dash-kicker">${dashCommercial?'Mon pilotage':'Tableau de bord CRM'}</div>`;
-  html+=`<div class="crm-dash-grid-kpis" style="margin-bottom:12px">
+  html+=`<div class="crm-dash-kicker">${dashCommercial?'Mes ventes':'Tableau de bord CRM'}</div>`;
+  html+=`<div class="crm-dash-grid-kpis" style="margin-bottom:12px${dashCommercial?';grid-template-columns:repeat(2,minmax(0,1fr))':''}">
     <div class="stat-box" title="Tous les leads actifs (hors archives) dans votre périmètre"><div class="stat-box-val">${totalLeads}</div><div class="stat-box-lbl">Leads actifs</div></div>
-    <div class="stat-box" title="Leads non encore attribués à un commercial"><div class="stat-box-val" style="color:var(--y)">${nonAttrib}</div><div class="stat-box-lbl">À attribuer</div></div>
+    ${dashCommercial?'':`<div class="stat-box" title="Leads non encore attribués à un commercial"><div class="stat-box-val" style="color:var(--y)">${nonAttrib}</div><div class="stat-box-lbl">À attribuer</div></div>`}
     <div class="stat-box" title="Leads nécessitant une action prioritaire"><div class="stat-box-val" style="color:var(--r)">${alertes}</div><div class="stat-box-lbl">Alertes</div></div>
   </div>`;
   if(dashPilotage){
     html+=`<div class="crm-dash-intro"><strong>Mode d’emploi</strong> — les trois cases ci-dessus résument la situation. Utilisez la barre <strong>Aller à</strong> pour sauter à une section ; chaque bloc se replie ou se déplie via sa ligne de titre. Par défaut seul <strong>Secteurs & mois</strong> reste ouvert pour une première vue lisible.</div>`;
   } else if(dashCommercial){
-    html+=`<div class="crm-dash-intro">Ici : <strong>vos chiffres</strong> par secteur, <strong>vos objectifs</strong> (mois <strong>${year-1}</strong> et <strong>${year}</strong>) et le <strong>détail des ventes</strong> (N-1). La barre <strong>Aller à</strong> permet d’accéder vite à chaque partie.</div>`;
+    html+=`<div class="crm-dash-intro">Ici : votre <strong>tableau de ventes</strong> (détail par mois, comparaison N-1) et <strong>vos objectifs</strong>. Les vues secteurs, chiffres par secteur, RDV agrégés et analyses de pertes restent réservées à la direction commerciale, au DG et à l’administration.</div>`;
   }
   const rapportHead=genererRapportAlertes();
   if(rapportHead.total>0){
@@ -9592,18 +9592,18 @@ function renderLeadsDashboard(){
       </div>
     </nav>`;
   } else if(dashCommercial){
-    html+=`<nav class="crm-dash-navstrip" aria-label="Sections du tableau de bord commercial">
+    html+=`<nav class="crm-dash-navstrip" aria-label="Sections Mes ventes">
       <div class="crm-dash-navstrip-inner">
         <span class="crm-dash-navstrip-label">Aller à</span>
-        <a class="crm-dash-navlink" href="#crm-dash-secteurs-com">Mes secteurs</a>
-        <a class="crm-dash-navlink" href="#crm-dash-tab-mois">Tableau du mois</a>
-        <a class="crm-dash-navlink" href="#crm-dash-chiffres-com">Chiffres &amp; activité</a>
-        <a class="crm-dash-navlink" href="#crm-dash-mes-obj">Objectifs</a>
-        <a class="crm-dash-navlink" href="#crm-dash-detail-ventes">Détail ventes</a>
+        <a class="crm-dash-navlink" href="#crm-dash-detail-ventes">Tableau de ventes</a>
+        <a class="crm-dash-navlink" href="#crm-dash-mes-obj">Mes objectifs</a>
       </div>
     </nav>`;
   }
-  const secteursSynthese=secteurs.map(s=>{
+  if(dashCommercial){
+    html+=`<div id="crm-dash-detail-ventes" class="crm-dash-anchor" style="margin-top:12px"></div>`;
+  }
+  const secteursSynthese=!dashCommercial?secteurs.map(s=>{
     const all=leads.filter(l=>l.secteur===s.id);
     const ventes=all.filter(l=>l.statut==='vert');
     return{
@@ -9612,9 +9612,9 @@ function renderLeadsDashboard(){
       ventes:ventes.length,
       ca:ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0)
     };
-  });
+  }):[];
   const moisSecteurLabel=now.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
-  const secteurMensuelRows=secteurs.map(s=>{
+  const secteurMensuelRows=!dashCommercial?secteurs.map(s=>{
     const lm=leadsMonth.filter(l=>l.secteur===s.id);
     const gris=lm.filter(l=>l.statut==='gris').length;
     const rdv=lm.filter(l=>l.statut==='rdv').length;
@@ -9626,13 +9626,13 @@ function renderLeadsDashboard(){
     const devisLm=lm.filter(l=>l.statut==='jaune');
     const pipeHt=devisLm.reduce((sum,l)=>sum+Number(l.montant_devis||0),0);
     return{s,lm,gris,rdv,jaune,vert,rouge,caHt,pipeHt,ndevis:devisLm.length};
-  });
+  }):[];
   const totLeadsM=secteurMensuelRows.reduce((a,r)=>a+r.lm.length,0);
   const totVertM=secteurMensuelRows.reduce((a,r)=>a+r.vert,0);
   const totCaM=secteurMensuelRows.reduce((a,r)=>a+r.caHt,0);
   const totPipeM=secteurMensuelRows.reduce((a,r)=>a+r.pipeHt,0);
   const totDevisM=secteurMensuelRows.reduce((a,r)=>a+r.ndevis,0);
-  const htmlSecteurTable=`<div id="crm-dash-tab-mois" class="secteur-card crm-dash-anchor">
+  const htmlSecteurTable=!dashCommercial?`<div id="crm-dash-tab-mois" class="secteur-card crm-dash-anchor">
     <div class="secteur-title" style="font-size:14px">📊 ${moisSecteurLabel.charAt(0).toUpperCase()+moisSecteurLabel.slice(1)} — compteur leads & chiffres par secteur</div>
     <div style="font-size:11px;color:var(--t3);margin:-6px 0 10px;line-height:1.45">Leads <strong>créés ce mois</strong> (date de création) dans votre périmètre, ventes & CA HT du même lot, pipeline des devis « jaune ».</div>
     <div class="crm-sect-m-wrap">
@@ -9677,23 +9677,8 @@ function renderLeadsDashboard(){
         </tbody>
       </table>
     </div>
-  </div>`;
-  if(dashCommercial){
-    html+=`<details class="crm-dash-synth secteur-card crm-dash-anchor" id="crm-dash-secteurs-com" open>
-    ${crmDashSummary('🗺️ Mes secteurs','Répartition de vos leads par zone — sans export.')}
-    <div style="padding-top:8px">
-    <div style="font-size:11px;color:var(--t3);margin:0 0 10px;line-height:1.45">Vos leads <strong>actifs</strong> : répartition par secteur (lecture seule, sans export).</div>
-    ${secteursSynthese.map(s=>`
-      <div class="perf-row">
-        <div class="perf-name" style="color:${s.color}">${s.label}</div>
-        <div class="perf-stats">${s.leads} lead(s) · ${s.ventes} vente(s)</div>
-        <div class="perf-ca">${s.ca.toLocaleString('fr-FR')} €</div>
-      </div>
-    `).join('')}
-    </div>
-  </details>`;
-    html+=htmlSecteurTable;
-  } else {
+  </div>`:'';
+  if(!dashCommercial){
     html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-secteurs" open>${crmDashSummary('📍 Secteurs & mois en cours','Carte par zone, export CSV, puis tableau détaillé du mois civil.')}<div class="crm-dash-grp-body">
     <div class="crm-dash-subtle">D’abord la vue « toutes périodes » et l’export ; puis le tableau ne compte que les <strong>leads créés ce mois</strong> (date de création).</div>
     <div class="secteur-card"><div class="secteur-title" style="font-size:13px">Export & résumé par zone</div>
@@ -9724,6 +9709,7 @@ function renderLeadsDashboard(){
     ${htmlSecteurTable}
     </div></details>`;
   }
+  if(!dashCommercial){
   const salesTotal=leads.filter(l=>l.statut==='vert');
   const caTotal=salesTotal.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
   const salesMonth=leadsMonth.filter(l=>l.statut==='vert');
@@ -9732,10 +9718,8 @@ function renderLeadsDashboard(){
   const txConv=totalLeads?Math.round((salesTotal.length/totalLeads)*100):0;
   if(dashPilotage){
     html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-ventes-rdv">${crmDashSummary('💼 Ventes, RDV & canaux','Totaux globaux, RDV du mois, origine des leads, puis liste détaillée des ventes.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">Les totaux « ventes » portent sur toutes les ventes signées ; les encarts « ce mois » utilisent le <strong>mois civil en cours</strong>.</div>`;
-  } else {
-    html+=`<div class="crm-dash-kicker k-ge">Ventes & activité</div>`;
   }
-  html+=`<div${dashCommercial?' id="crm-dash-chiffres-com" class="secteur-card crm-dash-anchor"':' class="secteur-card"'}>
+  html+=`<div class="secteur-card">
     <div class="secteur-title">💼 Chiffres clés ventes</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
       <div class="stat-box"><div class="stat-box-val" style="color:var(--g)">${salesTotal.length}</div><div class="stat-box-lbl">Ventes signées</div></div>
@@ -9754,7 +9738,6 @@ function renderLeadsDashboard(){
     </div>
     ${rdvTop.length?rdvTop.map(x=>`<div class="perf-row"><div class="perf-name">${esc(x.lead.nom)}</div><div class="perf-stats">${x.count} RDV</div><div class="perf-ca">${esc(x.lead.type_projet||'')}</div></div>`).join(''):`<div style="font-size:12px;color:var(--t3)">Aucun RDV réalisé enregistré ce mois.</div>`}
   </div>`;
-  if(!dashCommercial){
   if(dashPilotage){
     html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-ca-soc">${crmDashSummary('🏢 CA par société','Nemausus et Lambert : objectif du mois choisi, barre de progression, pipeline devis.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">Choisissez le <strong>mois</strong> à analyser (chiffres = leads <em>créés</em> ce mois-là). Mois proposés : <strong>${year-1}</strong> et <strong>${year}</strong> pour comparer au <strong>N-1</strong>. Sans objectif saisi pour ce mois, c’est l’objectif de référence qui s’affiche.</div>`;
   }
@@ -9801,7 +9784,6 @@ function renderLeadsDashboard(){
   if(dashPilotage){
     html+=`</div></details>`;
   }
-  }
   // Stats par source
   const sources=LEAD_SOURCE_CODES;
   const srcIcons=LEAD_SOURCE_ICONS;
@@ -9814,6 +9796,7 @@ function renderLeadsDashboard(){
   html+='</div></div>';
   if(dashPilotage){
     html+=`<div id="crm-dash-detail-ventes" class="crm-dash-anchor"><div id="crm-dash-slot-ventes"></div></div></div></details>`;
+  }
   }
   if(!dashCommercial){
   if(dashPilotage){
@@ -9844,26 +9827,24 @@ function renderLeadsDashboard(){
     html+=`</div></details>`;
   }
   }
-  // Analyse leads perdus
+  // Analyse leads perdus & archives (pilotage uniquement)
   if(dashPilotage){
     html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-analyse">${crmDashSummary('📋 Pertes & archives','Motifs des leads perdus ce mois, puis volumes (archives manuelles + leads d’années passées).')}<div class="crm-dash-grp-body">`;
-  }
-  const lost=getLeadLostAnalytics(leadsMonth);
-  html+=`<div class="secteur-card"><div class="secteur-title">📉 Analyse des leads perdus</div>`;
-  if(!lost.total){
-    html+=`<div style="font-size:12px;color:var(--t3)">Aucun lead perdu ce mois.</div>`;
-  } else {
-    html+=lost.rows.map(r=>`
+    const lost=getLeadLostAnalytics(leadsMonth);
+    html+=`<div class="secteur-card"><div class="secteur-title">📉 Analyse des leads perdus</div>`;
+    if(!lost.total){
+      html+=`<div style="font-size:12px;color:var(--t3)">Aucun lead perdu ce mois.</div>`;
+    } else {
+      html+=lost.rows.map(r=>`
       <div class="perf-row">
         <div class="perf-name">${esc(r.label)}</div>
         <div class="perf-stats">${r.count} lead(s)</div>
       </div>
     `).join('');
-  }
-  html+='</div>';
-  // Historique archivé
-  const arch=getArchivedLeadsStats(getCompanyScopedLeads(getLeads()));
-  html+=`<div class="secteur-card"><div class="secteur-title">🗃️ Historique archivé</div>
+    }
+    html+='</div>';
+    const arch=getArchivedLeadsStats(getCompanyScopedLeads(getLeads()));
+    html+=`<div class="secteur-card"><div class="secteur-title">🗃️ Historique archivé</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
       <div class="stat-box"><div class="stat-box-val">${arch.total}</div><div class="stat-box-lbl">Total archivés</div></div>
       <div class="stat-box"><div class="stat-box-val" style="color:var(--g)">${arch.byStatut.vert}</div><div class="stat-box-lbl">Vendus</div></div>
@@ -9871,7 +9852,6 @@ function renderLeadsDashboard(){
     </div>
     <div style="margin-top:8px;font-size:11px;color:var(--t3)">Filtre <strong>📁 Archives</strong> dans Leads : archives manuelles <em>et</em> leads créés avant <strong>${new Date().getFullYear()}</strong>.</div>
   </div>`;
-  if(dashPilotage){
     html+=`</div></details>`;
   }
   if(role==='admin'||isCRMScopePilotageRole(role)){
@@ -9913,7 +9893,7 @@ function renderLeadsDashboard(){
     } else {
       html+=`<div class="crm-dash-kicker k-pr" style="margin-top:8px">${dashCommercial?'Mes objectifs & suivi CA':'Objectifs par commercial'}</div>`;
     }
-    html+=`<div class="secteur-card${dashCommercial?' crm-dash-anchor" id="crm-dash-mes-obj"':''}"><div class="secteur-title" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
+    html+=`<div class="secteur-card${dashCommercial?' crm-dash-anchor':''}"${dashCommercial?' id="crm-dash-mes-obj"':''}><div class="secteur-title" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
       <span>${dashCommercial?'🎯 Mes objectifs (mois N et N-1 pour comparer)':'🎯 Suivi & objectifs commerciaux'}</span>
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t3);font-weight:600">Mois affiché
         <select id="crm-obj-comm-mois" class="form-input" onchange="window.appStorage.setItem('benai_obj_comm_mois',this.value);renderLeadsDashboard()" style="padding:5px 10px;font-size:11px;border-radius:8px;min-width:128px">
@@ -9951,7 +9931,6 @@ function renderLeadsDashboard(){
     list.style.maxWidth='920px';
     list.style.margin='0 auto';
     list.style.width='100%';
-    if(dashCommercial){html+=`<div id="crm-dash-detail-ventes" class="crm-dash-anchor"></div>`;}
     list.innerHTML=html;
     applyCrmDashboardDetailsOpenState(dashOpenIds);
     const slot=document.getElementById('crm-dash-slot-ventes');
@@ -12441,7 +12420,7 @@ try{
 const TUTO_SLIDES_BY_ROLE={
   commercial:[
     {icon:'🎯',title:'Ton rôle en une phrase',desc:'Tu transformes chaque opportunité en dossier clair : appels, RDV, devis, signature ou perte documentée. BenAI te donne la liste, toi tu enregistres la réalité terrain après chaque contact.',highlight:'Onglets visibles : Leads CRM, Messages, Absences, Guide, Bugs'},
-    {icon:'🗺️',title:'Navigation CRM',desc:'Dans Leads CRM tu as deux vues : « Mon pilotage » (indicateurs sur ton portefeuille) et « Mes leads » (liste ou kanban). Tout ce qui te concerne est déjà regroupé ici.',highlight:'Bascule ☰ / ⊞ pour lire vite selon ton habitude'},
+    {icon:'🗺️',title:'Navigation CRM',desc:'Dans Leads CRM tu as « Mes ventes » (tableau de ventes par mois, objectifs) puis « Mes leads » (liste ou kanban). Les synthèses secteurs, RDV agrégés et analyses de pertes restent côté direction.',highlight:'Bascule ☰ / ⊞ pour lire vite selon ton habitude'},
     {icon:'🔎',title:'Trier sans te noyer',desc:'Utilise les pastilles Tous, Non traité, RDV pris, Devis envoyé, Vendu, Perdu, Archives et Alertes. La recherche texte retrouve nom, téléphone ou ville. Commence souvent par Alertes + Non traité.',highlight:'Objectif : zéro lead important dans « Non traité » en fin de journée'},
     {icon:'➕',title:'Créer un lead (terrain / prospection)',desc:'Bouton + Nouveau lead : renseigne nom, téléphone, code postal et type de projet (obligatoires). La source « ACTIF » t’attribue automatiquement le dossier ; pour les autres cas, l’organisation gère l’attribution selon vos règles internes.',highlight:'Secteur / CP cohérents pour limiter les erreurs de zone'},
     {icon:'👤',title:'Étape A — Ouvrir et comprendre',desc:'Ouvre la fiche : lis projet, adresse, commentaire de création et la timeline pour voir ce qui s’est déjà passé sur le dossier. Complète suivi ou commentaire dès que tu as une info nouvelle.',highlight:'Ne téléphone pas « à l’aveugle » si le CRM contient déjà la réponse'},
