@@ -3798,7 +3798,7 @@ function refreshVisibleDataAfterSupabaseSync(){
     if(equipeUITab==='acces'){renderUsersList();renderPwdList();}
     else renderAnnuaire();
   }
-  if(document.getElementById('page-leads')?.style.display==='flex')initLeadsPage();
+  if(document.getElementById('page-leads')?.style.display==='flex')refreshLeadsPageIfVisible();
   if(document.getElementById('page-messages')?.style.display==='flex'){
     scheduleRenderConvList();
     if(currentConv)renderThread(currentConv);
@@ -9423,10 +9423,41 @@ function buildCrmCommercialEvolutionCards(leadsActifs,commerciaux){
   }).join('');
 }
 
+// DASHBOARD — mémorise les <details> ouverts pour ne pas les refermer au prochain rendu (sync / polling).
+function captureCrmDashboardDetailsOpenState(){
+  const list=document.getElementById('leads-list');
+  if(!list||list.style.display==='none')return null;
+  const open=new Set();
+  list.querySelectorAll('details.crm-dash-grp[open],details.crm-dash-synth[open]').forEach(d=>{
+    if(d.id)open.add(d.id);
+  });
+  return open.size?open:null;
+}
+function applyCrmDashboardDetailsOpenState(openIds){
+  if(!openIds||!openIds.size)return;
+  openIds.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el&&el.tagName==='DETAILS')el.open=true;
+  });
+}
+
+/** Après sync cloud : met à jour l’onglet CRM actif sans tout reconstruire (évite fermeture des accordéons). */
+function refreshLeadsPageIfVisible(){
+  if(document.getElementById('page-leads')?.style.display!=='flex')return;
+  const tabs=document.getElementById('crm-tabs');
+  if(!tabs||!tabs.querySelector('.crm-tab'))return;
+  const active=document.querySelector('#crm-tabs .crm-tab.active');
+  const tid=String(active?.id||'').replace(/^crm-tab-/,'');
+  if(tid==='dashboard')renderLeadsDashboard();
+  else if(tid==='non-attribues')renderNonAttribues();
+  else renderLeads();
+}
+
 // DASHBOARD
 function renderLeadsDashboard(){
   const container=document.getElementById('leads-container');if(!container)return;
   const list=document.getElementById('leads-list');
+  const dashOpenIds=captureCrmDashboardDetailsOpenState();
   if(list){list.style.display='flex';}
   const role=currentUser?.role||'assistante';
   const dashCommercial=role==='commercial';
@@ -9852,6 +9883,7 @@ function renderLeadsDashboard(){
     list.style.width='100%';
     if(dashCommercial){html+=`<div id="crm-dash-detail-ventes" class="crm-dash-anchor"></div>`;}
     list.innerHTML=html;
+    applyCrmDashboardDetailsOpenState(dashOpenIds);
     const slot=document.getElementById('crm-dash-slot-ventes');
     const detailVentes=document.getElementById('crm-dash-detail-ventes');
     if(slot){
