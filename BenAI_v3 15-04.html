@@ -1733,47 +1733,10 @@ input[type=file]{display:none;}
           <div style="padding:10px 16px 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Comptes BenAI &amp; mots de passe</div>
           <div style="padding:0 16px 20px;display:flex;flex-direction:column;gap:12px">
             <div class="equipe-card">
-              <div style="font-size:12px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-                <span>Accès et sécurité</span>
-                <button type="button" class="btn-primary" onclick="showAddUser()" style="padding:6px 12px;font-size:11px;font-weight:600">+ Accès (liste)</button>
-              </div>
-              <div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.45">Les fiches <strong>Équipe</strong> ci-dessus sont la source unique : à l’enregistrement vous pouvez cocher <strong>Accès BenAI</strong>, ou plus tard le bouton sur la carte. Ici : liste des comptes, blocage, mots de passe. Pseudo de connexion : <strong>Benjamin</strong> uniquement.</div>
+              <div style="font-size:12px;font-weight:700;margin-bottom:8px">Accès et sécurité</div>
+              <div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.45">Les accès se créent depuis une <strong>fiche équipe</strong> : case <strong>Accès BenAI</strong> à l’enregistrement, ou bouton <strong>+ Accès BenAI</strong> sur la carte. Ici : liste des comptes, blocage, mots de passe. Pseudo de connexion : <strong>Benjamin</strong> uniquement.</div>
               <input type="text" id="user-search" placeholder="🔍 Rechercher un utilisateur..." oninput="renderUsersList()" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;outline:none;margin-bottom:8px">
               <div id="users-list" style="margin-top:4px"></div>
-              <div id="add-user-form" style="display:none;margin-top:12px;background:var(--s3);border-radius:10px;padding:12px">
-                <div style="font-size:12px;font-weight:600;margin-bottom:10px">➕ Créer un accès BenAI</div>
-                <div style="font-size:11px;color:var(--t3);margin-bottom:10px">Raccourci : choisir un contact sans accès (équivalent au bouton sur la fiche).</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-                  <div><div class="form-label">Salarié (annuaire)</div>
-                    <select class="form-input" id="new-user-ann-select">
-                      <option value="">Sélectionner...</option>
-                    </select>
-                  </div>
-                  <div><div class="form-label">Mot de passe <span style="font-weight:400;color:var(--t3);font-size:10px">(auto)</span></div>
-                    <div style="display:flex;gap:6px;align-items:stretch">
-                      <input type="text" class="form-input" id="new-user-pwd" placeholder="Généré automatiquement" readonly style="flex:1;font-family:'JetBrains Mono',monospace;font-size:12px">
-                      <button type="button" class="equipe-link-btn" onclick="regenNewUserPwd()" title="Générer un autre mot de passe" style="flex-shrink:0;padding:8px 12px">↻</button>
-                    </div>
-                  </div>
-                </div>
-                <div style="margin-bottom:8px"><div class="form-label">Rôle BenAI</div>
-                  <select class="form-input" id="new-user-role">
-                    <option value="assistante">Assistante (BenAI complet)</option>
-                    <option value="commercial">Commercial (CRM uniquement)</option>
-                    <option value="directeur_co">Directeur commercial (CRM complet)</option>
-                    <option value="directeur_general">Directeur général (CRM sans alertes)</option>
-                  </select>
-                </div>
-                <div id="new-user-pseudo-row" style="display:none;margin-bottom:8px">
-                  <div class="form-label">Identifiant de connexion <span style="font-weight:400;color:var(--t3);font-size:10px">(Benjamin uniquement — sinon auto d’après le prénom)</span></div>
-                  <input type="text" class="form-input" id="new-user-app-uid" placeholder="ex. vente_sud (optionnel)" autocomplete="off" spellcheck="false">
-                </div>
-                <div style="display:flex;gap:6px">
-                  <button onclick="creerUtilisateur()" class="btn-primary" style="flex:1">Créer l'accès</button>
-                  <button onclick="document.getElementById('add-user-form').style.display='none'" style="padding:9px 14px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
-                </div>
-                <div id="add-user-status" style="font-size:11px;margin-top:6px;min-height:14px"></div>
-              </div>
               <div style="font-size:12px;font-weight:700;margin:16px 0 8px;padding-top:14px;border-top:1px dashed var(--b1);color:var(--t2)">Mots de passe (référence interne)</div>
               <div id="pwd-list" style="margin-top:2px"></div>
             </div>
@@ -8243,49 +8206,114 @@ function generateBenAIPassword(len=14){
   for(let i=0;i<len;i++)s+=chars[arr[i]%chars.length];
   return s;
 }
-function regenNewUserPwd(){
-  const el=document.getElementById('new-user-pwd');
-  if(el)el.value=generateBenAIPassword(14);
+function closeBenaiAccessModalOverlay(){
+  document.getElementById('benai-access-modal-overlay')?.remove();
+}
+
+async function openBenaiAccessModalForAnnEntry(annEntry){
+  if(!canManageBenaiUsersAdmin()){await benaiAlert('Réservé à l’administrateur.');return;}
+  if(!annEntry){await benaiAlert('Contact introuvable.');return;}
+  if(findBenaiAccountLinkedToAnnuaireEmploye(annEntry)){
+    await benaiAlert('Un accès BenAI existe déjà pour ce salarié.');
+    return;
+  }
+  closeBenaiAccessModalOverlay();
+  const label=`${String(annEntry.prenom||'').trim()} ${String(annEntry.nom||'').trim()}`.trim();
+  const showPseudo=canAssignBenaiLoginPseudo();
+  const wrap=document.createElement('div');
+  wrap.id='benai-access-modal-overlay';
+  wrap.className='lead-modal open';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:4600;display:flex;align-items:center;justify-content:center;padding:16px';
+  wrap.innerHTML=`
+    <div class="lead-modal-box" style="max-width:440px;width:100%" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+      <div class="lead-modal-header">
+        <div>
+          <div style="font-size:16px;font-weight:700">Créer l’accès BenAI</div>
+          <div style="font-size:12px;color:var(--t3);margin-top:6px">${esc(label)}</div>
+        </div>
+        <button type="button" id="benai-acc-m-close" style="background:transparent;border:none;color:var(--t2);font-size:22px;cursor:pointer;padding:4px 8px" aria-label="Fermer">×</button>
+      </div>
+      <div class="lead-modal-body">
+        <div class="form-group">
+          <div class="form-label">Rôle</div>
+          <select class="form-input" id="benai-acc-m-role">
+            <option value="assistante">Assistante (BenAI complet)</option>
+            <option value="commercial">Commercial (CRM)</option>
+            <option value="directeur_co">Directeur commercial (CRM complet)</option>
+            <option value="directeur_general">Directeur général</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Mot de passe <span style="font-weight:400;color:var(--t3);font-size:10px">(auto)</span></div>
+          <div style="display:flex;gap:6px;align-items:stretch">
+            <input type="text" class="form-input" id="benai-acc-m-pwd" readonly style="flex:1;font-family:'JetBrains Mono',monospace;font-size:12px">
+            <button type="button" class="equipe-link-btn" id="benai-acc-m-pwd-regen" style="flex-shrink:0;padding:8px 12px" title="Regénérer">↻</button>
+          </div>
+        </div>
+        <div class="form-group" id="benai-acc-m-pseudo-wrap" style="display:${showPseudo?'block':'none'}">
+          <div class="form-label">Identifiant de connexion <span style="font-size:10px;color:var(--t3)">(optionnel — Benjamin)</span></div>
+          <input type="text" class="form-input" id="benai-acc-m-uid" placeholder="ex. vente_sud" autocomplete="off" spellcheck="false">
+        </div>
+        <div id="benai-acc-m-status" style="font-size:12px;min-height:18px;margin-top:6px"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap">
+          <button type="button" id="benai-acc-m-cancel" style="padding:9px 16px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
+          <button type="button" id="benai-acc-m-submit" class="btn-primary" style="padding:9px 18px;font-size:13px">Créer l’accès</button>
+        </div>
+      </div>
+    </div>`;
+  const pwdEl=()=>wrap.querySelector('#benai-acc-m-pwd');
+  pwdEl().value=generateBenAIPassword(14);
+  const close=()=>{
+    document.removeEventListener('keydown',onKey,true);
+    wrap.remove();
+  };
+  const onKey=e=>{
+    if(e.key==='Escape'){
+      e.preventDefault();
+      close();
+    }
+  };
+  document.addEventListener('keydown',onKey,true);
+  wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
+  wrap.querySelector('#benai-acc-m-close')?.addEventListener('click',close);
+  wrap.querySelector('#benai-acc-m-cancel')?.addEventListener('click',close);
+  wrap.querySelector('#benai-acc-m-pwd-regen')?.addEventListener('click',()=>{pwdEl().value=generateBenAIPassword(14);});
+  wrap.querySelector('#benai-acc-m-submit')?.addEventListener('click',async()=>{
+    const statusEl=wrap.querySelector('#benai-acc-m-status');
+    const role=String(wrap.querySelector('#benai-acc-m-role')?.value||'assistante').trim();
+    const pwd=String(pwdEl().value||'').trim();
+    const customUid=String(wrap.querySelector('#benai-acc-m-uid')?.value||'').trim();
+    if(statusEl){
+      statusEl.style.color='var(--a)';
+      statusEl.textContent='⏳ Création en cours…';
+    }
+    const res=await createBenaiAccessFromAnnuaireEntry(annEntry,{role,password:pwd,customAppUid:customUid});
+    if(!res.ok){
+      if(statusEl){statusEl.style.color='var(--r)';statusEl.textContent='⚠️ '+res.error;}
+      return;
+    }
+    showDriveNotif(`✅ Accès ${res.roleLabel} · ${label} — ${res.uid}`);
+    logActivity(`Benjamin a créé l'accès BenAI (${res.roleLabel}) pour ${label}`);
+    renderUsersList();renderPwdList();renderAnnuaire();
+    const detail=res.remoteOk
+      ?`Identifiant : ${res.uid}\nE-mail : ${res.email}\nMot de passe (copiez-le) :\n${res.pwd}`
+      :`Compte créé localement.\nIdentifiant : ${res.uid}\nMot de passe :\n${res.pwd}\n\nSynchronisation cloud en attente.`;
+    await benaiAlert(detail);
+    close();
+  });
+  document.body.appendChild(wrap);
 }
 
 async function showAddUser(preselectEmpId){
   if(!canManageBenaiUsersAdmin()){await benaiAlert('Réservé à l’administrateur.');return;}
-  const f=document.getElementById('add-user-form');
-  const forceOpen=preselectEmpId!=null&&String(preselectEmpId)!=='';
-  if(forceOpen){
-    f.style.display='block';
-  }else{
-    const isOpen=f.style.display!=='none';
-    f.style.display=isOpen?'none':'block';
-    if(f.style.display==='none')return;
+  const id=preselectEmpId!=null&&preselectEmpId!==undefined?String(preselectEmpId).trim():'';
+  if(!id){
+    await benaiAlert('Créez d’abord la fiche dans l’annuaire, puis utilisez « + Accès BenAI » sur la carte (ou cochez l’option lors de l’enregistrement).');
+    return;
   }
-  const st=document.getElementById('add-user-status');
-  if(st)st.textContent='';
-  const pr=document.getElementById('new-user-pseudo-row');
-  if(pr)pr.style.display=canAssignBenaiLoginPseudo()?'block':'none';
-  const pIn=document.getElementById('new-user-app-uid');
-  if(pIn)pIn.value='';
-  regenNewUserPwd();
-  const ann=getAnnuaireActive();
-  const disponibles=ann.filter(e=>!findBenaiAccountLinkedToAnnuaireEmploye(e));
-  const sel=document.getElementById('new-user-ann-select');
-  if(sel){
-    sel.innerHTML='<option value="">Sélectionner...</option>'+
-      disponibles.map(e=>{
-        const vid=e.id!=null&&String(e.id)!==''?String(e.id):`legacy:${encodeURIComponent(`${e.prenom||''}|${e.nom||''}|${e.societe||'nemausus'}`)}`;
-        return`<option value="${escAttr(vid)}">${esc(e.prenom+' '+e.nom)} — ${esc(e.fonction||'?')}</option>`;
-      }).join('');
-    if(forceOpen){
-      const want=String(preselectEmpId);
-      const opt=[...sel.options].find(o=>String(o.value)===want);
-      if(opt)sel.value=want;
-      else await benaiAlert('Ce contact a déjà un accès ou n’est pas dans la liste — vérifiez l’annuaire.');
-    }
-  }
-  if(forceOpen){
-    const sec=document.getElementById('equipe-sec-acces');
-    if(sec)requestAnimationFrame(()=>{try{sec.scrollIntoView({behavior:'smooth',block:'start'});}catch(_){}});
-  }
+  const emp=(getAnnuaireActive()||[]).find(e=>String(e.id)===id);
+  if(!emp){await benaiAlert('Contact introuvable.');return;}
+  await openBenaiAccessModalForAnnEntry(emp);
 }
 
 async function openBenaiAccessForEmployeCard(id){
@@ -8354,53 +8382,6 @@ async function createBenaiAccessFromAnnuaireEntry(annEntry,opts){
   }
   await finalizeBenAILocalUserAccount({uid,name,email,role,soc,fonction,pwd,extras,roleLabel});
   return{ok:true,pwd,uid,email,roleLabel,remoteOk:!!createResult.ok};
-}
-
-async function creerUtilisateur(){
-  if(!canManageBenaiUsersAdmin()){await benaiAlert('Réservé à l’administrateur.');return;}
-  const sel=document.getElementById('new-user-ann-select');
-  const val=sel?.value||'';
-  let pwd=(document.getElementById('new-user-pwd')?.value||'').trim();
-  if(!pwd||pwd.length<10)pwd=generateBenAIPassword(14);
-  const role=String(document.getElementById('new-user-role')?.value||'assistante').trim();
-  const status=document.getElementById('add-user-status');
-  if(!status){await benaiAlert('Élément d’état manquant — rechargez la page.');return;}
-  if(!val){status.style.color='var(--r)';status.textContent='⚠️ Sélectionnez un salarié';return;}
-  const ann=getAnnuaireActive();
-  let annEntry=null;
-  if(String(val).startsWith('legacy:')){
-    try{
-      const dec=decodeURIComponent(String(val).slice(7));
-      const lp=dec.split('|');
-      const pr=lp[0]||'', nm=lp[1]||'', sc=lp[2]||'nemausus';
-      const nmFull=`${pr} ${nm}`.trim();
-      annEntry=ann.find(e=>normalizeId(`${e.prenom||''} ${e.nom||''}`.trim())===normalizeId(nmFull)&&(e.societe||'nemausus')===sc);
-    }catch(_){}
-  }
-  if(!annEntry)annEntry=ann.find(e=>String(e.id)===String(val));
-  if(!annEntry){
-    status.style.color='var(--r)';
-    status.textContent='⚠️ Fiche annuaire introuvable — rouvrez le panneau ou vérifiez l’annuaire.';
-    return;
-  }
-  const customUid=(document.getElementById('new-user-app-uid')?.value||'').trim();
-  status.style.color='var(--a)';
-  status.textContent='⏳ Création du compte (cloud + local)...';
-  const res=await createBenaiAccessFromAnnuaireEntry(annEntry,{role,password:pwd,customAppUid:customUid});
-  if(!res.ok){
-    status.style.color='var(--r)';
-    status.textContent='⚠️ '+res.error;
-    return;
-  }
-  document.getElementById('new-user-pwd').value=res.pwd;
-  status.style.color=res.remoteOk?'var(--g)':'var(--y)';
-  if(res.remoteOk){
-    status.textContent=`✅ Accès ${res.roleLabel} créé pour ${annEntry.prenom} ${annEntry.nom}. Identifiant : ${res.uid} (ou e-mail ${res.email}). Mot de passe dans le champ ci-dessus.`;
-  }else{
-    status.textContent=`✅ Accès ${res.roleLabel} créé localement pour ${annEntry.prenom} ${annEntry.nom}. Cloud en file d’attente — reconnecte-toi en admin cloud puis patiente 30–60 s.`;
-  }
-  setTimeout(()=>{document.getElementById('add-user-form').style.display='none';status.textContent='';document.getElementById('new-user-pwd').value='';},8000);
-  renderUsersList();renderPwdList();logActivity(`Benjamin a créé l'accès BenAI (${res.roleLabel}) pour ${annEntry.prenom} ${annEntry.nom}`);
 }
 
 async function supprimerUtilisateur(uid, opts){
