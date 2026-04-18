@@ -475,13 +475,14 @@ body.light .bubble{color:var(--t1);}
 .crm-dash-grp-body .crm-dash-kicker{margin-top:0;}
 .crm-dash-subtle{font-size:11px;color:var(--t3);line-height:1.45;margin:0 0 8px;}
 .crm-dash-anchor{scroll-margin-top:72px;}
-.crm-dash-navstrip{margin:0 0 14px;padding:10px 12px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;position:sticky;top:0;z-index:5;box-shadow:0 6px 20px rgba(0,0,0,.18);}
-.crm-dash-navstrip-inner{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;}
+.crm-dash-navstrip{margin:0 0 14px;padding:11px 13px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;position:sticky;top:0;z-index:5;box-shadow:0 3px 14px rgba(0,0,0,.1);}
+.crm-dash-navstrip-inner{display:flex;flex-wrap:wrap;gap:6px 8px;row-gap:8px;align-items:center;}
 .crm-dash-navstrip-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--t3);width:100%;margin-bottom:2px;}
-@media (min-width:640px){.crm-dash-navstrip-label{width:auto;margin-bottom:0;margin-right:6px;}}
-.crm-dash-navlink{display:inline-flex;align-items:center;padding:7px 11px;border-radius:8px;font-size:12px;font-weight:600;color:var(--t2);background:var(--s2);border:1px solid var(--b1);text-decoration:none;font-family:inherit;white-space:nowrap;transition:border-color .12s,color .12s,background .12s;}
+@media (min-width:640px){.crm-dash-navstrip-label{width:auto;margin-bottom:0;margin-right:8px;}}
+.crm-dash-navlink{display:inline-flex;align-items:center;padding:6px 10px;border-radius:8px;font-size:11px;font-weight:600;color:var(--t2);background:var(--s2);border:1px solid var(--b1);text-decoration:none;font-family:inherit;white-space:nowrap;transition:border-color .12s,color .12s,background .12s;}
 .crm-dash-navlink:hover{border-color:var(--a);color:var(--a);background:var(--s3);}
-.crm-dash-proband{font-size:11px;color:var(--t3);margin:0 0 12px;line-height:1.5;padding:8px 10px;border-radius:10px;background:var(--s3);border:1px solid var(--b1);}
+.crm-dash-navlink:focus-visible{outline:2px solid var(--a);outline-offset:2px;}
+@media (min-width:640px){.crm-dash-navlink{font-size:12px;padding:7px 11px;}}
 .crm-ent-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:12px;}
 .crm-ent-card{border-radius:14px;padding:14px 16px;border:1px solid var(--b1);background:var(--s3);}
 .crm-evo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:10px;margin-top:6px;}
