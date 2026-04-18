@@ -9235,6 +9235,14 @@ function renderDispatchCard(l){
   </div>`;
 }
 
+/** Notifications CRM leads : jamais envoyées vers un compte administrateur. */
+function pushLeadCrmNotif(titre,msg,icon,uid){
+  if(!uid)return;
+  const target=findUserById(uid);
+  if(target?.role==='admin')return;
+  pushNotif(titre,msg,icon,uid);
+}
+
 // ATTRIBUTION RAPIDE
 function dispatchLead(id){
   const sel=document.getElementById('dispatch-'+id);
@@ -9257,7 +9265,7 @@ function dispatchLead(id){
   saveLeads(leads);
   renderLeads();
   refreshLeadsBadge();
-  pushNotif('📋 Lead assigné',`${l.nom} — ${l.type_projet}`,LEAD_SOURCE_ICONS[l.source]||'📋',commId);
+  pushLeadCrmNotif('📋 Lead assigné',`${l.nom} — ${l.type_projet}`,LEAD_SOURCE_ICONS[l.source]||'📋',commId);
   logActivity(`${currentUser.name} a attribué ${l.nom} à ${comm?.name}`);
   showDriveNotif(`✅ ${l.nom} attribué à ${comm?.name}`);
 }
@@ -10304,7 +10312,7 @@ async function saveLead(){
         const newComm=getAllUsers().find(u=>u.id===data.commercial);
         addLeadTimelineEntry(old,`Attribué à ${newComm?.name||data.commercial}`,currentUser.name);
         // Notifier le commercial
-        pushNotif('Lead attribué',`${nom} — ${projet}`,LEAD_SOURCE_ICONS[data.source]||'📋',data.commercial);
+        pushLeadCrmNotif('Lead attribué',`${nom} — ${projet}`,LEAD_SOURCE_ICONS[data.source]||'📋',data.commercial);
       }
       const updatedLead={
         ...old,
@@ -10353,7 +10361,7 @@ async function saveLead(){
         ?` · Proposition: réattribuer à ${newLead.commercial_historique_nom}`
         :'';
       getDirecteursConcernedByLead(newLead).forEach(u=>{
-        pushNotif('Vous êtes hors secteur',`${nom} (${newLead.cp||'CP inconnu'})${proposalTxt}`,'⚠️',u.id);
+        pushLeadCrmNotif('Vous êtes hors secteur',`${nom} (${newLead.cp||'CP inconnu'})${proposalTxt}`,'⚠️',u.id);
       });
     }
     if(newLead.commercial){
@@ -10365,15 +10373,15 @@ async function saveLead(){
     const srcHuman=LEAD_SOURCE_LABELS[effectiveSource]||LEAD_SOURCE_LABELS[data.source]||String(effectiveSource||data.source||'');
     if(currentUser?.role==='commercial'&&dirsLead.length){
       dirsLead.forEach(u=>{
-        pushNotif('Nouveau lead équipe',`${nom} — ${projet} · ${srcHuman} · Par ${currentUser.name}`,leadSrcIcon,u.id);
+        pushLeadCrmNotif('Nouveau lead équipe',`${nom} — ${projet} · ${srcHuman} · Par ${currentUser.name}`,leadSrcIcon,u.id);
       });
     }else if(currentLeadSource==='ACTIF'&&dirsLead.length){
       dirsLead.forEach(u=>{
-        pushNotif('Lead ACTIF créé',`${nom} par ${currentUser.name}`,leadSrcIcon,u.id);
+        pushLeadCrmNotif('Lead ACTIF créé',`${nom} par ${currentUser.name}`,leadSrcIcon,u.id);
       });
     }else if(!newLead.commercial&&dirsLead.length){
       dirsLead.forEach(u=>{
-        pushNotif('Nouveau lead à attribuer',`${nom} — ${projet}`,leadSrcIcon,u.id);
+        pushLeadCrmNotif('Nouveau lead à attribuer',`${nom} — ${projet}`,leadSrcIcon,u.id);
       });
     }
     agendaAutoOpened=autoPushLeadToGoogleAgenda(newLead)||agendaAutoOpened;
@@ -10646,6 +10654,7 @@ function getLeadNotifScopeForUser(){
 
 function checkLeadSmartNotifications(){
   if(!currentUser)return;
+  if(currentUser.role==='admin')return;
   if(currentUser.role==='directeur_general')return;
   const scoped=getLeadNotifScopeForUser();
   if(!scoped.length)return;
@@ -10690,6 +10699,7 @@ function checkLeadsAlertes(){
 
 function checkRappelsLeads(){
   if(!currentUser)return;
+  if(currentUser.role==='admin')return;
   const now=new Date();
   const leads=getLeads().filter(l=>!l._deleted&&!isLeadCrmArchivedView(l)&&l.rappel&&(l.commercial===currentUser.id||currentUser.role==='directeur_co'||currentUser.id==='benjamin'));
   leads.forEach(l=>{
