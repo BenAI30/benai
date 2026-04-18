@@ -3731,6 +3731,8 @@ function getConvsForUser(uid){
   // CRM only roles — voient uniquement les autres CRM + Benjamin
   const crmOnly=['commercial','directeur_co','directeur_general'];
   const isCRMOnly=crmOnly.includes(role);
+  /** Messagerie limitée au même « camp » société (Nemausus / Lambert / les-deux) : toute l’équipe métier peut s’écrire. */
+  const teamScopedMessaging=isCRMOnly||role==='metreur';
 
   if(uid==='benjamin'){
     // Benjamin voit tout le monde
@@ -3738,15 +3740,12 @@ function getConvsForUser(uid){
       const cid=makeConvId('benjamin',u.id);
       convs[cid]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
     });
-  } else if(isCRMOnly){
-    // Commercial/dir. co / dir. général → Benjamin + autres CRM + assistantes de la même société + BenAI (messages auto)
+  } else if(teamScopedMessaging&&me){
+    // Commercial / dir. co / dir. général / métreur → Benjamin + tous les comptes du même périmètre société (y compris assistantes, autres rôles) + BenAI (messages auto)
     const ben=allUsers.find(u=>u.id==='benjamin');
     if(ben)convs[makeConvId(uid,'benjamin')]={name:'Benjamin',other:'benjamin',color:ben.color,initial:ben.initial};
     addBenAIInternalConv(uid,convs);
-    allUsers.filter(u=>u.id!==uid&&u.id!=='benjamin'&&crmOnly.includes(u.role)).forEach(u=>{
-      convs[makeConvId(uid,u.id)]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
-    });
-    allUsers.filter(u=>u.id!==uid&&u.id!=='benjamin'&&u.role==='assistante'&&societeMessagableOverlap(me,u)).forEach(u=>{
+    allUsers.filter(u=>u&&u.id!==uid&&u.id!=='benjamin'&&societeMessagableOverlap(me,u)).forEach(u=>{
       convs[makeConvId(uid,u.id)]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
     });
   } else {
