@@ -70,7 +70,8 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 @media (min-width:769px){
   .sb-section+.sb-section{border-top:1px solid var(--b1);margin-top:2px;padding-top:12px;}
 }
-.sb-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);padding:0 8px;margin-bottom:6px;}
+.sb-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);padding:0 8px;margin-bottom:4px;line-height:1.35;}
+.sb-hint{font-size:9px;font-weight:500;color:var(--t3);opacity:.88;padding:0 8px 8px;line-height:1.35;letter-spacing:0;text-transform:none;}
 .sb-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:.12s;margin-bottom:2px;position:relative;}
 .sb-item:hover{background:var(--s3);}
 .sb-item.active{background:var(--a3);color:var(--a);}
@@ -542,7 +543,7 @@ body.light .bubble{color:var(--t1);}
 /* RESPONSIVE */
 @media (max-width: 1024px){
   .sidebar{width:92px;}
-  .sb-label{display:none;}
+  .sb-label,.sb-hint{display:none;}
   .sb-item{
     flex-direction:column;
     justify-content:center;
@@ -585,8 +586,10 @@ body.light .bubble{color:var(--t1);}
     z-index:1200;
     background:var(--s1);
   }
-  .sb-section{display:flex;gap:6px;padding:0;}
+  .sb-section{display:flex;gap:6px;padding:0;flex-shrink:0;border-left:1px solid var(--b1);}
+  .sb-section:first-child{border-left:none;padding-left:0;}
   .sb-label{display:none;}
+  .sb-hint{display:none;}
   .sb-item{
     min-width:78px;
     flex-direction:column;
@@ -879,34 +882,42 @@ input[type=file]{display:none;}
   <div class="main">
     <!-- SIDEBAR -->
     <div class="sidebar">
-      <div class="sb-section" id="sb-quotidien">
-        <div class="sb-label">Quotidien</div>
-        <div class="sb-item active" onclick="showPage('benai')" id="nav-benai"><span class="sb-icon">🤖</span><span class="sb-txt">BenAI IA</span></div>
-        <div class="sb-item" onclick="showPage('guide')" id="nav-guide"><span class="sb-icon">📘</span><span class="sb-txt">Guide</span></div>
-        <div class="sb-item" onclick="showPage('messages')" id="nav-messages">
+      <div class="sb-section" id="sb-collab">
+        <div class="sb-label">Échanger</div>
+        <div class="sb-hint" id="sb-collab-hint">Messages, notes, assistant</div>
+        <div class="sb-item" onclick="showPage('messages')" id="nav-messages" title="Messages internes — conversations équipe">
           <span class="sb-icon">💬</span><span class="sb-txt">Messages</span>
           <span class="sb-badge" id="msg-badge" style="display:none"></span>
         </div>
-        <div class="sb-item" onclick="showPage('notes')" id="nav-notes"><span class="sb-icon">📝</span><span class="sb-txt">Notes</span></div>
+        <div class="sb-item" onclick="showPage('notes')" id="nav-notes" title="Notes personnelles rapides"><span class="sb-icon">📝</span><span class="sb-txt">Notes</span></div>
+        <div class="sb-item active" onclick="showPage('benai')" id="nav-benai" title="Assistant BenAI (IA)"><span class="sb-icon">🤖</span><span class="sb-txt">BenAI IA</span></div>
       </div>
       <div class="sb-section" id="sb-metier">
-        <div class="sb-label">Métier</div>
-        <div class="sb-item" onclick="showPage('sav')" id="nav-sav">
-          <span class="sb-icon">🔧</span><span class="sb-txt">SAV</span>
-          <span class="sb-badge" id="sav-badge" style="display:none"></span>
-        </div>
-        <div class="sb-item" id="nav-leads" style="display:none" onclick="showPage('leads')">
+        <div class="sb-label">Clients & dossiers</div>
+        <div class="sb-hint" id="sb-metier-hint">CRM et suivi SAV</div>
+        <div class="sb-item" id="nav-leads" style="display:none" onclick="showPage('leads')" title="Leads CRM — pipe et ventes">
           <span class="sb-icon">📋</span><span class="sb-txt">Leads CRM</span>
           <span class="sb-badge" id="leads-badge" style="display:none"></span>
         </div>
+        <div class="sb-item" onclick="showPage('sav')" id="nav-sav" title="Suivi des dossiers SAV">
+          <span class="sb-icon">🔧</span><span class="sb-txt">SAV</span>
+          <span class="sb-badge" id="sav-badge" style="display:none"></span>
+        </div>
       </div>
-      <div class="sb-section" id="sb-entreprise">
-        <div class="sb-label">Entreprise</div>
-        <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')"><span class="sb-icon">👥</span><span class="sb-txt">Équipe</span></div>
-        <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span><span class="sb-badge-abs" id="abs-badge" style="display:none"></span></div>
-        <div class="sb-item" id="nav-paie" style="display:none" onclick="showPage('paie')"><span class="sb-icon">💰</span><span class="sb-txt">Paie</span></div>
-        <div class="sb-item" id="nav-admin" style="display:none" onclick="showPage('admin')"><span class="sb-icon">📊</span><span class="sb-txt">Dashboard</span></div>
-        <div class="sb-item" id="nav-bugs" onclick="showPage('bugs')">
+      <div class="sb-section" id="sb-org">
+        <div class="sb-label">Organisation</div>
+        <div class="sb-hint" id="sb-org-hint">RH, pilotage, équipe</div>
+        <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')" title="Annuaire et fiches équipe"><span class="sb-icon">👥</span><span class="sb-txt">Équipe</span></div>
+        <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')" title="Planning des absences"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span><span class="sb-badge-abs" id="abs-badge" style="display:none"></span></div>
+        <div class="sb-item" id="nav-paie" style="display:none" onclick="showPage('paie')" title="Indicateurs paie"><span class="sb-icon">💰</span><span class="sb-txt">Paie</span></div>
+        <div class="sb-item" id="nav-admin" style="display:none" onclick="showPage('admin')" title="Vue d’ensemble administrateur"><span class="sb-icon">📊</span><span class="sb-txt">Pilotage</span></div>
+      </div>
+      <div class="sb-section" id="sb-aide">
+        <div class="sb-label">Aide & qualité</div>
+        <div class="sb-hint">Guide, nouveautés, signalements</div>
+        <div class="sb-item" onclick="showPage('guide')" id="nav-guide" title="Guide de rôle et bonnes pratiques"><span class="sb-icon">📘</span><span class="sb-txt">Guide</span></div>
+        <div class="sb-item" id="nav-evolution" style="display:none" onclick="showPage('evolution')" title="Nouveautés produit BenAI"><span class="sb-icon">🚀</span><span class="sb-txt">Évolutions</span></div>
+        <div class="sb-item" id="nav-bugs" onclick="showPage('bugs')" title="Signaler un dysfonctionnement">
           <span class="sb-icon">🐛</span><span class="sb-txt">Bugs</span>
           <span class="sb-badge" id="bugs-badge" style="display:none"></span>
         </div>
@@ -1155,7 +1166,7 @@ input[type=file]{display:none;}
           <div><div class="page-title">📊 Tableau de bord BenAI</div><div class="page-sub">Pilotage administrateur — vue d’ensemble</div></div>
         </div>
         <div class="dashboard crm-dash-wrap">
-          <div class="crm-dash-intro"><strong>Mode d’emploi.</strong> Les <strong>raccourcis</strong> et les <strong>indicateurs</strong> sont en tête. La barre <strong>Aller à</strong> mène aux blocs principaux ; <strong>Performance</strong> et <strong>Historique</strong> se replient via la ligne de titre — <strong>Activité récente</strong> reste ouverte par défaut.</div>
+          <div class="crm-dash-intro"><strong>En bref :</strong> raccourcis ci-dessous → chiffres du jour → blocs repliables (performance, historiques). La barre <strong>Aller à</strong> saute à une section.</div>
 
           <nav class="crm-dash-navstrip" aria-label="Sections du tableau de bord admin">
             <div class="crm-dash-navstrip-inner">
@@ -1167,19 +1178,20 @@ input[type=file]{display:none;}
             </div>
           </nav>
 
-          <div class="crm-dash-kicker k-ex crm-dash-anchor" id="admin-sec-raccourcis">Accès rapide</div>
+          <div class="crm-dash-kicker k-ex crm-dash-anchor" id="admin-sec-raccourcis">Ouvrir une page</div>
           <div class="dash-card" style="margin-bottom:14px">
-            <div class="crm-dash-subtle" style="margin-bottom:10px">Un clic ouvre la page concernée. Annuaire et accès servent à gérer les contacts et les comptes BenAI.</div>
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:10px">Raccourcis</div>
-            <div class="dash-quick-actions" style="margin-bottom:0">
-              <button type="button" class="dash-quick-btn" onclick="showPage('leads')">📋 CRM</button>
+            <div class="crm-dash-subtle" style="margin-bottom:10px">Une grille lisible : métier à gauche, équipe au centre, qualité à droite — puis annuaire / comptes.</div>
+            <div class="dash-quick-actions" style="margin-bottom:0;grid-template-columns:repeat(3,minmax(0,1fr))">
+              <button type="button" class="dash-quick-btn" onclick="showPage('leads')">📋 Leads CRM</button>
               <button type="button" class="dash-quick-btn" onclick="showPage('sav')">🔧 SAV</button>
+              <button type="button" class="dash-quick-btn" onclick="showPage('messages')">💬 Messages</button>
               <button type="button" class="dash-quick-btn" onclick="showAnnuaireTeamTab('annuaire')">👥 Équipe</button>
+              <button type="button" class="dash-quick-btn" onclick="showPage('absences')">🗓️ Absences</button>
               <button type="button" class="dash-quick-btn" onclick="showPage('bugs')">🐛 Bugs</button>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--b1)">
-              <button type="button" class="dash-quick-btn" style="flex:1;min-width:120px" onclick="showAnnuaireTeamTab('annuaire')">📇 Contacts annuaire</button>
-              <button type="button" class="dash-quick-btn" style="flex:1;min-width:120px" onclick="showAnnuaireTeamTab('acces')">🔐 Accès BenAI</button>
+              <button type="button" class="dash-quick-btn" style="flex:1;min-width:140px" onclick="showAnnuaireTeamTab('annuaire')">📇 Annuaire contacts</button>
+              <button type="button" class="dash-quick-btn" style="flex:1;min-width:140px" onclick="showAnnuaireTeamTab('acces')">🔐 Comptes BenAI</button>
             </div>
           </div>
 
@@ -4607,23 +4619,39 @@ async function switchToUser(uid){
 function switchSession(){toggleSwitchPanel();}
 
 
+function refreshSidebarSectionsVisibility(){
+  const sidebar=document.querySelector('.sidebar');
+  if(!sidebar)return;
+  sidebar.querySelectorAll('.sb-section').forEach(sec=>{
+    const items=[...sec.querySelectorAll('.sb-item')];
+    if(!items.length){sec.style.display='none';return;}
+    const visible=items.some(el=>el.style.display!=='none');
+    sec.style.display=visible?'':'none';
+  });
+}
+
+/** Ordre menu : profils CRM d’abord (Leads / SAV), sinon flux quotidien (Messages…) puis organisation puis aide. */
 function applySidebarSectionOrderForRole(role){
   const sidebar=document.querySelector('.sidebar');
-  const q=document.getElementById('sb-quotidien');
-  const m=document.getElementById('sb-metier');
-  const e=document.getElementById('sb-entreprise');
-  if(!sidebar||!q||!m||!e)return;
-  const metierLbl=m.querySelector('.sb-label');
-  if(metierLbl)metierLbl.textContent=CRM_PAGES_ONLY.includes(role)?'CRM':'Métier';
-  if(CRM_PAGES_ONLY.includes(role)){
-    sidebar.append(m);
-    sidebar.append(q);
-    sidebar.append(e);
-  }else{
-    sidebar.append(q);
-    sidebar.append(m);
-    sidebar.append(e);
-  }
+  const collab=document.getElementById('sb-collab');
+  const metier=document.getElementById('sb-metier');
+  const org=document.getElementById('sb-org');
+  const aide=document.getElementById('sb-aide');
+  if(!sidebar||!collab||!metier||!org||!aide)return;
+  const collabLbl=collab.querySelector('.sb-label');
+  const metierLbl=metier.querySelector('.sb-label');
+  const orgLbl=org.querySelector('.sb-label');
+  const hintCollab=document.getElementById('sb-collab-hint');
+  const hintMetier=document.getElementById('sb-metier-hint');
+  const hintOrg=document.getElementById('sb-org-hint');
+  if(collabLbl)collabLbl.textContent=CRM_PAGES_ONLY.includes(role)?'Messages':'Échanger';
+  if(metierLbl)metierLbl.textContent=CRM_PAGES_ONLY.includes(role)?'CRM & SAV':'Clients & dossiers';
+  if(orgLbl)orgLbl.textContent='Organisation';
+  if(hintCollab)hintCollab.textContent=CRM_PAGES_ONLY.includes(role)?'Conversations internes':'Messages, notes, assistant';
+  if(hintMetier)hintMetier.textContent=CRM_PAGES_ONLY.includes(role)?'Pipe leads et SAV':'CRM, SAV chantier';
+  if(hintOrg)hintOrg.textContent=CRM_PAGES_ONLY.includes(role)?'Absences, guide, bugs':'Équipe, absences, pilotage';
+  const order=CRM_PAGES_ONLY.includes(role)?[metier,collab,org,aide]:[collab,metier,org,aide];
+  order.forEach(sec=>sidebar.appendChild(sec));
 }
 
 function initApp(silent=false){
@@ -4656,7 +4684,7 @@ function initApp(silent=false){
 
   // Réinitialiser TOUS les éléments admin avant d'appliquer les droits
   ['nav-admin','nav-absences','nav-annuaire','nav-paie','nav-leads',
-   'nav-benai','nav-notes','nav-messages','nav-sav','nav-guide','nav-bugs'].forEach(id=>{
+   'nav-benai','nav-notes','nav-messages','nav-sav','nav-guide','nav-evolution','nav-bugs'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
 
@@ -4673,6 +4701,7 @@ function initApp(silent=false){
     if(navL)navL.style.display='flex';
   }
   applySidebarSectionOrderForRole(u.role);
+  refreshSidebarSectionsVisibility();
 
   // Bouton correction orthographe (IA) — ordinateur / large fenêtre uniquement
   const btnCorrect=document.getElementById('btn-correct');
@@ -6068,11 +6097,13 @@ function updateNavAbsencesVisibility(){
   if(!allowed.includes('absences')){
     nav.style.display='none';
     refreshAbsBadge();
+    refreshSidebarSectionsVisibility();
     return;
   }
   if(currentUser.role==='admin'){
     nav.style.display='flex';
     refreshAbsBadge();
+    refreshSidebarSectionsVisibility();
     return;
   }
   const show=hasAbsencesSharedWithUser(currentUser);
@@ -6086,6 +6117,7 @@ function updateNavAbsencesVisibility(){
     }
   }
   refreshAbsBadge();
+  refreshSidebarSectionsVisibility();
 }
 function configureAbsencesPageForRole(){
   const isAd=currentUser?.role==='admin';
