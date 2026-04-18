@@ -338,12 +338,7 @@ body.light{--bg:#F5F5F0;--s1:#FFFFFF;--s2:#F0EFE9;--s3:#E8E7E0;--b1:#D8D6CE;--b2
 body.light .login-box{background:#fff;border-color:#E0DDD5;}
 body.light .msg.ai .bubble{background:#fff;border-color:#E0DDD5;}
 body.light .bubble{color:var(--t1);}
-/* ACCORDION DASHBOARD */
-.accordion-header{cursor:pointer;user-select:none;display:flex;align-items:center;}
-.accordion-header:hover{opacity:.8;}
-.accordion-arrow{margin-left:auto;font-size:12px;transition:transform .2s;color:var(--t3);}
-.accordion-body{overflow:hidden;transition:max-height .25s ease;}
-.accordion-body.collapsed{display:none;}
+/* (Ancien accordéon dashboard admin → blocs <details> partagés avec .crm-dash-grp) */
 /* NOTIFICATION POPUP */
 .notif-popup{position:fixed;top:60px;right:12px;width:340px;background:var(--s1);border:2px solid var(--a);border-radius:16px;box-shadow:0 12px 48px rgba(0,0,0,.6);z-index:9998;overflow:hidden;display:none;}
 .notif-popup-header{padding:12px 16px;background:linear-gradient(135deg,var(--a),var(--a2));display:flex;align-items:center;justify-content:space-between;}
@@ -1125,11 +1120,14 @@ input[type=file]{display:none;}
       <!-- PAGE ADMIN -->
       <div id="page-admin" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
-          <div><div class="page-title">📊 Dashboard Admin</div><div class="page-sub">Vue d'ensemble BenAI</div></div>
+          <div><div class="page-title">📊 Tableau de bord BenAI</div><div class="page-sub">Pilotage administrateur — vue d’ensemble</div></div>
         </div>
-        <div class="dashboard">
-          <div class="dash-section-title">Vue d’ensemble</div>
+        <div class="dashboard crm-dash-wrap">
+          <div class="crm-dash-intro"><strong>Mode d’emploi.</strong> En haut : <strong>raccourcis</strong> vers les pages utiles et <strong>trois indicateurs</strong> (SAV ouverts, messages, notes actives). Les sections <strong>Performance</strong> et <strong>Historique</strong> se <strong>replient</strong> en cliquant sur la ligne de titre ; <strong>Activité récente</strong> reste ouverte pour un premier coup d’œil.</div>
+
+          <div class="crm-dash-kicker k-ex">Accès rapide</div>
           <div class="dash-card" style="margin-bottom:14px">
+            <div class="crm-dash-subtle" style="margin-bottom:10px">Un clic ouvre la page concernée. Annuaire et accès servent à gérer les contacts et les comptes BenAI.</div>
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:10px">Raccourcis</div>
             <div class="dash-quick-actions" style="margin-bottom:0">
               <button type="button" class="dash-quick-btn" onclick="showPage('leads')">📋 CRM</button>
@@ -1143,42 +1141,107 @@ input[type=file]{display:none;}
             </div>
           </div>
 
-          <!-- STATS -->
+          <div class="crm-dash-kicker k-pr">Indicateurs du jour</div>
           <div class="dash-grid">
-            <div class="dash-card"><div class="dc-icon">🔧</div><div class="dc-label">SAV ouverts</div><div class="dc-val" id="admin-sav">0</div><div class="dc-sub">Nouveaux + En cours</div></div>
-            <div class="dash-card"><div class="dc-icon">💬</div><div class="dc-label">Messages</div><div class="dc-val" id="admin-msgs">0</div><div class="dc-sub">Messages échangés</div></div>
-            <div class="dash-card"><div class="dc-icon">📝</div><div class="dc-label">Notes</div><div class="dc-val" id="admin-notes">0</div><div class="dc-sub">Notes actives</div></div>
+            <div class="dash-card" title="Tickets SAV encore ouverts (statuts nouveaux + en cours). Ouvre l’onglet SAV pour les traiter."><div class="dc-icon">🔧</div><div class="dc-label">SAV ouverts</div><div class="dc-val" id="admin-sav">0</div><div class="dc-sub">Nouveaux + En cours</div></div>
+            <div class="dash-card" title="Volume de messages échangés dans l’application (vue globale admin)."><div class="dc-icon">💬</div><div class="dc-label">Messages</div><div class="dc-val" id="admin-msgs">0</div><div class="dc-sub">Messages échangés</div></div>
+            <div class="dash-card" title="Nombre de notes encore actives (non archivées)."><div class="dc-icon">📝</div><div class="dc-label">Notes</div><div class="dc-val" id="admin-notes">0</div><div class="dc-sub">Notes actives</div></div>
           </div>
 
-          <div class="dash-section-title">Performance & coûts</div>
+          <div class="crm-dash-kicker k-ge">Performance &amp; coûts</div>
 
-          <!-- TOKENS -->
-          <div class="dash-card accordion-card" style="margin-bottom:12px">
-            <div class="dc-label accordion-header" onclick="toggleAccordion('token-stats-wrap')">🔢 Consommation API <span class="accordion-arrow">▸</span></div>
-            <div id="token-stats-wrap" class="accordion-body collapsed"><div id="token-stats" style="margin-top:8px"></div></div>
-          </div>
+          <details class="crm-dash-grp">
+            <summary>
+              <span class="crm-dash-sum-stack">
+                <span class="crm-dash-sum-line1">🔢 Consommation API</span>
+                <span class="crm-dash-sum-line2">Tokens par modèle, usage et coût estimé des appels IA</span>
+              </span>
+            </summary>
+            <div class="crm-dash-grp-body">
+              <div class="crm-dash-subtle">Détail mis à jour quand vous consultez ce bloc — utile pour suivre la facturation indicative.</div>
+              <div id="token-stats"></div>
+            </div>
+          </details>
 
-          <!-- STATS SAV -->
-          <div class="dash-card accordion-card" style="margin-bottom:12px">
-            <div class="dc-label accordion-header" onclick="toggleAccordion('sav-stats-wrap')">📊 Statistiques SAV <span class="accordion-arrow">▸</span></div>
-            <div id="sav-stats-wrap" class="accordion-body collapsed"><div id="sav-stats-admin" style="margin-top:8px"></div></div>
-          </div>
+          <details class="crm-dash-grp">
+            <summary>
+              <span class="crm-dash-sum-stack">
+                <span class="crm-dash-sum-line1">📊 Statistiques SAV</span>
+                <span class="crm-dash-sum-line2">Répartition des dossiers, délais et charge côté support</span>
+              </span>
+            </summary>
+            <div class="crm-dash-grp-body">
+              <div class="crm-dash-subtle">Vue agrégée des tickets ; les actions restent dans l’onglet SAV.</div>
+              <div id="sav-stats-admin"></div>
+            </div>
+          </details>
 
-          <div class="dash-section-title">Historique & contrôle</div>
+          <div class="crm-dash-kicker">Historique &amp; contrôle</div>
 
-          <!-- ACTIVITÉ -->
-          <div class="dash-card accordion-card">
-            <div class="dc-label accordion-header" onclick="toggleAccordion('activity-wrap')">⚡ Activité récente <span class="accordion-arrow">▾</span></div>
-            <div id="activity-wrap" class="accordion-body"><div id="activity-list" style="margin-top:8px"><div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div></div></div>
-            <div class="dc-label accordion-header" onclick="toggleAccordion('connexions-wrap')" style="margin-top:8px">🔐 Historique connexions <span class="accordion-arrow">▾</span></div>
-            <div id="connexions-wrap" class="accordion-body collapsed"><div id="connexions-list" style="margin-top:8px"></div></div>
-            <div class="dc-label accordion-header" onclick="toggleAccordion('mobile-usage-wrap')" style="margin-top:8px">📱 Appareils (téléphone / PWA) <span class="accordion-arrow">▾</span></div>
-            <div id="mobile-usage-wrap" class="accordion-body collapsed"><div id="mobile-usage-list" style="margin-top:8px"></div></div>
-            <div class="dc-label accordion-header" onclick="toggleAccordion('deletions-wrap')" style="margin-top:8px">🗑️ Journal des suppressions <span class="accordion-arrow">▾</span></div>
-            <div id="deletions-wrap" class="accordion-body collapsed"><div id="deletions-list" style="margin-top:8px"></div></div>
-            <div class="dc-label accordion-header" style="margin-top:10px" onclick="toggleAccordion('connexions-history-wrap')">🧾 Historique connexions (legacy) <span class="accordion-arrow">▾</span></div>
-            <div id="connexions-history-wrap" class="accordion-body collapsed"><div id="connexions-history" style="margin-top:8px"></div></div>
-          </div>
+          <details class="crm-dash-grp" open>
+            <summary>
+              <span class="crm-dash-sum-stack">
+                <span class="crm-dash-sum-line1">⚡ Activité récente</span>
+                <span class="crm-dash-sum-line2">Dernières actions enregistrées dans BenAI (connexions, changements…)</span>
+              </span>
+            </summary>
+            <div class="crm-dash-grp-body">
+              <div class="crm-dash-subtle">Fil chronologique condensé — repliez ce bloc si vous préférez plus d’espace.</div>
+              <div id="activity-list"><div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div></div>
+            </div>
+          </details>
+
+          <details class="crm-dash-grp">
+            <summary>
+              <span class="crm-dash-sum-stack">
+                <span class="crm-dash-sum-line1">🔐 Historique connexions</span>
+                <span class="crm-dash-sum-line2">Qui s’est connecté et quand (sessions récentes)</span>
+              </span>
+            </summary>
+            <div class="crm-dash-grp-body">
+              <div class="crm-dash-subtle">Traçabilité des accès — ouvrez pour charger la liste complète.</div>
+              <div id="connexions-list"></div>
+            </div>
+          </details>
+
+          <details class="crm-dash-grp">
+            <summary>
+              <span class="crm-dash-sum-stack">
+                <span class="crm-dash-sum-line1">📱 Appareils (téléphone / PWA)</span>
+                <span class="crm-dash-sum-line2">Usages mobiles enregistrés pour le support</span>
+              </span>
+            </summary>
+            <div class="crm-dash-grp-body">
+              <div class="crm-dash-subtle">Aide à diagnostiquer les problèmes d’installation ou de notifications sur mobile.</div>
+              <div id="mobile-usage-list"></div>
+            </div>
+          </details>
+
+          <details class="crm-dash-grp">
+            <summary>
+              <span class="crm-dash-sum-stack">
+                <span class="crm-dash-sum-line1">🗑️ Journal des suppressions</span>
+                <span class="crm-dash-sum-line2">Traces des suppressions importantes (audit)</span>
+              </span>
+            </summary>
+            <div class="crm-dash-grp-body">
+              <div class="crm-dash-subtle">À consulter en cas de doute sur une donnée supprimée.</div>
+              <div id="deletions-list"></div>
+            </div>
+          </details>
+
+          <details class="crm-dash-grp">
+            <summary>
+              <span class="crm-dash-sum-stack">
+                <span class="crm-dash-sum-line1">🧾 Historique connexions (legacy)</span>
+                <span class="crm-dash-sum-line2">Ancien format de logs — conservé pour compatibilité</span>
+              </span>
+            </summary>
+            <div class="crm-dash-grp-body">
+              <div class="crm-dash-subtle">À n’utiliser que si la section principale ne suffit pas.</div>
+              <div id="connexions-history"></div>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -6921,14 +6984,21 @@ function renderGuidePage(){
 function refreshAdmin(){
   refreshSAVBadge();
   const mem=getMem();
+  const savs=mem.sav||[];
+  const savOpen=savs.filter(s=>!s._deleted&&!s.archive&&(s.statut==='nouveau'||s.statut==='en_cours')).length;
+  const savKpi=document.getElementById('admin-sav');if(savKpi)savKpi.textContent=String(savOpen);
   const tot=Object.values(mem.messages).reduce((s,a)=>s+a.length,0);
   const el=document.getElementById('admin-msgs');if(el)el.textContent=tot;
   const notesEl=document.getElementById('admin-notes');if(notesEl)notesEl.textContent=(mem.notes||[]).filter(n=>!n._deleted).length;
   renderTokenStats();renderSAVStatsAdmin();
   // Activité récente
   const actList=document.getElementById('activity-list');
-  if(actList&&mem.activity?.length){
-    actList.innerHTML=mem.activity.slice(-10).reverse().map(a=>`<div class="act-item"><div class="act-av" style="background:${getUserColor(a.user)}">${getUserInitial(a.user)}</div><div class="act-txt">${esc(a.txt)}</div><div class="act-time">${a.time}</div></div>`).join('');
+  if(actList){
+    if(mem.activity?.length){
+      actList.innerHTML=mem.activity.slice(-10).reverse().map(a=>`<div class="act-item"><div class="act-av" style="background:${getUserColor(a.user)}">${getUserInitial(a.user)}</div><div class="act-txt">${esc(a.txt)}</div><div class="act-time">${a.time}</div></div>`).join('');
+    }else{
+      actList.innerHTML='<div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div>';
+    }
   }
   // Historique connexions
   renderConnexionsHistory();
@@ -11588,17 +11658,6 @@ function logActivity(txt){
   mem.activity.push({user:currentUser?.id||'?',txt,time:now});
   if(mem.activity.length>100)mem.activity=mem.activity.slice(-100);
   saveMem(mem);
-}
-
-// ══════════════════════════════════════════
-// ACCORDION DASHBOARD
-// ══════════════════════════════════════════
-function toggleAccordion(id){
-  const body=document.getElementById(id);if(!body)return;
-  const isOpen=!body.classList.contains('collapsed');
-  body.classList.toggle('collapsed',isOpen);
-  const arrow=body.previousElementSibling?.querySelector('.accordion-arrow');
-  if(arrow)arrow.style.transform=isOpen?'rotate(-90deg)':'rotate(0deg)';
 }
 
 // ══════════════════════════════════════════
