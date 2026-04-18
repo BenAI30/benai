@@ -1465,7 +1465,7 @@ input[type=file]{display:none;}
                 <span>Comptes BenAI</span>
                 <button type="button" class="btn-primary" onclick="showAddUser()" style="padding:6px 12px;font-size:11px;font-weight:600">+ Nouvel accès</button>
               </div>
-              <div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.45">À partir d’une fiche <strong>Contacts</strong> (email pro pour Supabase).</div>
+              <div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.45">À partir d’une fiche <strong>Contacts</strong> (email pro pour Supabase). <strong>Identifiant de connexion</strong> (pseudo) : réservé à <strong>Benjamin</strong>.</div>
               <input type="text" id="user-search" placeholder="🔍 Rechercher un utilisateur..." oninput="renderUsersList()" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;outline:none;margin-bottom:8px">
               <div id="users-list" style="margin-top:4px"></div>
               <div id="add-user-form" style="display:none;margin-top:12px;background:var(--s3);border-radius:10px;padding:12px">
@@ -1491,6 +1491,10 @@ input[type=file]{display:none;}
                     <option value="directeur_co">Directeur commercial (CRM complet)</option>
                     <option value="directeur_general">Directeur général (CRM sans alertes)</option>
                   </select>
+                </div>
+                <div id="new-user-pseudo-row" style="display:none;margin-bottom:8px">
+                  <div class="form-label">Identifiant de connexion <span style="font-weight:400;color:var(--t3);font-size:10px">(Benjamin uniquement — sinon auto d’après le prénom)</span></div>
+                  <input type="text" class="form-input" id="new-user-app-uid" placeholder="ex. vente_sud (optionnel)" autocomplete="off" spellcheck="false">
                 </div>
                 <div style="display:flex;gap:6px">
                   <button onclick="creerUtilisateur()" class="btn-primary" style="flex:1">Créer l'accès</button>
@@ -2737,6 +2741,37 @@ async function updateSupabaseUserPasswordProvisioning(body){
     return {ok:true,data:bodyJson||{}};
   }catch(e){
     return {ok:false,error:e?.message||'Erreur réseau update-user-password (CORS/connexion)'};
+  }
+}
+
+async function updateSupabaseUserAppUidProvisioning(body){
+  const client=getSupabaseClient();
+  await ensureSupabaseSession();
+  const accessToken=currentSupabaseSession?.access_token||'';
+  if(!client||!accessToken)return {ok:false,error:'Session Supabase manquante'};
+  try{
+    const fnUrl=`${SUPABASE_CONFIG.url}/functions/v1/update-user-app-uid`;
+    const res=await fetchWithTimeout(fnUrl,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        apikey:SUPABASE_CONFIG.publishableKey,
+        Authorization:'Bearer '+accessToken
+      },
+      body:JSON.stringify(body||{})
+    },12000);
+    let bodyJson=null;
+    const rawBody=await res.text();
+    if(rawBody){
+      try{bodyJson=JSON.parse(rawBody);}catch(_){}
+    }
+    if(!res.ok){
+      const detail=bodyJson?.error||bodyJson?.message||rawBody||`HTTP ${res.status}`;
+      return {ok:false,error:String(detail)};
+    }
+    return {ok:true,data:bodyJson||{}};
+  }catch(e){
+    return {ok:false,error:e?.message||'Erreur réseau update-user-app-uid (CORS/connexion)'};
   }
 }
 
@@ -6759,6 +6794,182 @@ function renderSAVStatsAdmin(){
 // ══════════════════════════════════════════
 const COLORS=['linear-gradient(135deg,#22C55E,#15803D)','linear-gradient(135deg,#60A5FA,#1D4ED8)','linear-gradient(135deg,#F472B6,#DB2777)','linear-gradient(135deg,#A78BFA,#7C3AED)','linear-gradient(135deg,#34D399,#059669)'];
 
+function canManageBenaiUsersAdmin(){
+  return currentUser?.role==='admin';
+}
+/** Attribuer / modifier le pseudo de connexion (app_uid) : Benjamin uniquement. */
+function canAssignBenaiLoginPseudo(){
+  return currentUser?.role==='admin'&&currentUser?.id==='benjamin';
+}
+/** Même règle que create-user (app_uid stocké en base). */
+function sanitizeAppUidForUid(seed){
+  const cleaned=String(seed||'').trim().toLowerCase().replace(/[^a-z0-9_]+/g,'_').replace(/^_+|_+$/g,'');
+  return cleaned||'user';
+}
+function proposedLoginUidFromPseudoField(rawPseudo,fallbackUid){
+  const t=(rawPseudo||'').trim();
+  if(!t)return sanitizeAppUidForUid(fallbackUid);
+  return sanitizeAppUidForUid(normalizeId(t));
+}
+
+function migrateMemConversationsForUserRename(oldUid,newUid){
+  const mem=getMem();
+  if(!mem.messages||!oldUid||!newUid||normalizeId(oldUid)===normalizeId(newUid))return;
+  const crowd=new Set(['benjamin','benai']);
+  getAllUsers().forEach(u=>{if(u&&u.id)crowd.add(u.id);});
+  crowd.forEach(ou=>{
+    if(!ou||normalizeId(ou)===normalizeId(oldUid))return;
+    const ocid=makeConvId(oldUid,ou);
+    const ncid=makeConvId(newUid,ou);
+    if(ocid===ncid)return;
+    const chunk=mem.messages[ocid];
+    if(Array.isArray(chunk)&&chunk.length){
+      mem.messages[ncid]=mem.messages[ncid]||[];
+      mem.messages[ncid].push(...chunk);
+      delete mem.messages[ocid];
+    }else if(mem.messages[ocid])delete mem.messages[ocid];
+  });
+  saveMem(mem);
+}
+
+function migrateCommercialIdInLeads(oldId,newId){
+  if(normalizeId(oldId)===normalizeId(newId))return;
+  const leads=getLeads();
+  let ch=false;
+  const next=leads.map(l=>{
+    if(!l)return l;
+    if(normalizeId(l.commercial)===normalizeId(oldId)){
+      ch=true;
+      return{...l,commercial:newId};
+    }
+    return l;
+  });
+  if(ch)saveLeads(next,true);
+}
+
+function migrateConnexionLogsUserId(oldUid,newUid){
+  try{
+    const logs=JSON.parse(appStorage.getItem('benai_connexions')||'[]');
+    let ch=false;
+    const out=logs.map(l=>{
+      if(l&&l.uid===oldUid){ch=true;return{...l,uid:newUid};}
+      return l;
+    });
+    if(ch)appStorage.setItem('benai_connexions',JSON.stringify(out));
+  }catch{}
+}
+
+function migrateBenaiNameOverrideKey(oldUid,newUid){
+  try{
+    const o=JSON.parse(appStorage.getItem('benai_name_overrides')||'{}');
+    if(!Object.prototype.hasOwnProperty.call(o,oldUid))return;
+    const n={...o};
+    if(n[oldUid]!==undefined){n[newUid]=n[oldUid];delete n[oldUid];}
+    appStorage.setItem('benai_name_overrides',JSON.stringify(n));
+  }catch{}
+}
+
+function renameExactAppStoragePair(oldUid,newUid){
+  const pairs=[
+    ['benai_chat_'+oldUid,'benai_chat_'+newUid],
+    ['benai_read_'+oldUid,'benai_read_'+newUid],
+    ['benai_notifs_'+oldUid,'benai_notifs_'+newUid],
+    ['benai_tuto_done_'+oldUid,'benai_tuto_done_'+newUid],
+    ['benai_last_motiv_'+oldUid,'benai_last_motiv_'+newUid],
+    ['benai_lead_push_state_'+oldUid,'benai_lead_push_state_'+newUid],
+    [getAppStorageSupabaseKey(oldUid),getAppStorageSupabaseKey(newUid)]
+  ];
+  pairs.forEach(([a,b])=>{
+    const v=appStorage.getItem(a);
+    if(v!==null&&v!==undefined){
+      appStorage.setItem(b,v);
+      appStorage.removeItem(a);
+    }
+  });
+  const prefix='benai_abs_reminders_'+oldUid+'_';
+  Object.keys(appStorageCache).forEach(k=>{
+    if(k.startsWith(prefix)){
+      const rest=k.slice(prefix.length);
+      const nk='benai_abs_reminders_'+newUid+'_'+rest;
+      const v=appStorage.getItem(k);
+      if(v!==null){appStorage.setItem(nk,v);appStorage.removeItem(k);}
+    }
+  });
+}
+
+/** Après succès cloud : aligner stockage local (mots de passe, accès, messages, leads…). */
+function applyBenAiLocalUserIdRename(oldUid,newUid){
+  if(!oldUid||!newUid||normalizeId(oldUid)===normalizeId(newUid))return;
+  migrateMemConversationsForUserRename(oldUid,newUid);
+  migrateCommercialIdInLeads(oldUid,newUid);
+  migrateConnexionLogsUserId(oldUid,newUid);
+  migrateBenaiNameOverrideKey(oldUid,newUid);
+  renameExactAppStoragePair(oldUid,newUid);
+  const pwds=getPwds();
+  if(Object.prototype.hasOwnProperty.call(pwds,oldUid)){
+    pwds[newUid]=pwds[oldUid];
+    delete pwds[oldUid];
+    savePwds(pwds);
+  }
+  const access=getAccess();
+  if(Object.prototype.hasOwnProperty.call(access,oldUid)){
+    access[newUid]=access[oldUid];
+    delete access[oldUid];
+    saveAccess(access);
+  }
+  const extras=getExtraUsers();
+  let exCh=false;
+  const nextE=extras.map(e=>{
+    if(normalizeId(e.id)===normalizeId(oldUid)){
+      exCh=true;
+      return{...e,id:newUid};
+    }
+    return e;
+  });
+  if(exCh)saveExtraUsers(nextE);
+  if(USERS[oldUid]){
+    USERS[newUid]={...USERS[oldUid]};
+    delete USERS[oldUid];
+  }
+}
+
+async function modifierBenaiLoginUid(uid){
+  if(!canAssignBenaiLoginPseudo()){alert('Seul Benjamin peut modifier l’identifiant de connexion.');return;}
+  const u=findUserById(uid)||findUserById(normalizeId(uid));
+  if(!u||u.id==='benjamin')return;
+  const authRaw=String(u.auth_uid||u.authUid||'').trim();
+  if(!isLikelyUuid(authRaw)){
+    alert('Compte sans identifiant Supabase (auth). Connectez-vous en admin avec synchro cloud, ou créez le compte via BenAI.');
+    return;
+  }
+  const actuel=String(u.id||'').trim();
+  const np=prompt(`Nouvel identifiant de connexion pour ${u.name}\n(actuel : ${actuel})\n\nLettres, chiffres et _ (accents et espaces seront normalisés).`,actuel);
+  if(np===null||!String(np).trim())return;
+  const candidate=proposedLoginUidFromPseudoField(np,actuel);
+  if(!candidate||candidate==='user'){alert('Identifiant invalide.');return;}
+  const reserved=new Set(['benjamin','benai','admin']);
+  if(reserved.has(candidate)){alert('Identifiant réservé.');return;}
+  if(normalizeId(candidate)===normalizeId(actuel)){alert('Identique à l’actuel.');return;}
+  if(getAllUsers().some(x=>normalizeId(x.id)===normalizeId(candidate)&&normalizeId(x.id)!==normalizeId(actuel))){
+    alert('Cet identifiant est déjà utilisé.');
+    return;
+  }
+  const cloud=await updateSupabaseUserAppUidProvisioning({
+    target_user_id:authRaw,
+    current_app_uid:actuel,
+    new_app_uid:candidate
+  });
+  if(!cloud.ok){alert('Échec serveur : '+(cloud.error||'?'));return;}
+  const resolved=String(cloud.data?.app_uid||candidate).trim();
+  applyBenAiLocalUserIdRename(actuel,resolved);
+  await syncExtraUsersFromSupabaseProfiles();
+  scheduleAppStoragePersist();
+  renderUsersList();
+  renderPwdList();
+  logActivity(`Benjamin a défini l’identifiant de connexion ${actuel} → ${resolved} (${u.name})`);
+  alert(`Identifiant de connexion mis à jour : ${resolved}`);
+}
+
 function getExtraUsers(){try{return JSON.parse(appStorage.getItem('benai_extra_users'))||[];}catch{return [];}}
 function saveExtraUsers(u){appStorage.setItem('benai_extra_users',JSON.stringify(u));}
 function getExtraUserById(id){return getExtraUsers().find(u=>u.id===id)||null;}
@@ -6864,10 +7075,15 @@ function regenNewUserPwd(){
 }
 
 function showAddUser(){
+  if(!canManageBenaiUsersAdmin()){alert('Réservé à l’administrateur.');return;}
   const f=document.getElementById('add-user-form');
   const isOpen=f.style.display!=='none';
   f.style.display=isOpen?'none':'block';
   if(!isOpen){
+    const pr=document.getElementById('new-user-pseudo-row');
+    if(pr)pr.style.display=canAssignBenaiLoginPseudo()?'block':'none';
+    const pIn=document.getElementById('new-user-app-uid');
+    if(pIn)pIn.value='';
     regenNewUserPwd();
     // Peupler le select avec les salariés de l'annuaire qui n'ont pas encore de compte BenAI
     const ann=getAnnuaireActive();
@@ -6885,6 +7101,7 @@ function showAddUser(){
 }
 
 async function creerUtilisateur(){
+  if(!canManageBenaiUsersAdmin()){alert('Réservé à l’administrateur.');return;}
   const sel=document.getElementById('new-user-ann-select');
   const val=sel?.value||'';
   let pwd=(document.getElementById('new-user-pwd')?.value||'').trim();
@@ -6898,6 +7115,23 @@ async function creerUtilisateur(){
   let suffix=2;
   while(getAllUsers().some(u=>normalizeId(u.id)===uid)){
     uid=`${normalizeId(prenom)}_${suffix++}`;
+  }
+  if(canAssignBenaiLoginPseudo()){
+    const custom=(document.getElementById('new-user-app-uid')?.value||'').trim();
+    if(custom){
+      uid=proposedLoginUidFromPseudoField(custom,uid);
+      const reserved=new Set(['benjamin','benai','admin']);
+      if(reserved.has(uid)||uid==='user'){
+        status.style.color='var(--r)';
+        status.textContent='⚠️ Identifiant de connexion réservé ou invalide';
+        return;
+      }
+      if(getAllUsers().some(u=>normalizeId(u.id)===normalizeId(uid))){
+        status.style.color='var(--r)';
+        status.textContent='⚠️ Cet identifiant est déjà utilisé';
+        return;
+      }
+    }
   }
   const ann=getAnnuaireActive();
   const annEntry=ann.find(e=>normalizeId(`${e.prenom} ${e.nom}`)===normalizeId(name)||normalizeId(e.prenom)===normalizeId(prenom))||null;
@@ -6942,6 +7176,7 @@ async function creerUtilisateur(){
 }
 
 async function supprimerUtilisateur(uid){
+  if(!canManageBenaiUsersAdmin()){alert('Réservé à l’administrateur.');return;}
   if(normalizeId(uid)==='benjamin'){alert('Benjamin ne peut pas être supprimé.');return;}
   const u=findUserById(uid)||findUserById(normalizeId(uid));
   if(!u){alert('Utilisateur introuvable.');return;}
@@ -6989,6 +7224,7 @@ async function supprimerUtilisateur(uid){
 }
 
 function toggleAccess(uid){
+  if(!canManageBenaiUsersAdmin()){alert('Réservé à l’administrateur.');return;}
   const access=getAccess();
   access[uid]=access[uid]===false?true:false;
   saveAccess(access);renderUsersList();
@@ -7018,7 +7254,12 @@ function renderUsersList(){
   const list=document.getElementById('users-list');if(!list)return;
   const search=(document.getElementById('user-search')?.value||'').toLowerCase();
   let users=getAllUsers();
-  if(search)users=users.filter(u=>(u.name||'').toLowerCase().includes(search)||(u.role||'').includes(search));
+  if(search){
+    users=users.filter(u=>{
+      const id=String(u.id||'').toLowerCase();
+      return (u.name||'').toLowerCase().includes(search)||(u.role||'').includes(search)||id.includes(search);
+    });
+  }
   const access=getAccess();
   list.innerHTML='';
   users.forEach(u=>{
@@ -7034,6 +7275,7 @@ function renderUsersList(){
     info.className='user-info';
     info.innerHTML=`
         <div class="user-name">${esc(u.name)}</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px">Connexion : <code style="font-size:10px;background:var(--s2);padding:2px 6px;border-radius:4px">${esc(u.id)}</code></div>
         <div class="user-role">${ROLE_LABELS[u.role]||u.role} · ${u.societe==='les-deux'?'Nemausus & Lambert':u.societe==='nemausus'?'Nemausus':'Lambert'}</div>
         ${(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general')?`<div style="font-size:10px;color:var(--t3)">🚐 Véhicule : ${esc(u.vehicule||'Non renseigné')}</div>`:''}
         <div style="font-size:10px;color:var(--t3)">${derniereConnexion?'Dernière connexion : '+derniereConnexion:'Jamais connecté'}</div>`;
@@ -7065,6 +7307,15 @@ function renderUsersList(){
       delBtn.textContent='🗑️';
       delBtn.addEventListener('click',()=>supprimerUtilisateur(uid));
       div.appendChild(delBtn);
+      if(canAssignBenaiLoginPseudo()){
+        const idBtn=document.createElement('button');
+        idBtn.type='button';
+        idBtn.style.cssText=btnStyle+';background:var(--s2);color:var(--t1);border:1px solid var(--b1)';
+        idBtn.title='Modifier l’identifiant de connexion (pseudo BenAI)';
+        idBtn.textContent='🔑';
+        idBtn.addEventListener('click',()=>void modifierBenaiLoginUid(uid));
+        div.appendChild(idBtn);
+      }
     }else{
       const adm=document.createElement('span');
       adm.style.cssText='font-size:10px;color:var(--t3)';
@@ -7076,6 +7327,7 @@ function renderUsersList(){
 }
 
 function editUser(uid){
+  if(!canManageBenaiUsersAdmin()){alert('Réservé à l’administrateur.');return;}
   const users=getAllUsers();const u=users.find(x=>x.id===uid);if(!u)return;
   const nouveau=prompt(`Modifier ${u.name}\n\nNom affiché (actuel: ${u.name}) :`);
   if(!nouveau||!nouveau.trim())return;
@@ -10325,6 +10577,7 @@ function genererRapportAlertes(){
 // 🔒 BLOQUER COMMERCIAL
 // ══════════════════════════════════════════
 function toggleBlockCommercial(uid){
+  if(!canManageBenaiUsersAdmin()){alert('Réservé à l’administrateur.');return;}
   const access=getAccess();
   const u=getAllUsers().find(x=>x.id===uid);
   const isBlocked=access[uid]===false;

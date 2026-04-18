@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.lookup-login-email]
 verify_jwt = false
+
+[functions.update-user-app-uid]
+verify_jwt = false
