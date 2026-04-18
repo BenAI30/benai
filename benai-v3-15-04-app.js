@@ -3602,7 +3602,10 @@ async function handleDevisPDF(file){
 // PAGE ÉQUIPE (fiches annuaire + compte / mot de passe sur chaque fiche)
 function setEquipeTab(){
   const addBtn=document.getElementById('ann-btn-add-emp');
-  if(addBtn)addBtn.style.display='inline-flex';
+  const expBtn=document.getElementById('ann-btn-export-benai');
+  const showAdmin=canManageBenaiUsersAdmin();
+  if(addBtn)addBtn.style.display=showAdmin?'inline-flex':'none';
+  if(expBtn)expBtn.style.display=showAdmin?'inline-flex':'none';
   renderAnnuaire();renderPwdList();
 }
 function initEquipePage(){
@@ -4482,6 +4485,46 @@ function exportSAVCSV(){
     s.rappel||''
   ])).join('\n');
   downloadCsv('SAV_BenAI_'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.csv',header+rows);
+}
+
+/** Export CSV des comptes BenAI (identifiant, email, rôle…) pour communiquer les accès — mots de passe non inclus (stockage sécurisé). */
+function exportBenaiUsersAccessCsv(){
+  if(!canManageBenaiUsersAdmin()){void benaiAlert('Réservé à l’administrateur.');return;}
+  const access=getAccess();
+  const header=joinCsv([
+    'Identifiant BenAI',
+    'Nom affiché',
+    'Email connexion',
+    'Rôle',
+    'Société',
+    'UUID Auth Supabase',
+    'Accès bloqué',
+    'Mot de passe'
+  ])+'\n';
+  const rows=getAllUsers().filter(u=>u&&u.id&&u.id!=='benai').map(u=>{
+    const id=String(u.id||'').trim();
+    const nk=normalizeId(id);
+    const blocked=access[id]===false||access[nk]===false;
+    const email=String(u.email||'').trim();
+    const roleLabel=ROLE_LABELS[u.role]||u.role||'';
+    const soc=String(u.societe||'').trim();
+    const authUid=String(u.auth_uid||u.authUid||'').trim();
+    const pwdNote='Non exportable (stockage sécurisé). Utiliser le mot de passe communiqué à la création du compte, ou le réinitialiser depuis la fiche Équipe (Compte BenAI → Modifier mot de passe). Connexion cloud : email + mot de passe.';
+    return joinCsv([
+      csv(id),
+      csv(String(u.name||'').trim()),
+      csv(email),
+      csv(roleLabel),
+      csv(soc),
+      csv(authUid),
+      blocked?'oui':'non',
+      csv(pwdNote)
+    ]);
+  }).join('\n');
+  const fname='BenAI_acces_utilisateurs_'+new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')+'.csv';
+  downloadCsv(fname,header+rows);
+  try{logActivity(`${currentUser?.name||'Admin'} a exporté la liste des accès BenAI (CSV)`);}catch(_){}
+  void showDriveNotif('📥 Export CSV téléchargé (sans mots de passe).');
 }
 
 // ══════════════════════════════════════════
