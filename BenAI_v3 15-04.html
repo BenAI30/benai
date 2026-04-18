@@ -468,6 +468,14 @@ body.light .bubble{color:var(--t1);}
 .crm-evo-head{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px;font-weight:700;}
 .crm-evo-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:6px 2px;border-top:1px solid var(--b1);gap:6px;}
 .crm-evo-row:first-of-type{border-top:none;padding-top:2px;}
+.crm-sect-m-wrap{overflow-x:auto;margin-top:6px;border-radius:10px;border:1px solid var(--b1);}
+.crm-sect-m-table{width:100%;border-collapse:collapse;font-size:12px;}
+.crm-sect-m-table th,.crm-sect-m-table td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--b1);vertical-align:middle;}
+.crm-sect-m-table th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);background:var(--s3);}
+.crm-sect-m-table tr:last-child td{border-bottom:none;}
+.crm-sect-m-table td.num,.crm-sect-m-table th.num{text-align:right;font-variant-numeric:tabular-nums;}
+.crm-sect-m-tot td{background:var(--a3);font-weight:700;border-bottom:none;}
+.crm-sect-m-table td.sect{font-weight:600;}
 /* SOURCE BUTTONS */
 .src-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:.12s;}
 .src-btn:hover{border-color:var(--a);color:var(--a);}
@@ -9160,6 +9168,71 @@ function renderLeadsDashboard(){
     `).join('')}
     </div>
   </details>`;
+  const moisSecteurLabel=now.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  const secteurMensuelRows=secteurs.map(s=>{
+    const lm=leadsMonth.filter(l=>l.secteur===s.id);
+    const gris=lm.filter(l=>l.statut==='gris').length;
+    const rdv=lm.filter(l=>l.statut==='rdv').length;
+    const jaune=lm.filter(l=>l.statut==='jaune').length;
+    const vert=lm.filter(l=>l.statut==='vert').length;
+    const rouge=lm.filter(l=>l.statut==='rouge').length;
+    const ventesLm=lm.filter(l=>l.statut==='vert');
+    const caHt=ventesLm.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
+    const devisLm=lm.filter(l=>l.statut==='jaune');
+    const pipeHt=devisLm.reduce((sum,l)=>sum+Number(l.montant_devis||0),0);
+    return{s,lm,gris,rdv,jaune,vert,rouge,caHt,pipeHt,ndevis:devisLm.length};
+  });
+  const totLeadsM=secteurMensuelRows.reduce((a,r)=>a+r.lm.length,0);
+  const totVertM=secteurMensuelRows.reduce((a,r)=>a+r.vert,0);
+  const totCaM=secteurMensuelRows.reduce((a,r)=>a+r.caHt,0);
+  const totPipeM=secteurMensuelRows.reduce((a,r)=>a+r.pipeHt,0);
+  const totDevisM=secteurMensuelRows.reduce((a,r)=>a+r.ndevis,0);
+  html+=`<div class="secteur-card" style="margin-top:12px">
+    <div class="secteur-title" style="font-size:14px">📊 ${moisSecteurLabel.charAt(0).toUpperCase()+moisSecteurLabel.slice(1)} — compteur leads & chiffres par secteur</div>
+    <div style="font-size:11px;color:var(--t3);margin:-6px 0 10px;line-height:1.45">Leads <strong>créés ce mois</strong> (date de création) dans votre périmètre, ventes & CA HT du même lot, pipeline des devis « jaune ».</div>
+    <div class="crm-sect-m-wrap">
+      <table class="crm-sect-m-table">
+        <thead><tr>
+          <th>Secteur</th>
+          <th class="num">Leads<br><span style="font-weight:400;opacity:.85">(mois)</span></th>
+          <th class="num" title="Non traité">Gris</th>
+          <th class="num">RDV</th>
+          <th class="num">Devis</th>
+          <th class="num" title="Ventes signées (statut vert)">Vendus</th>
+          <th class="num">Perdus</th>
+          <th class="num">CA HT (€)</th>
+          <th class="num">Fiches devis</th>
+          <th class="num">Pipeline HT (€)</th>
+        </tr></thead>
+        <tbody>
+          ${secteurMensuelRows.map(r=>`<tr>
+            <td class="sect" style="color:${r.s.color}">${r.s.label}</td>
+            <td class="num">${r.lm.length}</td>
+            <td class="num">${r.gris}</td>
+            <td class="num">${r.rdv}</td>
+            <td class="num">${r.jaune}</td>
+            <td class="num" style="color:var(--g)">${r.vert}</td>
+            <td class="num" style="color:var(--r)">${r.rouge}</td>
+            <td class="num" style="color:var(--g);font-weight:600">${r.caHt.toLocaleString('fr-FR')}</td>
+            <td class="num">${r.ndevis}</td>
+            <td class="num" style="color:var(--y);font-weight:600">${r.pipeHt.toLocaleString('fr-FR')}</td>
+          </tr>`).join('')}
+          <tr class="crm-sect-m-tot">
+            <td class="sect">Total</td>
+            <td class="num">${totLeadsM}</td>
+            <td class="num">${secteurMensuelRows.reduce((a,r)=>a+r.gris,0)}</td>
+            <td class="num">${secteurMensuelRows.reduce((a,r)=>a+r.rdv,0)}</td>
+            <td class="num">${secteurMensuelRows.reduce((a,r)=>a+r.jaune,0)}</td>
+            <td class="num" style="color:var(--g)">${totVertM}</td>
+            <td class="num" style="color:var(--r)">${secteurMensuelRows.reduce((a,r)=>a+r.rouge,0)}</td>
+            <td class="num" style="color:var(--g)">${totCaM.toLocaleString('fr-FR')}</td>
+            <td class="num">${totDevisM}</td>
+            <td class="num" style="color:var(--y)">${totPipeM.toLocaleString('fr-FR')}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>`;
   const salesTotal=leads.filter(l=>l.statut==='vert');
   const caTotal=salesTotal.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
   const salesMonth=leadsMonth.filter(l=>l.statut==='vert');
