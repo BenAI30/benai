@@ -1323,7 +1323,7 @@ input[type=file]{display:none;}
       <!-- PAGE BUGS -->
       <div id="page-bugs" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
-          <div><div class="page-title">🐛 Signalement de bugs</div><div class="page-sub">Aidez-nous à améliorer BenAI</div></div>
+          <div><div class="page-title">🐛 Signalement de bugs</div><div class="page-sub">Chaque signalement génère un rapport structuré (onglet ci-dessous) — plus d’alertes cloche automatiques</div></div>
           <button class="btn-primary" onclick="openNewBug()">+ Signaler un bug</button>
         </div>
         <!-- FORMULAIRE -->
@@ -1752,7 +1752,6 @@ let sharedCoreLastReadOk=false;
 let sharedApiKeyRetryTimer=null;
 let sharedApiKeyRetryDelayMs=2500;
 let pendingSharedApiKey='';
-const AUTO_BUG_NOTIF_COOLDOWN_MS=30*60*1000;
 let lastSelfHealToastTs=0;
 const LOGIN_REMEMBER_LOCAL_KEY='benai_login_user_local';
 // Préparation Supabase (phase ready): stockage session uniquement.
@@ -9368,16 +9367,53 @@ function saveBugs(b){appStorage.setItem('benai_bugs',JSON.stringify(b));}
 function makeAutoBugFingerprint(page,desc){
   return `${page}::${String(desc||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,180)}`;
 }
-function shouldPushAutoBugNotif(fingerprint,gravite){
-  // Les alertes mineures restent visibles dans la page Bugs
-  // mais n'encombrent plus le centre de notifications.
-  if(String(gravite||'').toLowerCase()==='mineur')return false;
-  const key='benai_auto_bug_notif_'+fingerprint;
-  const now=Date.now();
-  const lastTs=Number(appStorage.getItem(key)||'0');
-  if(lastTs&&now-lastTs<AUTO_BUG_NOTIF_COOLDOWN_MS)return false;
-  appStorage.setItem(key,String(now));
-  return true;
+/** Rapport texte prêt à coller pour un dev / une IA (plus de notifications cloche sur les bugs). */
+function buildDevIncidentReport(opts){
+  const page=String(opts?.page||'?');
+  const desc=String(opts?.desc||'').trim();
+  const gravite=String(opts?.gravite||'important');
+  const extra=opts?.extra&&typeof opts.extra==='object'?opts.extra:null;
+  const auto=!!opts?.auto;
+  const source=String(opts?.source||page);
+  const ver=(typeof BENAI_VERSION!=='undefined'&&BENAI_VERSION)?String(BENAI_VERSION):'?';
+  const uid=currentUser?.id||'?';
+  const uname=currentUser?.name||'?';
+  const role=currentUser?.role||'?';
+  let href='',ua='';
+  try{href=String(location?.href||'');}catch{}
+  try{ua=String(navigator?.userAgent||'').slice(0,240);}catch{}
+  const lines=[
+    '## Rapport pour correction (BenAI)',
+    '',
+    '| Champ | Valeur |',
+    '|---|---|',
+    `| Version app | ${ver} |`,
+    `| Origine | ${auto?'Détection automatique':'Signalement utilisateur'} — ${source} |`,
+    `| Utilisateur | ${uname} (\`${uid}\`) |`,
+    `| Rôle | ${role} |`,
+    `| Page / module | ${page} |`,
+    `| Gravité | ${gravite} |`,
+    '',
+    '### Description',
+    desc||'—',
+    '',
+    '### Environnement',
+    `- **URL** : ${href||'—'}`,
+    `- **User-Agent** : ${ua||'—'}`,
+    ''
+  ];
+  if(extra&&Object.keys(extra).length){
+    lines.push('### Données techniques (JSON)');
+    lines.push('```json');
+    try{lines.push(JSON.stringify(extra,null,2).slice(0,2000));}catch{lines.push(String(extra));}
+    lines.push('```');
+    lines.push('');
+  }
+  lines.push('### Reproduction (à compléter / valider par le dev)');
+  lines.push('1. Ouvrir la page ou le module indiqué (compte similaire si besoin).');
+  lines.push('2. Reproduire le scénario ou surveiller la console (F12 → Console).');
+  lines.push('3. Vérifier la synchro Supabase si données partagées.');
+  return lines.join('\n');
 }
 function reportAutoBug(page,desc,gravite='important',extra={}){
   if(!desc||!page)return false;
@@ -9400,15 +9436,12 @@ function reportAutoBug(page,desc,gravite='important',extra={}){
     auto:true,
     fingerprint,
     ts:now,
-    details:extra&&typeof extra==='object'?extra:null
+    details:extra&&typeof extra==='object'?extra:null,
+    rapport_dev:buildDevIncidentReport({page,desc,gravite,extra,auto:true,source:page})
   };
   bugs.unshift(row);
   saveBugs(bugs);
   refreshBugsBadge();
-  // Notifier Benjamin seulement sur niveaux significatifs + anti-spam.
-  if(shouldPushAutoBugNotif(fingerprint,gravite)){
-    pushBenAINotif('🤖 Bug détecté automatiquement',`${page} — ${row.desc.slice(0,90)}`,'🐛','benjamin');
-  }
   return true;
 }
 function resolveAutoBug(page,desc,response='Auto-résolu'){
@@ -9605,23 +9638,24 @@ function saveBug(){
   if(!desc){alert('Décrivez le bug');return;}
   const bugs=getBugs();
   const now=new Date();
+  const pageVal=document.getElementById('bug-page').value;
+  const gravVal=document.getElementById('bug-gravite').value;
   bugs.unshift({
     id:Date.now(),
-    page:document.getElementById('bug-page').value,
-    gravite:document.getElementById('bug-gravite').value,
+    page:pageVal,
+    gravite:gravVal,
     desc,
     user:currentUser.name,
     userId:currentUser.id,
     date:now.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),
-    statut:'ouvert'
+    statut:'ouvert',
+    rapport_dev:buildDevIncidentReport({page:pageVal,desc,gravite:gravVal,extra:{canal:'formulaire_bugs'},auto:false,source:'Signalement manuel'})
   });
   saveBugs(bugs);
   document.getElementById('bug-form-wrap').style.display='none';
   document.getElementById('bug-desc').value='';
   renderBugsList();
   refreshBugsBadge();
-  // Notifier Benjamin
-  pushNotif('🐛 Nouveau bug signalé',`${currentUser.name} — ${document.getElementById('bug-page').value}`,'🐛','benjamin');
   logActivity(`${currentUser.name} a signalé un bug`);
   showDriveNotif('✅ Bug signalé — merci !');
 }
@@ -9664,6 +9698,7 @@ function renderBugsList(){
       </div>
       <div style="font-size:13px;color:var(--t1);margin-bottom:6px">${esc(b.desc)}</div>
       <div style="font-size:10px;color:var(--t3)">Signalé par ${esc(b.user)}</div>
+      ${b.rapport_dev?`<details style="margin-top:10px;font-size:11px"><summary style="cursor:pointer;color:var(--a);font-weight:600">📋 Rapport pour correction (copier / IA)</summary><pre style="white-space:pre-wrap;max-height:220px;overflow:auto;background:var(--s3);padding:10px;border-radius:8px;margin-top:6px;border:1px solid var(--b1);color:var(--t2);font-family:ui-monospace,monospace;font-size:10px">${esc(b.rapport_dev)}</pre><button type="button" onclick="copyBugRapport(${b.id})" style="margin-top:6px;padding:6px 12px;background:var(--a3);border:1px solid var(--a);border-radius:8px;color:var(--t1);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">Copier le rapport</button></details>`:''}
       ${role==='admin'&&b.statut==='ouvert'?`
         <div style="margin-top:8px;display:flex;gap:6px">
           <input type="text" id="bug-rep-${b.id}" placeholder="Réponse / solution..." style="flex:1;padding:7px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-family:inherit;font-size:12px;outline:none">
@@ -9680,9 +9715,33 @@ function resolveBug(id){
   b.statut='resolu';b.reponse=rep;b.date_resolution=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   saveBugs(bugs);
   renderBugsList();refreshBugsBadge();
-  // Notifier l'auteur du bug
-  if(b.userId!=='benjamin')pushNotif('🐛 Bug résolu',`"${b.page}" — ${rep}`,b.userId);
   logActivity(`Benjamin a résolu un bug : ${b.page}`);
+}
+
+function copyBugRapport(id){
+  const b=getBugs().find(x=>x.id===id);
+  const txt=String(b?.rapport_dev||'').trim();
+  if(!txt){showDriveNotif('Aucun rapport pour ce ticket');return;}
+  const runCopy=()=>{
+    showDriveNotif('Rapport copié dans le presse-papiers');
+    try{logActivity(`Rapport bug #${id} copié`);}catch{}
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(runCopy).catch(()=>{
+      try{
+        const ta=document.createElement('textarea');
+        ta.value=txt;ta.style.position='fixed';ta.style.left='-9999px';
+        document.body.appendChild(ta);ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        runCopy();
+      }catch{
+        showDriveNotif('Copie impossible — sélectionnez le texte dans le rapport');
+      }
+    });
+  }else{
+    showDriveNotif('Copie non disponible sur ce navigateur');
+  }
 }
 
 function refreshBugsBadge(){
