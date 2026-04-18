@@ -2102,7 +2102,18 @@ function hasDirecteurCommercialForSociete(leadSoc){
   });
 }
 function getRoundRobinCommercial(societe){
-  const users=getAllUsers().filter(u=>u.role==='commercial'&&(u.societe===societe||u.societe==='les-deux'));
+  const target=String(societe||'').trim().toLowerCase();
+  if(target!=='lambert'&&target!=='nemausus')return null;
+  const matchSoc=u=>{
+    const su=normalizeProfileCompany(u.societe);
+    if(su==='les-deux')return true;
+    if(su===target)return true;
+    return false;
+  };
+  let users=getAllUsers().filter(u=>u.role==='commercial'&&matchSoc(u));
+  if(!users.length){
+    users=getAllUsers().filter(u=>u.role==='commercial'&&!normalizeProfileCompany(u.societe));
+  }
   if(!users.length)return null;
   const key='benai_rr_idx_'+(societe||'all');
   let idx=parseInt(appStorage.getItem(key)||'0',10);
