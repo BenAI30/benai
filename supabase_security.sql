@@ -659,9 +659,10 @@ returns void
 language plpgsql
 security definer
 set search_path = public, auth
-as $$
+as $ensure$
 declare
-  meta jsonb;
+  rec auth.users%rowtype;
+  v_meta jsonb;
   full_name_val text;
   role_val text;
   company_val text;
@@ -670,51 +671,52 @@ declare
   uemail text;
 begin
   set local row_security = off;
-  for au in select * from auth.users where id = auth.uid() loop
-    uemail := lower(coalesce(au.email, ''));
-    meta := coalesce(au.raw_user_meta_data, '{}'::jsonb);
 
-    full_name_val := nullif(trim(coalesce(meta->>'full_name', '')), '');
-    if full_name_val is null then
-      full_name_val := split_part(coalesce(uemail, ''), '@', 1);
-    end if;
-    if full_name_val is null or full_name_val = '' then
-      full_name_val := 'Utilisateur';
-    end if;
-
-    role_val := lower(coalesce(meta->>'role', 'assistante'));
-    if role_val not in ('admin','directeur_co','directeur_general','commercial','assistante','metreur') then
-      role_val := 'assistante';
-    end if;
-
-    company_val := lower(coalesce(meta->>'company', 'nemausus'));
-    if company_val not in ('nemausus','lambert','les-deux') then
-      company_val := 'nemausus';
-    end if;
-
-    base_uid := lower(coalesce(nullif(trim(coalesce(meta->>'app_uid', '')), ''), split_part(coalesce(uemail, ''), '@', 1), 'user'));
-    safe_uid := regexp_replace(base_uid, '[^a-z0-9_]+', '_', 'g');
-    if safe_uid = '' then
-      safe_uid := 'user';
-    end if;
-    if exists (select 1 from public.profiles p where p.app_uid = safe_uid and p.id <> au.id) then
-      safe_uid := safe_uid || '_' || substr(replace(au.id::text, '-', ''), 1, 6);
-    end if;
-
-    insert into public.profiles (id, email, app_uid, full_name, role, company)
-    values (au.id, uemail, safe_uid, full_name_val, role_val, company_val)
-    on conflict (id) do update set
-      email = excluded.email,
-      app_uid = excluded.app_uid,
-      full_name = excluded.full_name,
-      role = excluded.role,
-      company = excluded.company,
-      updated_at = now();
-
+  select * into rec from auth.users where id = auth.uid();
+  if not found then
     return;
-  end loop;
+  end if;
+  uemail := lower(coalesce(rec.email, ''));
+  v_meta := coalesce(rec.raw_user_meta_data, '{}'::jsonb);
+
+  full_name_val := nullif(trim(coalesce(v_meta->>'full_name', '')), '');
+  if full_name_val is null then
+    full_name_val := split_part(coalesce(uemail, ''), '@', 1);
+  end if;
+  if full_name_val is null or full_name_val = '' then
+    full_name_val := 'Utilisateur';
+  end if;
+
+  role_val := lower(coalesce(v_meta->>'role', 'assistante'));
+  if role_val not in ('admin','directeur_co','directeur_general','commercial','assistante','metreur') then
+    role_val := 'assistante';
+  end if;
+
+  company_val := lower(coalesce(v_meta->>'company', 'nemausus'));
+  if company_val not in ('nemausus','lambert','les-deux') then
+    company_val := 'nemausus';
+  end if;
+
+  base_uid := lower(coalesce(nullif(trim(coalesce(v_meta->>'app_uid', '')), ''), split_part(coalesce(uemail, ''), '@', 1), 'user'));
+  safe_uid := regexp_replace(base_uid, '[^a-z0-9_]+', '_', 'g');
+  if safe_uid = '' then
+    safe_uid := 'user';
+  end if;
+  if exists (select 1 from public.profiles p where p.app_uid = safe_uid and p.id <> rec.id) then
+    safe_uid := safe_uid || '_' || substr(replace(rec.id::text, '-', ''), 1, 6);
+  end if;
+
+  insert into public.profiles (id, email, app_uid, full_name, role, company)
+  values (rec.id, uemail, safe_uid, full_name_val, role_val, company_val)
+  on conflict (id) do update set
+    email = excluded.email,
+    app_uid = excluded.app_uid,
+    full_name = excluded.full_name,
+    role = excluded.role,
+    company = excluded.company,
+    updated_at = now();
 end;
-$$;
+$ensure$;
 
 grant execute on function public.ensure_my_profile() to authenticated;
 
