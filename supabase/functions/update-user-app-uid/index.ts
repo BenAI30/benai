@@ -166,9 +166,6 @@ Deno.serve(async (req) => {
 
     targetId = profile.id;
     const oldUid = normalizeAppUid(String(profile.app_uid || ""));
-    if (oldUid === "benjamin") {
-      return json(400, { error: "Impossible de renommer ce compte" }, origin);
-    }
 
     const resolved = await ensureUniqueAppUid(adminClient, newBase, targetId);
     if (resolved === oldUid) {

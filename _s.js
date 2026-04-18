@@ -5396,14 +5396,21 @@ function applyBenAiLocalUserIdRename(oldUid,newUid){
 async function modifierBenaiLoginUid(uid){
   if(!canAssignBenaiLoginPseudo()){alert('Seul Benjamin peut modifier l’identifiant de connexion.');return;}
   const u=findUserById(uid)||findUserById(normalizeId(uid));
-  if(!u||u.id==='benjamin')return;
-  const authRaw=String(u.auth_uid||u.authUid||'').trim();
+  if(!u)return;
+  const isSelfBenjamin=normalizeId(uid)==='benjamin';
+  if(isSelfBenjamin){
+    if(!confirm('Tu définis le pseudo pour te connecter à BenAI (Supabase). Ton compte dans l’app reste « Benjamin » ; seul le mot de passe / email côté Supabase compte pour la connexion. Continuer ?'))return;
+  }
+  let authRaw=String(u.auth_uid||u.authUid||'').trim();
+  if(isSelfBenjamin&&(!authRaw||!isLikelyUuid(authRaw))){
+    authRaw=String(currentUser?.auth_uid||currentUser?.authUid||'').trim();
+  }
   if(!isLikelyUuid(authRaw)){
-    alert('Compte sans identifiant Supabase (auth). Connectez-vous en admin avec synchro cloud, ou créez le compte via BenAI.');
+    alert('Compte sans identifiant Supabase (auth). Connecte-toi avec email + mot de passe Supabase une fois pour lier la session, puis réessaie.');
     return;
   }
   const actuel=String(u.id||'').trim();
-  const np=prompt(`Nouvel identifiant de connexion pour ${u.name}\n(actuel : ${actuel})\n\nLettres, chiffres et _ (accents et espaces seront normalisés).`,actuel);
+  const np=prompt(`Nouvel identifiant de connexion pour ${u.name}\n${isSelfBenjamin?`(identifiant interne BenAI : ${actuel} — inchangé)\n`:`(actuel dans BenAI : ${actuel})\n`}\nLettres, chiffres et _ (accents et espaces seront normalisés).`,actuel);
   if(np===null||!String(np).trim())return;
   const candidate=proposedLoginUidFromPseudoField(np,actuel);
   if(!candidate||candidate==='user'){alert('Identifiant invalide.');return;}
@@ -5416,12 +5423,11 @@ async function modifierBenaiLoginUid(uid){
   }
   const cloud=await updateSupabaseUserAppUidProvisioning({
     target_user_id:authRaw,
-    current_app_uid:actuel,
     new_app_uid:candidate
   });
   if(!cloud.ok){alert('Échec serveur : '+(cloud.error||'?'));return;}
   const resolved=String(cloud.data?.app_uid||candidate).trim();
-  applyBenAiLocalUserIdRename(actuel,resolved);
+  if(!isSelfBenjamin)applyBenAiLocalUserIdRename(actuel,resolved);
   await syncExtraUsersFromSupabaseProfiles();
   scheduleAppStoragePersist();
   renderUsersList();
@@ -5472,6 +5478,9 @@ async function syncExtraUsersFromSupabaseProfiles(){
     rows.forEach(p=>{
       const email=(p?.email||'').trim().toLowerCase();
       const fullName=String(p?.full_name||email.split('@')[0]||'Utilisateur').trim();
+      if(p?.role==='admin'&&/benjamin/i.test(String(p?.full_name||'')))return;
+      const builtinBen=getBuiltinLoginEmails().benjamin;
+      if(builtinBen&&email===String(builtinBen).trim().toLowerCase())return;
       let uid=normalizeId(p?.app_uid||email.split('@')[0]||fullName.split(/\s+/)[0]||'');
       if(!uid)return;
       if(uid==='benjamin'||uid==='benai')return;
@@ -5735,7 +5744,7 @@ function renderUsersList(){
     info.className='user-info';
     info.innerHTML=`
         <div class="user-name">${esc(u.name)}</div>
-        <div style="font-size:10px;color:var(--t3);margin-top:2px">Connexion : <code style="font-size:10px;background:var(--s2);padding:2px 6px;border-radius:4px">${esc(u.id)}</code></div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px">${u.id==='benjamin'?'Identifiant interne':'Connexion'} : <code style="font-size:10px;background:var(--s2);padding:2px 6px;border-radius:4px">${esc(u.id)}</code>${u.id==='benjamin'&&canAssignBenaiLoginPseudo()?' <span style="opacity:.9">· pseudo à la connexion (Supabase) : bouton 🔑</span>':''}</div>
         <div class="user-role">${ROLE_LABELS[u.role]||u.role} · ${u.societe==='les-deux'?'Nemausus & Lambert':u.societe==='nemausus'?'Nemausus':'Lambert'}</div>
         ${(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general')?`<div style="font-size:10px;color:var(--t3)">🚐 Véhicule : ${esc(u.vehicule||'Non renseigné')}</div>`:''}
         <div style="font-size:10px;color:var(--t3)">${derniereConnexion?'Dernière connexion : '+derniereConnexion:'Jamais connecté'}</div>`;
@@ -5781,6 +5790,16 @@ function renderUsersList(){
       adm.style.cssText='font-size:10px;color:var(--t3)';
       adm.textContent='Admin';
       div.appendChild(adm);
+      if(canAssignBenaiLoginPseudo()){
+        const btnStyle='padding:4px 8px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit';
+        const idBtn=document.createElement('button');
+        idBtn.type='button';
+        idBtn.style.cssText=btnStyle+';background:var(--s2);color:var(--t1);border:1px solid var(--b1)';
+        idBtn.title='Choisir ton pseudo de connexion (email inchangé)';
+        idBtn.textContent='🔑';
+        idBtn.addEventListener('click',()=>void modifierBenaiLoginUid('benjamin'));
+        div.appendChild(idBtn);
+      }
     }
     list.appendChild(div);
   });
