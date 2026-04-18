@@ -1500,8 +1500,8 @@ input[type=file]{display:none;}
             <!-- SUIVI + COMMENTAIRE -->
             <div class="lead-modal-section">
               <div class="form-row">
-                <div class="form-group"><div class="form-label">Suivi</div><input type="text" class="form-input" id="lead-suivi" placeholder="Budget 500€, Assurance expert..."></div>
-                <div class="form-group"><div class="form-label">Ajouter une action</div>
+                <div class="form-group" style="flex:1;min-width:0"><div class="form-label">Suivi</div><input type="text" class="form-input" id="lead-suivi" placeholder="Budget 500€, Assurance expert..."></div>
+                <div class="form-group" id="lead-action-wrap" style="flex:1;min-width:0;display:none"><div class="form-label">Ajouter une action</div>
                   <input type="text" class="form-input" id="lead-action" placeholder="Ex: Appel effectué, mail envoyé..." onkeydown="if(event.key==='Enter'){addLeadAction();event.preventDefault();}">
                 </div>
               </div>
@@ -9133,6 +9133,10 @@ const ROLE_PAGES={
 function isCRMScopePilotageRole(role){
   return role==='directeur_co'||role==='directeur_general';
 }
+/** Timeline complète de la fiche lead : admin + direction uniquement (pas les commerciaux). */
+function canViewLeadFullTimeline(){
+  return currentUser?.role==='admin'||isCRMScopePilotageRole(currentUser?.role);
+}
 
 function getLeads(){
   if(!Array.isArray(runtimeLeadsState))runtimeLeadsState=[];
@@ -9762,7 +9766,8 @@ function renderLeadCard(l,role){
   const dernAction=l.timeline?.length?l.timeline[l.timeline.length-1]:null;
   const rdvDone=getLeadRdvDoneCount(l);
   const rdvClientDone=getClientRdvDoneCount(l);
-  const dernContact=dernAction?`<div style="font-size:10px;color:var(--t2);margin-top:3px">🕐 ${dernAction.date} — ${esc(dernAction.action)}</div>`:'';
+  const showHistSnippet=canViewLeadFullTimeline();
+  const dernContact=showHistSnippet&&dernAction?`<div style="font-size:10px;color:var(--t2);margin-top:3px">🕐 ${dernAction.date} — ${esc(dernAction.action)}</div>`:'';
   return `<div class="lead-card statut-${l.statut}${alerte?' alerte24':''}${isLeadCrmArchivedView(l)?';opacity:.6':''}" onclick="openLead(${l.id})" style="position:relative">
     ${alerte?'<div class="lead-alerte" style="position:absolute;top:10px;right:10px">⏰ Alerte</div>':''}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
@@ -10505,6 +10510,8 @@ function openNewLead(){
   fillCommercialAssign();fillProjetsSuggestions();
   document.getElementById('btn-delete-lead').style.display='none';
   document.getElementById('lead-timeline').style.display='none';
+  const actWrapNew=document.getElementById('lead-action-wrap');
+  if(actWrapNew)actWrapNew.style.display=canViewLeadFullTimeline()?'block':'none';
   updateLeadSectorSignals();
   document.getElementById('lead-modal').classList.add('open');
 }
@@ -10572,6 +10579,8 @@ function openLead(id){
   if(commWrap)commWrap.style.display=(role==='admin'||isCRMScopePilotageRole(role))?'block':'none';
   fillCommercialAssign(l.commercial);
   fillProjetsSuggestions();
+  const actWrap=document.getElementById('lead-action-wrap');
+  if(actWrap)actWrap.style.display=canViewLeadFullTimeline()?'block':'none';
   // Suppression — Benjamin uniquement
   document.getElementById('btn-delete-lead').style.display=currentUser.id==='benjamin'?'block':'none';
   // Commercial supprimé : conserver l’uid sur le lead pour l’historique (libellé via resolveCrmCommercialLabel)
@@ -10584,8 +10593,8 @@ function openLead(id){
     btnSave.textContent='Enregistrer';
     btnSave.onclick=()=>saveLead();
   }
-  // Timeline
-  if(l.timeline&&l.timeline.length>0){
+  // Timeline (réservée admin + dir. commercial + DG — pas les commerciaux)
+  if(canViewLeadFullTimeline()&&l.timeline&&l.timeline.length>0){
     document.getElementById('lead-timeline').style.display='block';
     document.getElementById('timeline-list').innerHTML=l.timeline.slice().reverse().map(t=>`
       <div class="timeline-item">
@@ -10597,6 +10606,7 @@ function openLead(id){
       </div>`).join('');
   } else {
     document.getElementById('lead-timeline').style.display='none';
+    document.getElementById('timeline-list').innerHTML='';
   }
   document.getElementById('lead-modal').classList.add('open');
   // Boutons contextuels
@@ -10693,6 +10703,7 @@ function formatTel(input){
 
 // AJOUTER ACTION MANUELLE
 function addLeadAction(){
+  if(!canViewLeadFullTimeline())return;
   const input=document.getElementById('lead-action');
   const txt=input?.value.trim();if(!txt||!currentLeadId)return;
   const leads=getLeads();
