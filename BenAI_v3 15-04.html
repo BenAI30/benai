@@ -14,7 +14,7 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
-html{color-scheme:light;}
+/* color-scheme défini en JS (applyTheme) : clair par défaut, sombre seulement si choisi explicitement */
 :root{
   --bg:#080808;--s1:#101010;--s2:#161616;--s3:#1E1E1E;--b1:#242424;--b2:#2E2E2E;
   --t1:#F2EFE8;--t2:#A8A49C;--t3:#5A5650;
@@ -351,6 +351,9 @@ body.light{--bg:#F5F5F0;--s1:#FFFFFF;--s2:#F0EFE9;--s3:#E8E7E0;--b1:#D8D6CE;--b2
 body.light .login-box{background:#fff;border-color:#E0DDD5;}
 body.light .msg.ai .bubble{background:#fff;border-color:#E0DDD5;}
 body.light .bubble{color:var(--t1);}
+.settings-theme-btn{padding:8px 14px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid var(--b1);background:var(--s3);color:var(--t2);transition:.12s;}
+.settings-theme-btn:hover{border-color:var(--a);color:var(--a);}
+.settings-theme-btn.active{background:var(--a3);border-color:var(--a);color:var(--a);}
 /* (Ancien accordéon dashboard admin → blocs <details> partagés avec .crm-dash-grp) */
 /* NOTIFICATION POPUP */
 .notif-popup{position:fixed;top:60px;right:12px;width:340px;background:var(--s1);border:2px solid var(--a);border-radius:16px;box-shadow:0 12px 48px rgba(0,0,0,.6);z-index:9998;overflow:hidden;display:none;}
@@ -820,7 +823,11 @@ input[type=file]{display:none;}
     <div class="sp-title">⚙️ Paramètres <button onclick="toggleSettings()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px">✕</button></div>
     <div class="sp-section">
       <div class="sp-label">Affichage</div>
-      <div style="font-size:12px;color:var(--t2);line-height:1.5;padding:9px 11px;background:var(--s3);border:1px solid var(--b1);border-radius:8px">☀️ <strong>Mode clair</strong> appliqué en permanence, y compris si Windows ou macOS est en thème sombre.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <button type="button" class="settings-theme-btn" id="settings-theme-light" onclick="setThemeChoice('light')">☀️ Clair</button>
+        <button type="button" class="settings-theme-btn" id="settings-theme-dark" onclick="setThemeChoice('dark')">🌙 Sombre</button>
+      </div>
+      <div style="font-size:11px;color:var(--t3);line-height:1.5;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px">Le thème du système (Windows, macOS, navigateur) n’est <strong>pas</strong> suivi automatiquement : tant que vous n’avez pas choisi <strong>Sombre</strong>, BenAI reste en <strong>mode clair</strong>.</div>
     </div>
     <div class="sp-section" id="tuto-settings-section" style="display:none">
       <div class="sp-label">Aide</div>
@@ -1845,6 +1852,7 @@ const APP_STORAGE_CLOUD_EXACT_ALLOWLIST=new Set([
   'benai_evol_votes',
   'benai_evol_dismissed',
   'benai_extra_users',
+  'benai_commercial_archives',
   'benai_hidden_users',
   'benai_name_overrides',
   'benai_patterns',
@@ -7672,6 +7680,50 @@ function unhideUserId(uid){
   const hidden=getHiddenUserIds().filter(h=>normalizeId(h)!==normalized);
   saveHiddenUserIds(hidden);
 }
+
+function getCommercialArchives(){
+  try{return JSON.parse(appStorage.getItem('benai_commercial_archives'))||[];}catch(e){return[];}
+}
+function saveCommercialArchives(list){
+  appStorage.setItem('benai_commercial_archives',JSON.stringify(Array.isArray(list)?list:[]));
+  scheduleAppStoragePersist();
+}
+function getCommercialArchiveByUid(uid){
+  const n=normalizeId(uid);
+  return getCommercialArchives().find(a=>normalizeId(a.id)===n)||null;
+}
+/** Conserve nom / société / couleur pour l’historique CRM après suppression d’un commercial. */
+function archiveCommercialUserSnapshot(u){
+  if(!u||normalizeId(u.id)==='benjamin')return;
+  if(String(u.role||'')!=='commercial')return;
+  const id=String(u.id||'').trim();
+  if(!id)return;
+  const list=getCommercialArchives().filter(a=>normalizeId(a.id)!==normalizeId(id));
+  list.push({
+    id,
+    name:String(u.name||id).trim()||id,
+    role:'commercial',
+    societe:u.societe||'',
+    vehicule:u.vehicule||'',
+    color:u.color||'linear-gradient(135deg,#888,#555)',
+    initial:String(u.initial||'?').slice(0,2),
+    deletedAt:Date.now()
+  });
+  saveCommercialArchives(list);
+}
+/** Libellé affichage / export : utilisateur actif ou entrée d’archive « (compte supprimé) ». */
+function resolveCrmCommercialLabel(uid){
+  if(uid==null||uid==='')return'—';
+  const live=getAllUsers().find(u=>u.id===uid||normalizeId(u.id)===normalizeId(uid));
+  if(live)return String(live.name||live.id||'').trim()||String(uid);
+  const arch=getCommercialArchiveByUid(uid);
+  if(arch){
+    const nm=String(arch.name||arch.id||'').trim()||String(uid);
+    return`${nm} (compte supprimé)`;
+  }
+  return String(uid);
+}
+
 async function syncExtraUsersFromSupabaseProfiles(){
   if(!currentUser||currentUser.role!=='admin')return false;
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
@@ -7864,7 +7916,12 @@ async function supprimerUtilisateur(uid){
   const u=findUserById(uid)||findUserById(normalizeId(uid));
   if(!u){await benaiAlert('Utilisateur introuvable.');return;}
   const effectiveId=u.id;
-  if(!await benaiConfirm(`Supprimer ${u.name||effectiveId} définitivement ? Cette action est irréversible.`))return;
+  const isCommercial=String(u.role||'')==='commercial';
+  const confirmMsg=isCommercial
+    ?`Supprimer ${u.name||effectiveId} définitivement ?\n\nSon compte et ses accès seront retirés, mais les leads et objectifs CRM déjà associés à son identifiant resteront pour l’historique et les exports (nom affiché : « … (compte supprimé) »).`
+    :`Supprimer ${u.name||effectiveId} définitivement ? Cette action est irréversible.`;
+  if(!await benaiConfirm(confirmMsg))return;
+  if(isCommercial)archiveCommercialUserSnapshot(u);
   const emailForCloud=(u.email||getEmailCandidateForUid(effectiveId,'')||'').trim().toLowerCase();
   let remoteDeleted=false;
   const remoteRes=await deleteSupabaseUserProvisioning({
@@ -8263,16 +8320,41 @@ function toggleSettings(){
   if(!isOpen)initSettings();
 }
 
-/** Thème toujours clair (ignore benai_theme et le réglage « sombre » du système). */
+const THEME_STORAGE_KEY='benai_theme';
+/** « dark » uniquement si choisi explicitement ; tout le reste → clair (pas de suivi du thème système). */
+function getStoredThemeChoice(){
+  const v=String(appStorage.getItem(THEME_STORAGE_KEY)||'light').toLowerCase().trim();
+  return v==='dark'?'dark':'light';
+}
 function applyTheme(){
-  document.body.classList.add('light');
-  try{document.documentElement.style.setProperty('color-scheme','light');}catch(e){}
+  const mode=getStoredThemeChoice();
+  document.body.classList.toggle('light',mode==='light');
+  try{
+    document.documentElement.style.setProperty('color-scheme',mode==='dark'?'dark':'light');
+    const meta=document.querySelector('meta[name="theme-color"]');
+    if(meta)meta.setAttribute('content',mode==='dark'?'#101010':'#E8943A');
+  }catch(e){}
+}
+function setThemeChoice(mode){
+  const normalized=String(mode||'').toLowerCase()==='dark'?'dark':'light';
+  appStorage.setItem(THEME_STORAGE_KEY,normalized);
+  scheduleAppStoragePersist();
+  applyTheme();
+  syncSettingsThemeButtons();
+}
+function syncSettingsThemeButtons(){
+  const mode=getStoredThemeChoice();
+  const bL=document.getElementById('settings-theme-light');
+  const bD=document.getElementById('settings-theme-dark');
+  if(bL)bL.classList.toggle('active',mode==='light');
+  if(bD)bD.classList.toggle('active',mode==='dark');
 }
 
 function initSettings(){
   const isAdmin=currentUser?.role==='admin';
   document.getElementById('api-settings').style.display=isAdmin?'block':'none';
   applyTheme();
+  syncSettingsThemeButtons();
   if(isAdmin){
     renderTeamPwdSettings();
     const apiMsg=document.getElementById('api-msg');
@@ -8303,7 +8385,7 @@ function initSettings(){
 }
 
 function setTheme(){
-  applyTheme();
+  setThemeChoice(getStoredThemeChoice());
 }
 
 async function changerMonMdp(){
@@ -9630,7 +9712,7 @@ function dispatchLead(id){
 function renderLeadCardAssistante(l){
   const srcIcon=LEAD_SOURCE_ICONS[l.source]||'📋';
   const age=getLeadAge(l);
-  const comm=getAllUsers().find(u=>u.id===l.commercial);
+  const commLabel=l.commercial?resolveCrmCommercialLabel(l.commercial):'';
   // Infos RDV/rappel
   let rdvInfo='';
   if(l.rappel&&l.sous_statut==='rdv_programme'){
@@ -9649,8 +9731,8 @@ function renderLeadCardAssistante(l){
     <div style="font-size:13px;font-weight:700;color:var(--a);margin-bottom:3px">${esc(l.type_projet||'—')}</div>
     <div class="lead-info">${esc(l.ville||'')}</div>
     <div class="lead-meta" style="margin-top:6px;gap:8px">
-      ${comm
-        ?`<span style="background:var(--a3);color:var(--a);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">👤 ${esc(comm.name)}</span>`
+      ${l.commercial
+        ?`<span style="background:var(--a3);color:var(--a);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">👤 ${esc(commLabel)}</span>`
         :'<span style="background:var(--y2);color:var(--y);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⏳ En attente d\'attribution</span>'}
       ${makeLeadCallLink(l.id,l.telephone)}
     </div>
@@ -9669,7 +9751,7 @@ function getLeadSecteurLabel(secteur){
 function renderLeadCard(l,role){
   const alerte=isLeadAlerte(l);
   const age=getLeadAge(l);
-  const comm=getAllUsers().find(u=>u.id===l.commercial);
+  const commLabel=l.commercial?resolveCrmCommercialLabel(l.commercial):'';
   const secteurLabel=getLeadSecteurLabel(l.secteur);
   const statLabel=STATUT_LABELS[l.statut]||'🔵 Non traité';
   const statCls=STATUT_CLS[l.statut]||'ls-gris';
@@ -9693,7 +9775,7 @@ function renderLeadCard(l,role){
     <div class="lead-meta" style="margin-top:5px">
       <span class="lead-statut ${statCls}">${statLabel}</span>
       <span class="lead-secteur">${secteurLabel}</span>
-      ${comm?`<span class="lead-commercial">${esc(comm.name)}</span>`:''}
+      ${l.commercial?`<span class="lead-commercial">${esc(commLabel)}</span>`:''}
       ${rdvClientDone>0?`<span style="background:var(--g2);color:var(--g);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">📅 ${rdvClientDone} RDV client</span>`:''}
       ${rdvDone>0&&rdvDone!==rdvClientDone?`<span style="background:var(--s3);color:var(--t2);padding:2px 7px;border-radius:10px;font-size:10px">fiche: ${rdvDone}</span>`:''}
       ${vuInfo}
@@ -9862,7 +9944,26 @@ function renderLeadsDashboard(){
   const month=now.getMonth();const year=now.getFullYear();
   const leadsMonth=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getMonth()===month&&d.getFullYear()===year;});
   const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
-  const commerciauxObj=dashCommercial?commerciaux.filter(c=>normalizeId(c.id)===normalizeId(currentUser.id)):commerciaux;
+  let commerciauxObj=dashCommercial?commerciaux.filter(c=>normalizeId(c.id)===normalizeId(currentUser.id)):commerciaux.slice();
+  if(!dashCommercial){
+    const activeIds=new Set(commerciaux.map(c=>normalizeId(c.id)));
+    const objKeys=new Set(Object.keys(getObjectifsCommerciaux()).map(normalizeId));
+    getCommercialArchives().forEach(a=>{
+      const idN=normalizeId(a.id);
+      if(!idN||activeIds.has(idN))return;
+      if(!objKeys.has(idN))return;
+      commerciauxObj.push({
+        id:a.id,
+        name:`${String(a.name||a.id).trim()} (compte supprimé)`,
+        role:'commercial',
+        societe:a.societe||'',
+        vehicule:a.vehicule||'',
+        color:a.color||'linear-gradient(135deg,#888,#555)',
+        initial:a.initial||'?',
+        _archivedCommercial:true
+      });
+    });
+  }
   const secteurs=[
     {id:'nimes',label:'Nîmes',color:'var(--a)'},
     {id:'avignon',label:'Avignon',color:'var(--bl)'},
@@ -9891,8 +9992,8 @@ function renderLeadsDashboard(){
     html+=`<div class="secteur-card" style="border-color:var(--r);margin-bottom:12px">
       <div class="secteur-title" style="color:var(--r)">🚨 Alertes à traiter (${rapportHead.total})</div>
       ${rapportHead.nonAttrib.length?`<div style="margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--y)">⚠️ ${rapportHead.nonAttrib.length} lead(s) non attribué(s)</span>${rapportHead.nonAttrib.map(l=>`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} (${getLeadAge(l)})</div>`).join('')}</div>`:''}
-      ${rapportHead.nonOuverts.length?`<div style="margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--r)">👁️ ${rapportHead.nonOuverts.length} lead(s) non ouvert(s) par le commercial</span>${rapportHead.nonOuverts.map(l=>{const c=getAllUsers().find(u=>u.id===l.commercial);return`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} → ${esc(c?.name||'?')} (${getLeadAge(l)})</div>`;}).join('')}</div>`:''}
-      ${rapportHead.enRetard.length?`<div><span style="font-size:11px;font-weight:700;color:var(--r)">⏰ ${rapportHead.enRetard.length} lead(s) sans action +24h</span>      ${rapportHead.enRetard.map(l=>{const c=getAllUsers().find(u=>u.id===l.commercial);return`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} → ${esc(c?.name||'?')}</div>`;}).join('')}</div>`:''}
+      ${rapportHead.nonOuverts.length?`<div style="margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--r)">👁️ ${rapportHead.nonOuverts.length} lead(s) non ouvert(s) par le commercial</span>${rapportHead.nonOuverts.map(l=>`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} → ${esc(resolveCrmCommercialLabel(l.commercial))} (${getLeadAge(l)})</div>`).join('')}</div>`:''}
+      ${rapportHead.enRetard.length?`<div><span style="font-size:11px;font-weight:700;color:var(--r)">⏰ ${rapportHead.enRetard.length} lead(s) sans action +24h</span>      ${rapportHead.enRetard.map(l=>`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} → ${esc(resolveCrmCommercialLabel(l.commercial))}</div>`).join('')}</div>`:''}
     </div>`;
   }
   if(dashPilotage){
@@ -10127,10 +10228,9 @@ function renderLeadsDashboard(){
     html+=`<div style="font-size:12px;color:var(--t3)">Aucune vente ce mois.</div>`;
   } else {
     html+=ranking.map((r,i)=>{
-      const u=getAllUsers().find(x=>x.id===r.uid);
       return `<div class="perf-row">
         <div style="width:24px;text-align:center;font-weight:800;color:${i===0?'var(--g)':'var(--t2)'}">${i+1}</div>
-        <div class="perf-name">${esc(u?.name||r.uid)}</div>
+        <div class="perf-name">${esc(resolveCrmCommercialLabel(r.uid))}</div>
         <div class="perf-stats">${r.ventes} vente(s)</div>
         <div class="perf-ca">${r.ca.toLocaleString('fr-FR')}€</div>
       </div>`;
@@ -10230,7 +10330,7 @@ function renderLeadsDashboard(){
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <div style="width:28px;height:28px;border-radius:8px;background:${c.color};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff">${c.initial}</div>
           <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(c.name)}</div><div style="font-size:10px;color:var(--t3)">${contacts.ce_mois} contacts ce mois · ${contacts.cette_semaine} cette semaine${c.vehicule?` · 🚐 ${esc(c.vehicule)}`:''}</div></div>
-          ${(currentUser.role==='admin'||isCRMScopePilotageRole(currentUser.role))?`<button onclick="editObjectifCommercial('${c.id}','${esc(c.name)}')" style="background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
+          ${!c._archivedCommercial&&(currentUser.role==='admin'||isCRMScopePilotageRole(currentUser.role))?`<button onclick="editObjectifCommercial('${c.id}','${esc(c.name)}')" style="background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
         </div>
         <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Mensuel (${moisHuman}) — ${prog.ca_mois.toLocaleString('fr-FR')}€ / ${prog.obj.mensuel.toLocaleString('fr-FR')}€ · ${prog.ventes_mois} ventes</div>
         <div class="objectif-bar" style="margin-bottom:6px"><div class="objectif-bar-fill" style="width:${pctMois}%;background:${pctMois>=100?'var(--g)':pctMois>=75?'var(--a)':'var(--r)'}"></div></div>
@@ -10474,12 +10574,7 @@ function openLead(id){
   fillProjetsSuggestions();
   // Suppression — Benjamin uniquement
   document.getElementById('btn-delete-lead').style.display=currentUser.id==='benjamin'?'block':'none';
-  // Lead orphelin (commercial supprimé) → remettre en attente d'attribution
-  if(l.commercial&&!getAllUsers().find(u=>u.id===l.commercial)){
-    const idx2=leads.findIndex(x=>x.id===id);
-    if(idx2!==-1){leads[idx2].commercial=null;saveLeads(leads);}
-    showDriveNotif('⚠️ Commercial introuvable — lead remis en attente');
-  }
+  // Commercial supprimé : conserver l’uid sur le lead pour l’historique (libellé via resolveCrmCommercialLabel)
   // Bouton réouvrir si archivé (manuel) ou hors année en cours
   const btnSave=document.getElementById('btn-save-lead');
   if(isLeadCrmArchivedView(l)&&btnSave){
@@ -10736,8 +10831,7 @@ async function saveLead(){
         }
       }
       if(old.commercial!==data.commercial&&data.commercial){
-        const newComm=getAllUsers().find(u=>u.id===data.commercial);
-        addLeadTimelineEntry(old,`Attribué à ${newComm?.name||data.commercial}`,currentUser.name);
+        addLeadTimelineEntry(old,`Attribué à ${resolveCrmCommercialLabel(data.commercial)}`,currentUser.name);
         // Notifier le commercial
         pushLeadCrmNotif('Lead attribué',`${nom} — ${projet}`,LEAD_SOURCE_ICONS[data.source]||'📋',data.commercial);
       }
@@ -10792,8 +10886,7 @@ async function saveLead(){
       });
     }
     if(newLead.commercial){
-      const c=getAllUsers().find(u=>u.id===newLead.commercial);
-      addLeadTimelineEntry(newLead,`Attribué à ${c?.name||newLead.commercial}`,currentUser.name);
+      addLeadTimelineEntry(newLead,`Attribué à ${resolveCrmCommercialLabel(newLead.commercial)}`,currentUser.name);
     }
     const dirsLead=getDirecteursConcernedByLead(newLead);
     const leadSrcIcon=LEAD_SOURCE_ICONS[effectiveSource]||LEAD_SOURCE_ICONS[data.source]||'📋';
@@ -10986,10 +11079,14 @@ function findHistoricalLeadByIdentity(nom,adresse,cp,currentId){
 function getCommercialHistoryProposal(lead){
   if(!lead?.commercial)return null;
   const user=getAllUsers().find(u=>u.id===lead.commercial);
-  if(!user)return null;
-  const access=getAccess();
-  const isActive=access[lead.commercial]!==false;
-  return {id:user.id,name:user.name,isActive};
+  if(user){
+    const access=getAccess();
+    const isActive=access[lead.commercial]!==false;
+    return{id:user.id,name:user.name,isActive};
+  }
+  const arch=getCommercialArchiveByUid(lead.commercial);
+  if(arch)return{id:arch.id,name:arch.name,isActive:false};
+  return{id:lead.commercial,name:String(lead.commercial),isActive:false};
 }
 
 function detectSecteurByCP(cp){
@@ -11043,7 +11140,11 @@ function fillCommercialAssign(selected=''){
     }
     return true;
   });
-  sel.innerHTML='<option value="">⏳ Non attribué</option>'+users.map(c=>`<option value="${c.id}"${c.id===selected?' selected':''}>${esc(c.name)} (${c.role==='directeur_co'?'Dir.co':c.role==='directeur_general'?'Dir. général':'Commercial'})</option>`).join('');
+  let opts='<option value="">⏳ Non attribué</option>'+users.map(c=>`<option value="${c.id}"${c.id===selected?' selected':''}>${esc(c.name)} (${c.role==='directeur_co'?'Dir.co':c.role==='directeur_general'?'Dir. général':'Commercial'})</option>`).join('');
+  if(selected&&selected!==''&&!users.some(c=>c.id===selected)){
+    opts+=`<option value="${String(selected).replace(/"/g,'&quot;')}" selected>${esc(resolveCrmCommercialLabel(selected))}</option>`;
+  }
+  sel.innerHTML=opts;
 }
 
 // ALERTES & RAPPELS
@@ -11175,7 +11276,6 @@ function exportLeadsExcel(){
   const leads=getCompanyScopedLeads(getLeads());
   const header=joinCsv(['Date','Source','Nom','Téléphone','Ville','CP','Projet','Statut','Commercial','Secteur','Devis (€)','CA (€)','Suivi','Commentaire'])+'\n';
   const rows=leads.map(l=>{
-    const comm=getAllUsers().find(u=>u.id===l.commercial);
     return joinCsv([
       new Date(l.date_creation||0).toLocaleDateString('fr-FR'),
       l.source||'',
@@ -11185,7 +11285,7 @@ function exportLeadsExcel(){
       l.cp||'',
       csv(l.type_projet),
       csv(getLeadStatutPlainLabel(l.statut)),
-      csv(comm?.name||''),
+      csv(resolveCrmCommercialLabel(l.commercial)),
       csv(getLeadSecteurLabel(l.secteur)),
       l.montant_devis||'',
       l.prix_vendu||'',
@@ -11261,7 +11361,6 @@ function buildCRMExportBundles(){
 
   const leadsHeader=joinCsv(['Date','Source','Nom','Téléphone','Ville','CP','Projet','Statut','Commercial','Secteur','Hors secteur','Zone blanche','Devis (€)','CA (€)','Suivi','Commentaire'])+'\n';
   const leadsRows=actifs.map(l=>{
-    const comm=getAllUsers().find(u=>u.id===l.commercial);
     return joinCsv([
       new Date(l.date_creation||0).toLocaleDateString('fr-FR'),
       l.source||'',
@@ -11271,7 +11370,7 @@ function buildCRMExportBundles(){
       l.cp||'',
       csv(l.type_projet),
       csv(getLeadStatutPlainLabel(l.statut)),
-      csv(comm?.name||''),
+      csv(resolveCrmCommercialLabel(l.commercial)),
       csv(getLeadSecteurLabel(l.secteur)),
       l.hors_secteur?'Oui':'Non',
       (l.zone_blanche||l.secteur==='zone_blanche')?'Oui':'Non',
@@ -11284,8 +11383,7 @@ function buildCRMExportBundles(){
 
   const ventesHeader=joinCsv(['Mois','Source','Commercial','Client','Téléphone','Ville','Produit','HT (€)','Date signature'])+'\n';
   const ventesRows=salesMonth.map(l=>{
-    const comm=getAllUsers().find(u=>u.id===l.commercial);
-    return joinCsv([currentMonth,l.source||'',csv(comm?.name||''),csv(l.nom),csv(l.telephone),csv(l.ville),csv(l.produit_vendu||l.type_projet),l.prix_vendu||'',l.date_signature||'']);
+    return joinCsv([currentMonth,l.source||'',csv(resolveCrmCommercialLabel(l.commercial)),csv(l.nom),csv(l.telephone),csv(l.ville),csv(l.produit_vendu||l.type_projet),l.prix_vendu||'',l.date_signature||'']);
   }).join('\n');
 
   const secteurHeader=joinCsv(['Secteur','Leads actifs','Ventes','CA signé (€)','Devis en cours','Pipeline devis (€)'])+'\n';
@@ -11302,8 +11400,7 @@ function buildCRMExportBundles(){
   const ranking=getCommercialRankingMonth(actifs);
   const rankHeader=joinCsv(['Mois','Rang','Commercial','Ventes','CA signé (€)'])+'\n';
   const rankRows=ranking.map((r,i)=>{
-    const u=getAllUsers().find(x=>x.id===r.uid);
-    return joinCsv([currentMonth,i+1,csv(u?.name||r.uid),r.ventes,r.ca]);
+    return joinCsv([currentMonth,i+1,csv(resolveCrmCommercialLabel(r.uid)),r.ventes,r.ca]);
   }).join('\n');
 
   const lost=getLeadLostAnalytics(leadsMonth);
@@ -12033,7 +12130,6 @@ function renderTableauVentes(container){
           <th style="padding:7px 10px;text-align:right;color:var(--t3);font-size:10px;text-transform:uppercase">${thPrix}</th>
         </tr></thead>`;
   const tbody=leadsFiltered.map(l=>{
-    const comm=getAllUsers().find(u=>u.id===l.commercial);
     if(ventesTableCommercialOnly){
       return`<tr style="border-top:1px solid var(--b1)">
               <td style="padding:8px 10px;font-weight:500">${esc(l.nom)}</td>
@@ -12043,7 +12139,7 @@ function renderTableauVentes(container){
     }
     return`<tr style="border-top:1px solid var(--b1)">
               <td style="padding:8px 10px">${srcIcons2[l.source]||'📋'}</td>
-              <td style="padding:8px 10px;font-weight:500">${esc(comm?.name||'—')}</td>
+              <td style="padding:8px 10px;font-weight:500">${esc(resolveCrmCommercialLabel(l.commercial))}</td>
               <td style="padding:8px 10px">${esc(l.nom)}</td>
               <td style="padding:8px 10px;color:var(--t2)">${esc(l.produit_vendu||l.type_projet||'—')}</td>
               <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--g)">${Number(l.prix_vendu||0).toLocaleString('fr-FR')}</td>
@@ -12095,8 +12191,7 @@ function exportTableauVentes(){
   const filtered=selectedMois?leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;}):leads;
   const header=joinCsv(['Source','Commercial','Client','Téléphone','Ville','Produit','Prix vente HT (€)','Date signature'])+'\n';
   const rows=filtered.map(l=>{
-    const comm=getAllUsers().find(u=>u.id===l.commercial);
-    return joinCsv([l.source||'',csv(comm?.name||''),csv(l.nom),csv(l.telephone),csv(l.ville),csv(l.produit_vendu||l.type_projet),l.prix_vendu||'',l.date_signature||'']);
+    return joinCsv([l.source||'',csv(resolveCrmCommercialLabel(l.commercial)),csv(l.nom),csv(l.telephone),csv(l.ville),csv(l.produit_vendu||l.type_projet),l.prix_vendu||'',l.date_signature||'']);
   }).join('\n');
   downloadCsv(`Ventes_${selectedMois||'export'}.csv`,header+rows);
 }
@@ -12675,8 +12770,9 @@ window.addEventListener('load',async()=>{
   initManifestAndIcons();
   registerBenAISW();
   refreshInstallButton();
-  // Thème
+  // Thème (clair par défaut ; sombre seulement si benai_theme === 'dark')
   applyTheme();
+  syncSettingsThemeButtons();
   // Clé API : configuration centralisée côté admin dans Paramètres
   await maybeMigratePwds();
   // Charger utilisateurs extra avec leur vrai rôle
