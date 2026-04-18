@@ -1090,6 +1090,8 @@ input[type=file]{display:none;}
             <div id="activity-wrap" class="accordion-body"><div id="activity-list" style="margin-top:8px"><div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div></div></div>
             <div class="dc-label accordion-header" onclick="toggleAccordion('connexions-wrap')" style="margin-top:8px">🔐 Historique connexions <span class="accordion-arrow">▾</span></div>
             <div id="connexions-wrap" class="accordion-body collapsed"><div id="connexions-list" style="margin-top:8px"></div></div>
+            <div class="dc-label accordion-header" onclick="toggleAccordion('mobile-usage-wrap')" style="margin-top:8px">📱 Appareils (téléphone / PWA) <span class="accordion-arrow">▾</span></div>
+            <div id="mobile-usage-wrap" class="accordion-body collapsed"><div id="mobile-usage-list" style="margin-top:8px"></div></div>
             <div class="dc-label accordion-header" onclick="toggleAccordion('deletions-wrap')" style="margin-top:8px">🗑️ Journal des suppressions <span class="accordion-arrow">▾</span></div>
             <div id="deletions-wrap" class="accordion-body collapsed"><div id="deletions-list" style="margin-top:8px"></div></div>
             <div class="dc-label accordion-header" style="margin-top:10px" onclick="toggleAccordion('connexions-history-wrap')">🧾 Historique connexions (legacy) <span class="accordion-arrow">▾</span></div>
@@ -4093,8 +4095,14 @@ async function forgotPassword(){
 function logConnexion(uid){
   try{
     const key='benai_connexions';
+    const surf=detectBenAIClientSurface();
     const logs=JSON.parse(appStorage.getItem(key)||'[]');
-    logs.unshift({uid,date:new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})});
+    logs.unshift({
+      uid,
+      date:new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+      mobile:surf.mobile,
+      pwa:surf.pwa
+    });
     if(logs.length>200)logs.splice(200);
     appStorage.setItem(key,JSON.stringify(logs));
   }catch(e){}
@@ -6735,6 +6743,7 @@ function refreshAdmin(){
   }
   // Historique connexions
   renderConnexionsHistory();
+  renderMobileUsageSummary();
   // Journal suppressions
   renderDeletionsList();
 }
@@ -7240,6 +7249,50 @@ function toggleAccess(uid){
   logActivity(`Benjamin a ${access[uid]===false?'bloqué':'réactivé'} l'accès de ${uid}`);
 }
 
+function getLatestConnexionHintsByUid(){
+  try{
+    const logs=JSON.parse(appStorage.getItem('benai_connexions')||'[]');
+    if(!Array.isArray(logs))return{};
+    const out={};
+    for(let i=0;i<logs.length;i++){
+      const l=logs[i];
+      if(!l||!l.uid)continue;
+      if(out[l.uid])continue;
+      out[l.uid]={date:l.date||'',mobile:!!l.mobile,pwa:!!l.pwa};
+    }
+    return out;
+  }catch{
+    return{};
+  }
+}
+
+function renderMobileUsageSummary(){
+  const el=document.getElementById('mobile-usage-list');
+  if(!el)return;
+  const hints=getLatestConnexionHintsByUid();
+  const users=getAllUsers().filter(u=>u&&u.id&&u.id!=='benai');
+  if(!users.length){
+    el.innerHTML='<div style="color:var(--t3);font-size:12px">Aucun utilisateur</div>';
+    return;
+  }
+  const rows=users.map(u=>{
+    const h=hints[u.id];
+    const mob=h?h.mobile:false;
+    const pwa=h?h.pwa:false;
+    const when=h&&h.date?h.date:'— pas encore dans l’historique —';
+    let label='Ordinateur / inconnu';
+    if(mob&&pwa)label='Mobile + mode installé (PWA)';
+    else if(mob)label='Navigateur mobile';
+    else if(pwa)label='Mode installé (PWA)';
+    return`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--b1);font-size:12px">
+      <span style="font-weight:600;min-width:130px">${esc(u.name)}</span>
+      <span style="color:var(--t2);flex:1;min-width:160px">${esc(label)}</span>
+      <span style="font-size:10px;color:var(--t3);white-space:nowrap">${esc(when)}</span>
+    </div>`;
+  }).join('');
+  el.innerHTML='<div style="font-size:10px;color:var(--t3);margin-bottom:10px;line-height:1.45">Chaque ligne reprend la <strong>dernière connexion enregistrée</strong> pour cet utilisateur (détection navigateur au login). Ce n’est pas une preuve absolue d’installation sur téléphone.</div>'+rows;
+}
+
 function renderConnexionsHistory(){
   const el=document.getElementById('connexions-list');if(!el)return;
   const logs=getConnexions().slice(0,20);
@@ -7253,7 +7306,10 @@ function renderConnexionsHistory(){
     av.style.cssText='width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;background:'+(u?u.color:'#555');
     av.textContent=u?u.initial:'?';
     const nm=document.createElement('div');nm.style.cssText='flex:1;font-size:12px;font-weight:500';nm.textContent=u?u.name:l.uid;
-    const rl=document.createElement('div');rl.style.cssText='font-size:10px;color:var(--t3)';rl.textContent=u?(ROLE_LABELS[u.role]||''):'';
+    const rl=document.createElement('div');rl.style.cssText='font-size:10px;color:var(--t3);min-width:100px;text-align:right;line-height:1.25';
+    const roleTxt=u?(ROLE_LABELS[u.role]||''):'';
+    const dev=(l.mobile?'📱':'')+(l.pwa?'📲':'')+(l.mobile||l.pwa?'':'💻');
+    rl.textContent=roleTxt+(roleTxt&&dev?' · ':'')+dev;
     const dt=document.createElement('div');dt.style.cssText='font-size:10px;color:var(--t3)';dt.textContent=l.date;
     d.append(av,nm,rl,dt);el.appendChild(d);
   });
@@ -8100,6 +8156,17 @@ function showDriveNotif(msg){
 
 function isStandaloneMode(){
   return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+}
+
+/** Indicatif au moment de la connexion (pas une preuve d’installation). */
+function detectBenAIClientSurface(){
+  const ua=(navigator.userAgent||'').toLowerCase();
+  const uaMob=/iphone|ipad|ipod|android|webos|blackberry|iemobile|opera mini|mobile/i.test(ua);
+  let narrow=false;
+  try{narrow=window.matchMedia('(max-width:768px)').matches;}catch{}
+  const mobile=!!(uaMob||narrow);
+  const pwa=!!isStandaloneMode();
+  return{mobile,pwa};
 }
 
 function canUseBenAIMobileApp(role=currentUser?.role){
