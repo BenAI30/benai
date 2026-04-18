@@ -9291,6 +9291,18 @@ function isCRMScopePilotageRole(role){
 function canViewLeadFullTimeline(){
   return currentUser?.role==='admin'||isCRMScopePilotageRole(currentUser?.role);
 }
+/** Création terrain, source ACTIF, auto-attribution : même logique que les commerciaux (+ dir. co / DG). */
+function isCrmSalesActorRole(role){
+  return role==='commercial'||role==='directeur_co'||role==='directeur_general';
+}
+/** Vérifie qu’un profil (commercial, dir. co…) peut porter un lead sur la société CRM du dossier. */
+function crmAssigneeCoversLeadSociete(user,leadSoc){
+  if(!user)return false;
+  const s=String(user.societe||'').trim().toLowerCase();
+  if(s==='les-deux')return true;
+  if(s==='lambert')return leadSoc==='lambert';
+  return leadSoc==='nemausus';
+}
 
 function getLeads(){
   if(!Array.isArray(runtimeLeadsState))runtimeLeadsState=[];
@@ -9684,12 +9696,12 @@ function initLeadsPage(){
   const filterSecteur=document.getElementById('crm-filter-secteur');
   const filterSociete=document.getElementById('crm-filter-societe');
 
-  // Bouton nouveau lead — assistante et commercial uniquement (pas directeur co)
-  btnNew.style.display=(role==='assistante'||role==='admin'||role==='commercial')?'flex':'none';
+  // Bouton nouveau lead — assistante, admin, commerciaux et direction terrain (dir. co / DG)
+  btnNew.style.display=(role==='assistante'||role==='admin'||isCrmSalesActorRole(role))?'flex':'none';
 
-  // Source ACTIF visible pour commerciaux uniquement
+  // Source ACTIF : commerciaux + dir. co / DG (création terrain comme un vendeur)
   const srcActif=document.getElementById('src-actif-btn');
-  if(srcActif)srcActif.style.display=role==='commercial'?'flex':'none';
+  if(srcActif)srcActif.style.display=isCrmSalesActorRole(role)?'flex':'none';
 
   // Filtres globaux réservés aux profils pilotage (admin / dir. co / dir. général).
   const canUseGlobalScopeFilters=(role==='admin'||isCRMScopePilotageRole(role));
@@ -9949,9 +9961,9 @@ function renderDispatchCard(l){
   const srcIcon=LEAD_SOURCE_ICONS[l.source]||'📋';
   const leadSoc=getLeadCRMCompany(l);
   const commerciaux=getAllUsers().filter(u=>{
-    if(!(u.role==='commercial'||u.role==='directeur_co'))return false;
+    if(!(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general'))return false;
     if(currentUser?.role==='admin')return true;
-    return u.societe===leadSoc||u.societe==='les-deux';
+    return crmAssigneeCoversLeadSociete(u,leadSoc);
   });
   const selectOptions=commerciaux.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   return `<div class="lead-card" style="border-left:4px solid var(--r);background:rgba(248,113,113,.05)">
@@ -9991,20 +10003,20 @@ function dispatchLead(id){
   const idx=leads.findIndex(l=>l.id===id);if(idx===-1)return;
   const l=leads[idx];
   if(!canAccessLeadByCompany(l)){showDriveNotif('🔒 Accès refusé pour cette société');return;}
-  const comm=getAllUsers().find(u=>u.id===commId);
+  const comm=findUserById(commId);
   if(!comm){showDriveNotif('⚠️ Commercial introuvable');return;}
   const leadSoc=getLeadCRMCompany(l);
-  if(currentUser?.role!=='admin'&&!(comm.societe===leadSoc||comm.societe==='les-deux')){
+  if(currentUser?.role!=='admin'&&!crmAssigneeCoversLeadSociete(comm,leadSoc)){
     showDriveNotif('⚠️ Ce profil n’appartient pas à la société du lead');
     return;
   }
   const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  leads[idx].commercial=commId;
+  leads[idx].commercial=comm.id;
   addLeadTimelineEntry(leads[idx],`Attribué à ${comm?.name||commId}`,currentUser.name);
   saveLeads(leads);
   renderLeads();
   refreshLeadsBadge();
-  pushLeadCrmNotif('📋 Lead assigné',`${l.nom} — ${l.type_projet}`,LEAD_SOURCE_ICONS[l.source]||'📋',commId);
+  pushLeadCrmNotif('📋 Lead assigné',`${l.nom} — ${l.type_projet}`,LEAD_SOURCE_ICONS[l.source]||'📋',comm.id);
   logActivity(`${currentUser.name} a attribué ${l.nom} à ${comm?.name}`);
   showDriveNotif(`✅ ${l.nom} attribué à ${comm?.name}`);
 }
@@ -11177,7 +11189,7 @@ async function saveLead(){
   if(!tel)missing.push('Téléphone');
   if(!projet)missing.push('Projet');
   if(!cp2)missing.push('Code postal');
-  if(currentUser?.role==='commercial'&&sectorState.outOfSector&&!justifHorsSecteur){
+  if(isCrmSalesActorRole(currentUser?.role)&&sectorState.outOfSector&&!justifHorsSecteur){
     missing.push('Justification hors secteur');
   }
   const raisonMort=document.getElementById('lead-raison-mort').value;
@@ -11199,7 +11211,7 @@ async function saveLead(){
   const now=new Date().toISOString();
   const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   const selectedCommercial=document.getElementById('lead-commercial-assign')?.value||null;
-  const defaultCommercial=currentUser?.role==='commercial'?currentUser.id:null;
+  const defaultCommercial=isCrmSalesActorRole(currentUser?.role)?currentUser.id:null;
   const assignedCommercial=currentLeadSource==='ACTIF'?currentUser.id:(selectedCommercial||defaultCommercial||null);
   const data={
     nom,telephone:tel,adresse,ville,cp:cp2,type_projet:projet,
@@ -11308,7 +11320,7 @@ async function saveLead(){
     const dirsLead=getDirecteursConcernedByLead(newLead);
     const leadSrcIcon=LEAD_SOURCE_ICONS[effectiveSource]||LEAD_SOURCE_ICONS[data.source]||'📋';
     const srcHuman=LEAD_SOURCE_LABELS[effectiveSource]||LEAD_SOURCE_LABELS[data.source]||String(effectiveSource||data.source||'');
-    if(currentUser?.role==='commercial'&&dirsLead.length){
+    if(isCrmSalesActorRole(currentUser?.role)&&dirsLead.length){
       dirsLead.forEach(u=>{
         pushLeadCrmNotif('Nouveau lead équipe',`${nom} — ${projet} · ${srcHuman} · Par ${currentUser.name}`,leadSrcIcon,u.id);
       });
@@ -11566,15 +11578,21 @@ function fillCommercialFilter(){
 function fillCommercialAssign(selected=''){
   const sel=document.getElementById('lead-commercial-assign');if(!sel)return;
   const users=getAllUsers().filter(u=>{
-    if(!(u.role==='commercial'||u.role==='directeur_co'))return false;
+    if(!(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general'))return false;
     if(currentUser?.role==='admin')return true;
     if(isCRMScopePilotageRole(currentUser?.role)){
-      return currentUser.societe==='les-deux'||u.societe===currentUser.societe||u.societe==='les-deux';
+      const cs=String(currentUser.societe||'').trim().toLowerCase();
+      const us=String(u.societe||'').trim().toLowerCase();
+      if(cs==='les-deux')return true;
+      if(us==='les-deux')return true;
+      if(cs==='lambert')return us==='lambert';
+      return us!=='lambert';
     }
     return true;
   });
-  let opts='<option value="">⏳ Non attribué</option>'+users.map(c=>`<option value="${c.id}"${c.id===selected?' selected':''}>${esc(c.name)} (${c.role==='directeur_co'?'Dir.co':c.role==='directeur_general'?'Dir. général':'Commercial'})</option>`).join('');
-  if(selected&&selected!==''&&!users.some(c=>c.id===selected)){
+  const selN=selected?normalizeId(String(selected)):'';
+  let opts='<option value="">⏳ Non attribué</option>'+users.map(c=>`<option value="${c.id}"${selN&&normalizeId(String(c.id))===selN?' selected':''}>${esc(c.name)} (${c.role==='directeur_co'?'Dir.co':c.role==='directeur_general'?'Dir. général':'Commercial'})</option>`).join('');
+  if(selected&&selected!==''&&!users.some(c=>normalizeId(String(c.id))===selN)){
     opts+=`<option value="${String(selected).replace(/"/g,'&quot;')}" selected>${esc(resolveCrmCommercialLabel(selected))}</option>`;
   }
   sel.innerHTML=opts;
