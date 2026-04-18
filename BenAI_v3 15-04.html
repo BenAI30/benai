@@ -450,6 +450,24 @@ body.light .bubble{color:var(--t1);}
 .perf-name{flex:1;font-size:13px;font-weight:500;}
 .perf-stats{font-size:11px;color:var(--t2);}
 .perf-ca{font-size:12px;font-weight:700;color:var(--g);}
+/* CRM dashboard — lisibilité */
+.crm-dash-wrap{max-width:920px;margin:0 auto;padding-bottom:8px;}
+.crm-dash-kicker{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin:20px 0 10px;padding:8px 12px;border-radius:10px;border:1px solid var(--b1);background:linear-gradient(135deg,var(--s3),var(--s2));}
+.crm-dash-kicker.k-ge{border-color:rgba(96,165,250,.35);}
+.crm-dash-kicker.k-pr{border-color:rgba(34,197,94,.35);}
+.crm-dash-kicker.k-ex{border-color:rgba(232,148,58,.4);}
+.crm-dash-grid-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;}
+.crm-dash-synth summary{cursor:pointer;list-style:none;font-size:13px;font-weight:600;color:var(--t1);display:flex;align-items:center;gap:8px;}
+.crm-dash-synth summary::-webkit-details-marker{display:none;}
+.crm-dash-synth summary::before{content:'▸';font-size:10px;color:var(--a);transition:transform .15s;}
+.crm-dash-synth[open] summary::before{transform:rotate(90deg);}
+.crm-ent-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:12px;}
+.crm-ent-card{border-radius:14px;padding:14px 16px;border:1px solid var(--b1);background:var(--s3);}
+.crm-evo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:10px;margin-top:6px;}
+.crm-evo-card{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:10px 12px;}
+.crm-evo-head{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px;font-weight:700;}
+.crm-evo-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:6px 2px;border-top:1px solid var(--b1);gap:6px;}
+.crm-evo-row:first-of-type{border-top:none;padding-top:2px;}
 /* SOURCE BUTTONS */
 .src-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--b1);background:var(--s3);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:.12s;}
 .src-btn:hover{border-color:var(--a);color:var(--a);}
@@ -8456,8 +8474,31 @@ function saveLeads(l,sync=true){
     scheduleSupabaseSync(getMem(),getAnnuaire());
   }
 }
-function getLeadObjectifs(){try{return JSON.parse(appStorage.getItem('benai_lead_obj'))||{nimes:{leads:20,ca:50000},avignon:{leads:15,ca:40000}};}catch{return{nimes:{leads:20,ca:50000},avignon:{leads:15,ca:40000}};}}
-function saveLeadObjectifs(o){appStorage.setItem('benai_lead_obj',JSON.stringify(o));}
+/** Objectifs CRM par entreprise (CA HT mensuel courant uniquement — plus d’objectifs « secteur » ni leads). */
+function getCrmSocieteObjectifs(){
+  const base={nemausus:{caHT:80000},lambert:{caHT:50000}};
+  try{
+    const raw=JSON.parse(appStorage.getItem('benai_lead_obj'));
+    if(!raw||typeof raw!=='object')return{...base};
+    if(raw._crmSocV2&&raw.nemausus&&raw.lambert){
+      return{
+        nemausus:{caHT:Math.max(0,Number(raw.nemausus.caHT)||base.nemausus.caHT)},
+        lambert:{caHT:Math.max(0,Number(raw.lambert.caHT)||base.lambert.caHT)}
+      };
+    }
+    const nH=Math.round((Number(raw.nimes?.ca)||0)+(Number(raw.avignon?.ca)||0)+(Number(raw.bagnoles?.ca)||0)+(Number(raw.zone_blanche?.ca)||0))||base.nemausus.caHT;
+    const next={_crmSocV2:true,nemausus:{caHT:nH},lambert:{caHT:base.lambert.caHT}};
+    appStorage.setItem('benai_lead_obj',JSON.stringify(next));
+    return{nemausus:{...next.nemausus},lambert:{...next.lambert}};
+  }catch{return{...base};}
+}
+function saveCrmSocieteObjectifs(o){
+  appStorage.setItem('benai_lead_obj',JSON.stringify({
+    _crmSocV2:true,
+    nemausus:{caHT:Math.max(0,Number(o.nemausus?.caHT)||0)},
+    lambert:{caHT:Math.max(0,Number(o.lambert?.caHT)||0)}
+  }));
+}
 function canAccessLeadByCompany(lead){
   if(!currentUser||!lead)return false;
   if(currentUser.role==='admin')return true;
@@ -8648,6 +8689,11 @@ function showCRMTab(id){
   const filters=document.getElementById('crm-filters');
   const list=document.getElementById('leads-list');
   const kb=document.getElementById('leads-kanban');
+  if(list&&id!=='dashboard'){
+    list.style.maxWidth='';
+    list.style.margin='';
+    list.style.width='';
+  }
   if(id==='dashboard'){
     filters.style.display='none';
     if(list)list.style.display='none';
@@ -8673,6 +8719,9 @@ function isLeadInNonAttribQueue(l){
 
 function renderNonAttribues(){
   const list=document.getElementById('leads-list');if(!list)return;
+  list.style.maxWidth='';
+  list.style.margin='';
+  list.style.width='';
   const leads=getCompanyScopedLeads(getLeads()).filter(isLeadInNonAttribQueue);
   if(!leads.length){
     list.innerHTML='<div style="color:var(--g);font-size:14px;padding:32px;text-align:center;font-weight:600">✅ Tous les leads sont attribués !</div>';
@@ -8765,6 +8814,9 @@ function renderLeads(){
   if(currentCRMView==='kanban'){renderKanban();return;}
   const role=currentUser?.role;
   const list=document.getElementById('leads-list');if(!list)return;
+  list.style.maxWidth='';
+  list.style.margin='';
+  list.style.width='';
 
   // VUE DIRECTEUR CO — deux sections
   if(isCRMScopePilotageRole(role)||role==='admin'){
@@ -9016,16 +9068,44 @@ function getArchivedLeadsStats(leads){
   return{total:arch.length,byStatut};
 }
 
+function getLastNMonthKeys(n){
+  const out=[];const d=new Date();
+  for(let i=n-1;i>=0;i--){
+    const x=new Date(d.getFullYear(),d.getMonth()-i,1);
+    out.push(`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`);
+  }
+  return out;
+}
+function buildCrmCommercialEvolutionCards(leadsActifs,commerciaux){
+  const months=getLastNMonthKeys(6);
+  return commerciaux.map(c=>{
+    const rows=months.map(m=>{
+      const [y,mo]=m.split('-').map(Number);
+      const sales=leadsActifs.filter(l=>{
+        if(l.statut!=='vert')return false;
+        if(normalizeId(l.commercial)!==normalizeId(c.id))return false;
+        const dt=new Date(l.date_creation||0);
+        if(isNaN(dt.getTime()))return false;
+        return dt.getFullYear()===y&&dt.getMonth()+1===mo;
+      });
+      const ca=sales.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
+      return`<div class="crm-evo-row"><span style="color:var(--t3);min-width:54px">${formatMois(m)}</span><span style="font-weight:600;color:var(--g);text-align:right;flex:1">${ca.toLocaleString('fr-FR')} €</span><span style="color:var(--t2);font-size:10px">${sales.length} v.</span></div>`;
+    }).join('');
+    return`<div class="crm-evo-card"><div class="crm-evo-head"><span style="width:26px;height:26px;border-radius:7px;background:${c.color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff">${c.initial}</span>${esc(c.name)}</div>${rows}</div>`;
+  }).join('');
+}
+
 // DASHBOARD
 function renderLeadsDashboard(){
   const container=document.getElementById('leads-container');if(!container)return;
   const list=document.getElementById('leads-list');
   if(list){list.style.display='flex';}
   const leads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive);
-  const obj=getLeadObjectifs();
+  const socObj=getCrmSocieteObjectifs();
   const now=new Date();
   const month=now.getMonth();const year=now.getFullYear();
   const leadsMonth=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getMonth()===month&&d.getFullYear()===year;});
+  const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
   const secteurs=[
     {id:'nimes',label:'Nîmes',color:'var(--a)'},
     {id:'avignon',label:'Avignon',color:'var(--bl)'},
@@ -9033,16 +9113,12 @@ function renderLeadsDashboard(){
     {id:'zone_blanche',label:'Zone blanche',color:'var(--r)'}
   ];
   let html='';
-  // Stats globales
   const totalLeads=leads.length;
   const nonAttrib=leads.filter(l=>!l.commercial&&l.statut==='gris').length;
   const alertes=leads.filter(l=>isLeadAlerte(l)).length;
   const rdvMonthTotal=leads.reduce((sum,l)=>sum+getLeadRdvDoneMonthCount(l,now),0);
-  html+=`<div class="secteur-card" style="padding:10px 14px">
-    <div style="font-size:11px;color:var(--t3);font-weight:600;letter-spacing:.3px">STRUCTURE DASHBOARD</div>
-    <div style="font-size:12px;color:var(--t2);margin-top:4px">1) Pilotage global · 2) Analyse ventes · 3) Performance commerciale · 4) Exports et suivi</div>
-  </div>`;
-  html+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+  html+=`<div class="crm-dash-kicker">1 · Pilotage & synthèse</div>`;
+  html+=`<div class="crm-dash-grid-kpis" style="margin-bottom:12px">
     <div class="stat-box"><div class="stat-box-val">${totalLeads}</div><div class="stat-box-lbl">Total leads</div></div>
     <div class="stat-box"><div class="stat-box-val" style="color:var(--y)">${nonAttrib}</div><div class="stat-box-lbl">À attribuer</div></div>
     <div class="stat-box"><div class="stat-box-val" style="color:var(--r)">${alertes}</div><div class="stat-box-lbl">Alertes</div></div>
@@ -9057,11 +9133,9 @@ function renderLeadsDashboard(){
       ca:ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0)
     };
   });
-  html+=`<div style="font-size:11px;color:var(--t3);font-weight:700;margin:6px 0">1) PILOTAGE GLOBAL</div>`;
-  html+=`<div class="secteur-card" id="crm-dashboard-secteurs-export">
-    <div class="secteur-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-      <span>🧭 Synthèse par secteur</span>
-    </div>
+  html+=`<details class="crm-dash-synth secteur-card" id="crm-dashboard-secteurs-export" open>
+    <summary>🗺️ Synthèse géographique (secteurs) & export CSV</summary>
+    <div style="padding-top:8px">
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px">
       <label style="font-size:11px;color:var(--t3);display:flex;align-items:center;gap:6px;flex:1;min-width:200px">
         <span style="white-space:nowrap">Export :</span>
@@ -9076,7 +9150,7 @@ function renderLeadsDashboard(){
       </label>
       <button type="button" onclick="exportSecteurSyntheseFromDashboard()" title="CSV : même colonnes que l’export Performance secteurs" style="padding:8px 14px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.4);border-radius:10px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📥 Export CSV</button>
     </div>
-    <div style="font-size:11px;color:var(--t3);margin:-4px 0 10px;line-height:1.45">Leads <strong>actifs non archivés</strong> du périmètre visible (société / rôle). Colonnes CSV : secteur, leads, ventes, CA signé, devis en cours, pipeline devis.</div>
+    <div style="font-size:11px;color:var(--t3);margin:-4px 0 10px;line-height:1.45">Leads <strong>actifs non archivés</strong> du périmètre visible. Colonnes CSV : secteur, leads, ventes, CA signé, devis en cours, pipeline devis.</div>
     ${secteursSynthese.map(s=>`
       <div class="perf-row">
         <div class="perf-name" style="color:${s.color}">${s.label}</div>
@@ -9084,17 +9158,18 @@ function renderLeadsDashboard(){
         <div class="perf-ca">${s.ca.toLocaleString('fr-FR')} €</div>
       </div>
     `).join('')}
-  </div>`;
+    </div>
+  </details>`;
   const salesTotal=leads.filter(l=>l.statut==='vert');
   const caTotal=salesTotal.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
   const salesMonth=leadsMonth.filter(l=>l.statut==='vert');
   const caMonth=salesMonth.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
   const panierMoyen=salesTotal.length?Math.round(caTotal/salesTotal.length):0;
   const txConv=totalLeads?Math.round((salesTotal.length/totalLeads)*100):0;
-  html+=`<div style="font-size:11px;color:var(--t3);font-weight:700;margin:6px 0">2) ANALYSE VENTES</div>`;
+  html+=`<div class="crm-dash-kicker k-ge">2 · Ventes & conversion</div>`;
   html+=`<div class="secteur-card">
     <div class="secteur-title">💼 Analyse ventes complète</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
       <div class="stat-box"><div class="stat-box-val" style="color:var(--g)">${salesTotal.length}</div><div class="stat-box-lbl">Ventes signées</div></div>
       <div class="stat-box"><div class="stat-box-val" style="color:var(--g)">${caTotal.toLocaleString('fr-FR')} €</div><div class="stat-box-lbl">CA total signé</div></div>
       <div class="stat-box"><div class="stat-box-val">${panierMoyen.toLocaleString('fr-FR')} €</div><div class="stat-box-lbl">Panier moyen</div></div>
@@ -9111,28 +9186,35 @@ function renderLeadsDashboard(){
     </div>
     ${rdvTop.length?rdvTop.map(x=>`<div class="perf-row"><div class="perf-name">${esc(x.lead.nom)}</div><div class="perf-stats">${x.count} RDV</div><div class="perf-ca">${esc(x.lead.type_projet||'')}</div></div>`).join(''):`<div style="font-size:12px;color:var(--t3)">Aucun RDV réalisé enregistré ce mois.</div>`}
   </div>`;
-  // Par secteur
-  html+=`<div style="font-size:11px;color:var(--t3);font-weight:700;margin:6px 0">3) PERFORMANCE COMMERCIALE</div>`;
-  secteurs.forEach(s=>{
-    const sl=leadsMonth.filter(l=>l.secteur===s.id);
-    const total=sl.length,ventes=sl.filter(l=>l.statut==='vert');
+  html+=`<div class="crm-dash-kicker k-pr">3 · Performance par entreprise (mois en cours)</div>`;
+  const entreprises=[
+    {id:'nemausus',label:'Nemausus Fermetures',color:'var(--a)'},
+    {id:'lambert',label:'Lambert SAS',color:'var(--bl)'}
+  ];
+  const socCanEdit=currentUser.role==='admin'||isCRMScopePilotageRole(currentUser.role);
+  html+=`<div class="crm-ent-grid">`;
+  entreprises.forEach(ent=>{
+    const sl=leadsMonth.filter(l=>(l.societe_crm||'nemausus')===ent.id);
+    const total=sl.length;
+    const ventes=sl.filter(l=>l.statut==='vert');
     const ca=ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
     const pipeline=sl.filter(l=>l.statut==='jaune').reduce((sum,l)=>sum+Number(l.montant_devis||0),0);
-    const taux=total>0?Math.round(ventes.length/total*100):0;
-    const oL=obj[s.id]?.leads||0,oCA=obj[s.id]?.ca||0;
-    const pL=oL>0?Math.min(total/oL*100,100):0,pCA=oCA>0?Math.min(ca/oCA*100,100):0;
-    html+=`<div class="secteur-card">
-      <div class="secteur-title" style="color:${s.color}">📍 ${s.label}
-        ${currentUser.role==='admin'?`<button onclick="editObjectif('${s.id}')" style="margin-left:auto;background:var(--s3);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
+    const oCA=socObj[ent.id]?.caHT||0;
+    const pCA=oCA>0?Math.min(ca/oCA*100,110):0;
+    html+=`<div class="crm-ent-card">
+      <div class="secteur-title" style="color:${ent.color};margin-bottom:10px;font-size:14px">${ent.label}
+        ${socCanEdit?`<button type="button" onclick="editObjectifSociete('${ent.id}')" style="margin-left:auto;background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️ CA HT</button>`:''}
       </div>
-      <div class="secteur-stats">
-        <div class="stat-box"><div class="stat-box-val" style="color:${s.color}">${total}</div><div class="stat-box-lbl">Leads</div><div class="stat-box-obj">Obj: ${oL}</div><div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pL}%;background:${s.color}"></div></div></div>
-        <div class="stat-box"><div class="stat-box-val" style="color:var(--g)">${ventes.length}</div><div class="stat-box-lbl">Ventes · ${taux}%</div></div>
-        <div class="stat-box"><div class="stat-box-val" style="color:var(--g);font-size:15px">${ca.toLocaleString('fr-FR')} €</div><div class="stat-box-lbl">CA réalisé</div><div class="stat-box-obj">Obj: ${oCA.toLocaleString('fr-FR')} €</div><div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pCA}%;background:var(--g)"></div></div></div>
-        <div class="stat-box"><div class="stat-box-val" style="color:var(--y);font-size:15px">${pipeline.toLocaleString('fr-FR')} €</div><div class="stat-box-lbl">Pipeline</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div class="stat-box"><div class="stat-box-val" style="font-size:17px">${total}</div><div class="stat-box-lbl">Leads (mois)</div></div>
+        <div class="stat-box"><div class="stat-box-val" style="font-size:17px;color:var(--g)">${ventes.length}</div><div class="stat-box-lbl">Ventes signées</div></div>
       </div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:4px">CA HT signé : <strong style="color:var(--g)">${ca.toLocaleString('fr-FR')} €</strong> / objectif <strong>${oCA.toLocaleString('fr-FR')} €</strong></div>
+      <div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pCA}%;background:${pCA>=100?'var(--g)':pCA>=75?'var(--a)':'var(--r)'}"></div></div>
+      <div style="font-size:11px;color:var(--t2);margin-top:10px">Pipeline devis : <strong style="color:var(--y)">${pipeline.toLocaleString('fr-FR')} €</strong></div>
     </div>`;
   });
+  html+=`</div>`;
   // Stats par source
   const sources=LEAD_SOURCE_CODES;
   const srcIcons=LEAD_SOURCE_ICONS;
@@ -9160,6 +9242,11 @@ function renderLeadsDashboard(){
     }).join('');
   }
   html+='</div>';
+  if(commerciaux.length){
+    html+=`<div class="secteur-card"><div class="secteur-title">📈 Évolution CA par commercial (6 mois)</div>
+    <div style="font-size:11px;color:var(--t3);margin:-4px 0 4px">Montants HT — ventes signées (date de création du lead).</div>
+    <div class="crm-evo-grid">${buildCrmCommercialEvolutionCards(leads,commerciaux)}</div></div>`;
+  }
   // Analyse leads perdus
   const lost=getLeadLostAnalytics(leadsMonth);
   html+=`<div class="secteur-card"><div class="secteur-title">📉 Analyse des leads perdus</div>`;
@@ -9184,11 +9271,9 @@ function renderLeadsDashboard(){
     </div>
     <div style="margin-top:8px;font-size:11px;color:var(--t3)">Consultez l’onglet filtre “📁 Archives” dans Leads pour le détail.</div>
   </div>`;
-  // Perf commerciaux
   const role=currentUser?.role||'assistante';
-  const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
   if(role==='admin'||isCRMScopePilotageRole(role)){
-    html+=`<div style="font-size:11px;color:var(--t3);font-weight:700;margin:6px 0">4) EXPORTS ET ACTIONS</div>`;
+    html+=`<div class="crm-dash-kicker k-ex">4 · Exports & actions</div>`;
     html+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button onclick="exportLeadsExcel()" style="flex:1;min-width:220px;padding:8px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">📥 Exporter tous les leads</button>
       <button onclick="exportAllCRMTables()" style="flex:1;min-width:220px;padding:8px;background:var(--a3);color:var(--a);border:1px solid rgba(232,148,58,.35);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">📦 Télécharger tous les tableaux CRM</button>
@@ -9224,8 +9309,9 @@ function renderLeadsDashboard(){
     let selObjComm=appStorage.getItem('benai_obj_comm_mois')||getDefaultObjCommMonthKey();
     if(!objCommMonthKeys.includes(selObjComm))selObjComm=getDefaultObjCommMonthKey();
     appStorage.setItem('benai_obj_comm_mois',selObjComm);
+    html+=`<div class="crm-dash-kicker k-pr" style="margin-top:8px">Objectifs par commercial</div>`;
     html+=`<div class="secteur-card"><div class="secteur-title" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
-      <span>🎯 Objectifs commerciaux</span>
+      <span>🎯 Suivi & objectifs commerciaux</span>
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t3);font-weight:600">Mois affiché
         <select id="crm-obj-comm-mois" class="form-input" onchange="window.appStorage.setItem('benai_obj_comm_mois',this.value);renderLeadsDashboard()" style="padding:5px 10px;font-size:11px;border-radius:8px;min-width:128px">
           ${objCommMonthKeys.map(m=>`<option value="${m}"${m===selObjComm?' selected':''}>${formatMois(m)}</option>`).join('')}
@@ -9256,9 +9342,14 @@ function renderLeadsDashboard(){
 
   // TABLEAU DE VENTES
   const tvDiv=document.createElement('div');tvDiv.className='secteur-card';
-  if(list)list.innerHTML=html;
-  renderTableauVentes(tvDiv);
-  if(list)list.appendChild(tvDiv);
+  if(list){
+    list.style.maxWidth='920px';
+    list.style.margin='0 auto';
+    list.style.width='100%';
+    list.innerHTML=html;
+    renderTableauVentes(tvDiv);
+    list.appendChild(tvDiv);
+  }
 }
 
 async function editObjectifCommercial(uid,name){
@@ -9276,15 +9367,18 @@ async function editObjectifCommercial(uid,name){
   logActivity(`${currentUser.name} a fixé l’objectif mensuel de ${name} (${labelMois}) et l’objectif hebdo`);
 }
 
-async function editObjectif(secteur){
-  const obj=getLeadObjectifs();const s=obj[secteur]||{leads:0,ca:0};
-  const label=getLeadSecteurLabel(secteur);
-  const newLeads=await benaiPrompt(`Objectif leads/mois — ${label} :`,String(s.leads),'Objectifs secteur');
-  if(newLeads===null)return;
-  const newCA=await benaiPrompt(`Objectif CA/mois (€ HT) — ${label} :`,String(s.ca),'Objectifs secteur');
-  if(newCA===null)return;
-  obj[secteur]={leads:parseInt(newLeads)||0,ca:parseInt(newCA)||0};
-  saveLeadObjectifs(obj);renderLeadsDashboard();
+async function editObjectifSociete(socId){
+  if(currentUser?.role!=='admin'&&!isCRMScopePilotageRole(currentUser?.role))return;
+  const label=socId==='lambert'?'Lambert SAS':'Nemausus Fermetures';
+  const obj=getCrmSocieteObjectifs();
+  const cur=obj[socId]?.caHT||0;
+  const v=await benaiPrompt(`Objectif CA mensuel HT (€) pour ${label} — mois calendaire affiché dans le bloc « Performance par entreprise » :`,String(cur),`Objectif ${label}`);
+  if(v===null)return;
+  const n=Number(String(v).replace(/\s/g,'').replace(',','.'))||0;
+  obj[socId]={caHT:n};
+  saveCrmSocieteObjectifs(obj);
+  renderLeadsDashboard();
+  logActivity(`${currentUser?.name||'?'} a fixé l’objectif CA HT ${label} : ${n.toLocaleString('fr-FR')} €`);
 }
 
 // OUVRIR NOUVEAU LEAD
