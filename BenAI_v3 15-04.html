@@ -1003,11 +1003,11 @@ input[type=file]{display:none;}
             <div style="font-size:13px;font-weight:600;margin-bottom:12px">➕ Nouveau SAV</div>
             <div id="sav-alerts"></div>
             <div class="form-row">
-              <div class="form-group"><div class="form-label">Client</div><input type="text" class="form-input" id="sav-client" placeholder="Nom du client"></div>
-              <div class="form-group"><div class="form-label">Commercial</div><input type="text" class="form-input" id="sav-commercial" placeholder="Nom du commercial"></div>
+              <div class="form-group"><div class="form-label">Client</div><input type="text" class="form-input" id="sav-client" placeholder="Nom du client" spellcheck="false" autocorrect="off" autocapitalize="off"></div>
+              <div class="form-group"><div class="form-label">Commercial</div><input type="text" class="form-input" id="sav-commercial" placeholder="Nom du commercial" spellcheck="false" autocorrect="off" autocapitalize="off"></div>
             </div>
             <div class="form-row">
-              <div class="form-group"><div class="form-label">Problème</div><input type="text" class="form-input" id="sav-pb" placeholder="Ex: Volet roulant bloqué..."></div>
+              <div class="form-group"><div class="form-label">Problème</div><input type="text" class="form-input" id="sav-pb" placeholder="Ex: Volet roulant bloqué..." spellcheck="false" autocorrect="off" autocapitalize="off"></div>
             <div class="form-group"><div class="form-label">Société</div>
                 <select class="form-input" id="sav-soc">
                   <option value="nemausus">Nemausus Fermetures</option>
@@ -1016,11 +1016,11 @@ input[type=file]{display:none;}
               </div>
             </div>
             <div class="form-row">
-              <div class="form-group"><div class="form-label">Fournisseur</div><input type="text" class="form-input" id="sav-fourn" placeholder="Ex: Somfy, Bubendorff..."></div>
+              <div class="form-group"><div class="form-label">Fournisseur</div><input type="text" class="form-input" id="sav-fourn" placeholder="Ex: Somfy, Bubendorff..." spellcheck="false" autocorrect="off" autocapitalize="off"></div>
               <div class="form-group"><div class="form-label">Date de rappel</div><input type="date" class="form-input" id="sav-rappel"></div>
             </div>
             <div class="form-row">
-              <div class="form-group"><div class="form-label">Commentaire</div><input type="text" class="form-input" id="sav-comment" placeholder="Détail complémentaire..."></div>
+              <div class="form-group"><div class="form-label">Commentaire</div><input type="text" class="form-input" id="sav-comment" placeholder="Détail complémentaire..." spellcheck="false" autocorrect="off" autocapitalize="off"></div>
               <div class="form-group"><div class="form-label">Rappel auto (jours)</div><input type="number" class="form-input" id="sav-rappel-days" min="1" max="60" value="5"></div>
             </div>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
@@ -1038,7 +1038,7 @@ input[type=file]{display:none;}
 
         <!-- BARRE RECHERCHE + FILTRES -->
         <div style="padding:0 16px 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
-          <input type="text" class="sav-search" id="sav-search" placeholder="🔍 Rechercher un SAV..." oninput="renderSAV()">
+          <input type="text" class="sav-search" id="sav-search" placeholder="🔍 Rechercher un SAV..." spellcheck="false" autocorrect="off" autocapitalize="off" oninput="scheduleRenderSAVFromSearch()">
           <button class="sav-filter active" onclick="filterSAV('tous',this)">Tous</button>
           <button class="sav-filter" onclick="filterSAV('nouveau',this)">🔴 Nouveaux</button>
           <button class="sav-filter" onclick="filterSAV('en_cours',this)">🟡 En cours</button>
@@ -3888,6 +3888,7 @@ RÈGLE ABSOLUE : Tu proposes — l'utilisateur décide toujours. Jamais d'action
 // ÉTAT
 // ══════════════════════════════════════════
 let currentUser=null, chatHistory=[], currentConv=null, busy=false, currentFilter='tous';
+let savSearchDebounceTimer=null;
 let deferredInstallPrompt=null;
 
 function toISODate(d){
@@ -5658,6 +5659,34 @@ function filterSAV(filter,btn){
   btn.classList.add('active');renderSAV();
 }
 
+/** Évite de re-render la liste SAV à chaque touche dans la recherche (sinon les champs « action » disparaissent). */
+function scheduleRenderSAVFromSearch(){
+  if(savSearchDebounceTimer)clearTimeout(savSearchDebounceTimer);
+  savSearchDebounceTimer=setTimeout(()=>{
+    savSearchDebounceTimer=null;
+    renderSAV();
+  },320);
+}
+
+/** Sauvegarde les brouillons saisis dans les champs action admin avant re-render (sync cloud, filtres, etc.). */
+function captureSavActionDrafts(){
+  const out={};
+  document.querySelectorAll('input.sav-action-input[id^="action-"]').forEach(el=>{
+    const raw=String(el.id||'').replace(/^action-/,'');
+    if(!raw)return;
+    const v=String(el.value||'');
+    if(v)out[raw]=v;
+  });
+  return out;
+}
+function applySavActionDrafts(drafts){
+  if(!drafts||typeof drafts!=='object')return;
+  Object.keys(drafts).forEach(id=>{
+    const el=document.getElementById('action-'+id);
+    if(el)el.value=drafts[id];
+  });
+}
+
 async function addSAV(){
   const client=document.getElementById('sav-client').value.trim();
   const pb=document.getElementById('sav-pb').value.trim();
@@ -5689,6 +5718,7 @@ async function addSAV(){
 }
 
 function renderSAV(){
+  const actionDrafts=captureSavActionDrafts();
   const mem=getMem();const list=document.getElementById('sav-list');
   let savs=(mem.sav||[]).filter(s=>!s._deleted);const isAdmin=currentUser.role==='admin';
   const search=(document.getElementById('sav-search')?.value||'').toLowerCase();
@@ -5725,7 +5755,11 @@ function renderSAV(){
     }).join('');
   }
 
-  if(!savs.length){list.innerHTML=`<div style="color:var(--t3);font-size:13px;padding:24px;text-align:center">${currentFilter==='regle'?'Aucun SAV réglé':'Aucun SAV en cours 🎉'}</div>`;return;}
+  if(!savs.length){
+    list.innerHTML=`<div style="color:var(--t3);font-size:13px;padding:24px;text-align:center">${currentFilter==='regle'?'Aucun SAV réglé':'Aucun SAV en cours 🎉'}</div>`;
+    applySavActionDrafts(actionDrafts);
+    return;
+  }
 
   // Trier par priorité (admin uniquement, vue normale)
   if(isAdmin&&currentFilter==='tous'){
@@ -5765,7 +5799,7 @@ function renderSAV(){
       ${currentUser.role!=='admin'?`<div style="margin-top:4px;font-size:10px;color:var(--g)">${getSAVVu(s.id)?'👁️ Vu par Benjamin le '+getSAVVu(s.id):'⏳ Pas encore vu par Benjamin'}</div>`:''}
       ${hist.length>0?`<div style="margin-top:6px"><details><summary style="font-size:11px;color:var(--t3);cursor:pointer">🕐 Historique client (${hist.length} SAV précédent(s))</summary><div style="margin-top:6px">${hist.map(h=>`<div class="hist-item"><div class="hist-date">${h.date_creation||''} · ${h.statut}</div><div class="hist-pb">${esc(h.probleme)}</div></div>`).join('')}</div></details></div>`:''}
       ${isAdmin&&s.statut!=='regle'?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-        <input type="text" class="sav-action-input" id="action-${s.id}" placeholder="Ce que tu as fait (ex: Commandé chez Somfy le 12/04...)">
+        <input type="text" class="sav-action-input" id="action-${s.id}" placeholder="Ce que tu as fait (ex: Commandé chez Somfy le 12/04...)" spellcheck="false" autocorrect="off" autocapitalize="off">
         <button onclick="savAction(${s.id})" style="padding:7px 12px;background:var(--a);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">✓ Enregistrer</button>
         <button onclick="changeStatut(${s.id},'regle')" class="btn-resolve">🟢 Réglé</button>
         <button onclick="toggleSavArchive(${s.id})" style="padding:7px 12px;background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">${s.archive?'🔓 Réouvrir':'📁 Archiver'}</button>
@@ -5773,6 +5807,7 @@ function renderSAV(){
       </div>`:''}
     </div>`;
   }).join('');
+  applySavActionDrafts(actionDrafts);
 }
 
 function getClientHistory(client,excludeId,mem){
@@ -7911,7 +7946,10 @@ async function showAddUser(){
     const sel=document.getElementById('new-user-ann-select');
     if(sel){
       sel.innerHTML='<option value="">Sélectionner...</option>'+
-        disponibles.map(e=>`<option value="${esc(e.prenom+'|'+e.nom+'|'+(e.societe||'nemausus')+'|'+(e.fonction||'Autre'))}">${esc(e.prenom+' '+e.nom)} — ${e.fonction||'?'}</option>`).join('');
+        disponibles.map(e=>{
+          const vid=e.id!=null&&String(e.id)!==''?String(e.id):`legacy:${encodeURIComponent(`${e.prenom||''}|${e.nom||''}|${e.societe||'nemausus'}`)}`;
+          return`<option value="${escAttr(vid)}">${esc(e.prenom+' '+e.nom)} — ${esc(e.fonction||'?')}</option>`;
+        }).join('');
     }
   }
 }
@@ -7924,8 +7962,29 @@ async function creerUtilisateur(){
   if(!pwd||pwd.length<10)pwd=generateBenAIPassword(14);
   const role=document.getElementById('new-user-role')?.value||'assistante';
   const status=document.getElementById('add-user-status');
+  if(!status){await benaiAlert('Élément d’état manquant — rechargez la page.');return;}
   if(!val){status.style.color='var(--r)';status.textContent='⚠️ Sélectionnez un salarié';return;}
-  const [prenom,nom,soc,fonction]=val.split('|');
+  const ann=getAnnuaireActive();
+  let annEntry=null;
+  if(String(val).startsWith('legacy:')){
+    try{
+      const dec=decodeURIComponent(String(val).slice(7));
+      const lp=dec.split('|');
+      const pr=lp[0]||'', nm=lp[1]||'', sc=lp[2]||'nemausus';
+      const nmFull=`${pr} ${nm}`.trim();
+      annEntry=ann.find(e=>normalizeId(`${e.prenom||''} ${e.nom||''}`.trim())===normalizeId(nmFull)&&(e.societe||'nemausus')===sc);
+    }catch(_){}
+  }
+  if(!annEntry)annEntry=ann.find(e=>String(e.id)===String(val));
+  if(!annEntry){
+    status.style.color='var(--r)';
+    status.textContent='⚠️ Fiche annuaire introuvable — rouvrez « Nouvel accès » ou vérifiez l’annuaire.';
+    return;
+  }
+  const prenom=String(annEntry.prenom||'').trim();
+  const nom=String(annEntry.nom||'').trim();
+  const soc=annEntry.societe||'nemausus';
+  const fonction=String(annEntry.fonction||'Autre').trim()||'Autre';
   const name=`${prenom} ${nom}`.trim();
   let uid=normalizeId(prenom);
   let suffix=2;
@@ -7949,12 +8008,10 @@ async function creerUtilisateur(){
       }
     }
   }
-  const ann=getAnnuaireActive();
-  const annEntry=ann.find(e=>normalizeId(`${e.prenom} ${e.nom}`)===normalizeId(name)||normalizeId(e.prenom)===normalizeId(prenom))||null;
-  const email=(annEntry?.emailPro||annEntry?.email||'').trim().toLowerCase();
+  const email=(annEntry.emailPro||annEntry.email||'').trim().toLowerCase();
   if(!email||!email.includes('@')){
     status.style.color='var(--r)';
-    status.textContent='⚠️ Email introuvable dans l’annuaire pour cet utilisateur';
+    status.textContent='⚠️ Email introuvable (remplissez email perso ou pro sur la fiche annuaire)';
     return;
   }
   const extras=getExtraUsers();
