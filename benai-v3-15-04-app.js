@@ -2887,6 +2887,25 @@ function isSwitchPreviewSession(){
   return !!(currentUser&&currentUser.id!=='benjamin'&&sessionStack.length>0);
 }
 const ROLE_LABELS={admin:'Admin',assistante:'Assistante',metreur:'Métreur',commercial:'Commercial',directeur_co:'Dir. commercial',directeur_general:'Dir. général'};
+/** Libellés explicites des entités CRM (admin / direction). */
+function formatSocieteLegaleDisplay(s){
+  const v=String(s||'').trim().toLowerCase();
+  if(v==='lambert')return'Lambert SAS';
+  if(v==='nemausus')return'Nemausus Fermetures';
+  if(v==='les-deux')return'Nemausus Fermetures + Lambert SAS';
+  return'—';
+}
+/** Pastille courte sur listes (SAV, etc.) — admin & DG voient le nom court marque. */
+function formatSocieteLegaleCourt(s){
+  const v=String(s||'').trim().toLowerCase();
+  if(v==='lambert')return'Lambert SAS';
+  if(v==='nemausus')return'Nemausus Fermetures';
+  if(v==='les-deux')return'Les deux entités';
+  return'—';
+}
+function pilotageShowsDistinctEntityNames(){
+  return currentUser?.role==='admin'||currentUser?.role==='directeur_general';
+}
 
 function toggleSwitchPanel(){
   // Si pas Benjamin et qu'on peut revenir → retour direct sans panel
@@ -3019,7 +3038,11 @@ function initApp(silent=false){
   if(chatArea)chatArea.innerHTML='';
   document.getElementById('tb-avatar').style.background=u.color;
   document.getElementById('tb-avatar').textContent=u.initial;
-  document.getElementById('tb-username').textContent=u.name;
+  const tb=document.getElementById('tb-username');
+  if(tb&&(u.role==='admin'||u.role==='directeur_general')){
+    const soc=formatSocieteLegaleCourt(u.societe);
+    tb.innerHTML=`<span style="font-weight:500">${esc(u.name)}</span><br><span style="font-size:10px;font-weight:600;color:var(--t3);line-height:1.25">${esc(soc)}</span>`;
+  }else if(tb){tb.textContent=u.name;}
   // Bouton changer de session — Benjamin uniquement OU retour si en mode switch
   const btnSwitch=document.getElementById('btn-switch-session');
   if(btnSwitch){
@@ -5044,7 +5067,7 @@ function renderAnnuaire(search){
           <div style="display:flex;align-items:center;gap:12px;width:100%;min-width:0">
           <div class="emp-avatar">${e.prenom[0].toUpperCase()}${e.nom[0].toUpperCase()}${annivToday}</div>
           <div style="flex:1;min-width:0">
-            <div class="emp-name">${esc(e.prenom)} ${esc(e.nom)} <span style="background:var(--s3);color:var(--t3);padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600">${e.societe==='nemausus'?'Nemausus':e.societe==='lambert'?'Lambert':'Les deux'}</span></div>
+            <div class="emp-name">${esc(e.prenom)} ${esc(e.nom)} <span style="background:var(--s3);color:var(--t3);padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600">${pilotageShowsDistinctEntityNames()?esc(formatSocieteLegaleCourt(e.societe)):(e.societe==='nemausus'?'Nemausus':e.societe==='lambert'?'Lambert':'Les deux')}</span></div>
             <div class="emp-detail">${e.tel?'📞 '+esc(e.tel):''}</div>
             ${e.email?`<div class="emp-email" onclick="navigator.clipboard.writeText('${esc(e.email)}');showDriveNotif('📋 Email copié')" title="Email perso — cliquer pour copier">✉️ ${esc(e.email)} <span style="font-size:9px;color:var(--t3)">(perso)</span></div>`:''}
             ${e.emailPro?`<div class="emp-email" style="color:var(--bl)" onclick="navigator.clipboard.writeText('${esc(e.emailPro)}');showDriveNotif('📋 Email pro copié')" title="Email pro — cliquer pour copier">✉️ ${esc(e.emailPro)} <span style="font-size:9px;color:var(--t3)">(pro)</span></div>`:''}
@@ -5103,7 +5126,7 @@ async function downloadPlanningAbsences(societe){
   const absences=(mem.absences||[]).filter(a=>!a._deleted).sort((a,b)=>new Date(a.debut)-new Date(b.debut));
   if(!absences.length){await benaiAlert('Aucune absence enregistrée');return;}
   const isNem=societe==='nemausus';
-  const label=isNem?'Périmètre CRM 1':'Périmètre CRM 2';
+  const label=formatSocieteLegaleCourt(societe);
   const color=isNem?'linear-gradient(135deg,#E8943A,#C4711A)':'linear-gradient(135deg,#3B82F6,#1D4ED8)';
   const borderColor=isNem?'#E8943A':'#3B82F6';
   const ann=getAnnuaireActive();
@@ -5993,7 +6016,8 @@ function renderTokenStats(){
     const t=tokens[uid]||{input:0,output:0};
     const total=(t.input||0)+(t.output||0);
     const cost=estimateCost(t.input||0,t.output||0);
-    html+=`<div class="token-row"><div class="user-av" style="background:${u.color};width:26px;height:26px;border-radius:7px;font-size:11px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center">${u.initial}</div><div class="token-name">${u.name}</div><div class="token-val">${total.toLocaleString()} tokens</div><div class="token-cost">~${cost}€</div></div>`;
+    const socHint=pilotageShowsDistinctEntityNames()&&u.societe?`<div style="font-size:10px;color:var(--t3);margin-top:2px">${esc(formatSocieteLegaleCourt(u.societe))}</div>`:'';
+    html+=`<div class="token-row"><div class="user-av" style="background:${u.color};width:26px;height:26px;border-radius:7px;font-size:11px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center">${u.initial}</div><div class="token-name">${esc(u.name)}${socHint}</div><div class="token-val">${total.toLocaleString()} tokens</div><div class="token-cost">~${cost}€</div></div>`;
   });
   el.innerHTML=html||'<div style="color:var(--t3);font-size:12px">Aucune utilisation</div>';
 }
@@ -6013,8 +6037,8 @@ function renderSAVStatsAdmin(){
     <div class="stat-bar-wrap"><div class="stat-bar-label"><span>🟡 En cours</span><span>${en_cours}</span></div><div class="stat-bar"><div class="stat-bar-fill" style="width:${total?en_cours/total*100:0}%;background:var(--y)"></div></div></div>
     <div class="stat-bar-wrap"><div class="stat-bar-label"><span>🟢 Réglés</span><span>${regle}</span></div><div class="stat-bar"><div class="stat-bar-fill" style="width:${total?regle/total*100:0}%;background:var(--g)"></div></div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
-      <div style="background:rgba(232,148,58,.1);border-radius:8px;padding:8px;text-align:center;font-size:12px" title="Dossiers rattachés au référentiel CRM entité 1"><span style="color:var(--nem);font-weight:600">Périmètre 1</span><br><span style="font-size:18px;font-weight:700">${nem}</span></div>
-      <div style="background:var(--bl2);border-radius:8px;padding:8px;text-align:center;font-size:12px" title="Dossiers rattachés au référentiel CRM entité 2"><span style="color:var(--lam);font-weight:600">Périmètre 2</span><br><span style="font-size:18px;font-weight:700">${lam}</span></div>
+      <div style="background:rgba(232,148,58,.1);border-radius:8px;padding:8px;text-align:center;font-size:12px" title="Dossiers SAV — Nemausus Fermetures"><span style="color:var(--nem);font-weight:600">Nemausus Fermetures</span><br><span style="font-size:18px;font-weight:700">${nem}</span></div>
+      <div style="background:var(--bl2);border-radius:8px;padding:8px;text-align:center;font-size:12px" title="Dossiers SAV — Lambert SAS"><span style="color:var(--lam);font-weight:600">Lambert SAS</span><br><span style="font-size:18px;font-weight:700">${lam}</span></div>
     </div>`;
 }
 
@@ -6424,7 +6448,7 @@ function buildBenaiAccountControlsHtml(u){
   const isBlocked=access[u.id]===false;
   const isCRM=(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general');
   const derniereConnexion=getConnexions(u.id)[0]?.date||null;
-  const socLabel=u.societe==='les-deux'?'Multi-périmètres CRM':u.societe==='nemausus'?'Périmètre CRM — entité 1':u.societe==='lambert'?'Périmètre CRM — entité 2':'—';
+  const socLabel=pilotageShowsDistinctEntityNames()?formatSocieteLegaleCourt(u.societe):(u.societe==='les-deux'?'Multi-périmètres CRM':u.societe==='nemausus'?'Périmètre CRM — entité 1':u.societe==='lambert'?'Périmètre CRM — entité 2':'—');
   const crmVeh=isCRM?`<div style="font-size:10px;color:var(--t3);margin-top:2px">🚐 Véhicule : ${esc(u.vehicule||'Non renseigné')}</div>`:'';
   const derniere=`<div style="font-size:10px;color:var(--t3);margin-top:2px">${derniereConnexion?'Dernière connexion : '+esc(derniereConnexion):'Jamais connecté'}</div>`;
   const idLine=u.id==='benjamin'
@@ -6809,8 +6833,9 @@ function renderMobileUsageSummary(){
     if(mob&&pwa)label='Mobile + mode installé (PWA)';
     else if(mob)label='Navigateur mobile';
     else if(pwa)label='Mode installé (PWA)';
+    const socM=pilotageShowsDistinctEntityNames()&&u.societe?`<span style="font-size:10px;color:var(--t3);margin-left:6px">${esc(formatSocieteLegaleCourt(u.societe))}</span>`:'';
     return`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--b1);font-size:12px">
-      <span style="font-weight:600;min-width:130px">${esc(u.name)}</span>
+      <span style="font-weight:600;min-width:130px">${esc(u.name)}${socM}</span>
       <span style="color:var(--t2);flex:1;min-width:160px">${esc(label)}</span>
       <span style="font-size:10px;color:var(--t3);white-space:nowrap">${esc(when)}</span>
     </div>`;
@@ -6830,7 +6855,16 @@ function renderConnexionsHistory(){
     const av=document.createElement('div');
     av.style.cssText='width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;background:'+(u?u.color:'#555');
     av.textContent=u?u.initial:'?';
-    const nm=document.createElement('div');nm.style.cssText='flex:1;font-size:12px;font-weight:500';nm.textContent=u?u.name:l.uid;
+    const nm=document.createElement('div');nm.style.cssText='flex:1;font-size:12px;font-weight:500';
+    if(u){
+      nm.textContent=u.name;
+      if(pilotageShowsDistinctEntityNames()&&u.societe){
+        const sub=document.createElement('div');
+        sub.style.cssText='font-size:10px;color:var(--t3);margin-top:2px;font-weight:500';
+        sub.textContent=formatSocieteLegaleCourt(u.societe);
+        nm.appendChild(sub);
+      }
+    }else{nm.textContent=l.uid;}
     const rl=document.createElement('div');rl.style.cssText='font-size:10px;color:var(--t3);min-width:100px;text-align:right;line-height:1.25';
     const roleTxt=u?(ROLE_LABELS[u.role]||''):'';
     const dev=(l.mobile?'📱':'')+(l.pwa?'📲':'')+(l.mobile||l.pwa?'':'💻');
@@ -6857,6 +6891,7 @@ function renderUsersList(){
     const isBlocked=access[u.id]===false;
     const isCRM=(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general');
     const derniereConnexion=getConnexions(u.id)[0]?.date||null;
+    const socUi=pilotageShowsDistinctEntityNames()?formatSocieteLegaleCourt(u.societe):(u.societe==='les-deux'?'Multi-périmètres CRM':u.societe==='nemausus'?'Périmètre CRM — entité 1':u.societe==='lambert'?'Périmètre CRM — entité 2':'—');
     const div=document.createElement('div');div.className='user-row';
     const av=document.createElement('div');
     av.className='user-av';
@@ -6867,7 +6902,7 @@ function renderUsersList(){
     info.innerHTML=`
         <div class="user-name">${esc(u.name)}</div>
         <div style="font-size:10px;color:var(--t3);margin-top:2px">${u.id==='benjamin'?'Identifiant interne':'Connexion'} : <code style="font-size:10px;background:var(--s2);padding:2px 6px;border-radius:4px">${esc(u.id)}</code>${u.id==='benjamin'&&canAssignBenaiLoginPseudo()?' <span style="opacity:.9">· pseudo à la connexion (Supabase) : bouton 🔑</span>':''}</div>
-        <div class="user-role">${ROLE_LABELS[u.role]||u.role} · ${u.societe==='les-deux'?'Multi-périmètres CRM':u.societe==='nemausus'?'Périmètre CRM — entité 1':u.societe==='lambert'?'Périmètre CRM — entité 2':'—'}</div>
+        <div class="user-role">${ROLE_LABELS[u.role]||u.role} · ${esc(socUi)}</div>
         ${(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general')?`<div style="font-size:10px;color:var(--t3)">🚐 Véhicule : ${esc(u.vehicule||'Non renseigné')}</div>`:''}
         <div style="font-size:10px;color:var(--t3)">${derniereConnexion?'Dernière connexion : '+derniereConnexion:'Jamais connecté'}</div>`;
     div.append(av,info);
@@ -8145,8 +8180,7 @@ function getLeadFormSecteurOptionIds(){
 }
 function getBenaiPilotageCompanyTitle(){
   const slug=getCrmSecteurScopeSlug();
-  // Comptes multi-périmètres : ne pas associer deux marques dans le même libellé côté interface.
-  if(slug==='all')return'Compte avec accès aux deux périmètres CRM (filtre entreprise quand disponible)';
+  if(slug==='all')return'Nemausus Fermetures et Lambert SAS (filtre société au besoin)';
   if(slug==='lambert')return'Lambert SAS uniquement';
   return'Nemausus Fermetures uniquement';
 }
@@ -8159,39 +8193,43 @@ function getBenaiPilotageSecteurShortLine(){
 /** Sous-titre CRM (évite d’afficher le nom d’une autre entreprise sur les comptes mono-société). */
 function getCrmWorkspaceSubtitle(){
   if(!currentUser)return'';
-  if(currentUser.role==='admin')return'Pilotage CRM — toutes sociétés';
+  if(currentUser.role==='admin')return'Pilotage CRM — Nemausus Fermetures et Lambert SAS';
   return getBenaiPilotageCompanyTitle();
 }
 function getSavPageSubtitle(){
   if(!currentUser)return'Suivi des dossiers SAV';
-  if(currentUser.role==='admin')return'Suivi SAV — toutes sociétés';
+  if(currentUser.role==='admin')return'Suivi SAV — Nemausus Fermetures et Lambert SAS';
   return`Suivi SAV — ${getBenaiPilotageCompanyTitle()}`;
 }
 function updateSavPageSubtitle(){
   const el=document.getElementById('sav-page-sub');
   if(el)el.textContent=getSavPageSubtitle();
 }
-/** Affiche les pastilles « deux entités » seulement pour admin ou comptes explicitement multi-périmètres. */
+/** Affiche les pastilles « deux entités » pour admin, direction générale, ou comptes multi-périmètres. */
 function shouldShowDualCrmEntityMarkers(){
-  return currentUser?.role==='admin'||currentUser?.societe==='les-deux';
+  return currentUser?.role==='admin'||currentUser?.role==='directeur_general'||currentUser?.societe==='les-deux';
 }
-/** Pastille SAV discrète (1 / 2) pour ne pas exposer les deux marques aux comptes mono-société. */
+/** Pastille SAV : 1/2 pour la plupart ; noms explicites pour admin & dir. général. */
 function formatSavSocieteBadgeHtml(savSociete){
   if(!shouldShowDualCrmEntityMarkers())return'';
   const s=String(savSociete||'').toLowerCase();
   const isN=s==='nemausus';
   const cls=isN?'badge-nem':'badge-lam';
-  const title=isN?'Référentiel CRM — entité 1':'Référentiel CRM — entité 2';
-  const n=isN?'1':'2';
+  const title=isN?'Nemausus Fermetures':'Lambert SAS';
+  const named=pilotageShowsDistinctEntityNames();
+  const n=named?(isN?'Nemausus':'Lambert'):(isN?'1':'2');
   return`<span class="badge ${cls}" title="${title}">${n}</span>`;
 }
 /** Libellés du select « Société » du formulaire SAV (valeurs techniques inchangées). */
 function syncSavSocieteFormOptions(){
   const sel=document.getElementById('sav-soc');
   if(!sel)return;
-  const dual=currentUser?.role==='admin'||currentUser?.societe==='les-deux';
+  const dual=currentUser?.role==='admin'||currentUser?.role==='directeur_general'||currentUser?.societe==='les-deux';
   if(dual){
-    sel.innerHTML='<option value="nemausus">Périmètre CRM — entité 1</option><option value="lambert">Périmètre CRM — entité 2</option>';
+    const named=pilotageShowsDistinctEntityNames();
+    sel.innerHTML=named
+      ?'<option value="nemausus">Nemausus Fermetures</option><option value="lambert">Lambert SAS</option>'
+      :'<option value="nemausus">Périmètre CRM — entité 1</option><option value="lambert">Périmètre CRM — entité 2</option>';
   }else{
     const v=(currentUser?.societe==='lambert'?'lambert':'nemausus');
     sel.innerHTML=`<option value="${v}">Périmètre de ton compte</option>`;
@@ -8209,8 +8247,8 @@ function renderAbsencesExportButtons(){
   const stB='background:var(--bl2);border:1px solid var(--bl);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--bl);font-family:inherit;font-weight:600';
   if(soc==='les-deux'){
     host.innerHTML=
-      `<button type="button" onclick="downloadPlanningAbsences('nemausus')" style="${stA}" title="Export HTML — périmètre CRM entité 1 (réf. technique nemausus)">📥 Planning — périmètre 1</button>`+
-      `<button type="button" onclick="downloadPlanningAbsences('lambert')" style="${stB}" title="Export HTML — périmètre CRM entité 2 (réf. technique lambert)">📥 Planning — périmètre 2</button>`;
+      `<button type="button" onclick="downloadPlanningAbsences('nemausus')" style="${stA}" title="Export HTML — Nemausus Fermetures">📥 Planning — Nemausus Fermetures</button>`+
+      `<button type="button" onclick="downloadPlanningAbsences('lambert')" style="${stB}" title="Export HTML — Lambert SAS">📥 Planning — Lambert SAS</button>`;
   }else{
     const key=soc==='lambert'?'lambert':'nemausus';
     host.innerHTML=`<button type="button" onclick="downloadPlanningAbsences('${key}')" style="${stA}" title="Export HTML des absences pour ton périmètre">📥 Exporter le planning</button>`;
@@ -8472,12 +8510,12 @@ function initLeadsPage(){
     if(!canUseGlobalScopeFilters)filterSociete.value='';
     else if(isCRMScopePilotageRole(role)&&(currentUser.societe==='nemausus'||currentUser.societe==='lambert')){
       filterSociete.innerHTML=currentUser.societe==='nemausus'
-        ?'<option value="nemausus">Périmètre du compte</option>'
-        :'<option value="lambert">Périmètre du compte</option>';
+        ?'<option value="nemausus">Nemausus Fermetures</option>'
+        :'<option value="lambert">Lambert SAS</option>';
       filterSociete.value=currentUser.societe;
       filterSociete.disabled=true;
     }else if(canUseGlobalScopeFilters){
-      filterSociete.innerHTML='<option value="">Tous périmètres CRM</option><option value="nemausus">Entité 1</option><option value="lambert">Entité 2</option>';
+      filterSociete.innerHTML='<option value="">Tous périmètres CRM</option><option value="nemausus">Nemausus Fermetures</option><option value="lambert">Lambert SAS</option>';
       filterSociete.disabled=false;
     }
   }
@@ -10446,7 +10484,11 @@ function fillCommercialFilter(){
     }
     return true;
   });
-  sel.innerHTML='<option value="">Tous les porteurs (commerciaux + direction)</option>'+assignables.map(c=>`<option value="${escAttr(String(c.id??''))}">${esc(c.name)}</option>`).join('');
+  const socSuffix=pilotageShowsDistinctEntityNames();
+  sel.innerHTML='<option value="">Tous les porteurs (commerciaux + direction)</option>'+assignables.map(c=>{
+    const suf=socSuffix&&c.societe?` · ${formatSocieteLegaleCourt(c.societe)}`:'';
+    return`<option value="${escAttr(String(c.id??''))}">${esc(`${c.name||''}${suf}`)}</option>`;
+  }).join('');
   const opts=[...sel.options].map(o=>o.value);
   if(prev&&opts.includes(prev))sel.value=prev;
   else sel.value='';
@@ -10467,7 +10509,12 @@ function fillCommercialAssign(selected=''){
     return true;
   });
   const selN=selected?normalizeId(String(selected)):'';
-  let opts='<option value="">⏳ Non attribué</option>'+users.map(c=>`<option value="${escAttr(String(c.id??''))}"${selN&&normalizeId(String(c.id))===selN?' selected':''}>${esc(c.name)} (${c.role==='directeur_co'?'Dir.co':c.role==='directeur_general'?'Dir. général':'Commercial'})</option>`).join('');
+  const socLab=pilotageShowsDistinctEntityNames();
+  let opts='<option value="">⏳ Non attribué</option>'+users.map(c=>{
+    const roleShort=c.role==='directeur_co'?'Dir.co':c.role==='directeur_general'?'Dir. général':'Commercial';
+    const suf=socLab&&c.societe?` · ${formatSocieteLegaleCourt(c.societe)}`:'';
+    return`<option value="${escAttr(String(c.id??''))}"${selN&&normalizeId(String(c.id))===selN?' selected':''}>${esc(`${c.name||''} (${roleShort}${suf})`)}</option>`;
+  }).join('');
   if(selected&&selected!==''&&!users.some(c=>normalizeId(String(c.id))===selN)){
     opts+=`<option value="${String(selected).replace(/"/g,'&quot;')}" selected>${esc(resolveCrmCommercialLabel(selected))}</option>`;
   }
