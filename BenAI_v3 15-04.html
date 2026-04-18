@@ -9422,7 +9422,10 @@ function canAccessLeadByCompany(lead){
   if(currentUser.role==='admin')return true;
   if(isCRMScopePilotageRole(currentUser.role)){
     const leadSoc=getLeadCRMCompany(lead);
-    return currentUser.societe==='les-deux'||currentUser.societe===leadSoc;
+    const userSoc=String(currentUser.societe||'').trim().toLowerCase();
+    if(userSoc==='les-deux')return true;
+    if(userSoc==='lambert')return leadSoc==='lambert';
+    return leadSoc==='nemausus';
   }
   if(currentUser.role==='commercial'){
     return normalizeId(lead.commercial)===normalizeId(currentUser.id);
@@ -9777,7 +9780,6 @@ function showCRMTab(id){
   }
   if(id==='dashboard'){
     filters.style.display='none';
-    if(list)list.style.display='none';
     if(kb)kb.style.display='none';
     renderLeadsDashboard();
   } else if(id==='non-attribues'){
@@ -9795,7 +9797,7 @@ function showCRMTab(id){
 }
 
 function isLeadInNonAttribQueue(l){
-  return !!l&&!isLeadCrmArchivedView(l)&&!l.commercial&&l.statut==='gris';
+  return !!l&&!isLeadCrmArchivedView(l)&&!normalizeId(l.commercial||'')&&l.statut==='gris';
 }
 
 function renderNonAttribues(){
@@ -9910,7 +9912,7 @@ function renderLeads(){
   if(isCRMScopePilotageRole(role)||role==='admin'){
     const allLeads=getCompanyScopedLeads(getLeads()).filter(l=>!isLeadCrmArchivedView(l));
     const nonAttrib=allLeads.filter(isLeadInNonAttribQueue);
-    const attrib=getFilteredLeads().filter(l=>l.commercial||l.statut!=='gris');
+    const attrib=getFilteredLeads().filter(l=>!isLeadInNonAttribQueue(l));
     let html='';
     // Section À ATTRIBUER
     if(nonAttrib.length>0){
@@ -10192,22 +10194,32 @@ function buildCrmCommercialEvolutionCards(leadsActifs,commerciaux){
   }).join('');
 }
 
-// DASHBOARD — mémorise les <details> ouverts pour ne pas les refermer au prochain rendu (sync / polling).
+// DASHBOARD — mémorise les <details> ouverts pour ne pas les réouvrir au prochain rendu (sync / polling).
 function captureCrmDashboardDetailsOpenState(){
   const list=document.getElementById('leads-list');
-  if(!list||list.style.display==='none')return null;
+  if(!list)return undefined;
+  const panels=[...list.querySelectorAll('details.crm-dash-grp[id]')];
+  if(!panels.length)return undefined;
   const open=new Set();
-  list.querySelectorAll('details.crm-dash-grp[open],details.crm-dash-synth[open]').forEach(d=>{
-    if(d.id)open.add(d.id);
-  });
-  return open.size?open:null;
+  panels.forEach(d=>{if(d.open)open.add(d.id);});
+  return open;
 }
 function applyCrmDashboardDetailsOpenState(openIds){
-  if(!openIds||!openIds.size)return;
-  openIds.forEach(id=>{
-    const el=document.getElementById(id);
-    if(el&&el.tagName==='DETAILS')el.open=true;
-  });
+  const list=document.getElementById('leads-list');
+  if(!list)return;
+  const panels=[...list.querySelectorAll('details.crm-dash-grp[id]')];
+  if(!panels.length)return;
+  const role=currentUser?.role||'';
+  const pilot=isCRMScopePilotageRole(role);
+  if(openIds===undefined||openIds===null){
+    panels.forEach(d=>{
+      if(pilot&&d.id==='crm-dash-objectifs')d.open=true;
+      else if(!pilot&&d.id==='crm-dash-secteurs')d.open=true;
+      else d.open=false;
+    });
+    return;
+  }
+  panels.forEach(d=>{d.open=openIds.has(d.id);});
 }
 
 /** Après sync cloud : met à jour l’onglet CRM actif sans tout reconstruire (évite fermeture des accordéons). */
@@ -10227,8 +10239,8 @@ function renderLeadsDashboard(){
   const container=document.getElementById('leads-container');if(!container)return;
   autoArchiveVenduLeadsPastCurrentMonth();
   const list=document.getElementById('leads-list');
+  if(list)list.style.display='flex';
   const dashOpenIds=captureCrmDashboardDetailsOpenState();
-  if(list){list.style.display='flex';}
   const role=currentUser?.role||'assistante';
   const dashCommercial=role==='commercial';
   const dashPilotage=!dashCommercial;
@@ -10420,7 +10432,7 @@ function renderLeadsDashboard(){
     </div>
   </div>`:'';
   if(!dashCommercial){
-    html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-secteurs"${crmDashPilotDirCo?'':' open'}>${crmDashSummary('📍 Secteurs & mois en cours','Carte par zone, export CSV, puis tableau détaillé du mois civil.')}<div class="crm-dash-grp-body">
+    html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-secteurs">${crmDashSummary('📍 Secteurs & mois en cours','Carte par zone, export CSV, puis tableau détaillé du mois civil.')}<div class="crm-dash-grp-body">
     <div class="crm-dash-subtle">D’abord la vue « toutes périodes » et l’export ; puis le tableau ne compte que les <strong>leads créés ce mois</strong> (date de création).</div>
     <div class="secteur-card"><div class="secteur-title" style="font-size:13px">Export & résumé par zone</div>
     <div style="padding-top:4px">
@@ -10562,8 +10574,7 @@ function renderLeadsDashboard(){
     let selObjCommP=appStorage.getItem('benai_obj_comm_mois')||getDefaultObjCommMonthKey();
     if(!objCommMonthKeysP.includes(selObjCommP))selObjCommP=getDefaultObjCommMonthKey();
     appStorage.setItem('benai_obj_comm_mois',selObjCommP);
-    const objDetailsOpen=crmDashPilotDirCo?' open':'';
-    html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-objectifs"${objDetailsOpen}>${crmDashSummary('🎯 Objectifs commerciaux','CA réalisé vs cible : mois N et N-1 pour comparer à l’année précédente.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">L’objectif <strong>mensuel</strong> est celui du mois affiché. Vous pouvez <strong>répartir le mois en objectifs par semaine ISO</strong> (modifiables) ; sinon l’<strong>objectif hebdo global</strong> sert de cible pour la semaine en cours. Mois disponibles : <strong>${year-1}</strong> et <strong>${year}</strong>. Les vendeurs listés incluent l’annuaire <em>et</em> les attributions visibles sur les leads du périmètre.</div>`;
+    html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-objectifs">${crmDashSummary('🎯 Objectifs commerciaux','CA réalisé vs cible : mois N et N-1 pour comparer à l’année précédente.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">L’objectif <strong>mensuel</strong> est celui du mois affiché. Vous pouvez <strong>répartir le mois en objectifs par semaine ISO</strong> (modifiables) ; sinon l’<strong>objectif hebdo global</strong> sert de cible pour la semaine en cours. Mois disponibles : <strong>${year-1}</strong> et <strong>${year}</strong>. Les vendeurs listés incluent l’annuaire <em>et</em> les attributions visibles sur les leads du périmètre.</div>`;
     html+=`<div class="secteur-card"><div class="secteur-title" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
       <span>🎯 Suivi & objectifs commerciaux</span>
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t3);font-weight:600">Mois affiché
@@ -11592,9 +11603,7 @@ function getLeadNotifScopeForUser(){
   let scoped=getLeads().filter(l=>!l._deleted&&!isLeadCrmArchivedView(l)&&l.statut!=='vert'&&l.statut!=='rouge');
   if(currentUser.role==='commercial'){
     scoped=scoped.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
-  }else if(currentUser.role==='directeur_general'){
-    scoped=[];
-  }else if(currentUser.role==='directeur_co'){
+  }else if(isCRMScopePilotageRole(currentUser.role)){
     scoped=getCompanyScopedLeads(scoped);
   }else if(currentUser.role==='admin'&&currentUser.id!=='benjamin'){
     scoped=[];
@@ -11605,10 +11614,9 @@ function getLeadNotifScopeForUser(){
 function checkLeadSmartNotifications(){
   if(!currentUser)return;
   if(currentUser.role==='admin')return;
-  if(currentUser.role==='directeur_general')return;
   const scoped=getLeadNotifScopeForUser();
   if(!scoped.length)return;
-  const nonAttribues=scoped.filter(l=>!l.commercial&&l.statut==='gris').length;
+  const nonAttribues=scoped.filter(l=>isLeadInNonAttribQueue(l)).length;
   const alertes=scoped.filter(l=>isLeadAlerte(l)).length;
   const aRappeler=scoped.filter(l=>l.statut==='gris'||l.statut==='jaune').length;
   const totalAction=Math.max(nonAttribues,0)+Math.max(alertes,0);
@@ -11654,7 +11662,7 @@ function checkRappelsLeads(){
   let leads=getLeads().filter(l=>!l._deleted&&!isLeadCrmArchivedView(l)&&l.rappel);
   if(currentUser.role==='commercial'){
     leads=leads.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
-  }else if(currentUser.role==='directeur_co'){
+  }else if(isCRMScopePilotageRole(currentUser.role)){
     leads=leads.filter(canAccessLeadByCompany);
   }else if(currentUser.id!=='benjamin'){
     leads=leads.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
