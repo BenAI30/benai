@@ -2285,13 +2285,16 @@ function addDaysISO(days){
   d.setDate(d.getDate()+Number(days||0));
   return toISODate(d);
 }
-function hasDirecteurCommercial(){
-  return getAllUsers().some(u=>u.role==='directeur_co');
+/** Au moins un dir. commercial couvre la société CRM du lead (nemausus / lambert). */
+function hasDirecteurCommercialForSociete(leadSoc){
+  const ls=leadSoc==='lambert'?'lambert':'nemausus';
+  return getAllUsers().some(u=>u.role==='directeur_co'&&crmAssigneeCoversLeadSociete(u,ls));
 }
-function getRoundRobinCommercial(societe){
-  const users=getAllUsers().filter(u=>isCrmSalesActorRole(u.role)&&(u.societe===societe||u.societe==='les-deux'));
+/** Round-robin sur les commerciaux (rôle commercial uniquement) du périmètre — attribution directe si pas de dir. co sur la société. */
+function getRoundRobinCommercialTerrain(societe){
+  const users=getAllUsers().filter(u=>u.role==='commercial'&&(u.societe===societe||u.societe==='les-deux'));
   if(!users.length)return null;
-  const key='benai_rr_idx_'+(societe||'all');
+  const key='benai_rr_terrain_'+(societe||'all');
   let idx=parseInt(appStorage.getItem(key)||'0',10);
   if(Number.isNaN(idx))idx=0;
   const pick=users[idx%users.length];
@@ -10461,8 +10464,8 @@ async function saveLead(){
     // Nouveau lead
     const societe=resolveLeadSocieteBySecteur(data.secteur,getSocieteFromUser(currentUser.id));
     let autoCommercial=data.commercial||null;
-    if(!autoCommercial&&!hasDirecteurCommercial()){
-      autoCommercial=getRoundRobinCommercial(societe);
+    if(!autoCommercial&&!hasDirecteurCommercialForSociete(societe)){
+      autoCommercial=getRoundRobinCommercialTerrain(societe);
     }
     if(data.ancien_client&&historicalProposal&&historicalProposal.isActive&&data.hors_secteur&&currentUser?.role==='directeur_co'&&!selectedCommercial){
       showDriveNotif(`🔁 Ancien client détecté : proposition de réattribution à ${historicalProposal.name}`);

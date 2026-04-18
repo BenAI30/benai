@@ -2091,8 +2091,15 @@ function addDaysISO(days){
   d.setDate(d.getDate()+Number(days||0));
   return toISODate(d);
 }
-function hasDirecteurCommercial(){
-  return getAllUsers().some(u=>u.role==='directeur_co');
+function hasDirecteurCommercialForSociete(leadSoc){
+  const ls=leadSoc==='lambert'?'lambert':'nemausus';
+  return getAllUsers().some(u=>{
+    if(u.role!=='directeur_co')return false;
+    const s=String(u.societe||'').trim().toLowerCase();
+    if(s==='les-deux')return true;
+    if(ls==='lambert')return s==='lambert';
+    return s==='nemausus';
+  });
 }
 function getRoundRobinCommercial(societe){
   const users=getAllUsers().filter(u=>u.role==='commercial'&&(u.societe===societe||u.societe==='les-deux'));
@@ -8146,7 +8153,7 @@ function saveLead(){
     // Nouveau lead
     const societe=resolveLeadSocieteBySecteur(data.secteur,getSocieteFromUser(currentUser.id));
     let autoCommercial=data.commercial||null;
-    if(!autoCommercial&&!hasDirecteurCommercial()){
+    if(!autoCommercial&&!hasDirecteurCommercialForSociete(societe)){
       autoCommercial=getRoundRobinCommercial(societe);
     }
     if(data.ancien_client&&historicalProposal&&historicalProposal.isActive&&data.hors_secteur&&currentUser?.role==='directeur_co'&&!selectedCommercial){
