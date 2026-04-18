@@ -656,67 +656,86 @@ create index if not exists idx_annuaire_societe on public.annuaire(societe);
 -- =========
 create or replace function public.ensure_my_profile()
 returns void
-language plpgsql
+language sql
 security definer
 set search_path = public, auth
-as $ensure$
-declare
-  rec auth.users%rowtype;
-  v_meta jsonb;
-  full_name_val text;
-  role_val text;
-  company_val text;
-  base_uid text;
-  safe_uid text;
-  uemail text;
-begin
-  set local row_security = off;
-
-  select * into rec from auth.users where id = auth.uid();
-  if not found then
-    return;
-  end if;
-  uemail := lower(coalesce(rec.email, ''));
-  v_meta := coalesce(rec.raw_user_meta_data, '{}'::jsonb);
-
-  full_name_val := nullif(trim(coalesce(v_meta->>'full_name', '')), '');
-  if full_name_val is null then
-    full_name_val := split_part(coalesce(uemail, ''), '@', 1);
-  end if;
-  if full_name_val is null or full_name_val = '' then
-    full_name_val := 'Utilisateur';
-  end if;
-
-  role_val := lower(coalesce(v_meta->>'role', 'assistante'));
-  if role_val not in ('admin','directeur_co','directeur_general','commercial','assistante','metreur') then
-    role_val := 'assistante';
-  end if;
-
-  company_val := lower(coalesce(v_meta->>'company', 'nemausus'));
-  if company_val not in ('nemausus','lambert','les-deux') then
-    company_val := 'nemausus';
-  end if;
-
-  base_uid := lower(coalesce(nullif(trim(coalesce(v_meta->>'app_uid', '')), ''), split_part(coalesce(uemail, ''), '@', 1), 'user'));
-  safe_uid := regexp_replace(base_uid, '[^a-z0-9_]+', '_', 'g');
-  if safe_uid = '' then
-    safe_uid := 'user';
-  end if;
-  if exists (select 1 from public.profiles p where p.app_uid = safe_uid and p.id <> rec.id) then
-    safe_uid := safe_uid || '_' || substr(replace(rec.id::text, '-', ''), 1, 6);
-  end if;
-
-  insert into public.profiles (id, email, app_uid, full_name, role, company)
-  values (rec.id, uemail, safe_uid, full_name_val, role_val, company_val)
-  on conflict (id) do update set
-    email = excluded.email,
-    app_uid = excluded.app_uid,
-    full_name = excluded.full_name,
-    role = excluded.role,
-    company = excluded.company,
-    updated_at = now();
-end;
-$ensure$;
+as $fn$
+insert into public.profiles (id, email, app_uid, full_name, role, company)
+with au as (
+  select id, email, raw_user_meta_data
+  from auth.users
+  where id = auth.uid()
+),
+s1 as (
+  select
+    au.id,
+    lower(coalesce(au.email, '')) as email_l,
+    coalesce(au.raw_user_meta_data, '{}'::jsonb) as ju
+  from au
+),
+s2 as (
+  select
+    s1.id,
+    s1.email_l,
+    case
+      when nullif(trim(s1.ju->>'full_name'), '') is not null then nullif(trim(s1.ju->>'full_name'), '')
+      when nullif(split_part(s1.email_l, '@', 1), '') is not null then split_part(s1.email_l, '@', 1)
+      else 'Utilisateur'
+    end as full_name_out,
+    case
+      when lower(coalesce(s1.ju->>'role', 'assistante')) in (
+        'admin','directeur_co','directeur_general','commercial','assistante','metreur'
+      ) then lower(coalesce(s1.ju->>'role', 'assistante'))
+      else 'assistante'
+    end as role_out,
+    case
+      when lower(coalesce(s1.ju->>'company', 'nemausus')) in ('nemausus','lambert','les-deux')
+      then lower(coalesce(s1.ju->>'company', 'nemausus'))
+      else 'nemausus'
+    end as company_out,
+    lower(coalesce(
+      nullif(trim(s1.ju->>'app_uid'), ''),
+      nullif(split_part(s1.email_l, '@', 1), ''),
+      'user'
+    )) as base_uid_raw
+  from s1
+),
+s3 as (
+  select
+    s2.id,
+    s2.email_l,
+    s2.full_name_out,
+    s2.role_out,
+    s2.company_out,
+    coalesce(nullif(regexp_replace(s2.base_uid_raw, '[^a-z0-9_]+', '_', 'g'), ''), 'user') as slug_base
+  from s2
+),
+s4 as (
+  select
+    s3.id,
+    s3.email_l,
+    s3.full_name_out,
+    s3.role_out,
+    s3.company_out,
+    case
+      when exists (
+        select 1 from public.profiles p
+        where p.app_uid = s3.slug_base and p.id <> s3.id
+      )
+      then s3.slug_base || '_' || substr(replace(s3.id::text, '-', ''), 1, 6)
+      else s3.slug_base
+    end as app_uid_out
+  from s3
+)
+select id, email_l, app_uid_out, full_name_out, role_out, company_out from s4
+on conflict (id) do update set
+  email = excluded.email,
+  app_uid = excluded.app_uid,
+  full_name = excluded.full_name,
+  role = excluded.role,
+  company = excluded.company,
+  updated_at = now();
+$fn$;
 
 grant execute on function public.ensure_my_profile() to authenticated;
 
