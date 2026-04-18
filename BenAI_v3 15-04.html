@@ -2092,6 +2092,8 @@ const SUPABASE_CONFIG = {
 let supabaseClient=null;
 let currentSupabaseSession=null;
 let currentAuthMode='unknown';
+/** Dernière erreur PostgREST (fetch profiles ou rpc ensure_my_profile) pour diagnostiquer la connexion. */
+let lastSupabaseProfileLoginHint='';
 let runtimeMemState={sav:[],messages:{},msg_deletions:{},msg_read_cursor:{},activity:[],notes:[],absences:[],tokens:{}};
 let runtimeLeadsState=[];
 const LEAD_SOURCE_DEFS=[
@@ -2875,7 +2877,16 @@ async function fetchSupabaseProfile(accessToken,userAuthId=''){
         Authorization:'Bearer '+accessToken
       }
     },8000);
-    if(!res.ok)return null;
+    if(!res.ok){
+      try{
+        const t=await res.text();
+        const j=JSON.parse(t);
+        lastSupabaseProfileLoginHint=String(j.message||j.details||j.hint||j.code||'').trim().slice(0,220)||('HTTP '+res.status);
+      }catch{
+        lastSupabaseProfileLoginHint=('HTTP '+res.status).slice(0,220);
+      }
+      return null;
+    }
     const rows=await res.json();
     return rows?.[0]||null;
   }catch(e){
@@ -2891,13 +2902,23 @@ async function rpcEnsureMySupabaseProfile(accessToken){
       method:'POST',
       headers:{
         'Content-Type':'application/json',
+        Accept:'application/json',
         apikey:SUPABASE_CONFIG.publishableKey,
         Authorization:'Bearer '+accessToken
       },
       body:'{}'
     },8000);
-    return res.ok;
+    if(res.ok)return true;
+    const text=await res.text().catch(()=>'');
+    try{
+      const j=JSON.parse(text);
+      lastSupabaseProfileLoginHint=String(j.message||j.error||j.details||j.hint||text).trim().slice(0,220);
+    }catch{
+      lastSupabaseProfileLoginHint=String(text||'HTTP '+res.status).trim().slice(0,220);
+    }
+    return false;
   }catch(e){
+    lastSupabaseProfileLoginHint=String(e&&e.message||e||'réseau').slice(0,220);
     return false;
   }
 }
@@ -2962,6 +2983,7 @@ async function trySupabaseLogin(resolvedEmail,pwd,rawLogin=''){
   const client=getSupabaseClient();
   if(!client||!email||!email.includes('@')||!pwd)return {ok:false,reason:'missing_credentials'};
   try{
+    lastSupabaseProfileLoginHint='';
     const {data,error}=await signInWithPasswordRetry(client,email,pwd,2);
     if(error||!data?.session){
       return {ok:false,reason:error?.message||'invalid_credentials'};
@@ -4308,7 +4330,8 @@ async function login(){
         ?'Connexion impossible en ouvrant le fichier en local (file://).'
         :'Erreur réseau vers Supabase.';
     }else if(reason==='profile_missing'){
-      supabaseFailureLabel='Connexion Supabase OK mais profil manquant dans la table profiles. Déployez la fonction SQL ensure_my_profile (voir supabase/patch_ensure_my_profile.sql dans le dépôt), exécutez-la dans l’éditeur SQL Supabase, puis réessayez.';
+      supabaseFailureLabel='Connexion Supabase OK mais profil manquant dans la table profiles. Réexécutez supabase/patch_ensure_my_profile.sql dans l’éditeur SQL Supabase (bouton vert « activer RLS » si une fenêtre s’affiche), puis réessayez.';
+      if(lastSupabaseProfileLoginHint)supabaseFailureLabel+=' Détail : '+lastSupabaseProfileLoginHint+'.';
     }else{
       supabaseFailureLabel='Connexion Supabase refusée : '+(supabaseAuthResult?.reason||'erreur inconnue');
     }
