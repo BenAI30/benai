@@ -3484,19 +3484,49 @@ function scheduleRenderConvList(){
   convListRenderTimer=setTimeout(()=>{convListRenderTimer=null;renderConvList();},70);
 }
 
-function normalizedSocieteSlugForMessaging(u){
+function resolveMessagingSocieteSlug(u){
   if(!u)return'';
-  if(u.role==='directeur_general')return'les-deux';
+  if(u.role==='directeur_general'||u.role==='directeur_co')return'les-deux';
   const s=String(u.societe??'').trim().toLowerCase();
   if(s==='nemausus'||s==='lambert'||s==='les-deux')return s;
+  const r=String(u.role||'').trim();
+  if(['commercial','assistante','metreur'].includes(r))return'les-deux';
   return'';
 }
 function societeMessagableOverlap(a,b){
-  const sa=normalizedSocieteSlugForMessaging(a);
-  const sb=normalizedSocieteSlugForMessaging(b);
+  const sa=resolveMessagingSocieteSlug(a);
+  const sb=resolveMessagingSocieteSlug(b);
   if(sa==='les-deux'||sb==='les-deux')return true;
   if(!sa||!sb)return false;
   return sa===sb;
+}
+function refreshCurrentUserFromSyncedExtras(){
+  if(!currentUser||currentUser.id==='benjamin')return;
+  const uid=normalizeId(String(currentUser.id||''));
+  const au=String(currentUser.auth_uid||currentUser.authUid||'').trim();
+  const all=getAllUsers();
+  let hit=all.find(u=>normalizeId(String(u.id))===uid);
+  if(!hit&&au)hit=all.find(u=>String(u.auth_uid||u.authUid||'')===au);
+  if(!hit)return;
+  const patch={
+    name:hit.name,
+    societe:hit.societe,
+    email:hit.email,
+    role:hit.role,
+    color:hit.color,
+    initial:hit.initial,
+    auth_uid:hit.auth_uid||hit.authUid||currentUser.auth_uid,
+    vehicule:hit.vehicule,
+    fonction:hit.fonction
+  };
+  Object.assign(currentUser,patch);
+  const slot=USERS[currentUser.id];
+  if(slot){
+    slot.name=patch.name;
+    slot.role=patch.role;
+    slot.color=patch.color;
+    slot.initial=patch.initial;
+  }
 }
 
 // Génère dynamiquement les conversations d'un utilisateur
@@ -5686,6 +5716,8 @@ async function syncExtraUsersFromSupabaseProfiles(opts){
       }
     });
     saveExtraUsers(merged);
+    refreshCurrentUserFromSyncedExtras();
+    scheduleRenderConvList();
     return true;
   }catch(e){
     if(!quiet&&['commercial','assistante','metreur'].includes(currentUser?.role)){
