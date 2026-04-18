@@ -8913,8 +8913,12 @@ function renderLeadsDashboard(){
     };
   });
   html+=`<div style="font-size:11px;color:var(--t3);font-weight:700;margin:6px 0">1) PILOTAGE GLOBAL</div>`;
-  html+=`<div class="secteur-card">
-    <div class="secteur-title">🧭 Suivi global par secteur</div>
+  html+=`<div class="secteur-card" id="crm-dashboard-secteurs-export">
+    <div class="secteur-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+      <span>🧭 Synthèse par secteur</span>
+      <button type="button" onclick="exportCRMTable('secteurs')" title="Même fichier que « Performance secteurs » dans les exports" style="padding:8px 14px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.4);border-radius:10px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📥 Export CSV</button>
+    </div>
+    <div style="font-size:11px;color:var(--t3);margin:-4px 0 10px;line-height:1.45">Leads <strong>actifs non archivés</strong> du périmètre visible (société / rôle). Le CSV contient par secteur : volume, ventes, CA signé, devis en cours, pipeline.</div>
     ${secteursSynthese.map(s=>`
       <div class="perf-row">
         <div class="perf-name" style="color:${s.color}">${s.label}</div>
