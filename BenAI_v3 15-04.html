@@ -7272,7 +7272,7 @@ function renderGuidePage(){
       'Le CRM regroupe tes dossiers en charge : « Mes leads » pour la liste ou le kanban, « Mes ventes » pour les signatures et le suivi d’objectifs.',
       'Filtres, recherche, pastilles de statut et bascule liste / kanban servent à prioriser la journée (Non traité, RDV, devis, vendu, archives, alertes).',
       'Bouton + Nouveau lead : tu peux créer un dossier (ex. prospection terrain) ; la source ACTIF t’attribue automatiquement le lead ; sinon l’attribution est gérée côté organisation.',
-      'La timeline sur la fiche regroupe les actions enregistrées : enregistre après chaque étape pour garder une suite claire.',
+      'Sur la fiche lead, utilise surtout les champs Suivi et Commentaire : la direction (admin, dir. commercial, DG) voit la timeline complète ; toi tu enregistres l’essentiel pour le terrain après chaque contact.',
       'Après chaque contact : mets à jour le sous-statut (à rappeler, injoignable, RDV programmé…), la date de rappel si besoin, et le suivi.',
       'Boutons Appeler et Agenda pour gagner du temps ; après une visite, utilise « RDV fait » pour noter que le rendez-vous a eu lieu.',
       'Devis : dès envoi, renseigne montant HT, date d’envoi et prochaine relance ; une alerte peut apparaître si le dossier stagne.',
@@ -7692,17 +7692,18 @@ function getCommercialArchiveByUid(uid){
   const n=normalizeId(uid);
   return getCommercialArchives().find(a=>normalizeId(a.id)===n)||null;
 }
-/** Conserve nom / société / couleur pour l’historique CRM après suppression d’un commercial. */
+/** Conserve nom / société / couleur pour l’historique CRM après suppression d’un profil assignable sur les leads (commercial ou dir. co.). */
 function archiveCommercialUserSnapshot(u){
   if(!u||normalizeId(u.id)==='benjamin')return;
-  if(String(u.role||'')!=='commercial')return;
+  const r=String(u.role||'');
+  if(r!=='commercial'&&r!=='directeur_co')return;
   const id=String(u.id||'').trim();
   if(!id)return;
   const list=getCommercialArchives().filter(a=>normalizeId(a.id)!==normalizeId(id));
   list.push({
     id,
     name:String(u.name||id).trim()||id,
-    role:'commercial',
+    role:r,
     societe:u.societe||'',
     vehicule:u.vehicule||'',
     color:u.color||'linear-gradient(135deg,#888,#555)',
@@ -7916,12 +7917,13 @@ async function supprimerUtilisateur(uid){
   const u=findUserById(uid)||findUserById(normalizeId(uid));
   if(!u){await benaiAlert('Utilisateur introuvable.');return;}
   const effectiveId=u.id;
-  const isCommercial=String(u.role||'')==='commercial';
-  const confirmMsg=isCommercial
+  const roleStr=String(u.role||'');
+  const archiveCrmProfile=roleStr==='commercial'||roleStr==='directeur_co';
+  const confirmMsg=archiveCrmProfile
     ?`Supprimer ${u.name||effectiveId} définitivement ?\n\nSon compte et ses accès seront retirés, mais les leads et objectifs CRM déjà associés à son identifiant resteront pour l’historique et les exports (nom affiché : « … (compte supprimé) »).`
     :`Supprimer ${u.name||effectiveId} définitivement ? Cette action est irréversible.`;
   if(!await benaiConfirm(confirmMsg))return;
-  if(isCommercial)archiveCommercialUserSnapshot(u);
+  if(archiveCrmProfile)archiveCommercialUserSnapshot(u);
   const emailForCloud=(u.email||getEmailCandidateForUid(effectiveId,'')||'').trim().toLowerCase();
   let remoteDeleted=false;
   const remoteRes=await deleteSupabaseUserProvisioning({
@@ -8385,7 +8387,8 @@ function initSettings(){
 }
 
 function setTheme(){
-  setThemeChoice(getStoredThemeChoice());
+  applyTheme();
+  syncSettingsThemeButtons();
 }
 
 async function changerMonMdp(){
@@ -9960,7 +9963,7 @@ function renderLeadsDashboard(){
       commerciauxObj.push({
         id:a.id,
         name:`${String(a.name||a.id).trim()} (compte supprimé)`,
-        role:'commercial',
+        role:a.role||'commercial',
         societe:a.societe||'',
         vehicule:a.vehicule||'',
         color:a.color||'linear-gradient(135deg,#888,#555)',
@@ -10242,10 +10245,11 @@ function renderLeadsDashboard(){
     }).join('');
   }
   html+='</div>';
-  if(commerciaux.length){
+  const commerciauxEvoCharts=[...commerciaux,...commerciauxObj.filter(c=>c._archivedCommercial)];
+  if(commerciauxEvoCharts.length){
     html+=`<div class="secteur-card"><div class="secteur-title">📈 Évolution CA par commercial (6 mois)</div>
     <div style="font-size:11px;color:var(--t3);margin:-4px 0 4px">Montants HT — ventes signées (date de création du lead).</div>
-    <div class="crm-evo-grid">${buildCrmCommercialEvolutionCards(leads,commerciaux)}</div></div>`;
+    <div class="crm-evo-grid">${buildCrmCommercialEvolutionCards(leads,commerciauxEvoCharts)}</div></div>`;
   }
   if(dashPilotage){
     html+=`</div></details>`;
@@ -10335,7 +10339,7 @@ function renderLeadsDashboard(){
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <div style="width:28px;height:28px;border-radius:8px;background:${c.color};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff">${c.initial}</div>
           <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(c.name)}</div><div style="font-size:10px;color:var(--t3)">${contacts.ce_mois} contacts ce mois · ${contacts.cette_semaine} cette semaine${c.vehicule?` · 🚐 ${esc(c.vehicule)}`:''}</div></div>
-          ${!c._archivedCommercial&&(currentUser.role==='admin'||isCRMScopePilotageRole(currentUser.role))?`<button onclick="editObjectifCommercial('${c.id}','${esc(c.name)}')" style="background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
+          ${!c._archivedCommercial&&(currentUser.role==='admin'||isCRMScopePilotageRole(currentUser.role))?`<button onclick="editObjectifCommercial(${JSON.stringify(c.id)},${JSON.stringify(c.name)})" style="background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
         </div>
         <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Mensuel (${moisHuman}) — ${prog.ca_mois.toLocaleString('fr-FR')}€ / ${prog.obj.mensuel.toLocaleString('fr-FR')}€ · ${prog.ventes_mois} ventes</div>
         <div class="objectif-bar" style="margin-bottom:6px"><div class="objectif-bar-fill" style="width:${pctMois}%;background:${pctMois>=100?'var(--g)':pctMois>=75?'var(--a)':'var(--r)'}"></div></div>
@@ -10711,8 +10715,8 @@ function addLeadAction(){
   addLeadTimelineEntry(l,txt,currentUser.name);
   saveLeads(leads);
   input.value='';
-  // Refresh timeline
-  document.getElementById('timeline-list').innerHTML=(l.timeline||[]).slice().reverse().map(t=>`
+  if(canViewLeadFullTimeline()){
+    document.getElementById('timeline-list').innerHTML=(l.timeline||[]).slice().reverse().map(t=>`
     <div class="timeline-item">
       <div class="timeline-dot"></div>
       <div class="timeline-content">
@@ -10720,7 +10724,8 @@ function addLeadAction(){
         <div class="timeline-meta">${t.date} · ${esc(t.user)}</div>
       </div>
     </div>`).join('');
-  document.getElementById('lead-timeline').style.display='block';
+    document.getElementById('lead-timeline').style.display='block';
+  }
   showDriveNotif('Action enregistrée');
 }
 
@@ -12939,7 +12944,7 @@ const TUTO_SLIDES_BY_ROLE={
     {icon:'🗺️',title:'Navigation CRM',desc:'Dans Leads CRM : « Mes leads » (liste ou kanban), puis « Mes ventes » (tableau des ventes et suivi d’objectifs).',highlight:'Bascule ☰ / ⊞ pour lire vite selon ton habitude'},
     {icon:'🔎',title:'Trier efficacement',desc:'Utilise les pastilles Tous, Non traité, RDV pris, Devis envoyé, Vendu, Perdu, Archives et Alertes. La recherche texte retrouve nom, téléphone ou ville. Commence souvent par Alertes + Non traité.',highlight:'Objectif : zéro lead important dans « Non traité » en fin de journée'},
     {icon:'➕',title:'Créer un lead (terrain / prospection)',desc:'Bouton + Nouveau lead : renseigne nom, téléphone, code postal et type de projet (obligatoires). La source « ACTIF » t’attribue automatiquement le dossier ; pour les autres cas, l’organisation gère l’attribution selon vos règles internes.',highlight:'Secteur / CP cohérents pour limiter les erreurs de zone'},
-    {icon:'👤',title:'Étape A — Ouvrir et comprendre',desc:'Ouvre la fiche : lis projet, adresse, commentaire de création et la timeline pour voir ce qui s’est déjà passé sur le dossier. Complète suivi ou commentaire dès que tu as une info nouvelle.',highlight:'Lire la fiche avant d’appeler fait gagner du temps'},
+    {icon:'👤',title:'Étape A — Ouvrir et comprendre',desc:'Ouvre la fiche : lis projet, adresse et commentaire de création. Complète Suivi ou Commentaire dès que tu as une info nouvelle — la timeline détaillée est réservée à la direction (admin, dir. commercial, DG).',highlight:'Lire la fiche avant d’appeler fait gagner du temps'},
     {icon:'📞',title:'Étape B — Premier contact',desc:'Bouton Appeler : compose plus vite. Après l’échange, mets le sous-statut adapté (à rappeler, injoignable, faux numéro, RDV programmé…). Si tu dois rappeler plus tard, fixe une date/heure de rappel : BenAI te notifie autour de ce créneau.',highlight:'Chaque appel = une mise à jour CRM, même courte'},
     {icon:'📅',title:'Étape C — RDV',desc:'Quand un créneau est validé, renseigne la date (sous-statut RDV programmé) puis utilise Agenda : Google Calendar s’ouvre avec le client et le lieu. Après le passage, appuie sur « RDV fait » pour enregistrer que le rendez-vous a eu lieu.',highlight:'Un RDV sans date renseignée = risque de double-booking'},
     {icon:'🧾',title:'Étape D — Devis envoyé',desc:'Passe en jaune « Devis envoyé ». Saisis montant HT, date d’envoi, et la prochaine action de relance. Au bout de 7 jours sans nouvelle, BenAI peut pousser une alerte « devis sans réponse » : ton job est d’appeler avant d’attendre la notif.',highlight:'Montant + date = suivi fiable du dossier'},
