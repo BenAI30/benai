@@ -141,8 +141,11 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .tmsg-bubble{padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.5;cursor:pointer;position:relative;}
 .tmsg.mine .tmsg-bubble{border-radius:12px 12px 3px 12px;color:#fff;}
 .tmsg.theirs .tmsg-bubble{background:var(--s3);border:1px solid var(--b1);border-radius:12px 12px 12px 3px;}
-.tmsg-time{font-size:10px;color:var(--t3);margin-top:3px;}
-.tmsg.mine .tmsg-time{text-align:right;}
+.tmsg-time{font-size:10px;color:var(--t3);margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.tmsg.mine .tmsg-time{text-align:right;justify-content:flex-end;}
+.tmsg-read{font-size:10px;font-weight:600;color:rgba(255,255,255,.55);letter-spacing:.02em;}
+.tmsg-read-seen{color:rgba(255,255,255,.92);}
+.tmsg.theirs .tmsg-read,.tmsg.theirs .tmsg-read-seen{color:var(--t3);font-weight:600;}
 .tmsg-actions{display:none;position:absolute;top:-28px;right:0;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:3px 6px;gap:4px;white-space:nowrap;z-index:10;}
 .tmsg-bubble:hover .tmsg-actions{display:flex;}
 .tmsg-act-btn{background:none;border:none;font-size:11px;cursor:pointer;color:var(--t2);padding:2px 4px;border-radius:4px;font-family:'Outfit',sans-serif;}
@@ -1762,7 +1765,7 @@ const SUPABASE_CONFIG = {
 let supabaseClient=null;
 let currentSupabaseSession=null;
 let currentAuthMode='unknown';
-let runtimeMemState={sav:[],messages:{},msg_deletions:{},activity:[],notes:[],absences:[],tokens:{}};
+let runtimeMemState={sav:[],messages:{},msg_deletions:{},msg_read_cursor:{},activity:[],notes:[],absences:[],tokens:{}};
 let runtimeLeadsState=[];
 const LEAD_SOURCE_DEFS=[
   {code:'MAG',icon:'📍',label:'Magasin'},
@@ -1930,6 +1933,7 @@ function refreshSharedSignatures(markDirty=false){
 function buildSharedCoreDataPayload(mem,annuaire,leads){
   const msgs=mem&&typeof mem.messages==='object'&&mem.messages?mem.messages:{};
   const del=mem&&typeof mem.msg_deletions==='object'&&mem.msg_deletions?mem.msg_deletions:{};
+  const readC=mem&&typeof mem.msg_read_cursor==='object'&&mem.msg_read_cursor?mem.msg_read_cursor:{};
   return {
     version:1,
     updated_at:new Date().toISOString(),
@@ -1941,7 +1945,8 @@ function buildSharedCoreDataPayload(mem,annuaire,leads){
       leads:Array.isArray(leads)?leads:[],
       notif_feed:[],
       messages:msgs,
-      msg_deletions:del
+      msg_deletions:del,
+      msg_read_cursor:readC
     }
   };
 }
@@ -2043,6 +2048,27 @@ function mergeMsgDeletions(remoteDel,localDel){
   });
   return out;
 }
+function mergeMsgReadCursors(remoteMap,localMap){
+  const r=remoteMap&&typeof remoteMap==='object'?remoteMap:{};
+  const l=localMap&&typeof localMap==='object'?localMap:{};
+  const cids=new Set([...Object.keys(r),...Object.keys(l)]);
+  const out={};
+  cids.forEach(cid=>{
+    const a=r[cid]&&typeof r[cid]==='object'?r[cid]:{};
+    const b=l[cid]&&typeof l[cid]==='object'?l[cid]:{};
+    const uids=new Set([...Object.keys(a),...Object.keys(b)]);
+    if(!uids.size)return;
+    const merged={};
+    uids.forEach(uid=>{
+      const ta=Number(a[uid]||0);
+      const tb=Number(b[uid]||0);
+      const mx=Math.max(ta,tb);
+      if(mx>0)merged[uid]=mx;
+    });
+    if(Object.keys(merged).length)out[cid]=merged;
+  });
+  return out;
+}
 function mergeMessagesMap(remoteMap,localMap,msgDeletionsByCid){
   const del=msgDeletionsByCid&&typeof msgDeletionsByCid==='object'?msgDeletionsByCid:{};
   const r=remoteMap&&typeof remoteMap==='object'?remoteMap:{};
@@ -2135,7 +2161,8 @@ function mergeSharedCoreData(remoteData,localData,mode='pull'){
     leads:mergeByKey(remote.leads,local.leads,x=>x?.id,pickLatestLead),
     notif_feed:mergeNotifFeeds(remote.notif_feed,local.notif_feed),
     messages:mergeMessagesMap(remote.messages,local.messages,msgDel),
-    msg_deletions:msgDel
+    msg_deletions:msgDel,
+    msg_read_cursor:mergeMsgReadCursors(remote.msg_read_cursor,local.msg_read_cursor)
   };
 }
 
@@ -2173,7 +2200,7 @@ async function pushSharedCoreDataToSupabase(mem,annuaire,leads,notifFeedAppend){
       body:JSON.stringify([{key:SHARED_CORE_DATA_KEY,value:payload,updated_at:payload.updated_at}])
     },10000);
     if(!res.ok)return false;
-    saveMem({...createEmptyMemState(),...getMem(),sav:mergedData.sav,notes:mergedData.notes,absences:mergedData.absences,messages:mergedData.messages||{},msg_deletions:mergedData.msg_deletions||{}},false);
+    saveMem({...createEmptyMemState(),...getMem(),sav:mergedData.sav,notes:mergedData.notes,absences:mergedData.absences,messages:mergedData.messages||{},msg_deletions:mergedData.msg_deletions||{},msg_read_cursor:mergedData.msg_read_cursor||{}},false);
     saveAnnuaire(mergedData.annuaire,false);
     saveLeads(mergedData.leads,false);
     refreshSharedSignatures(false);
@@ -2214,6 +2241,7 @@ async function loadSharedCoreDataFromSupabase(force=false){
       leads:getLeads()||[],
       messages:localMemBefore.messages||{},
       msg_deletions:localMemBefore.msg_deletions||{},
+      msg_read_cursor:localMemBefore.msg_read_cursor||{},
       notif_feed:[]
     },'pull');
     saveMem({
@@ -2223,7 +2251,8 @@ async function loadSharedCoreDataFromSupabase(force=false){
       notes:merged.notes,
       absences:merged.absences,
       messages:merged.messages||{},
-      msg_deletions:merged.msg_deletions||{}
+      msg_deletions:merged.msg_deletions||{},
+      msg_read_cursor:merged.msg_read_cursor||{}
     },false);
     saveAnnuaire(merged.annuaire,false);
     saveLeads(merged.leads,false);
@@ -2381,12 +2410,17 @@ function scheduleAppStoragePersist(){
   },1200);
 }
 async function hydrateAppStorageFromSupabase(uid=currentUser?.id,force=false){
-  if(!uid||!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
+  if(!uid)return false;
   if(appStorageHydratedForUid&&appStorageHydratedForUid!==uid){
     clearAppStorageCache();
     persistAppStorageCacheToSession();
     appStorageHydratedForUid='';
   }
+  // Déconnexion : resetAppStorageRuntime() vide la RAM sans réécrire sessionStorage.
+  // Les clés hors snapshot cloud (ex. benai_read_*) restent dans sessionStorage — on les
+  // recharge ici pour éviter badges / notifs « non lus » sur les messages déjà vus.
+  loadAppStorageCacheFromSession();
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
   if(appStorageHydratedForUid===uid&&!force)return true;
   await ensureSupabaseSession();
   if(!hasSupabaseDataAuth())return false;
@@ -2423,7 +2457,7 @@ function resetAppStorageRuntime(preserveSessionCopy=false){
   clearAppStorageCache();
   if(preserveSessionCopy)persistAppStorageCacheToSession();
   if(!preserveSessionCopy)clearRuntimeSession(currentUser?.id);
-  runtimeMemState={sav:[],messages:{},msg_deletions:{},activity:[],notes:[],absences:[],tokens:{}};
+  runtimeMemState={sav:[],messages:{},msg_deletions:{},msg_read_cursor:{},activity:[],notes:[],absences:[],tokens:{}};
   runtimeLeadsState=[];
   supabaseSharedDirty={sav:false,notes:false,absences:false,annuaire:false,leads:false};
   supabaseSharedSignatures={sav:'',notes:'',absences:'',annuaire:'',leads:''};
@@ -3448,13 +3482,14 @@ function getRoundRobinCommercial(societe){
 // MÉMOIRE
 // ══════════════════════════════════════════
 function createEmptyMemState(){
-  return {sav:[],messages:{},msg_deletions:{},activity:[],notes:[],absences:[],tokens:{}};
+  return {sav:[],messages:{},msg_deletions:{},msg_read_cursor:{},activity:[],notes:[],absences:[],tokens:{}};
 }
 function getMem(){
   if(!runtimeMemState||typeof runtimeMemState!=='object')runtimeMemState=createEmptyMemState();
   if(!Array.isArray(runtimeMemState.sav))runtimeMemState.sav=[];
   if(!runtimeMemState.messages||typeof runtimeMemState.messages!=='object')runtimeMemState.messages={};
   if(!runtimeMemState.msg_deletions||typeof runtimeMemState.msg_deletions!=='object')runtimeMemState.msg_deletions={};
+  if(!runtimeMemState.msg_read_cursor||typeof runtimeMemState.msg_read_cursor!=='object')runtimeMemState.msg_read_cursor={};
   if(!Array.isArray(runtimeMemState.activity))runtimeMemState.activity=[];
   if(!Array.isArray(runtimeMemState.notes))runtimeMemState.notes=[];
   if(!Array.isArray(runtimeMemState.absences))runtimeMemState.absences=[];
@@ -3577,9 +3612,76 @@ function estimateCost(inp,out){
   return ((inp*0.000003)+(out*0.000015)).toFixed(4);
 }
 
-// MESSAGE UNREAD
-function getLastRead(uid){try{return JSON.parse(appStorage.getItem('benai_read_'+uid))||{};}catch{return {};}}
-function markRead(uid,cid){const r=getLastRead(uid);r[cid]=Date.now();appStorage.setItem('benai_read_'+uid,JSON.stringify(r));}
+// MESSAGE UNREAD + accusés de lecture (msg_read_cursor sync cloud)
+function migrateLegacyBenaiReadToMem(){
+  if(!currentUser?.id)return;
+  try{
+    const key='benai_read_'+currentUser.id;
+    const raw=appStorage.getItem(key);
+    if(!raw)return;
+    const legacy=JSON.parse(raw)||{};
+    const mem=getMem();
+    let changed=false;
+    Object.keys(legacy).forEach(cid=>{
+      const n=Number(legacy[cid]||0);
+      if(!n)return;
+      if(!mem.msg_read_cursor[cid])mem.msg_read_cursor[cid]={};
+      const cur=Number(mem.msg_read_cursor[cid][currentUser.id]||0);
+      if(n>cur){mem.msg_read_cursor[cid][currentUser.id]=n;changed=true;}
+    });
+    appStorage.removeItem(key);
+    if(changed)saveMem(mem);
+  }catch{}
+}
+function getLastRead(uid){
+  if(!uid)return{};
+  try{
+    const mem=getMem();
+    const out={};
+    const cursors=mem.msg_read_cursor&&typeof mem.msg_read_cursor==='object'?mem.msg_read_cursor:{};
+    Object.keys(cursors).forEach(cid=>{
+      const t=cursors[cid]?.[uid];
+      if(Number(t)>0)out[cid]=t;
+    });
+    return out;
+  }catch{
+    return{};
+  }
+}
+function markRead(uid,cid){
+  if(!uid||!cid)return;
+  const mem=getMem();
+  if(!mem.msg_read_cursor[cid])mem.msg_read_cursor[cid]={};
+  const now=Date.now();
+  mem.msg_read_cursor[cid][uid]=Math.max(Number(mem.msg_read_cursor[cid][uid]||0),now);
+  saveMem(mem);
+}
+function getPeerMaxReadTsForConv(cid,excludeUid){
+  const c=getMem().msg_read_cursor?.[cid];
+  if(!c||typeof c!=='object')return 0;
+  let max=0;
+  Object.keys(c).forEach(u=>{
+    if(u===excludeUid)return;
+    max=Math.max(max,Number(c[u]||0));
+  });
+  return max;
+}
+function getReadReceiptHtml(cid,m){
+  if(!currentUser||m.from!==currentUser.id)return'';
+  const msgTs=Number(m.ts||0);
+  if(cid==='groupe'){
+    const peers=getAllUsers().filter(u=>u.id!==currentUser.id).map(u=>u.id);
+    if(!peers.length||!msgTs)return'';
+    const c=getMem().msg_read_cursor?.[cid]||{};
+    const allRead=peers.every(uid=>Number(c[uid]||0)>=msgTs);
+    if(allRead)return'<span class="tmsg-read tmsg-read-seen">✓ Lu</span>';
+    return'<span class="tmsg-read">✓</span>';
+  }
+  if(!msgTs)return'';
+  const peerTs=getPeerMaxReadTsForConv(cid,currentUser.id);
+  if(peerTs>=msgTs)return'<span class="tmsg-read tmsg-read-seen">✓ Lu</span>';
+  return'<span class="tmsg-read">✓</span>';
+}
 function countUnread(uid,cid,mem,lrMap){
   const m=mem||getMem();
   const msgs=m.messages[cid]||[];
@@ -4049,6 +4151,7 @@ function applySidebarSectionOrderForRole(role){
 function initApp(silent=false){
   const u=currentUser;
   hydrateRuntimeFromSession(u?.id);
+  migrateLegacyBenaiReadToMem();
   refreshSharedSignatures(false);
   if(u?.role==='admin'){
     void syncExtraUsersFromSupabaseProfiles().then(ok=>{
@@ -4778,7 +4881,7 @@ function createThreadMessageEl(cid,m,idx){
       <div class="tmsg-bubble" style="${mine?'background:'+currentUser.color:''}">
         ${actionsHtml}${esc(m.text)}
       </div>
-      <div class="tmsg-time">${m.time||''}${m.edited?' (modifié)':''}</div>
+      <div class="tmsg-time"><span>${m.time||''}${m.edited?' (modifié)':''}</span>${getReadReceiptHtml(cid,m)}</div>
     </div>
     ${mine?`<div class="tmsg-av" style="background:${currentUser.color}">${currentUser.initial}</div>`:''}`;
   return div;
@@ -4830,6 +4933,7 @@ function tryAppendOneThreadMessage(cid){
   area.appendChild(createThreadMessageEl(cid,last,L-1));
   area.scrollTop=area.scrollHeight;
   area.dataset.count=String(L);
+  area.dataset.readSig=JSON.stringify(getMem().msg_read_cursor?.[cid]||{});
   return true;
 }
 
@@ -4840,6 +4944,7 @@ function renderThread(cid){
   if(!raw.length){
     area.innerHTML='<div style="color:var(--t3);font-size:12px;text-align:center;padding:20px">Aucun message — démarrez la conversation !</div>';
     area.dataset.count='0';
+    area.dataset.readSig=JSON.stringify(mem.msg_read_cursor?.[cid]||{});
     return;
   }
   const start=raw.length>INTERNAL_MSG_THREAD_MAX?raw.length-INTERNAL_MSG_THREAD_MAX:0;
@@ -4858,6 +4963,7 @@ function renderThread(cid){
   area.appendChild(frag);
   area.scrollTop=area.scrollHeight;
   area.dataset.count=String(raw.length);
+  area.dataset.readSig=JSON.stringify(mem.msg_read_cursor?.[cid]||{});
 }
 
 function sendMsg(){
@@ -7290,11 +7396,17 @@ function startPolling(){
       const area=document.getElementById('thread-msgs');
       const mem=getMem();
       const count=(mem.messages[currentConv]||[]).length;
+      const readSig=JSON.stringify(mem.msg_read_cursor?.[currentConv]||{});
       if(area&&area.dataset.count&&parseInt(area.dataset.count)!==count){
         renderThread(currentConv);scheduleRenderConvList();
         if(count>parseInt(area.dataset.count||'0'))playNotifSound();
+      }else if(area&&document.getElementById('page-messages')?.style.display==='flex'&&area.dataset.readSig!==readSig){
+        renderThread(currentConv);
       }
-      if(area)area.dataset.count=count;
+      if(area){
+        area.dataset.count=count;
+        area.dataset.readSig=readSig;
+      }
     }
   },POLLING_INTERVAL_MS);
 }
