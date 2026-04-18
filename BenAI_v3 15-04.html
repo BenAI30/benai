@@ -3222,6 +3222,7 @@ function enqueuePendingUserDelete(job){
   if(list.some(x=>normalizeId(x.uid)===normalizeId(job.uid)))return;
   list.push({
     uid:job.uid,
+    user_id:String(job.user_id||'').trim(),
     email:job.email||'',
     name:job.name||job.uid,
     attempts:0,
@@ -3243,7 +3244,11 @@ async function processPendingUserDeletes(force=false){
     const keep=[];
     for(let i=0;i<list.length;i++){
       const job=list[i];
-      const res=await deleteSupabaseUserProvisioning({app_uid:job.uid,email:job.email||''});
+      const res=await deleteSupabaseUserProvisioning({
+        user_id:String(job.user_id||'').trim(),
+        app_uid:job.uid,
+        email:job.email||''
+      });
       if(res.ok){
         continue;
       }
@@ -6605,10 +6610,25 @@ async function addEmploye(){
 }
 
 async function deleteEmploye(id){
-  if(!await benaiConfirm('Supprimer cet employé de l\'annuaire ?'))return;
   const ann=getAnnuaire();
   const emp=ann.find(e=>e.id===id);
   if(!emp)return;
+  const linked=findBenaiAccountLinkedToAnnuaireEmploye(emp);
+  const label=`${String(emp.prenom||'').trim()} ${String(emp.nom||'').trim()}`.trim()||'cet employé';
+  let confirmMsg=`Retirer ${label} de l’annuaire ?`;
+  if(linked){
+    confirmMsg+=`\n\nUn accès BenAI actif (${linked.name||linked.id}) sera supprimé (cloud + local).`;
+  }
+  if(!await benaiConfirm(confirmMsg))return;
+  if(linked){
+    if(!canManageBenaiUsersAdmin()){
+      await benaiAlert('La suppression d’accès BenAI est réservée à l’administrateur. Annulation : l’annuaire n’a pas été modifié.');
+      return;
+    }
+    if(normalizeId(linked.id)!=='benjamin'){
+      await supprimerUtilisateur(linked.id,{skipConfirm:true});
+    }
+  }
   logDeletion('Employé annuaire',(emp?.prenom||'')+' '+(emp?.nom||''));
   emp._deleted=true;
   emp.sync_ts=Date.now();
@@ -8036,6 +8056,24 @@ function getAllUsers(){
   return[...base,...extras];
 }
 
+/** Salarié annuaire déjà lié à un compte BenAI (nom affiché ou e-mail pro/perso). */
+function findBenaiAccountLinkedToAnnuaireEmploye(emp){
+  if(!emp)return null;
+  const full=normalizeId(`${String(emp.prenom||'').trim()} ${String(emp.nom||'').trim()}`.trim());
+  const emails=new Set(
+    [String(emp.emailPro||'').trim().toLowerCase(),String(emp.email||'').trim().toLowerCase()].filter(Boolean)
+  );
+  return getAllUsers().find(u=>{
+    if(u.builtin||normalizeId(String(u.id||''))==='benjamin')return false;
+    if(full){
+      const un=normalizeId(String(u.name||''));
+      if(un&&un===full)return true;
+    }
+    const ue=String(u.email||'').trim().toLowerCase();
+    return!!(ue&&emails.has(ue));
+  })||null;
+}
+
 // Trouver un utilisateur : id BenAI (slug), ou UUID auth Supabase, ou email
 function findUserById(uid){
   const raw=String(uid??'').trim();
@@ -8079,11 +8117,7 @@ async function showAddUser(){
     regenNewUserPwd();
     // Peupler le select avec les salariés de l'annuaire qui n'ont pas encore de compte BenAI
     const ann=getAnnuaireActive();
-    const existingUsers=getAllUsers().map(u=>normalizeId(u.name));
-    const disponibles=ann.filter(e=>{
-      const fullName=`${e.prenom} ${e.nom}`;
-      return!existingUsers.some(uid=>uid===normalizeId(fullName)||uid===normalizeId(e.prenom));
-    });
+    const disponibles=ann.filter(e=>!findBenaiAccountLinkedToAnnuaireEmploye(e));
     const sel=document.getElementById('new-user-ann-select');
     if(sel){
       sel.innerHTML='<option value="">Sélectionner...</option>'+
@@ -8120,6 +8154,11 @@ async function creerUtilisateur(){
   if(!annEntry){
     status.style.color='var(--r)';
     status.textContent='⚠️ Fiche annuaire introuvable — rouvrez « Nouvel accès » ou vérifiez l’annuaire.';
+    return;
+  }
+  if(findBenaiAccountLinkedToAnnuaireEmploye(annEntry)){
+    status.style.color='var(--r)';
+    status.textContent='⚠️ Un accès BenAI existe déjà pour ce salarié (même nom ou même e-mail). Supprimez l’ancien compte ou corrigez l’annuaire.';
     return;
   }
   const prenom=String(annEntry.prenom||'').trim();
@@ -8183,7 +8222,11 @@ async function creerUtilisateur(){
   const useLocalFallback=!createResult.ok&&shouldFallbackLocalUserProvisionAfterCreateError(createResult.error);
   if(!createResult.ok&&!useLocalFallback){
     status.style.color='var(--r)';
-    status.textContent='⚠️ '+createResult.error;
+    let errShown=String(createResult.error||'Erreur');
+    if(/maximum|limit exceeded|user count|too many|quota/i.test(errShown)){
+      errShown+=' — Vérifiez le quota utilisateurs du projet Supabase (Authentication) ou supprimez d’anciens comptes.';
+    }
+    status.textContent='⚠️ '+errShown;
     return;
   }
   if(useLocalFallback){
@@ -8202,7 +8245,8 @@ async function creerUtilisateur(){
   renderUsersList();renderPwdList();logActivity(`Benjamin a créé l'accès BenAI (${roleLabel}) pour ${name}`);
 }
 
-async function supprimerUtilisateur(uid){
+async function supprimerUtilisateur(uid, opts){
+  opts=opts||{};
   if(!canManageBenaiUsersAdmin()){await benaiAlert('Réservé à l’administrateur.');return;}
   if(normalizeId(uid)==='benjamin'){await benaiAlert('Benjamin ne peut pas être supprimé.');return;}
   const u=findUserById(uid)||findUserById(normalizeId(uid));
@@ -8213,18 +8257,21 @@ async function supprimerUtilisateur(uid){
   const confirmMsg=archiveCrmProfile
     ?`Supprimer ${u.name||effectiveId} définitivement ?\n\nSon compte et ses accès seront retirés, mais les leads et objectifs CRM déjà associés à son identifiant resteront pour l’historique et les exports (nom affiché : « … (compte supprimé) »).`
     :`Supprimer ${u.name||effectiveId} définitivement ? Cette action est irréversible.`;
-  if(!await benaiConfirm(confirmMsg))return;
+  if(!opts.skipConfirm&&!await benaiConfirm(confirmMsg))return;
   if(archiveCrmProfile)archiveCommercialUserSnapshot(u);
   const emailForCloud=(u.email||getEmailCandidateForUid(effectiveId,'')||'').trim().toLowerCase();
+  const authUidRaw=String(u.auth_uid||u.authUid||'').trim();
+  const userIdCloud=isLikelyUuid(authUidRaw)?authUidRaw:'';
   let remoteDeleted=false;
   const remoteRes=await deleteSupabaseUserProvisioning({
+    user_id:userIdCloud,
     app_uid:effectiveId,
     email:emailForCloud
   });
   if(remoteRes.ok){
     remoteDeleted=true;
   }else{
-    enqueuePendingUserDelete({uid:effectiveId,email:emailForCloud,name:u.name||effectiveId});
+    enqueuePendingUserDelete({uid:effectiveId,user_id:userIdCloud,email:emailForCloud,name:u.name||effectiveId});
     showDriveNotif('⚠️ Suppression cloud en attente — BenAI réessaiera automatiquement.');
   }
   hideUserId(effectiveId);
@@ -10235,11 +10282,12 @@ function renderDispatchCard(l){
   </div>`;
 }
 
-/** Notifications CRM leads : jamais envoyées vers un compte administrateur. */
+/** Notifications CRM leads : jamais vers admin ; pas de bruit pipeline pour DG / mètreur. */
 function pushLeadCrmNotif(titre,msg,icon,uid){
   if(!uid)return;
   const target=findUserById(uid);
-  if(target?.role==='admin')return;
+  if(!target)return;
+  if(target.role==='admin'||target.role==='directeur_general'||target.role==='metreur')return;
   pushNotif(titre,msg,icon,uid);
 }
 
@@ -11984,9 +12032,13 @@ function getLeadNotifScopeForUser(){
     scoped=scoped.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
   }else if(currentUser.role==='assistante'){
     scoped=scoped.filter(l=>l.cree_par===currentUser.id||l.cree_par===currentUser.name);
-  }else if(isCRMScopePilotageRole(currentUser.role)){
+  }else if(currentUser.role==='directeur_co'){
     scoped=getCompanyScopedLeads(scoped);
+  }else if(currentUser.role==='directeur_general'||currentUser.role==='metreur'){
+    scoped=[];
   }else if(currentUser.role==='admin'&&currentUser.id!=='benjamin'){
+    scoped=[];
+  }else{
     scoped=[];
   }
   return scoped;
@@ -11996,6 +12048,7 @@ function checkLeadSmartNotifications(){
   if(!currentUser)return;
   if(currentUser.role==='admin')return;
   if(currentUser.role==='assistante')return;
+  if(currentUser.role==='directeur_general'||currentUser.role==='metreur')return;
   const scoped=getLeadNotifScopeForUser();
   if(!scoped.length)return;
   const nonAttribues=scoped.filter(l=>isLeadInNonAttribQueue(l)).length;
@@ -12040,11 +12093,12 @@ function checkLeadsAlertes(){
 function checkRappelsLeads(){
   if(!currentUser)return;
   if(currentUser.role==='admin')return;
+  if(currentUser.role==='directeur_general'||currentUser.role==='metreur')return;
   const now=new Date();
   let leads=getLeads().filter(l=>!l._deleted&&!isLeadCrmArchivedView(l)&&l.rappel);
   if(currentUser.role==='commercial'){
     leads=leads.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
-  }else if(isCRMScopePilotageRole(currentUser.role)){
+  }else if(currentUser.role==='directeur_co'){
     leads=leads.filter(canAccessLeadByCompany);
   }else if(currentUser.id!=='benjamin'){
     leads=leads.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));

@@ -1258,6 +1258,7 @@ function enqueuePendingUserDelete(job){
   if(list.some(x=>normalizeId(x.uid)===normalizeId(job.uid)))return;
   list.push({
     uid:job.uid,
+    user_id:String(job.user_id||'').trim(),
     email:job.email||'',
     name:job.name||job.uid,
     attempts:0,
@@ -1279,7 +1280,11 @@ async function processPendingUserDeletes(force=false){
     const keep=[];
     for(let i=0;i<list.length;i++){
       const job=list[i];
-      const res=await deleteSupabaseUserProvisioning({app_uid:job.uid,email:job.email||''});
+      const res=await deleteSupabaseUserProvisioning({
+        user_id:String(job.user_id||'').trim(),
+        app_uid:job.uid,
+        email:job.email||''
+      });
       if(res.ok){
         continue;
       }
@@ -4400,11 +4405,26 @@ function addEmploye(){
   renderAnnuaire();logActivity(`Benjamin a ajouté ${prenom} ${nom} dans l'annuaire`);
 }
 
-function deleteEmploye(id){
-  if(!confirm('Supprimer cet employé de l\'annuaire ?'))return;
+async function deleteEmploye(id){
   const ann=getAnnuaire();
   const emp=ann.find(e=>e.id===id);
   if(!emp)return;
+  const linked=findBenaiAccountLinkedToAnnuaireEmploye(emp);
+  const label=`${String(emp.prenom||'').trim()} ${String(emp.nom||'').trim()}`.trim()||'cet employé';
+  let msg=`Retirer ${label} de l'annuaire ?`;
+  if(linked){
+    msg+=`\n\nUn accès BenAI actif (${linked.name||linked.id}) sera supprimé (cloud + local).`;
+  }
+  if(!confirm(msg))return;
+  if(linked){
+    if(!canManageBenaiUsersAdmin()){
+      alert("La suppression d'accès BenAI est réservée à l'administrateur. L'annuaire n'a pas été modifié.");
+      return;
+    }
+    if(normalizeId(linked.id)!=='benjamin'){
+      await supprimerUtilisateur(linked.id,{skipConfirm:true});
+    }
+  }
   logDeletion('Employé annuaire',(emp?.prenom||'')+' '+(emp?.nom||''));
   emp._deleted=true;
   emp.sync_ts=Date.now();
@@ -5567,6 +5587,23 @@ function getAllUsers(){
   return[...base,...extras];
 }
 
+function findBenaiAccountLinkedToAnnuaireEmploye(emp){
+  if(!emp)return null;
+  const full=normalizeId(`${String(emp.prenom||'').trim()} ${String(emp.nom||'').trim()}`.trim());
+  const emails=new Set(
+    [String(emp.emailPro||'').trim().toLowerCase(),String(emp.email||'').trim().toLowerCase()].filter(Boolean)
+  );
+  return getAllUsers().find(u=>{
+    if(u.builtin||normalizeId(String(u.id||''))==='benjamin')return false;
+    if(full){
+      const un=normalizeId(String(u.name||''));
+      if(un&&un===full)return true;
+    }
+    const ue=String(u.email||'').trim().toLowerCase();
+    return!!(ue&&emails.has(ue));
+  })||null;
+}
+
 // Trouver un utilisateur par identifiant normalisé
 function findUserById(uid){
   const normalized=normalizeId(uid);
@@ -5599,11 +5636,7 @@ function showAddUser(){
     regenNewUserPwd();
     // Peupler le select avec les salariés de l'annuaire qui n'ont pas encore de compte BenAI
     const ann=getAnnuaireActive();
-    const existingUsers=getAllUsers().map(u=>normalizeId(u.name));
-    const disponibles=ann.filter(e=>{
-      const fullName=`${e.prenom} ${e.nom}`;
-      return!existingUsers.some(uid=>uid===normalizeId(fullName)||uid===normalizeId(e.prenom));
-    });
+    const disponibles=ann.filter(e=>!findBenaiAccountLinkedToAnnuaireEmploye(e));
     const sel=document.getElementById('new-user-ann-select');
     if(sel){
       sel.innerHTML='<option value="">Sélectionner...</option>'+
@@ -5647,6 +5680,11 @@ async function creerUtilisateur(){
   }
   const ann=getAnnuaireActive();
   const annEntry=ann.find(e=>normalizeId(`${e.prenom} ${e.nom}`)===normalizeId(name)||normalizeId(e.prenom)===normalizeId(prenom))||null;
+  if(annEntry&&findBenaiAccountLinkedToAnnuaireEmploye(annEntry)){
+    status.style.color='var(--r)';
+    status.textContent='⚠️ Un accès BenAI existe déjà pour ce salarié (même nom ou même e-mail). Supprimez l’ancien compte ou corrigez l’annuaire.';
+    return;
+  }
   const email=(annEntry?.emailPro||annEntry?.email||'').trim().toLowerCase();
   if(!email||!email.includes('@')){
     status.style.color='var(--r)';
@@ -5668,7 +5706,11 @@ async function creerUtilisateur(){
   const useLocalFallback=!createResult.ok&&shouldFallbackLocalUserProvisionAfterCreateError(createResult.error);
   if(!createResult.ok&&!useLocalFallback){
     status.style.color='var(--r)';
-    status.textContent='⚠️ '+createResult.error;
+    let errShown=String(createResult.error||'Erreur');
+    if(/maximum|limit exceeded|user count|too many|quota/i.test(errShown)){
+      errShown+=' — Vérifiez le quota utilisateurs du projet Supabase (Authentication) ou supprimez d’anciens comptes.';
+    }
+    status.textContent='⚠️ '+errShown;
     return;
   }
   if(useLocalFallback){
@@ -5687,23 +5729,27 @@ async function creerUtilisateur(){
   renderUsersList();renderPwdList();logActivity(`Benjamin a créé l'accès BenAI (${roleLabel}) pour ${name}`);
 }
 
-async function supprimerUtilisateur(uid){
+async function supprimerUtilisateur(uid, opts){
+  opts=opts||{};
   if(!canManageBenaiUsersAdmin()){alert('Réservé à l’administrateur.');return;}
   if(normalizeId(uid)==='benjamin'){alert('Benjamin ne peut pas être supprimé.');return;}
   const u=findUserById(uid)||findUserById(normalizeId(uid));
   if(!u){alert('Utilisateur introuvable.');return;}
   const effectiveId=u.id;
-  if(!confirm(`Supprimer ${u.name||effectiveId} définitivement ? Cette action est irréversible.`))return;
+  if(!opts.skipConfirm&&!confirm(`Supprimer ${u.name||effectiveId} définitivement ? Cette action est irréversible.`))return;
   const emailForCloud=(u.email||getEmailCandidateForUid(effectiveId,'')||'').trim().toLowerCase();
+  const authUidRaw=String(u.auth_uid||u.authUid||'').trim();
+  const userIdCloud=isLikelyUuid(authUidRaw)?authUidRaw:'';
   let remoteDeleted=false;
   const remoteRes=await deleteSupabaseUserProvisioning({
+    user_id:userIdCloud,
     app_uid:effectiveId,
     email:emailForCloud
   });
   if(remoteRes.ok){
     remoteDeleted=true;
   }else{
-    enqueuePendingUserDelete({uid:effectiveId,email:emailForCloud,name:u.name||effectiveId});
+    enqueuePendingUserDelete({uid:effectiveId,user_id:userIdCloud,email:emailForCloud,name:u.name||effectiveId});
     showDriveNotif('⚠️ Suppression cloud en attente — BenAI réessaiera automatiquement.');
   }
   hideUserId(effectiveId);
@@ -8291,11 +8337,15 @@ function getLeadNotifScopeForUser(){
   let scoped=getLeads().filter(l=>!l._deleted&&!l.archive&&l.statut!=='vert'&&l.statut!=='rouge');
   if(currentUser.role==='commercial'){
     scoped=scoped.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
-  }else if(currentUser.role==='directeur_general'){
-    scoped=[];
+  }else if(currentUser.role==='assistante'){
+    scoped=scoped.filter(l=>l.cree_par===currentUser.id||l.cree_par===currentUser.name);
   }else if(currentUser.role==='directeur_co'){
     scoped=getCompanyScopedLeads(scoped);
+  }else if(currentUser.role==='directeur_general'||currentUser.role==='metreur'){
+    scoped=[];
   }else if(currentUser.role==='admin'&&currentUser.id!=='benjamin'){
+    scoped=[];
+  }else{
     scoped=[];
   }
   return scoped;
@@ -8303,7 +8353,9 @@ function getLeadNotifScopeForUser(){
 
 function checkLeadSmartNotifications(){
   if(!currentUser)return;
-  if(currentUser.role==='directeur_general')return;
+  if(currentUser.role==='admin')return;
+  if(currentUser.role==='assistante')return;
+  if(currentUser.role==='directeur_general'||currentUser.role==='metreur')return;
   const scoped=getLeadNotifScopeForUser();
   if(!scoped.length)return;
   const nonAttribues=scoped.filter(l=>!l.commercial&&l.statut==='gris').length;
@@ -8347,6 +8399,7 @@ function checkLeadsAlertes(){
 
 function checkRappelsLeads(){
   if(!currentUser)return;
+  if(currentUser.role==='directeur_general'||currentUser.role==='metreur')return;
   const now=new Date();
   const leads=getLeads().filter(l=>!l._deleted&&l.rappel&&(l.commercial===currentUser.id||currentUser.role==='directeur_co'||currentUser.id==='benjamin'));
   leads.forEach(l=>{
