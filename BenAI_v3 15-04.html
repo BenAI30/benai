@@ -906,7 +906,7 @@ input[type=file]{display:none;}
       <div class="sb-section" id="sb-org">
         <div class="sb-label">Organisation</div>
         <div class="sb-hint" id="sb-org-hint">Équipe, absences, pilotage</div>
-        <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')" title="Annuaire et fiches équipe"><span class="sb-icon">👥</span><span class="sb-txt">Équipe</span></div>
+        <div class="sb-item" id="nav-annuaire" style="display:none" onclick="showPage('annuaire')" title="Contacts équipe et accès BenAI"><span class="sb-icon">👥</span><span class="sb-txt">Équipe</span></div>
         <div class="sb-item" id="nav-absences" style="display:none" onclick="showPage('absences')" title="Planning des absences"><span class="sb-icon">🗓️</span><span class="sb-txt">Absences</span><span class="sb-badge-abs" id="abs-badge" style="display:none"></span></div>
         <div class="sb-item" id="nav-paie" style="display:none" onclick="showPage('paie')" title="Indicateurs paie"><span class="sb-icon">💰</span><span class="sb-txt">Paie</span></div>
         <div class="sb-item" id="nav-admin" style="display:none" onclick="showPage('admin')" title="Vue d’ensemble administrateur"><span class="sb-icon">📊</span><span class="sb-txt">Pilotage</span></div>
@@ -1644,7 +1644,8 @@ input[type=file]{display:none;}
         <div id="equipe-sec-contacts" class="crm-dash-anchor" style="display:flex;flex:1;flex-direction:column;min-height:0">
           <div style="padding:0 16px;flex-shrink:0;display:none" id="emp-form-wrap">
             <div class="sav-form">
-              <div style="font-size:13px;font-weight:600;margin-bottom:12px">➕ Nouvel employé</div>
+              <div style="font-size:13px;font-weight:600;margin-bottom:6px">➕ Fiche équipe</div>
+              <div style="font-size:11px;color:var(--t3);margin-bottom:12px;line-height:1.4">Une seule saisie : coordonnées (annuaire / paie). L’accès BenAI est <strong>optionnel</strong> (case ci-dessous ou bouton sur la carte).</div>
               <div class="form-row">
                 <div class="form-group"><div class="form-label">Prénom</div><input type="text" class="form-input" id="emp-prenom" placeholder="Prénom"></div>
                 <div class="form-group"><div class="form-label">Nom</div><input type="text" class="form-input" id="emp-nom" placeholder="Nom"></div>
@@ -1676,6 +1677,37 @@ input[type=file]{display:none;}
                   </select>
                 </div>
               </div>
+              <div id="emp-benai-create-wrap" style="display:none;margin-top:14px;padding-top:14px;border-top:1px dashed var(--b1)">
+                <div id="emp-benai-linked-msg" style="display:none;font-size:12px;color:var(--g);margin-bottom:8px;line-height:1.4"></div>
+                <div id="emp-benai-checkbox-block">
+                  <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;cursor:pointer;color:var(--t2);line-height:1.35">
+                    <input type="checkbox" id="emp-opt-benai" style="margin-top:3px;accent-color:var(--a)" onchange="document.getElementById('emp-benai-fields').style.display=this.checked?'block':'none'">
+                    <span><strong>Accès BenAI</strong> — cocher pour créer un compte en même temps (sinon la fiche reste « contact » uniquement).</span>
+                  </label>
+                  <div id="emp-benai-fields" style="display:none;margin-top:12px">
+                    <div class="form-row">
+                      <div class="form-group"><div class="form-label">Rôle BenAI</div>
+                        <select class="form-input" id="emp-benai-role">
+                          <option value="assistante">Assistante</option>
+                          <option value="commercial">Commercial</option>
+                          <option value="directeur_co">Directeur commercial</option>
+                          <option value="directeur_general">Directeur général</option>
+                        </select>
+                      </div>
+                      <div class="form-group"><div class="form-label">Mot de passe <span style="font-weight:400;color:var(--t3);font-size:10px">(auto)</span></div>
+                        <div style="display:flex;gap:6px;align-items:stretch">
+                          <input type="text" class="form-input" id="emp-benai-pwd" readonly style="flex:1;font-family:'JetBrains Mono',monospace;font-size:12px">
+                          <button type="button" class="equipe-link-btn" onclick="const el=document.getElementById('emp-benai-pwd');if(el)el.value=generateBenAIPassword(14)" title="Regénérer" style="flex-shrink:0;padding:8px 12px">↻</button>
+                        </div>
+                      </div>
+                    </div>
+                    <div id="emp-benai-pseudo-row" style="display:none;margin-bottom:4px">
+                      <div class="form-label">Identifiant de connexion <span style="font-weight:400;color:var(--t3);font-size:10px">(Benjamin — optionnel)</span></div>
+                      <input type="text" class="form-input" id="emp-benai-app-uid" placeholder="ex. vente_sud" autocomplete="off" spellcheck="false">
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div style="display:flex;gap:8px">
                 <button class="btn-primary" onclick="addEmploye()">Enregistrer</button>
                 <button onclick="toggleEmpForm()" style="background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:8px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:13px">Annuler</button>
@@ -1703,14 +1735,14 @@ input[type=file]{display:none;}
             <div class="equipe-card">
               <div style="font-size:12px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
                 <span>Accès et sécurité</span>
-                <button type="button" class="btn-primary" onclick="showAddUser()" style="padding:6px 12px;font-size:11px;font-weight:600">+ Nouvel accès</button>
+                <button type="button" class="btn-primary" onclick="showAddUser()" style="padding:6px 12px;font-size:11px;font-weight:600">+ Accès (liste)</button>
               </div>
-              <div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.45">À partir d’une fiche <strong>contact</strong> (email pro pour Supabase). <strong>Identifiant de connexion</strong> (pseudo) : réservé à <strong>Benjamin</strong>.</div>
+              <div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.45">Les fiches <strong>Équipe</strong> ci-dessus sont la source unique : à l’enregistrement vous pouvez cocher <strong>Accès BenAI</strong>, ou plus tard le bouton sur la carte. Ici : liste des comptes, blocage, mots de passe. Pseudo de connexion : <strong>Benjamin</strong> uniquement.</div>
               <input type="text" id="user-search" placeholder="🔍 Rechercher un utilisateur..." oninput="renderUsersList()" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;outline:none;margin-bottom:8px">
               <div id="users-list" style="margin-top:4px"></div>
               <div id="add-user-form" style="display:none;margin-top:12px;background:var(--s3);border-radius:10px;padding:12px">
                 <div style="font-size:12px;font-weight:600;margin-bottom:10px">➕ Créer un accès BenAI</div>
-                <div style="font-size:11px;color:var(--t3);margin-bottom:10px">Sélectionnez un salarié de l'annuaire pour lui créer un accès BenAI.</div>
+                <div style="font-size:11px;color:var(--t3);margin-bottom:10px">Raccourci : choisir un contact sans accès (équivalent au bouton sur la fiche).</div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
                   <div><div class="form-label">Salarié (annuaire)</div>
                     <select class="form-input" id="new-user-ann-select">
@@ -1893,6 +1925,8 @@ const appStorageCache=Object.create(null);
 let appStorageHydratedForUid='';
 let appStoragePersistTimer=null;
 let equipeUITab='annuaire';
+let editingEmployeId=null;
+let editingEmployeHadBenai=false;
 const APP_STORAGE_CLOUD_EXACT_ALLOWLIST=new Set([
   'benai_login_user',
   'benai_supabase_url',
@@ -6582,12 +6616,61 @@ function saveAnnuaire(a,sync=true){
     scheduleSupabaseSync(getMem(),a);
   }
 }
+function resetEmpBenaiProvisionUi(){
+  const c=document.getElementById('emp-opt-benai');
+  if(c)c.checked=false;
+  const fld=document.getElementById('emp-benai-fields');
+  if(fld)fld.style.display='none';
+  const pw=document.getElementById('emp-benai-pwd');
+  if(pw)pw.value=generateBenAIPassword(14);
+  const pseudo=document.getElementById('emp-benai-app-uid');
+  if(pseudo)pseudo.value='';
+  const lm=document.getElementById('emp-benai-linked-msg');
+  if(lm){lm.style.display='none';lm.textContent='';}
+}
+function syncEmpFormBenaiSection(){
+  const wrap=document.getElementById('emp-benai-create-wrap');
+  if(!wrap)return;
+  const admin=canManageBenaiUsersAdmin();
+  wrap.style.display=admin?'block':'none';
+  if(!admin)return;
+  const linkedMsg=document.getElementById('emp-benai-linked-msg');
+  const createBlock=document.getElementById('emp-benai-checkbox-block');
+  const pseudoRow=document.getElementById('emp-benai-pseudo-row');
+  if(pseudoRow)pseudoRow.style.display=canAssignBenaiLoginPseudo()?'block':'none';
+  if(editingEmployeId!=null&&editingEmployeHadBenai){
+    const emp=(getAnnuaire()||[]).find(x=>x.id===editingEmployeId);
+    const u=emp?findBenaiAccountLinkedToAnnuaireEmploye(emp):null;
+    if(linkedMsg){
+      linkedMsg.style.display='block';
+      linkedMsg.innerHTML=u
+        ?`Accès BenAI déjà actif : <strong>${esc(ROLE_LABELS[u.role]||u.role)}</strong> · identifiant <code style="font-size:10px">${esc(String(u.id))}</code>`
+        :'Accès BenAI déjà lié à cette fiche.';
+    }
+    if(createBlock)createBlock.style.display='none';
+  }else{
+    if(linkedMsg)linkedMsg.style.display='none';
+    if(createBlock)createBlock.style.display='block';
+  }
+}
 function toggleEmpForm(){
   const w=document.getElementById('emp-form-wrap');
   if(!w)return;
   const show=w.style.display==='none'||w.style.display==='';
   w.style.display=show?'block':'none';
-  if(show)requestAnimationFrame(()=>{try{w.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(_){}});
+  if(show){
+    const btn=document.querySelector('#emp-form-wrap .btn-primary');
+    const isEdit=btn&&/Modifier/i.test(btn.textContent||'');
+    if(!isEdit){
+      editingEmployeId=null;
+      editingEmployeHadBenai=false;
+      if(btn){btn.textContent='Enregistrer';btn.onclick=addEmploye;}
+      ['emp-prenom','emp-nom','emp-email','emp-email-pro','emp-tel','emp-naissance'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    }
+    resetEmpBenaiProvisionUi();
+    syncEmpFormBenaiSection();
+    requestAnimationFrame(()=>{try{w.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(_){}});
+  }
 }
 
 async function addEmploye(){
@@ -6600,12 +6683,38 @@ async function addEmploye(){
   const fonction=document.getElementById('emp-fonction').value;
   const soc=document.getElementById('emp-soc').value;
   if(!prenom||!nom){await benaiAlert('Prénom et Nom sont obligatoires');return;}
+  const wantBen=!!document.getElementById('emp-opt-benai')?.checked;
+  if(wantBen&&canManageBenaiUsersAdmin()){
+    const em=(emailPro||email||'').trim().toLowerCase();
+    if(!em||!em.includes('@')){
+      await benaiAlert('Pour créer l’accès BenAI, renseignez au moins un e-mail valide (pro ou perso).');
+      return;
+    }
+  }
+  const newId=Date.now();
   const ann=getAnnuaire();
-  ann.push({id:Date.now(),prenom,nom,email,emailPro,tel,naissance,fonction,societe:soc,sync_ts:Date.now(),_deleted:false});
+  ann.push({id:newId,prenom,nom,email,emailPro,tel,naissance,fonction,societe:soc,sync_ts:Date.now(),_deleted:false});
   saveAnnuaire(ann);
+  let benaiMsg='';
+  if(wantBen&&canManageBenaiUsersAdmin()){
+    const fresh=ann.find(e=>e.id===newId);
+    const role=String(document.getElementById('emp-benai-role')?.value||'assistante').trim();
+    const pwd=(document.getElementById('emp-benai-pwd')?.value||'').trim();
+    const customUid=(document.getElementById('emp-benai-app-uid')?.value||'').trim();
+    const res=await createBenaiAccessFromAnnuaireEntry(fresh,{role,password:pwd,customAppUid:customUid});
+    if(!res.ok){
+      await benaiAlert('Fiche enregistrée, mais l’accès BenAI n’a pas pu être créé :\n\n'+res.error);
+    }else{
+      benaiMsg=res.remoteOk?' · accès BenAI créé.':' · accès BenAI créé localement (cloud en file).';
+      renderUsersList();renderPwdList();
+      logActivity(`Benjamin a créé l'accès BenAI (${res.roleLabel}) pour ${prenom} ${nom}`);
+    }
+  }
   ['emp-prenom','emp-nom','emp-email','emp-email-pro','emp-tel','emp-naissance'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  const ok=document.getElementById('emp-ok');ok.textContent='✅ Enregistré !';
-  setTimeout(()=>{ok.textContent='';toggleEmpForm();},1200);
+  resetEmpBenaiProvisionUi();
+  syncEmpFormBenaiSection();
+  const ok=document.getElementById('emp-ok');ok.textContent='✅ Enregistré'+benaiMsg+' !';
+  setTimeout(()=>{ok.textContent='';toggleEmpForm();},wantBen?2200:1200);
   renderAnnuaire();logActivity(`Benjamin a ajouté ${prenom} ${nom} dans l'annuaire`);
 }
 
@@ -6638,6 +6747,8 @@ async function deleteEmploye(id){
 function editEmploye(id){
   const ann=getAnnuaire();
   const e=ann.find(x=>x.id===id);if(!e)return;
+  editingEmployeId=id;
+  editingEmployeHadBenai=!!findBenaiAccountLinkedToAnnuaireEmploye(e);
   document.getElementById('emp-prenom').value=e.prenom||'';
   document.getElementById('emp-nom').value=e.nom||'';
   document.getElementById('emp-email').value=e.email||'';
@@ -6649,6 +6760,8 @@ function editEmploye(id){
   const btn=document.querySelector('#emp-form-wrap .btn-primary');
   if(btn){btn.textContent='💾 Modifier';btn.onclick=()=>saveEditEmploye(id);}
   document.getElementById('emp-form-wrap').style.display='block';
+  resetEmpBenaiProvisionUi();
+  syncEmpFormBenaiSection();
   document.getElementById('emp-form-wrap').scrollIntoView({behavior:'smooth'});
 }
 
@@ -6656,6 +6769,14 @@ async function saveEditEmploye(id){
   const prenom=document.getElementById('emp-prenom').value.trim();
   const nom=document.getElementById('emp-nom').value.trim();
   if(!prenom||!nom){await benaiAlert('Prénom et Nom sont obligatoires');return;}
+  const wantBen=!!document.getElementById('emp-opt-benai')?.checked;
+  if(wantBen&&!editingEmployeHadBenai&&canManageBenaiUsersAdmin()){
+    const em=(document.getElementById('emp-email-pro')?.value||document.getElementById('emp-email')?.value||'').trim().toLowerCase();
+    if(!em||!em.includes('@')){
+      await benaiAlert('Pour créer l’accès BenAI, renseignez au moins un e-mail valide (pro ou perso).');
+      return;
+    }
+  }
   const ann=getAnnuaire();
   const idx=ann.findIndex(e=>e.id===id);if(idx===-1)return;
   ann[idx]={
@@ -6669,11 +6790,28 @@ async function saveEditEmploye(id){
     sync_ts:Date.now()
   };
   saveAnnuaire(ann);
+  let benaiNote='';
+  if(wantBen&&!editingEmployeHadBenai&&canManageBenaiUsersAdmin()){
+    const role=String(document.getElementById('emp-benai-role')?.value||'assistante').trim();
+    const pwd=(document.getElementById('emp-benai-pwd')?.value||'').trim();
+    const customUid=(document.getElementById('emp-benai-app-uid')?.value||'').trim();
+    const res=await createBenaiAccessFromAnnuaireEntry(ann[idx],{role,password:pwd,customAppUid:customUid});
+    if(!res.ok)await benaiAlert('Fiche enregistrée, mais l’accès BenAI n’a pas pu être créé :\n\n'+res.error);
+    else{
+      benaiNote=' Accès BenAI créé.';
+      renderUsersList();renderPwdList();
+      logActivity(`Benjamin a créé l'accès BenAI (${res.roleLabel}) pour ${prenom} ${nom}`);
+    }
+  }
+  editingEmployeId=null;
+  editingEmployeHadBenai=false;
   const btn=document.querySelector('#emp-form-wrap .btn-primary');
   if(btn){btn.textContent='Enregistrer';btn.onclick=addEmploye;}
   ['emp-prenom','emp-nom','emp-email','emp-email-pro','emp-tel','emp-naissance'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+  resetEmpBenaiProvisionUi();
+  syncEmpFormBenaiSection();
   document.getElementById('emp-form-wrap').style.display='none';
-  const ok=document.getElementById('emp-ok');ok.textContent='✅ Modifié !';
+  const ok=document.getElementById('emp-ok');ok.textContent='✅ Modifié'+benaiNote+' !';
   setTimeout(()=>ok.textContent='',1500);
   renderAnnuaire();logActivity(`Benjamin a modifié ${prenom} ${nom}`);
 }
@@ -6719,6 +6857,12 @@ function renderAnnuaire(search){
             ${e.email?`<div class="emp-email" onclick="navigator.clipboard.writeText('${esc(e.email)}');showDriveNotif('📋 Email copié')" title="Email perso — cliquer pour copier">✉️ ${esc(e.email)} <span style="font-size:9px;color:var(--t3)">(perso)</span></div>`:''}
             ${e.emailPro?`<div class="emp-email" style="color:var(--bl)" onclick="navigator.clipboard.writeText('${esc(e.emailPro)}');showDriveNotif('📋 Email pro copié')" title="Email pro — cliquer pour copier">✉️ ${esc(e.emailPro)} <span style="font-size:9px;color:var(--t3)">(pro)</span></div>`:''}
             ${annivInfo}
+            ${(()=>{
+              const lk=findBenaiAccountLinkedToAnnuaireEmploye(e);
+              if(!canManageBenaiUsersAdmin())return'';
+              if(lk)return`<div style="font-size:10px;margin-top:6px;color:var(--g);line-height:1.35">🔐 BenAI · ${esc(ROLE_LABELS[lk.role]||lk.role)} <span style="color:var(--t3)">(${esc(String(lk.id))})</span></div>`;
+              return`<div style="margin-top:8px"><button type="button" onclick="void openBenaiAccessForEmployeCard(${e.id})" class="equipe-link-btn" style="padding:5px 10px;font-size:11px;border-radius:6px">+ Accès BenAI</button></div>`;
+            })()}
           </div>
           <button onclick="editEmploye(${e.id})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:16px;padding:4px" title="Modifier">✏️</button>
           <button onclick="deleteEmploye(${e.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:16px;padding:4px" title="Supprimer">🗑️</button>
@@ -8104,29 +8248,112 @@ function regenNewUserPwd(){
   if(el)el.value=generateBenAIPassword(14);
 }
 
-async function showAddUser(){
+async function showAddUser(preselectEmpId){
   if(!canManageBenaiUsersAdmin()){await benaiAlert('Réservé à l’administrateur.');return;}
   const f=document.getElementById('add-user-form');
-  const isOpen=f.style.display!=='none';
-  f.style.display=isOpen?'none':'block';
-  if(!isOpen){
-    const pr=document.getElementById('new-user-pseudo-row');
-    if(pr)pr.style.display=canAssignBenaiLoginPseudo()?'block':'none';
-    const pIn=document.getElementById('new-user-app-uid');
-    if(pIn)pIn.value='';
-    regenNewUserPwd();
-    // Peupler le select avec les salariés de l'annuaire qui n'ont pas encore de compte BenAI
-    const ann=getAnnuaireActive();
-    const disponibles=ann.filter(e=>!findBenaiAccountLinkedToAnnuaireEmploye(e));
-    const sel=document.getElementById('new-user-ann-select');
-    if(sel){
-      sel.innerHTML='<option value="">Sélectionner...</option>'+
-        disponibles.map(e=>{
-          const vid=e.id!=null&&String(e.id)!==''?String(e.id):`legacy:${encodeURIComponent(`${e.prenom||''}|${e.nom||''}|${e.societe||'nemausus'}`)}`;
-          return`<option value="${escAttr(vid)}">${esc(e.prenom+' '+e.nom)} — ${esc(e.fonction||'?')}</option>`;
-        }).join('');
+  const forceOpen=preselectEmpId!=null&&String(preselectEmpId)!=='';
+  if(forceOpen){
+    f.style.display='block';
+  }else{
+    const isOpen=f.style.display!=='none';
+    f.style.display=isOpen?'none':'block';
+    if(f.style.display==='none')return;
+  }
+  const st=document.getElementById('add-user-status');
+  if(st)st.textContent='';
+  const pr=document.getElementById('new-user-pseudo-row');
+  if(pr)pr.style.display=canAssignBenaiLoginPseudo()?'block':'none';
+  const pIn=document.getElementById('new-user-app-uid');
+  if(pIn)pIn.value='';
+  regenNewUserPwd();
+  const ann=getAnnuaireActive();
+  const disponibles=ann.filter(e=>!findBenaiAccountLinkedToAnnuaireEmploye(e));
+  const sel=document.getElementById('new-user-ann-select');
+  if(sel){
+    sel.innerHTML='<option value="">Sélectionner...</option>'+
+      disponibles.map(e=>{
+        const vid=e.id!=null&&String(e.id)!==''?String(e.id):`legacy:${encodeURIComponent(`${e.prenom||''}|${e.nom||''}|${e.societe||'nemausus'}`)}`;
+        return`<option value="${escAttr(vid)}">${esc(e.prenom+' '+e.nom)} — ${esc(e.fonction||'?')}</option>`;
+      }).join('');
+    if(forceOpen){
+      const want=String(preselectEmpId);
+      const opt=[...sel.options].find(o=>String(o.value)===want);
+      if(opt)sel.value=want;
+      else await benaiAlert('Ce contact a déjà un accès ou n’est pas dans la liste — vérifiez l’annuaire.');
     }
   }
+  if(forceOpen){
+    const sec=document.getElementById('equipe-sec-acces');
+    if(sec)requestAnimationFrame(()=>{try{sec.scrollIntoView({behavior:'smooth',block:'start'});}catch(_){}});
+  }
+}
+
+async function openBenaiAccessForEmployeCard(id){
+  await showAddUser(id);
+}
+
+/** Crée un compte BenAI à partir d’une fiche annuaire (employé + accès unifiés). */
+async function createBenaiAccessFromAnnuaireEntry(annEntry,opts){
+  opts=opts||{};
+  const fail=msg=>Promise.resolve({ok:false,error:String(msg||'')});
+  if(!annEntry)return fail('Fiche contact introuvable.');
+  if(findBenaiAccountLinkedToAnnuaireEmploye(annEntry))return fail('Un accès BenAI existe déjà pour ce salarié (même nom ou même e-mail).');
+  const role=String(opts.role||'assistante').trim();
+  let pwd=String(opts.password||'').trim();
+  if(!pwd||pwd.length<10)pwd=generateBenAIPassword(14);
+  const prenom=String(annEntry.prenom||'').trim();
+  const nom=String(annEntry.nom||'').trim();
+  const soc=annEntry.societe||'nemausus';
+  const fonction=String(annEntry.fonction||'Autre').trim()||'Autre';
+  const name=`${prenom} ${nom}`.trim();
+  let uid=normalizeId(prenom);
+  let suffix=2;
+  while(getAllUsers().some(u=>normalizeId(u.id)===uid)){
+    uid=`${normalizeId(prenom)}_${suffix++}`;
+  }
+  if(canAssignBenaiLoginPseudo()){
+    const custom=String(opts.customAppUid||'').trim();
+    if(custom){
+      uid=proposedLoginUidFromPseudoField(custom,uid);
+      const reserved=new Set(['benjamin','benai','admin']);
+      if(reserved.has(uid)||uid==='user')return fail('Identifiant de connexion réservé ou invalide.');
+      if(getAllUsers().some(u=>normalizeId(u.id)===normalizeId(uid)))return fail('Cet identifiant est déjà utilisé.');
+    }
+  }
+  const email=(annEntry.emailPro||annEntry.email||'').trim().toLowerCase();
+  if(!email||!email.includes('@'))return fail('Email introuvable (remplissez email perso ou pro sur la fiche).');
+  if(role==='directeur_co'){
+    const existingDco=getAllUsers().filter(u=>u.role==='directeur_co');
+    const conflict=existingDco.some(u=>{
+      const s=u.societe||'nemausus';
+      if(soc==='les-deux'||s==='les-deux')return true;
+      return s===soc;
+    });
+    if(conflict)return fail('Un directeur commercial existe déjà pour cette société (ou un compte « les deux » couvre les deux). Supprimez ou modifiez l’existant avant d’en créer un autre.');
+  }
+  const extras=getExtraUsers();
+  const roleLabel={assistante:'Assistante',commercial:'Commercial',directeur_co:'Directeur commercial',directeur_general:'Directeur général'}[role]||'Assistante';
+  const createResult=await createSupabaseUserProvisioning({
+    email,
+    password:pwd,
+    full_name:name,
+    role,
+    company:soc,
+    app_uid:uid
+  });
+  const useLocalFallback=!createResult.ok&&shouldFallbackLocalUserProvisionAfterCreateError(createResult.error);
+  if(!createResult.ok&&!useLocalFallback){
+    let errShown=String(createResult.error||'Erreur');
+    if(/maximum|limit exceeded|user count|too many|quota/i.test(errShown)){
+      errShown+=' — Vérifiez le quota utilisateurs du projet Supabase (Authentication) ou supprimez d’anciens comptes.';
+    }
+    return{ok:false,error:errShown};
+  }
+  if(useLocalFallback){
+    enqueuePendingUserCreate({email,password:pwd,full_name:name,role,company:soc,app_uid:uid});
+  }
+  await finalizeBenAILocalUserAccount({uid,name,email,role,soc,fonction,pwd,extras,roleLabel});
+  return{ok:true,pwd,uid,email,roleLabel,remoteOk:!!createResult.ok};
 }
 
 async function creerUtilisateur(){
@@ -8153,96 +8380,27 @@ async function creerUtilisateur(){
   if(!annEntry)annEntry=ann.find(e=>String(e.id)===String(val));
   if(!annEntry){
     status.style.color='var(--r)';
-    status.textContent='⚠️ Fiche annuaire introuvable — rouvrez « Nouvel accès » ou vérifiez l’annuaire.';
+    status.textContent='⚠️ Fiche annuaire introuvable — rouvrez le panneau ou vérifiez l’annuaire.';
     return;
   }
-  if(findBenaiAccountLinkedToAnnuaireEmploye(annEntry)){
-    status.style.color='var(--r)';
-    status.textContent='⚠️ Un accès BenAI existe déjà pour ce salarié (même nom ou même e-mail). Supprimez l’ancien compte ou corrigez l’annuaire.';
-    return;
-  }
-  const prenom=String(annEntry.prenom||'').trim();
-  const nom=String(annEntry.nom||'').trim();
-  const soc=annEntry.societe||'nemausus';
-  const fonction=String(annEntry.fonction||'Autre').trim()||'Autre';
-  const name=`${prenom} ${nom}`.trim();
-  let uid=normalizeId(prenom);
-  let suffix=2;
-  while(getAllUsers().some(u=>normalizeId(u.id)===uid)){
-    uid=`${normalizeId(prenom)}_${suffix++}`;
-  }
-  if(canAssignBenaiLoginPseudo()){
-    const custom=(document.getElementById('new-user-app-uid')?.value||'').trim();
-    if(custom){
-      uid=proposedLoginUidFromPseudoField(custom,uid);
-      const reserved=new Set(['benjamin','benai','admin']);
-      if(reserved.has(uid)||uid==='user'){
-        status.style.color='var(--r)';
-        status.textContent='⚠️ Identifiant de connexion réservé ou invalide';
-        return;
-      }
-      if(getAllUsers().some(u=>normalizeId(u.id)===normalizeId(uid))){
-        status.style.color='var(--r)';
-        status.textContent='⚠️ Cet identifiant est déjà utilisé';
-        return;
-      }
-    }
-  }
-  const email=(annEntry.emailPro||annEntry.email||'').trim().toLowerCase();
-  if(!email||!email.includes('@')){
-    status.style.color='var(--r)';
-    status.textContent='⚠️ Email introuvable (remplissez email perso ou pro sur la fiche annuaire)';
-    return;
-  }
-  if(role==='directeur_co'){
-    const existingDco=getAllUsers().filter(u=>u.role==='directeur_co');
-    const conflict=existingDco.some(u=>{
-      const s=u.societe||'nemausus';
-      if(soc==='les-deux'||s==='les-deux')return true;
-      return s===soc;
-    });
-    if(conflict){
-      status.style.color='var(--r)';
-      status.textContent='⚠️ Un directeur commercial existe déjà pour cette société (ou un compte « les deux » couvre les deux). Supprimez ou modifiez l’existant avant d’en créer un autre.';
-      return;
-    }
-  }
-  const extras=getExtraUsers();
-  const roleLabel={assistante:'Assistante',commercial:'Commercial',directeur_co:'Directeur commercial',directeur_general:'Directeur général'}[role]||'Assistante';
+  const customUid=(document.getElementById('new-user-app-uid')?.value||'').trim();
   status.style.color='var(--a)';
   status.textContent='⏳ Création du compte (cloud + local)...';
-  const createResult=await createSupabaseUserProvisioning({
-    email,
-    password:pwd,
-    full_name:name,
-    role,
-    company:soc,
-    app_uid:uid
-  });
-  const useLocalFallback=!createResult.ok&&shouldFallbackLocalUserProvisionAfterCreateError(createResult.error);
-  if(!createResult.ok&&!useLocalFallback){
+  const res=await createBenaiAccessFromAnnuaireEntry(annEntry,{role,password:pwd,customAppUid:customUid});
+  if(!res.ok){
     status.style.color='var(--r)';
-    let errShown=String(createResult.error||'Erreur');
-    if(/maximum|limit exceeded|user count|too many|quota/i.test(errShown)){
-      errShown+=' — Vérifiez le quota utilisateurs du projet Supabase (Authentication) ou supprimez d’anciens comptes.';
-    }
-    status.textContent='⚠️ '+errShown;
+    status.textContent='⚠️ '+res.error;
     return;
   }
-  if(useLocalFallback){
-    enqueuePendingUserCreate({email,password:pwd,full_name:name,role,company:soc,app_uid:uid});
-  }
-  await finalizeBenAILocalUserAccount({uid,name,email,role,soc,fonction,pwd,extras,roleLabel});
-  document.getElementById('new-user-pwd').value=pwd;
-  status.style.color='var(--g)';
-  if(createResult.ok){
-    status.textContent=`✅ Accès ${roleLabel} créé pour ${name}. Identifiant de connexion : ${uid} (ou email ${email}). Mot de passe dans le champ ci-dessus — copié dans le presse-papiers si le navigateur l’autorise.`;
+  document.getElementById('new-user-pwd').value=res.pwd;
+  status.style.color=res.remoteOk?'var(--g)':'var(--y)';
+  if(res.remoteOk){
+    status.textContent=`✅ Accès ${res.roleLabel} créé pour ${annEntry.prenom} ${annEntry.nom}. Identifiant : ${res.uid} (ou e-mail ${res.email}). Mot de passe dans le champ ci-dessus.`;
   }else{
-    status.style.color='var(--y)';
-    status.textContent=`✅ Accès ${roleLabel} créé localement pour ${name}. Cloud : en file d’attente (Edge/Supabase) — reconnecte-toi en admin cloud puis laisse BenAI 30–60 s.`;
+    status.textContent=`✅ Accès ${res.roleLabel} créé localement pour ${annEntry.prenom} ${annEntry.nom}. Cloud en file d’attente — reconnecte-toi en admin cloud puis patiente 30–60 s.`;
   }
   setTimeout(()=>{document.getElementById('add-user-form').style.display='none';status.textContent='';document.getElementById('new-user-pwd').value='';},8000);
-  renderUsersList();renderPwdList();logActivity(`Benjamin a créé l'accès BenAI (${roleLabel}) pour ${name}`);
+  renderUsersList();renderPwdList();logActivity(`Benjamin a créé l'accès BenAI (${res.roleLabel}) pour ${annEntry.prenom} ${annEntry.nom}`);
 }
 
 async function supprimerUtilisateur(uid, opts){
