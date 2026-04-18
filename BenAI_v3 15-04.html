@@ -9996,19 +9996,68 @@ function renderLeadsDashboard(){
   }
 }
 
-async function editObjectifCommercial(uid,name){
+function editObjectifCommercial(uid,name){
+  document.getElementById('obj-comm-edit-overlay')?.remove();
   const monthKey=(document.getElementById('crm-obj-comm-mois')?.value)||getDefaultObjCommMonthKey();
   const all=getObjectifsCommerciaux();
   const curEnt=normalizeCommercialObjEntry(all[uid]||{});
   const curM=curEnt.months[monthKey]?.mensuel??0;
+  const curH=Number(curEnt.hebdo)||0;
   const labelMois=formatMois(monthKey);
-  const mensuel=await benaiPrompt(`Objectif CA mensuel (€ HT) pour ${name} — ${labelMois} :`,String(curM),'Objectif mensuel');
-  if(mensuel===null)return;
-  const hebdo=await benaiPrompt(`Objectif CA hebdomadaire (€ HT) pour ${name} (identique toutes les semaines) :`,String(curEnt.hebdo),'Objectif hebdo');
-  if(hebdo===null)return;
-  setObjectifCommercial(uid,monthKey,mensuel,hebdo);
-  renderLeadsDashboard();
-  logActivity(`${currentUser.name} a fixé l’objectif mensuel de ${name} (${labelMois}) et l’objectif hebdo`);
+  const wrap=document.createElement('div');
+  wrap.id='obj-comm-edit-overlay';
+  wrap.className='lead-modal open';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4500;display:flex;align-items:center;justify-content:center;padding:16px';
+  wrap.innerHTML=`
+    <div class="lead-modal-box" style="max-width:440px" role="dialog" aria-modal="true" aria-labelledby="obj-comm-edit-title" onclick="event.stopPropagation()">
+      <div class="lead-modal-header">
+        <div>
+          <div id="obj-comm-edit-title" style="font-size:16px;font-weight:700">Objectifs CA — ${esc(name)}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.45">Mois : <strong>${esc(labelMois)}</strong> · pour un autre mois, change d’abord « Mois affiché » sur le tableau de bord CRM.</div>
+        </div>
+        <button type="button" id="obj-comm-close-x" style="background:transparent;border:none;color:var(--t2);font-size:20px;line-height:1;cursor:pointer;padding:4px 8px" aria-label="Fermer">×</button>
+      </div>
+      <div class="lead-modal-body">
+        <div class="lead-modal-section">
+          <div class="lead-modal-section-title">Objectif mensuel (€ HT)</div>
+          <div class="form-group">
+            <div class="form-label">Cible pour ${esc(labelMois)}</div>
+            <input type="number" class="form-input" id="obj-comm-mensuel" min="0" step="100" value="${Number(curM)||0}" inputmode="decimal" style="font-family:inherit">
+          </div>
+        </div>
+        <div class="lead-modal-section">
+          <div class="lead-modal-section-title">Objectif hebdomadaire (€ HT)</div>
+          <div class="form-group">
+            <div class="form-label">Identique chaque semaine (toutes les semaines de l’année)</div>
+            <input type="number" class="form-input" id="obj-comm-hebdo" min="0" step="100" value="${Number(curH)||0}" inputmode="decimal" style="font-family:inherit">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap">
+          <button type="button" id="obj-comm-cancel" style="padding:10px 16px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Annuler</button>
+          <button type="button" id="obj-comm-save" style="padding:10px 16px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Enregistrer</button>
+        </div>
+      </div>
+    </div>`;
+  const close=()=>{
+    document.removeEventListener('keydown',onKey);
+    wrap.remove();
+  };
+  const onKey=e=>{if(e.key==='Escape')close();};
+  document.addEventListener('keydown',onKey);
+  wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
+  wrap.querySelector('#obj-comm-close-x')?.addEventListener('click',close);
+  wrap.querySelector('#obj-comm-cancel')?.addEventListener('click',close);
+  wrap.querySelector('#obj-comm-save')?.addEventListener('click',()=>{
+    const mensuel=document.getElementById('obj-comm-mensuel')?.value;
+    const hebdo=document.getElementById('obj-comm-hebdo')?.value;
+    setObjectifCommercial(uid,monthKey,mensuel,hebdo);
+    renderLeadsDashboard();
+    logActivity(`${currentUser.name} a fixé l’objectif mensuel de ${name} (${labelMois}) et l’objectif hebdo`);
+    close();
+  });
+  document.body.appendChild(wrap);
+  const inp=document.getElementById('obj-comm-mensuel');
+  if(inp){inp.focus();try{inp.select();}catch(e){}}
 }
 
 async function editObjectifSociete(socId){
