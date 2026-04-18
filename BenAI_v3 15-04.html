@@ -2014,7 +2014,7 @@ window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
 const BENAI_VERSION = '3.15';
-const GUIDE_REQUIRED_VERSION='3.20';
+const GUIDE_REQUIRED_VERSION='3.21';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 const STORAGE_KEYS = {
   mem:'benai_v3',
@@ -7094,14 +7094,14 @@ function renderGuidePage(){
       'Filtres globaux : secteur (Nîmes / Avignon), société (Nemausus / Lambert), commercial — pour isoler un périmètre avant d’agir.',
       'Chaque matin : onglet À attribuer en premier — tout lead au statut Non traité sans commercial bloque le terrain ; assigne ou réattribue depuis la fiche (champ commercial).',
       'Dashboard : classement mensuel, objectifs CA HT par société / mois, synthèse des pertes, exports CSV / Excel, outil Fusionner deux leads (doublons).',
-      'Tu vois les leads de toutes les sociétés autorisées par ton compte (société unique ou « les-deux ») ; un DG sur la même société voit le même périmètre CRM.',
+      'Périmètre CRM : leads des sociétés couvertes par ton compte (société unique ou « les-deux ») ; un DG sur la même société partage le même périmètre.',
       'Tu reçois les notifications BenAI sur leads à attribuer, hors secteur, nouveaux leads équipe, rappels sur date de rappel renseignée, et alerte « devis sans réponse » après 7 jours.',
-      'Badge rouge sur l’icône Leads : nombre de leads Non traité non attribués ; le commercial a un autre calcul (alertes sur ses dossiers).',
-      'Sur une fiche : tu peux changer le statut et le commercial ; tu vois aussi si la fiche n’a pas encore été ouverte par le commercial assigné (pilotage interne). Exige des motifs de perte propres sur les rouges.',
-      'Coordonne avec les assistantes (Messages) quand la saisie initiale manque d’éléments pour éviter les doubles appels.',
+      'Badge rouge sur l’icône Leads : priorise les dossiers Non traité sans commercial assigné ; selon le profil connecté, le badge peut aussi refléter les alertes terrain à traiter.',
+      'Sur une fiche : statut, commercial, historique ; la pastille « non ouvert » indique qu’aucune ouverture n’a encore été enregistrée par le commercial assigné (pilotage interne). Exige des motifs de perte propres sur les rouges.',
+      'Coordonne avec les assistantes (Messages) quand la saisie initiale manque d’éléments pour compléter la fiche avant relance terrain.',
       'Absences : consulte les plannings partagés pour savoir qui est disponible avant de presser sur les relances.',
       'En fin de période : exploite le dashboard pour le debrief (motifs de perte, délais devis, taux de conversion).',
-      'Insiste pour que l’équipe utilise l’onglet Bugs (gravité, étapes, capture d’écran si possible) : c’est le canal officiel pour faire corriger l’outil.'
+      'Fais connaître l’onglet Bugs à l’équipe (gravité, étapes, capture d’écran si possible) : canal officiel pour faire corriger l’outil.'
     ],
     directeur_general:[
       'Même périmètre CRM que le directeur commercial : Dashboard, À attribuer, Tous les leads + filtres secteur / société / commercial.',
@@ -7109,40 +7109,39 @@ function renderGuidePage(){
       'Les rappels automatiques liés aux relances et au suivi des devis suivent surtout le dir. commercial et les commerciaux : une lecture régulière de ton côté sur le dashboard et le pipe complète la vision d’ensemble.',
       'Tu peux attribuer, réattribuer, corriger statuts, montants, dates devis / signature, comme le dir. co. — utile en cas d’absence du responsable commercial.',
       'Utilise le dashboard pour la vision dirigeants : pipe par société, objectifs, pertes, tendances mensuelles.',
-      'Les motifs de perte et la qualité des champs (CP, projet, montants) servent aux arbitrages stratégiques : refuse les « brouillons » incomplets côté équipe.',
-      'Messages : canal privilégié pour demander une précision sans encombrer la fiche lead ; garde les décisions structurantes dans le CRM (traçabilité).',
+      'Les motifs de perte et la qualité des champs (CP, projet, montants) servent aux arbitrages stratégiques : exige des fiches complètes côté équipe plutôt que des dossiers brouillon.',
+      'Messages : canal privilégié pour demander une précision ; les décisions structurantes restent tracées dans la fiche lead (traçabilité).',
       'Guide + tutoriel interactif : même base que le dir. co. ; forme les commerciaux sur la discipline de mise à jour après chaque action.',
-      'Encourage l’usage de l’onglet Bugs pour tout dysfonctionnement répété : un signalement détaillé vaut mieux qu’un contournement oral.'
+      'Encourage l’usage de l’onglet Bugs pour tout dysfonctionnement répété : un signalement détaillé accélère la correction par rapport à un simple message oral.'
     ],
     commercial:[
-      'Tu ne vois que tes leads : ceux dont le champ « commercial » est ton compte ; rien d’autre n’apparaît dans la liste.',
-      'Dans Leads CRM : « Mes ventes » (signatures et objectifs) puis « Mes leads » (liste ou kanban, filtres, recherche).',
+      'Le CRM regroupe tes dossiers en charge : « Mes leads » pour la liste ou le kanban, « Mes ventes » pour les signatures et le suivi d’objectifs.',
+      'Filtres, recherche, pastilles de statut et bascule liste / kanban servent à prioriser la journée (Non traité, RDV, devis, vendu, archives, alertes).',
       'Bouton + Nouveau lead : tu peux créer un dossier (ex. prospection terrain) ; la source ACTIF t’attribue automatiquement le lead ; sinon l’attribution est gérée côté organisation.',
-      'Filtres rapides : Tous, Non traité, RDV pris, Devis envoyé, Vendu, Perdu, Archives, Alertes — plus recherche texte et bascule liste / kanban.',
       'La timeline sur la fiche regroupe les actions enregistrées : enregistre après chaque étape pour garder une suite claire.',
       'Après chaque contact : mets à jour le sous-statut (à rappeler, injoignable, RDV programmé…), la date de rappel si besoin, et le suivi.',
       'Boutons Appeler et Agenda pour gagner du temps ; après une visite, utilise « RDV fait » pour noter que le rendez-vous a eu lieu.',
       'Devis : dès envoi, renseigne montant HT, date d’envoi et prochaine relance ; une alerte peut apparaître si le dossier stagne.',
-      'Vendu : saisis le prix vendu HT exact du dossier (obligatoire). Perdu : choisis un motif détaillé (obligatoire). Sans ces champs, l’enregistrement est refusé.',
+      'Vendu : saisis le prix vendu HT exact du dossier (obligatoire). Perdu : choisis un motif détaillé (obligatoire) — ces champs permettent d’enregistrer la fiche.',
       'Hors zone géographique habituelle : remplis la justification « hors secteur » pour pouvoir enregistrer.',
       'Badge et notifications : dossiers en alerte et rappels à l’heure — réagis ou mets à jour la date dans la fiche.',
-      'Messages : relances, avis ou infos client ; ne remplace pas la mise à jour du CRM.',
+      'Messages : relances, avis ou infos client ; complète la fiche lead pour tout ce qui engage le dossier (statut, montants, dates).',
       'Absences : déclare les tiennes pour que l’équipe anticipe.',
       'Bugs : en cas de blocage ou d’erreur, ouvre l’onglet Bugs et décris la page et ce que tu faisais.'
     ],
     assistante:[
-      'Menus BenAI : BenAI (IA), Notes, Messages, SAV, Leads CRM, Absences, Évolutions, Guide, Bugs — tu es un hub opérationnel, pas un profil « CRM seul ».',
-      'Leads CRM : un seul onglet « Mes leads » — tu retrouves les dossiers que tu as créés ; la recherche texte aide à isoler un client rapidement.',
+      'Menus BenAI : BenAI (IA), Notes, Messages, SAV, Leads CRM, Absences, Évolutions, Guide, Bugs — tu relies l’accueil client aux outils métier.',
+      'Leads CRM : onglet « Mes leads » pour retrouver et compléter les dossiers que tu as saisis ; la recherche texte aide à retrouver un client vite.',
       'Création : + Nouveau lead — nom, téléphone, adresse, code postal, type de projet obligatoires ; complète ville, commentaire, secteur pour limiter les erreurs d’affectation.',
       'Attribution : si un directeur commercial existe sur la société, le lead peut rester « à attribuer » jusqu’à sa décision ; sans dir. co., un commercial peut être choisi automatiquement (répartition).',
       'Dans la fiche d’un lead que tu as créé : tu peux modifier les informations de base et le texte (suivi, commentaire) ; le tunnel de statuts détaillés (Non traité, devis, vendu…) est surtout piloté une fois le commercial assigné.',
-      'Qualité de saisie : un commentaire clair (« client veut store salon, budget approx… ») évite que le commercial rappelle sans contexte ; mentionne la source réelle (téléphone, site, magasin…).',
+      'Qualité de saisie : un commentaire clair (« client veut store salon, budget approx… ») transmet tout de suite le contexte au terrain ; mentionne la source réelle (téléphone, site, magasin…).',
       'SAV : menu dédié — crée les dossiers chantier avec rappel (souvent 5 jours) ; les notifications partent aux bonnes parties prenantes selon les règles BenAI.',
       'Messages : canal prioritaire pour alerter l’équipe (client sur place, urgence, conflit planning) ; cite toujours le nom du client ou l’ID lead.',
-      'Notes : bloc-notes perso BenAI — ne remplace pas le CRM ni les messages si l’info doit être partagée.',
+      'Notes : bloc-notes perso BenAI ; pour toute info client utile au magasin, privilégie la fiche lead ou un message à l’équipe.',
       'Absences : renseigne les tiennes ; option de partage avec les autres assistantes pour les rappels J-7 / veille / jour J selon la case prévue sur le formulaire.',
       'Évolutions : lis les nouveautés produit. Bugs : dès qu’une page ou un bouton bloque le travail, ouvre Bugs — c’est le canal officiel ; décris l’écran, les clics avant l’erreur et le message affiché pour obtenir un rapport structuré et une correction plus rapide.',
-      'Routine : file des appels entrants → fiche lead complète ou complément sur lead existant → message au commercial si passage de relais immédiat → SAV si problème installation.'
+      'Routine : file des appels entrants → fiche lead complète ou complément sur lead existant → message pour un passage de relais immédiat si besoin → SAV si problème installation.'
     ],
     metreur:[
       'Utilise la messagerie interne pour transmettre les infos chantier.',
@@ -12454,19 +12453,19 @@ try{
 const TUTO_SLIDES_BY_ROLE={
   commercial:[
     {icon:'🎯',title:'Ton rôle en une phrase',desc:'Tu transformes chaque opportunité en dossier clair : appels, RDV, devis, signature ou perte documentée. BenAI te donne la liste, toi tu enregistres la réalité terrain après chaque contact.',highlight:'Onglets visibles : Leads CRM, Messages, Absences, Guide, Bugs'},
-    {icon:'🗺️',title:'Navigation CRM',desc:'Dans Leads CRM : « Mes ventes » (tableau des ventes et suivi d’objectifs), puis « Mes leads » (liste ou kanban).',highlight:'Bascule ☰ / ⊞ pour lire vite selon ton habitude'},
-    {icon:'🔎',title:'Trier sans te noyer',desc:'Utilise les pastilles Tous, Non traité, RDV pris, Devis envoyé, Vendu, Perdu, Archives et Alertes. La recherche texte retrouve nom, téléphone ou ville. Commence souvent par Alertes + Non traité.',highlight:'Objectif : zéro lead important dans « Non traité » en fin de journée'},
+    {icon:'🗺️',title:'Navigation CRM',desc:'Dans Leads CRM : « Mes leads » (liste ou kanban), puis « Mes ventes » (tableau des ventes et suivi d’objectifs).',highlight:'Bascule ☰ / ⊞ pour lire vite selon ton habitude'},
+    {icon:'🔎',title:'Trier efficacement',desc:'Utilise les pastilles Tous, Non traité, RDV pris, Devis envoyé, Vendu, Perdu, Archives et Alertes. La recherche texte retrouve nom, téléphone ou ville. Commence souvent par Alertes + Non traité.',highlight:'Objectif : zéro lead important dans « Non traité » en fin de journée'},
     {icon:'➕',title:'Créer un lead (terrain / prospection)',desc:'Bouton + Nouveau lead : renseigne nom, téléphone, code postal et type de projet (obligatoires). La source « ACTIF » t’attribue automatiquement le dossier ; pour les autres cas, l’organisation gère l’attribution selon vos règles internes.',highlight:'Secteur / CP cohérents pour limiter les erreurs de zone'},
-    {icon:'👤',title:'Étape A — Ouvrir et comprendre',desc:'Ouvre la fiche : lis projet, adresse, commentaire de création et la timeline pour voir ce qui s’est déjà passé sur le dossier. Complète suivi ou commentaire dès que tu as une info nouvelle.',highlight:'Ne téléphone pas « à l’aveugle » si le CRM contient déjà la réponse'},
+    {icon:'👤',title:'Étape A — Ouvrir et comprendre',desc:'Ouvre la fiche : lis projet, adresse, commentaire de création et la timeline pour voir ce qui s’est déjà passé sur le dossier. Complète suivi ou commentaire dès que tu as une info nouvelle.',highlight:'Lire la fiche avant d’appeler fait gagner du temps'},
     {icon:'📞',title:'Étape B — Premier contact',desc:'Bouton Appeler : compose plus vite. Après l’échange, mets le sous-statut adapté (à rappeler, injoignable, faux numéro, RDV programmé…). Si tu dois rappeler plus tard, fixe une date/heure de rappel : BenAI te notifie autour de ce créneau.',highlight:'Chaque appel = une mise à jour CRM, même courte'},
     {icon:'📅',title:'Étape C — RDV',desc:'Quand un créneau est validé, renseigne la date (sous-statut RDV programmé) puis utilise Agenda : Google Calendar s’ouvre avec le client et le lieu. Après le passage, appuie sur « RDV fait » pour enregistrer que le rendez-vous a eu lieu.',highlight:'Un RDV sans date renseignée = risque de double-booking'},
     {icon:'🧾',title:'Étape D — Devis envoyé',desc:'Passe en jaune « Devis envoyé ». Saisis montant HT, date d’envoi, et la prochaine action de relance. Au bout de 7 jours sans nouvelle, BenAI peut pousser une alerte « devis sans réponse » : ton job est d’appeler avant d’attendre la notif.',highlight:'Montant + date = suivi fiable du dossier'},
-    {icon:'🟢',title:'Étape E — Vendu',desc:'Passe en statut vert et saisis le prix vendu HT exact du montant signé sur le dossier (obligatoire). Complète date de signature ou produit si ton entreprise le demande.',highlight:'Montant exact obligatoire — sans lui BenAI refuse l’enregistrement'},
-    {icon:'🔴',title:'Étape F — Perdu',desc:'Passe en rouge « Perdu », puis choisis un motif de refus détaillé dans la liste. Tu ne peux pas valider sans ce choix.',highlight:'Motif obligatoire avant d’enregistrer'},
+    {icon:'🟢',title:'Étape E — Vendu',desc:'Passe en statut vert et saisis le prix vendu HT exact du montant signé sur le dossier (obligatoire). Complète date de signature ou produit si ton entreprise le demande.',highlight:'Montant exact obligatoire pour enregistrer le vendu'},
+    {icon:'🔴',title:'Étape F — Perdu',desc:'Passe en rouge « Perdu », puis choisis un motif de refus détaillé dans la liste avant d’enregistrer.',highlight:'Motif obligatoire pour clôturer la fiche'},
     {icon:'⚠️',title:'Cas particulier — Hors secteur',desc:'Si le code postal sort de la zone habituelle, BenAI demande une courte justification texte avant d’enregistrer (ex. chantier exceptionnel, client historique).',highlight:'Même règle sur création ou mise à jour'},
-    {icon:'🔔',title:'Notifications et badge',desc:'Le badge sur Leads compte surtout les dossiers qui exigent une action immédiate (alertes métier). Les notifications BenAI résument aussi les volumes à traiter : utilise-les comme file d’attente, pas comme bruit.',highlight:'Quand tu traites, mets à jour le CRM pour faire retomber les alertes'},
+    {icon:'🔔',title:'Notifications et badge',desc:'Le badge sur Leads compte surtout les dossiers qui exigent une action immédiate (alertes métier). Les notifications BenAI résument aussi les volumes à traiter : utilise-les comme file d’attente ciblée.',highlight:'Quand tu traites, mets à jour le CRM pour faire retomber les alertes'},
     {icon:'💬',title:'Messages et absences',desc:'Messages sert aux accords rapides (« je passe demain », « client veut l’autre coloris »). Les décisions structurantes restent dans la fiche lead. Déclare tes absences pour que l’équipe anticipe si besoin.',highlight:'Messages ≠ CRM, mais complémentaire'},
-    {icon:'🐛',title:'Onglet Bugs — à ne pas négliger',desc:'Si un écran bloque, qu’un bouton ne répond pas ou qu’un message d’erreur apparaît, ouvre l’onglet Bugs depuis le menu. Décris la page, l’action juste avant le problème et la gravité : BenAI prépare un rapport structuré (copiable) pour accélérer la correction — c’est souvent plus efficace qu’un message oral vague.',highlight:'Plus le signalement est précis, plus la correction va vite'},
+    {icon:'🐛',title:'Onglet Bugs — à utiliser vite',desc:'Si un écran bloque, qu’un bouton ne répond pas ou qu’un message d’erreur apparaît, ouvre l’onglet Bugs depuis le menu. Décris la page, l’action juste avant le problème et la gravité : BenAI prépare un rapport structuré (copiable) pour accélérer la correction.',highlight:'Plus le signalement est précis, plus la correction va vite'},
     {icon:'✅',title:'Routine A → Z (mémo)',desc:'1) Alertes + non traités. 2) Appel + mise à jour statut. 3) RDV → Agenda, puis RDV fait après passage. 4) Devis → montants / dates + relance. 5) Vendu : prix HT exact ; Perdu : motif. 6) Jaunes anciens. 7) Bugs si l’outil bloque.',highlight:'Le commercial exemplaire ferme la journée avec un CRM à jour'},
   ],
   directeur_co:[
@@ -12480,7 +12479,7 @@ const TUTO_SLIDES_BY_ROLE={
     {icon:'🧾',title:'Outils data',desc:'Export CSV/Excel pour aller plus loin qu’à l’écran. Fusion de deux leads : choisis le dossier « maître » en premier, le second est absorbé (timeline fusionnée).',highlight:'Fusion = utile après salons ou double saisie magasin / web'},
     {icon:'💬',title:'Coordination',desc:'Messages pour ping rapide ; demande aux assistantes de compléter CP/projet si la création était incomplète. Absences : anticipe les réattributions temporaires.',highlight:'Le dir. co. visible sur les absences évite les trous de couverture'},
     {icon:'🐛',title:'Fiabilité outil — onglet Bugs',desc:'Fais connaître l’onglet Bugs à l’équipe : tout blocage (CRM, messages, export…) doit passer par un signalement avec page concernée, étapes et gravité. Les rapports structurés évitent les allers-retours et priorisent les correctifs.',highlight:'Traiter les Bugs ouverts fait partie du pilotage qualité'},
-    {icon:'✅',title:'Journée type',desc:'Matin : À attribuer + notifications. Mi-journée : alertes devis / RDV à valider côté équipe. Soir : coup d’œil dashboard + message récap si gros écart.',highlight:'Termine la journée sans leads Non traité non attribués si possible'},
+    {icon:'✅',title:'Journée type',desc:'Matin : À attribuer + notifications. Mi-journée : alertes devis / RDV à valider côté équipe. Soir : coup d’œil dashboard + message récap si gros écart.',highlight:'Viser une file À attribuer vide en fin de journée quand c’est possible'},
   ],
   directeur_general:[
     {icon:'📊',title:'Même cockpit, autre rythme',desc:'Tu as le même périmètre CRM que le directeur commercial : Dashboard, À attribuer, Tous les leads, filtres secteur / société / commercial, fiches complètes.',highlight:'Pense ouverture régulière du CRM pour la vue d’ensemble'},
@@ -12488,24 +12487,24 @@ const TUTO_SLIDES_BY_ROLE={
     {icon:'⚠️',title:'File À attribuer',desc:'Comme le dir. co., tu peux assigner un commercial sur un lead Non traité bloqué, rééquilibrer la charge ou récupérer un dossier sensible. Utilise cette vue quand le dir. co. est absent ou saturé.',highlight:'Action visible par toute l’équipe CRM : assume la cohérence des choix'},
     {icon:'📈',title:'Dashboard dirigeant',desc:'Sers-toi des mêmes graphiques et tableaux pour arbitrer budgets, recrutements commerciaux, partenariats magasins. Les motifs de perte donnent la parole aux clients indirectement.',highlight:'Compare les sociétés et les mois, pas seulement le total'},
     {icon:'🧾',title:'Exports et fusion',desc:'Tu télécharges les données comme le dir. co. et tu peux fusionner des doublons depuis le dashboard. C’est utile après une campagne marketing massive ou une reprise de données.',highlight:'Garde une copie export avant grosses opérations manuelles'},
-    {icon:'🧩',title:'Exigence qualité',desc:'Tu valides la culture data : pas de vert sans prix, pas de rouge sans motif, pas de jaune sans date de devis quand le process l’exige. Ton regard compte plus que des règles logicielles.',highlight:'Fixe le standard une fois pour toutes en comité'},
+    {icon:'🧩',title:'Exigence qualité',desc:'Tu valides la culture data : vente avec prix renseigné, perte avec motif, devis avec date quand le process l’exige. Ton regard fixe le standard au-delà des seuls contrôles logiciels.',highlight:'Fixe le standard une fois pour toutes en comité'},
     {icon:'💬',title:'Lien avec le dir. co.',desc:'Messages pour partager les priorités (« focus Lambert cette semaine »). Évite les doubles décisions : qui attribue par défaut ? Clarifiez en interne, BenAI permet les deux profils.',highlight:'La complémentarité DG / dir. co. évite les zones grises'},
-    {icon:'🐛',title:'Bugs — canal officiel des incidents',desc:'Le Guide rappelle les usages ; l’onglet Bugs est le point d’entrée pour tout dysfonctionnement (écran, export, synchro…). Un signalement détaillé (où, quand, quoi faire avant le blocage) produit un rapport prêt à transmettre et accélère la correction.',highlight:'À valoriser en réunion : sans remontée structurée, l’IT ne peut pas reproduire le bug'},
-    {icon:'✅',title:'Routine conseillée',desc:'Lundi : dashboard + À attribuer. Milieu de semaine : suivi des gros dossiers verts / jaunes. Vendredi : lecture des pertes et message aux équipes si pattern récurrent.',highlight:'Pilotage volontaire = pas de surprise en comité de direction'},
+    {icon:'🐛',title:'Bugs — canal officiel des incidents',desc:'Le Guide rappelle les usages ; l’onglet Bugs est le point d’entrée pour tout dysfonctionnement (écran, export, synchro…). Un signalement détaillé (où, quand, quoi faire avant le blocage) produit un rapport prêt à transmettre et accélère la correction.',highlight:'En réunion : valoriser les remontées structurées pour accélérer la reproduction du bug'},
+    {icon:'✅',title:'Routine conseillée',desc:'Lundi : dashboard + À attribuer. Milieu de semaine : suivi des gros dossiers verts / jaunes. Vendredi : lecture des pertes et message aux équipes si pattern récurrent.',highlight:'Pilotage volontaire = comités plus sereins'},
   ],
   assistante:[
     {icon:'🧭',title:'Ta place dans BenAI',desc:'Tu es souvent le premier contact humain avec le client et le premier saisisseur dans l’outil. Un lead propre ici évite trois appels inutiles au commercial. Tu as aussi SAV, Messages, Notes, BenAI IA.',highlight:'Menus : BenAI, Notes, Messages, SAV, Leads CRM, Absences, Évolutions, Guide, Bugs'},
     {icon:'📥',title:'Entrants : avant même le CRM',desc:'Quand le téléphone sonne, note mentalement nom + projet + CP + téléphone. Si le client existe déjà, ouvre « Mes leads », cherche-le, complète plutôt que de dupliquer.',highlight:'Doublon = confusion pour le commercial'},
     {icon:'➕',title:'Créer un lead A → Z',desc:'Leads CRM → + Nouveau lead. Champs obligatoires : nom, téléphone, code postal, type de projet. Ajoute adresse, ville, commentaire détaillé, secteur. Indique la source (magasin, site, téléphone…) pour orienter la suite du dossier.',highlight:'Sans CP ou projet, BenAI refuse l’enregistrement'},
-    {icon:'🏷️',title:'Attribution automatique ou manuelle',desc:'Si un directeur commercial existe, le lead peut rester sans commercial jusqu’à sa décision. S’il n’y a pas de dir. co., BenAI peut attribuer automatiquement selon la répartition interne. Ne panique pas si le champ commercial est vide au départ : c’est normal dans ce cas.',highlight:'Quand c’est attribué, le commercial reçoit une notification'},
+    {icon:'🏷️',title:'Attribution automatique ou manuelle',desc:'Si un directeur commercial existe, le lead peut rester sans commercial jusqu’à sa décision. S’il n’y a pas de dir. co., BenAI peut attribuer automatiquement selon la répartition interne. Un champ commercial vide au départ est courant tant le dir. co. n’a pas arbitré.',highlight:'À l’attribution, une notification part vers le commercial concerné'},
     {icon:'📝',title:'Après ton échange client',desc:'Mets à jour commentaire ou suivi avec ce qui s’est dit (« rappeler mardi matin », « veut volets seulement »). Les statuts avancés (devis, vendu…) seront surtout tenus par le commercial une fois le dossier sur lui, mais ta saisie initiale oriente toute la suite.',highlight:'Une phrase claire vaut un long téléphone'},
-    {icon:'📅',title:'RDV et Agenda',desc:'Si tu fixes un rendez-vous, renseigne les infos nécessaires puis utilise le bouton Agenda dans la fiche : Google Calendar s’ouvre avec le client. Vérifie fuseau / horaire avant d’envoyer le client sur un créneau faux.',highlight:'Le commercial voit la même fiche ensuite'},
+    {icon:'📅',title:'RDV et Agenda',desc:'Si tu fixes un rendez-vous, renseigne les infos nécessaires puis utilise le bouton Agenda dans la fiche : Google Calendar s’ouvre avec le client. Vérifie fuseau / horaire avant de valider le créneau.',highlight:'Les compléments sur la fiche sont visibles par l’équipe terrain'},
     {icon:'🔧',title:'SAV chantier',desc:'Menu SAV → Nouveau : client, nature du problème, fournisseur, détail utile au suivi, date de rappel. Les notifications suivent les règles BenAI.',highlight:'SAV ≠ lead vente : garde les sujets séparés'},
-    {icon:'💬',title:'Messages d’urgence',desc:'Client sur place, litige, urgence planning ? Envoie un message avec NOM + contexte. Évite les « appelle-moi » sans précision.',highlight:'Copie/colle le numéro de téléphone du lead dans le message si besoin'},
-    {icon:'📝',title:'Notes perso',desc:'Notes sert à ton organisation (rappels perso, liste de tâches). Ce n’est pas partagé : si l’info doit être connue du magasin, mets-la dans le CRM ou Messages.',highlight:'Ne pas stocker d’infos client uniquement dans Notes'},
+    {icon:'💬',title:'Messages d’urgence',desc:'Client sur place, litige, urgence planning ? Envoie un message avec NOM + contexte concret (qui, quoi, quand).',highlight:'Copie/colle le numéro de téléphone du lead dans le message si besoin'},
+    {icon:'📝',title:'Notes perso',desc:'Notes sert à ton organisation (rappels perso, liste de tâches). Pour toute info client utile au magasin, privilégie la fiche lead ou un message à l’équipe.',highlight:'CRM et Messages portent le partage ; Notes garde ton mémo perso'},
     {icon:'📆',title:'Absences',desc:'Déclare les tiennes. La case « partager avec les assistantes » contrôle si les collègues voient les rappels J-7 / veille / jour J — décoche pour une absence privée si l’entreprise le permet.',highlight:'Anticipe pour que la permanence téléphonique s’organise'},
     {icon:'🐛',title:'Bugs — prioritaire en cas de souci',desc:'Dès qu’une fonction plante ou affiche une erreur, passe par l’onglet Bugs : c’est le canal prévu pour la correction (page, action, message d’erreur, gravité). Évolutions sert à lire les nouveautés produit ; Bugs sert à faire avancer les correctifs.',highlight:'Ton retour terrain est souvent le premier signal — sois précis'},
-    {icon:'✅',title:'Routine assistante',desc:'Matin : messages + SAV rappels du jour. Journée : chaque appel → fiche CRM complète ou complément. Soir : vérifier que rien d’urgent ne reste dans Messages.',highlight:'Un CRM propre le soir = un commercial efficace le lendemain'},
+    {icon:'✅',title:'Routine assistante',desc:'Matin : messages + SAV rappels du jour. Journée : chaque appel → fiche CRM complète ou complément. Soir : vérifier que rien d’urgent ne reste dans Messages.',highlight:'Un CRM propre en fin de service aide toute l’équipe le lendemain'},
   ],
   admin:[
     {icon:'🛡️',title:'Espace administrateur',desc:'Tu pilotes l’activité globale : tableau de bord synthétique, SAV, messages, notes, et accès CRM complet selon les droits des comptes.',highlight:'Priorité : alertes visibles sur le tableau de bord'},
