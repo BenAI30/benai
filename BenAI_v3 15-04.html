@@ -6562,9 +6562,6 @@ function renderGuidePage(){
         <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px">📱 QR code</div>
         <div style="font-size:11px;color:var(--t3);line-height:1.5;margin-bottom:10px">Scanne ce code avec l’appareil photo pour ouvrir BenAI sur ton téléphone.</div>
         <img id="benai-guide-mobile-qr" src="${qrImgSrc}" data-qr-fallback="${qrFallbackEnc}" width="220" height="220" alt="QR code pour ouvrir BenAI sur le téléphone" style="width:220px;max-width:90%;height:auto;border-radius:14px;border:1px solid var(--b1);background:#fff;padding:10px;box-sizing:border-box;display:inline-block" loading="lazy" onerror="try{var u=decodeURIComponent(this.getAttribute('data-qr-fallback')||'');if(u&amp;&amp;this.src!==u){this.src=u;this.removeAttribute('data-qr-fallback');}}catch(e){}">
-        <div style="margin-top:10px;font-size:11px">
-          <a href="${mobileAppOpenUrl.replace(/&/g,'&amp;')}" target="_blank" rel="noopener noreferrer" style="color:var(--a);font-weight:600">Ouvrir le lien sur ce téléphone</a>
-        </div>
       </div>
     </div>`:''}
     <div class="sav-form" style="margin-bottom:10px;border-color:rgba(96,165,250,.35);background:var(--bl2)">
