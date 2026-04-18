@@ -965,6 +965,42 @@ function getEmailCandidateForUid(uid,rawLogin=''){
   return '';
 }
 
+/** Résout app_uid (pseudo BenAI) → email via Edge Function (service role). */
+async function fetchLookupLoginEmail(rawLogin){
+  const raw=String(rawLogin||'').trim();
+  if(!raw||raw.includes('@'))return '';
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url||!SUPABASE_CONFIG.publishableKey)return '';
+  try{
+    const fnUrl=`${SUPABASE_CONFIG.url}/functions/v1/lookup-login-email`;
+    const res=await fetchWithTimeout(fnUrl,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        apikey:SUPABASE_CONFIG.publishableKey,
+        Authorization:'Bearer '+SUPABASE_CONFIG.publishableKey
+      },
+      body:JSON.stringify({login:raw})
+    },8000);
+    if(!res.ok)return '';
+    const j=await res.json().catch(()=>({}));
+    const e=String(j?.email||'').trim().toLowerCase();
+    return e.includes('@')?e:'';
+  }catch{
+    return '';
+  }
+}
+
+/** Email utilisé pour auth.signInWithPassword (Supabase n’accepte que l’email). */
+async function resolveSupabaseAuthEmail(rawLogin){
+  const raw=String(rawLogin||'').trim();
+  if(!raw)return '';
+  if(raw.includes('@'))return raw.toLowerCase();
+  const fromEdge=await fetchLookupLoginEmail(raw);
+  if(fromEdge)return fromEdge;
+  const uid=normalizeId(raw);
+  return getEmailCandidateForUid(uid,raw)||'';
+}
+
 async function fetchSupabaseProfile(accessToken,userAuthId=''){
   if(!accessToken)return null;
   try{
@@ -1038,10 +1074,10 @@ async function signInWithPasswordRetry(client,email,password,maxAttempts=2){
   return {data:null,error:lastError};
 }
 
-async function trySupabaseLogin(uid,pwd,rawLogin=''){
-  const email=getEmailCandidateForUid(uid,rawLogin);
+async function trySupabaseLogin(resolvedEmail,pwd,rawLogin=''){
+  const email=String(resolvedEmail||'').trim().toLowerCase();
   const client=getSupabaseClient();
-  if(!client||!email||!pwd)return {ok:false,reason:'missing_credentials'};
+  if(!client||!email||!email.includes('@')||!pwd)return {ok:false,reason:'missing_credentials'};
   try{
     const {data,error}=await signInWithPasswordRetry(client,email,pwd,2);
     if(error||!data?.session){
@@ -2309,16 +2345,10 @@ async function login(){
     err.style.color='var(--t2)';
     err.textContent='Connexion en cours...';
   }
-  if(!uid){err.textContent='Entrez votre email pro';return;}
-  if(!isEmailLogin){
-    if(err){
-      err.style.color='var(--r)';
-      err.textContent='Connexion autorisée uniquement avec votre email pro.';
-    }
-    return;
-  }
+  if(!uid){err.textContent='Entrez votre pseudo BenAI ou votre email pro';return;}
 
-  const supabaseAuthResult=await trySupabaseLogin(uid,pwd,rawLogin);
+  const resolvedSupabaseEmail=await resolveSupabaseAuthEmail(rawLogin);
+  const supabaseAuthResult=await trySupabaseLogin(resolvedSupabaseEmail,pwd,rawLogin);
   if(supabaseAuthResult?.ok&&supabaseAuthResult.user){
     resetLoginAttempts();
     currentUser=supabaseAuthResult.user;
@@ -2445,7 +2475,7 @@ async function forgotPassword(){
     email=rawLogin.toLowerCase();
   }else{
     const uid=normalizeId(rawLogin);
-    email=getEmailCandidateForUid(uid,rawLogin)||'';
+    email=(await fetchLookupLoginEmail(rawLogin))||getEmailCandidateForUid(uid,rawLogin)||'';
   }
   if(!email||!email.includes('@')){
     const manual=prompt('Entrez votre email de connexion Supabase pour recevoir le lien de réinitialisation :',rawLogin.includes('@')?rawLogin:'');
@@ -5366,7 +5396,7 @@ async function creerUtilisateur(){
   document.getElementById('new-user-pwd').value=pwd;
   status.style.color='var(--g)';
   if(createResult.ok){
-    status.textContent=`✅ Accès ${roleLabel} créé pour ${name}. Mot de passe dans le champ ci-dessus — copié dans le presse-papiers si le navigateur l’autorise.`;
+    status.textContent=`✅ Accès ${roleLabel} créé pour ${name}. Identifiant de connexion : ${uid} (ou email ${email}). Mot de passe dans le champ ci-dessus — copié dans le presse-papiers si le navigateur l’autorise.`;
   }else{
     status.style.color='var(--y)';
     status.textContent=`✅ Accès ${roleLabel} créé localement pour ${name}. Cloud : en file d’attente (Edge/Supabase) — reconnecte-toi en admin cloud puis laisse BenAI 30–60 s.`;
