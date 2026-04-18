@@ -2906,6 +2906,13 @@ function formatSocieteLegaleCourt(s){
 function pilotageShowsDistinctEntityNames(){
   return currentUser?.role==='admin'||currentUser?.role==='directeur_general';
 }
+/** Même société CRM (ou compte multi-périmètre) — messagerie commercial ↔ assistante. */
+function societeMessagableOverlap(a,b){
+  const sa=String(a?.societe||'nemausus').trim().toLowerCase();
+  const sb=String(b?.societe||'nemausus').trim().toLowerCase();
+  if(sa==='les-deux'||sb==='les-deux')return true;
+  return sa===sb;
+}
 
 function toggleSwitchPanel(){
   // Si pas Benjamin et qu'on peut revenir → retour direct sans panel
@@ -3109,6 +3116,7 @@ function initApp(silent=false){
   refreshMsgBadge();
   refreshLeadsBadge();
   refreshBugsBadge();
+  try{setSavSocieteRowVisibility();}catch(_){}
   const forceGuide=shouldForceRoleGuide();
   showPage(forceGuide?'guide':homePage);
   if(forceGuide){
@@ -3163,7 +3171,7 @@ function showPage(page){
   const el=document.getElementById('page-'+page);if(el)el.style.display='flex';
   const nav=document.getElementById('nav-'+page);if(nav)nav.classList.add('active');
   if(page==='benai')syncBenaiQuickLinks();
-  if(page==='sav'){updateSavPageSubtitle();renderSAV();markSAVVu();showPageContext('sav');}
+  if(page==='sav'){updateSavPageSubtitle();setSavSocieteRowVisibility();renderSAV();markSAVVu();showPageContext('sav');}
   if(page==='admin')refreshAdmin();
   if(page==='messages'){
     renderConvList();
@@ -3720,11 +3728,14 @@ function getConvsForUser(uid){
       convs[cid]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
     });
   } else if(isCRMOnly){
-    // Commercial/dir. co / dir. général → Benjamin + autres CRM + BenAI (messages auto)
+    // Commercial/dir. co / dir. général → Benjamin + autres CRM + assistantes de la même société + BenAI (messages auto)
     const ben=allUsers.find(u=>u.id==='benjamin');
     if(ben)convs[makeConvId(uid,'benjamin')]={name:'Benjamin',other:'benjamin',color:ben.color,initial:ben.initial};
     addBenAIInternalConv(uid,convs);
     allUsers.filter(u=>u.id!==uid&&u.id!=='benjamin'&&crmOnly.includes(u.role)).forEach(u=>{
+      convs[makeConvId(uid,u.id)]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
+    });
+    allUsers.filter(u=>u.id!==uid&&u.id!=='benjamin'&&u.role==='assistante'&&societeMessagableOverlap(me,u)).forEach(u=>{
       convs[makeConvId(uid,u.id)]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
     });
   } else {
@@ -3996,6 +4007,42 @@ function editMsg(cid,idx){
 // ══════════════════════════════════════════
 // SAV
 // ══════════════════════════════════════════
+function savAssistenteMonoSoc(){
+  return currentUser?.role==='assistante'&&(currentUser.societe==='nemausus'||currentUser.societe==='lambert');
+}
+function setSavSocieteRowVisibility(){
+  const row=document.getElementById('sav-soc-row');
+  if(!row)return;
+  row.style.display=savAssistenteMonoSoc()?'none':'';
+}
+function getSavSocValueForSubmit(){
+  if(savAssistenteMonoSoc())return currentUser.societe||'nemausus';
+  return document.getElementById('sav-soc')?.value||'nemausus';
+}
+function parseFrDateToIso(fr){
+  const m=String(fr||'').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(!m)return'';
+  const d=new Date(Number(m[3]),Number(m[2])-1,Number(m[1]));
+  if(Number.isNaN(d.getTime()))return'';
+  return toISODate(d);
+}
+function setSavDateCreationInput(isoOrFr){
+  const inp=document.getElementById('sav-date-creation');
+  if(!inp)return;
+  let iso=String(isoOrFr||'').trim();
+  if(iso.includes('/'))iso=parseFrDateToIso(iso);
+  if(!iso||!/^\d{4}-\d{2}-\d{2}$/.test(iso))iso=toISODate(new Date());
+  inp.value=iso;
+}
+function getSavDateCreationDisplay(){
+  const inp=document.getElementById('sav-date-creation');
+  if(!inp)return new Date().toLocaleDateString('fr-FR');
+  const iso=(inp.value||'').trim();
+  if(!iso)return new Date().toLocaleDateString('fr-FR');
+  const d=new Date(iso+'T12:00:00');
+  if(Number.isNaN(d.getTime()))return new Date().toLocaleDateString('fr-FR');
+  return d.toLocaleDateString('fr-FR');
+}
 function toggleSavForm(){
   const wrap=document.getElementById('sav-form-wrap');
   if(!wrap)return;
@@ -4003,9 +4050,18 @@ function toggleSavForm(){
   wrap.style.display=isOpen?'none':'block';
   if(!isOpen){
     syncSavSocieteFormOptions();
+    setSavSocieteRowVisibility();
+    const btn=document.querySelector('#sav-form-wrap .btn-primary');
+    const editing=btn&&/Modifier/i.test(btn.textContent||'');
+    if(!editing){
+      setSavDateCreationInput('');
+      ['sav-client','sav-pb','sav-commercial','sav-fourn','sav-rappel','sav-comment'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+      const rappelDaysEl=document.getElementById('sav-rappel-days');if(rappelDaysEl)rappelDaysEl.value='5';
+      const urg=document.getElementById('sav-urgent');if(urg)urg.checked=false;
+    }
     const socSelect=document.getElementById('sav-soc');
     if(socSelect){
-      if(currentUser.role==='assistante'&&(currentUser.societe==='nemausus'||currentUser.societe==='lambert')){
+      if(savAssistenteMonoSoc()){
         socSelect.value=currentUser.societe;
         socSelect.disabled=true;
       } else {
@@ -4013,6 +4069,11 @@ function toggleSavForm(){
       }
     }
     requestAnimationFrame(()=>{try{wrap.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(_){}});
+  }else{
+    const btnClose=document.querySelector('#sav-form-wrap .btn-primary');
+    if(btnClose){btnClose.textContent='Enregistrer';btnClose.onclick=addSAV;}
+    const socSel=document.getElementById('sav-soc');
+    if(socSel)socSel.disabled=false;
   }
 }
 
@@ -4053,7 +4114,7 @@ function applySavActionDrafts(drafts){
 async function addSAV(){
   const client=document.getElementById('sav-client').value.trim();
   const pb=document.getElementById('sav-pb').value.trim();
-  const soc=document.getElementById('sav-soc').value;
+  const soc=getSavSocValueForSubmit();
   const commercial=document.getElementById('sav-commercial').value.trim();
   const fourn=document.getElementById('sav-fourn').value.trim();
   const rappelDays=Math.max(1,Number(document.getElementById('sav-rappel-days')?.value||5));
@@ -4061,6 +4122,7 @@ async function addSAV(){
   const rappel=rappelInput||addDaysISO(rappelDays);
   const commentaire=document.getElementById('sav-comment')?.value.trim()||'';
   const urgent=document.getElementById('sav-urgent').checked;
+  const date_creation=getSavDateCreationDisplay();
   const missing=[];
   if(!client)missing.push('Client');
   if(!pb)missing.push('Problème');
@@ -4069,12 +4131,13 @@ async function addSAV(){
     return;
   }
   const mem=getMem();
-  mem.sav.unshift({id:Date.now(),client,probleme:pb,societe:soc,commercial,fournisseur:fourn,rappel,rappelDays,urgent,statut:'nouveau',date_creation:new Date().toLocaleDateString('fr-FR'),by:currentUser.name,actions:[],commentaire,archive:false,muteReminder:false,sync_ts:Date.now(),_deleted:false});
+  mem.sav.unshift({id:Date.now(),client,probleme:pb,societe:soc,commercial,fournisseur:fourn,rappel,rappelDays,urgent,statut:'nouveau',date_creation,by:currentUser.name,actions:[],commentaire,archive:false,muteReminder:false,sync_ts:Date.now(),_deleted:false});
   saveMem(mem);
   updatePatterns(fourn,client);
   ['sav-client','sav-pb','sav-commercial','sav-fourn','sav-rappel','sav-comment'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const rappelDaysEl=document.getElementById('sav-rappel-days');if(rappelDaysEl)rappelDaysEl.value='5';
   document.getElementById('sav-urgent').checked=false;
+  setSavDateCreationInput('');
   const ok=document.getElementById('sav-ok');ok.textContent='✅ SAV enregistré !';
   setTimeout(()=>{ok.textContent='';toggleSavForm();},1500);
   renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a ouvert un SAV : ${client}`);
@@ -4083,6 +4146,7 @@ async function addSAV(){
 function renderSAV(){
   const savForm=document.getElementById('sav-form-wrap');
   if(!savForm||savForm.style.display==='none')syncSavSocieteFormOptions();
+  setSavSocieteRowVisibility();
   const actionDrafts=captureSavActionDrafts();
   const mem=getMem();const list=document.getElementById('sav-list');
   let savs=(mem.sav||[]).filter(s=>!s._deleted);const isAdmin=currentUser.role==='admin';
@@ -4198,10 +4262,18 @@ function editSAV(id){
   document.getElementById('sav-commercial').value=s.commercial||'';
   document.getElementById('sav-pb').value=s.probleme||'';
   document.getElementById('sav-soc').value=s.societe||'nemausus';
-  document.getElementById('sav-soc').disabled=false;
+  if(savAssistenteMonoSoc()){
+    document.getElementById('sav-soc').value=currentUser.societe;
+    document.getElementById('sav-soc').disabled=true;
+  }else{
+    document.getElementById('sav-soc').disabled=false;
+  }
+  setSavSocieteRowVisibility();
+  setSavDateCreationInput(s.date_creation||'');
   document.getElementById('sav-fourn').value=s.fournisseur||'';
   document.getElementById('sav-rappel').value=s.rappel||'';
   document.getElementById('sav-urgent').checked=s.urgent||false;
+  const cmt=document.getElementById('sav-comment');if(cmt)cmt.value=s.commentaire||'';
   const btn=document.querySelector('#sav-form-wrap .btn-primary');
   if(btn){btn.textContent='💾 Modifier';btn.onclick=()=>saveEditSAV(id);}
   document.getElementById('sav-form-wrap').style.display='block';
@@ -4223,11 +4295,12 @@ async function saveEditSAV(id){
     ...mem.sav[idx],
     client,probleme:pb,
     commercial:document.getElementById('sav-commercial').value.trim(),
-    societe:document.getElementById('sav-soc').value,
+    societe:getSavSocValueForSubmit(),
     fournisseur:document.getElementById('sav-fourn').value.trim(),
     rappel:document.getElementById('sav-rappel').value,
     urgent:document.getElementById('sav-urgent').checked,
     commentaire:document.getElementById('sav-comment')?.value.trim()||'',
+    date_creation:getSavDateCreationDisplay(),
     sync_ts:Date.now()
   };
   saveMem(mem);
@@ -4236,6 +4309,7 @@ async function saveEditSAV(id){
   document.getElementById('sav-form-wrap').style.display='none';
   ['sav-client','sav-pb','sav-commercial','sav-fourn','sav-rappel','sav-comment'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('sav-urgent').checked=false;
+  setSavDateCreationInput('');
   renderSAV();logActivity(`Benjamin a modifié le SAV de ${client}`);
 }
 
@@ -5753,7 +5827,7 @@ async function runHabitImprovementSuggestions(){
 const EVOLUTIONS=[
   {id:1,tag:'Productivité',tagColor:'var(--a)',title:'Export SAV mensuel automatique',desc:'Chaque 1er du mois, BenAI prépare un export CSV du SAV du mois écoulé. Vous le recevez dans un rappel.'},
   {id:2,tag:'Communication',tagColor:'var(--bl)',title:'Modèles d\'emails SAV',desc:'Des modèles pré-rédigés pour les emails fournisseurs courants : pièce manquante, délai de livraison, réclamation qualité.'},
-  {id:3,tag:'Suivi',tagColor:'var(--g)',title:'Tableau de bord mensuel',desc:'Un récapitulatif mensuel des SAV par périmètre CRM avec les temps de résolution moyens.'},
+  {id:3,tag:'Suivi',tagColor:'var(--g)',title:'Tableau de bord mensuel',desc:'Un récapitulatif mensuel des SAV pour Nemausus Fermetures et Lambert SAS avec les temps de résolution moyens.'},
   {id:4,tag:'Sécurité',tagColor:'var(--r)',title:'Sauvegarde automatique hebdomadaire',desc:'Rappel chaque lundi pour télécharger la sauvegarde BenAI. Simple et fiable.'},
   {id:5,tag:'Productivité',tagColor:'var(--a)',title:'Signatures email personnalisées',desc:'BenAI mémorise vos signatures par périmètre pour les intégrer automatiquement dans les emails rédigés.'},
 ];
@@ -5772,12 +5846,13 @@ function voteEvol(evolId,vote){
 
 function renderEvolution(){
   hydrateHabitAiPanel();
+  renderUserEvolSuggestionsPanel();
   const dismissed=JSON.parse(appStorage.getItem('benai_evol_dismissed')||'[]');
   const votes=getEvolVotes();
   const isBenjamin=currentUser?.id==='benjamin';
   const list=document.getElementById('evolution-list');
   const active=EVOLUTIONS.filter(e=>!dismissed.includes(e.id));
-  if(!active.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Toutes les suggestions ont été traitées 🎉</div>';return;}
+  if(!active.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Toutes les suggestions « roadmap » ont été traitées 🎉</div>';return;}
   list.innerHTML=active.map(e=>{
     const eVotes=votes[e.id]||{};
     const yes=Object.values(eVotes).filter(v=>v==='yes').length;
@@ -5807,6 +5882,50 @@ async function validateEvol(id){
 function dismissEvol(id){
   const dismissed=JSON.parse(appStorage.getItem('benai_evol_dismissed')||'[]');
   dismissed.push(id);appStorage.setItem('benai_evol_dismissed',JSON.stringify(dismissed));renderEvolution();
+}
+
+const USER_EVOL_SUG_KEY='benai_evol_user_suggestions_v1';
+function getUserEvolSuggestions(){
+  try{return JSON.parse(appStorage.getItem(USER_EVOL_SUG_KEY))||[];}catch{return[];}
+}
+function saveUserEvolSuggestions(arr){appStorage.setItem(USER_EVOL_SUG_KEY,JSON.stringify(arr));}
+async function submitUserEvolSuggestion(){
+  if(!currentUser)return;
+  const ta=document.getElementById('evol-user-suggest-text');
+  const text=(ta?.value||'').trim();
+  if(!text){await benaiAlert('Écris quelques mots pour ta suggestion.');return;}
+  if(text.length>800){await benaiAlert('Suggestion trop longue (max. 800 caractères).');return;}
+  const arr=getUserEvolSuggestions();
+  arr.unshift({id:Date.now(),text,byUid:currentUser.id||'',byName:currentUser.name||'?',ts:Date.now(),dismissed:false});
+  saveUserEvolSuggestions(arr.slice(0,200));
+  if(ta)ta.value='';
+  renderEvolution();
+  logActivity(`${currentUser.name||'?'} a envoyé une suggestion d’évolution BenAI`);
+}
+function dismissUserEvolSuggestion(id){
+  if(currentUser?.role!=='admin')return;
+  const sid=String(id);
+  const arr=getUserEvolSuggestions().map(s=>String(s.id)===sid?{...s,dismissed:true}:s);
+  saveUserEvolSuggestions(arr);
+  renderEvolution();
+}
+function renderUserEvolSuggestionsPanel(){
+  const host=document.getElementById('evol-user-suggest-list');
+  if(!host)return;
+  const isAdmin=currentUser?.role==='admin';
+  const rows=getUserEvolSuggestions().filter(s=>!s.dismissed);
+  if(!rows.length){
+    host.innerHTML='<div style="font-size:11px;color:var(--t3)">Aucune suggestion récente pour l’instant.</div>';
+    return;
+  }
+  host.innerHTML=rows.slice(0,40).map(s=>{
+    const dt=new Date(s.ts).toLocaleString('fr-FR');
+    const adm=isAdmin?`<button type="button" onclick="dismissUserEvolSuggestion(${Number(s.id)})" style="margin-left:8px;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;background:var(--s2);border:1px solid var(--b1);color:var(--t2)">Masquer</button>`:'';
+    return`<div class="evol-card" style="margin-bottom:10px;text-align:left">
+      <div class="evol-desc" style="white-space:pre-wrap">${esc(s.text)}</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:4px"><span>${esc(s.byName||'?')} · ${dt}</span>${adm}</div>
+    </div>`;
+  }).join('');
 }
 
 function getRoleGuideAckKey(role){
@@ -5888,7 +6007,7 @@ function renderGuidePage(){
       'Le CRM regroupe tes dossiers en charge : « Mes leads » pour la liste ou le kanban, « Mes ventes » pour les signatures et le suivi d’objectifs.',
       'Filtres, recherche, pastilles de statut et bascule liste / kanban servent à prioriser la journée (Non traité, RDV, devis, vendu, archives, alertes).',
       'Bouton + Nouveau lead : tu peux créer un dossier (ex. prospection terrain) ; la source ACTIF t’attribue automatiquement le lead ; sinon l’attribution est gérée côté organisation.',
-      'Sur la fiche lead, utilise surtout les champs Suivi et Commentaire : la direction (admin, dir. commercial, DG) voit la timeline complète ; toi tu enregistres l’essentiel pour le terrain après chaque contact.',
+      'Sur la fiche lead, utilise surtout les champs Suivi et Commentaire pour garder une trace claire après chaque contact (ce que tu as dit au client, la prochaine action).',
       'Après chaque contact : mets à jour le sous-statut (à rappeler, injoignable, RDV programmé…), la date de rappel si besoin, et le suivi.',
       'Boutons Appeler et Agenda pour gagner du temps ; après une visite, utilise « RDV fait » pour noter que le rendez-vous a eu lieu.',
       'Devis : dès envoi, renseigne montant HT, date d’envoi et prochaine relance ; une alerte peut apparaître si le dossier stagne.',
@@ -5900,17 +6019,17 @@ function renderGuidePage(){
       'En cas de blocage : menu « Signaler » — décris la page et ce que tu faisais.'
     ],
     assistante:[
-      'Menus BenAI : BenAI (IA), Notes, Messages, SAV, Leads CRM, Évolutions, Guide — tu relies l’accueil client aux outils métier. Les absences sont saisies par l’administration.',
+      'Menus BenAI : BenAI (IA), Notes, Messages, SAV, Leads CRM, Évolutions, Guide — tu relies l’accueil client aux outils métier.',
       'Leads CRM : onglet « Mes leads » pour retrouver et compléter les dossiers que tu as saisis ; la recherche texte aide à retrouver un client vite.',
       'Création : + Nouveau lead — nom, téléphone, adresse complète, code postal, type de projet sont demandés à l’enregistrement ; le secteur est calculé automatiquement à partir du code postal ; tu peux compléter ville et commentaire pour le terrain.',
       'Tu enregistres le contact : pas de recherche de doublon à ta charge — la direction commerciale est prévenue dans son interface si un dossier similaire existe déjà.',
-      'Attribution et RDV : ce n’est pas ton rôle ; le directeur commercial attribue les commerciaux et pilote les rendez-vous une fois le dossier pris en charge.',
-      'Dans la fiche d’un lead que tu as créé : tu peux modifier les informations de base et le texte (suivi, commentaire) ; le tunnel commercial (statuts, montants) est en général laissé au terrain une fois le dossier attribué.',
+      'Après ta saisie, concentre-toi sur les infos utiles au terrain : le suivi du dossier se poursuit dans le CRM ; tu peux compléter commentaire ou coordonnées sur tes fiches tant que c’est pertinent.',
+      'Dans la fiche d’un lead que tu as créé : tu peux modifier les informations de base et le texte (suivi, commentaire) ; le tunnel commercial (statuts, montants) est en général laissé au terrain une fois le dossier pris en charge.',
       'Qualité de saisie : un commentaire clair (« client veut store salon, budget approx… ») transmet tout de suite le contexte au terrain ; mentionne la source réelle (téléphone, site, magasin…).',
       'SAV : menu dédié — crée les dossiers chantier avec rappel (souvent 5 jours) ; les notifications partent aux bonnes parties prenantes selon les règles BenAI.',
-      'Messages : pour échanger calmement avec l’équipe (passage de consigne, question, coordination) ; cite le nom du client ou l’ID lead. Les alertes « leads urgents » ne t’envoient pas de notification automatique pour rester sur la messagerie.',
+      'Messages : tu peux écrire à toute l’équipe — direction, administration, commerciaux de ton entreprise (Nemausus Fermetures ou Lambert SAS selon ton compte), collègues — pour consignes, questions ou coordination ; cite le nom du client ou l’ID lead.',
       'Notes : bloc-notes perso BenAI ; pour toute info client utile au magasin, privilégie la fiche lead ou un message à l’équipe.',
-      'Évolutions : tu peux lire les nouveautés produit. Si une page bloque : menu « Signaler » ; décris l’écran, les clics avant l’erreur et le message affiché.',
+      'Évolutions : nouveautés prévues, votes sur la roadmap, et tu peux envoyer ta propre suggestion d’amélioration. Si une page bloque : menu « Signaler ».',
       'Pistes de journée : appels entrants → fiche lead (coordonnées complètes) → message à l’équipe en cas de relais utile → SAV si problème d’installation.'
     ],
     metreur:[
@@ -6448,7 +6567,7 @@ function buildBenaiAccountControlsHtml(u){
   const isBlocked=access[u.id]===false;
   const isCRM=(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general');
   const derniereConnexion=getConnexions(u.id)[0]?.date||null;
-  const socLabel=pilotageShowsDistinctEntityNames()?formatSocieteLegaleCourt(u.societe):(u.societe==='les-deux'?'Multi-périmètres CRM':u.societe==='nemausus'?'Périmètre CRM — entité 1':u.societe==='lambert'?'Périmètre CRM — entité 2':'—');
+  const socLabel=u.societe==='les-deux'?'Multi-périmètres CRM':formatSocieteLegaleCourt(u.societe);
   const crmVeh=isCRM?`<div style="font-size:10px;color:var(--t3);margin-top:2px">🚐 Véhicule : ${esc(u.vehicule||'Non renseigné')}</div>`:'';
   const derniere=`<div style="font-size:10px;color:var(--t3);margin-top:2px">${derniereConnexion?'Dernière connexion : '+esc(derniereConnexion):'Jamais connecté'}</div>`;
   const idLine=u.id==='benjamin'
@@ -6891,7 +7010,7 @@ function renderUsersList(){
     const isBlocked=access[u.id]===false;
     const isCRM=(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general');
     const derniereConnexion=getConnexions(u.id)[0]?.date||null;
-    const socUi=pilotageShowsDistinctEntityNames()?formatSocieteLegaleCourt(u.societe):(u.societe==='les-deux'?'Multi-périmètres CRM':u.societe==='nemausus'?'Périmètre CRM — entité 1':u.societe==='lambert'?'Périmètre CRM — entité 2':'—');
+    const socUi=u.societe==='les-deux'?'Multi-périmètres CRM':formatSocieteLegaleCourt(u.societe);
     const div=document.createElement('div');div.className='user-row';
     const av=document.createElement('div');
     av.className='user-av';
@@ -7515,7 +7634,7 @@ function buildBriefingContext(){
   const nem=openSAV.filter(s=>s.societe==='nemausus').length;
   const lam=openSAV.filter(s=>s.societe==='lambert').length;
   return `Aujourd'hui: ${days[today]}, Benjamin est à ${site}.
-SAV: ${openSAV.length} ouvert(s) — périmètre CRM 1: ${nem}, périmètre 2: ${lam} — Urgents: ${urgentSAV.length}${urgentSAV.length>0?' ('+urgentSAV.slice(0,2).map(s=>s.client+' - '+s.probleme).join(', ')+')':''}
+SAV: ${openSAV.length} ouvert(s) — Nemausus Fermetures: ${nem}, Lambert SAS: ${lam} — Urgents: ${urgentSAV.length}${urgentSAV.length>0?' ('+urgentSAV.slice(0,2).map(s=>s.client+' - '+s.probleme).join(', ')+')':''}
 ${criticalSAV.length>0?'SAV sans réponse +5j: '+criticalSAV.map(s=>`${s.client} (${getSAVAgeDays(s)}j, fournisseur: ${s.fournisseur||'non renseigné'})`).join(', '):''}
 Messages non lus: ${unread}${unread>0?' — vérifier la messagerie':''}
 ${absToday.length>0?'Absents aujourd\'hui: '+absToday.map(a=>a.employe).join(', '):'Toute l\'équipe est présente'}
@@ -7968,10 +8087,10 @@ const ROLE_PAGES={
   admin:['benai','notes','messages','sav','leads','absences','annuaire','paie','admin','evolution','guide','bugs'],
   assistante:['benai','notes','messages','sav','leads','evolution','guide'],
   metreur:['benai','notes','messages','absences','evolution','guide'],
-  // CRM pilotage + terrain : mêmes entrées menu (BenAI / Notes / SAV alignés sur les politiques Supabase société).
-  directeur_co:['benai','notes','messages','sav','leads','absences','evolution','guide'],
-  directeur_general:['benai','notes','messages','sav','leads','absences','evolution','guide'],
-  commercial:['benai','notes','messages','sav','leads','absences','evolution','guide']
+  // SAV : réservé admin + assistantes (saisie par entité). Pilotage CRM sans accès SAV pour direction / terrain.
+  directeur_co:['benai','notes','messages','leads','absences','evolution','guide'],
+  directeur_general:['benai','notes','messages','leads','absences','evolution','guide'],
+  commercial:['benai','notes','messages','leads','absences','evolution','guide']
 };
 /** Même périmètre CRM / pilotage (société, filtres, onglets) que le dir. commercial. */
 function isCRMScopePilotageRole(role){
@@ -8226,13 +8345,11 @@ function syncSavSocieteFormOptions(){
   if(!sel)return;
   const dual=currentUser?.role==='admin'||currentUser?.role==='directeur_general'||currentUser?.societe==='les-deux';
   if(dual){
-    const named=pilotageShowsDistinctEntityNames();
-    sel.innerHTML=named
-      ?'<option value="nemausus">Nemausus Fermetures</option><option value="lambert">Lambert SAS</option>'
-      :'<option value="nemausus">Périmètre CRM — entité 1</option><option value="lambert">Périmètre CRM — entité 2</option>';
+    sel.innerHTML='<option value="nemausus">Nemausus Fermetures</option><option value="lambert">Lambert SAS</option>';
   }else{
     const v=(currentUser?.societe==='lambert'?'lambert':'nemausus');
-    sel.innerHTML=`<option value="${v}">Périmètre de ton compte</option>`;
+    const label=formatSocieteLegaleCourt(v);
+    sel.innerHTML=`<option value="${v}">${label}</option>`;
   }
 }
 function renderAbsencesExportButtons(){
@@ -8267,7 +8384,7 @@ function syncBenaiQuickLinks(){
   const items=[];
   const push=(page,label)=>{if(allowed.includes(page))items.push(`<button type="button" class="dash-quick-btn" onclick="showPage('${page}')">${label}</button>`);};
   push('leads','📋 Leads CRM');
-  push('sav','🔧 SAV');
+  if(currentUser.role==='admin'||currentUser.role==='assistante')push('sav','🔧 SAV');
   push('messages','💬 Messages');
   push('notes','📝 Notes');
   push('absences','🗓️ Absences');
@@ -9113,8 +9230,8 @@ function renderLeadsDashboard(){
   ];
   const secteurs=secteursAll.filter(s=>secteurScopeSet.has(s.id));
   const entPilotageList=secteurScopeSlug==='nemausus'?[{id:'nemausus',label:'Nemausus Fermetures',color:'var(--a)'}]:secteurScopeSlug==='lambert'?[{id:'lambert',label:'Lambert SAS',color:'var(--bl)'}]:[
-    {id:'nemausus',label:'Entité CRM 1',color:'var(--a)'},
-    {id:'lambert',label:'Entité CRM 2',color:'var(--bl)'}
+    {id:'nemausus',label:'Nemausus Fermetures',color:'var(--a)'},
+    {id:'lambert',label:'Lambert SAS',color:'var(--bl)'}
   ];
   let html='';
   const totalLeads=leads.length;
@@ -9305,9 +9422,9 @@ function renderLeadsDashboard(){
     html+=`<div id="crm-dash-detail-ventes" class="crm-dash-anchor"><div id="crm-dash-slot-ventes"></div></div></div></details>`;
   }
   if(dashPilotage){
-    html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-ca-soc">${crmDashSummary(entPilotageList.length>1?'🏢 CA par entité CRM':'🏢 CA',entPilotageList.length===1?`${entPilotageList[0].label} : objectif du mois choisi, barre de progression, pipeline devis.`:'Les deux périmètres CRM : objectif du mois choisi, barre de progression, pipeline devis.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">Choisissez le <strong>mois</strong> à analyser (chiffres = leads <em>créés</em> ce mois-là). Mois proposés : <strong>${year-1}</strong> et <strong>${year}</strong> pour comparer au <strong>N-1</strong>. Sans objectif saisi pour ce mois, c’est l’objectif de référence qui s’affiche.</div>`;
+    html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-ca-soc">${crmDashSummary(entPilotageList.length>1?'🏢 CA par société':'🏢 CA',entPilotageList.length===1?`${entPilotageList[0].label} : objectif du mois choisi, barre de progression, pipeline devis.`:'Nemausus Fermetures et Lambert SAS : objectif du mois choisi, barre de progression, pipeline devis.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">Choisissez le <strong>mois</strong> à analyser (chiffres = leads <em>créés</em> ce mois-là). Mois proposés : <strong>${year-1}</strong> et <strong>${year}</strong> pour comparer au <strong>N-1</strong>. Sans objectif saisi pour ce mois, c’est l’objectif de référence qui s’affiche.</div>`;
   }
-  const entKicker=entPilotageList.length===1?`Performance — ${entPilotageList[0].label}`:'Performance par entité CRM';
+  const entKicker=entPilotageList.length===1?`Performance — ${entPilotageList[0].label}`:'Performance par société (Nemausus Fermetures & Lambert SAS)';
   html+=`<div class="crm-dash-kicker k-pr" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;row-gap:8px;margin-top:0">
     <span>${esc(entKicker)}</span>
     <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t2);font-weight:600;font-family:inherit">Mois affiché
@@ -9337,7 +9454,6 @@ function renderLeadsDashboard(){
       </div>
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;font-size:11px;color:var(--t3);margin-bottom:4px;line-height:1.4">
         <span>CA HT signé : <strong style="color:var(--g)">${ca.toLocaleString('fr-FR')} €</strong> · objectif <strong style="color:var(--t1)">${oCA.toLocaleString('fr-FR')} €</strong></span>
-        ${socCanEdit?`<button type="button" onclick="editObjectifSociete('${ent.id}')" title="Saisir l'objectif CA HT pour ${esc(ent.label)} — ${formatMois(selSocMois)}" style="flex-shrink:0;background:var(--s1);border:1px solid var(--a);border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--a)">Modifier l'objectif</button>`:''}
       </div>
       <div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pCA}%;background:${pCA>=100?'var(--g)':pCA>=75?'var(--a)':'var(--r)'}"></div></div>
       <div style="font-size:11px;color:var(--t2);margin-top:10px">Pipeline devis : <strong style="color:var(--y)">${pipeline.toLocaleString('fr-FR')} €</strong></div>
@@ -9654,10 +9770,7 @@ function editObjectifCommercial(uid,name){
 
 function editObjectifSociete(socId){
   if(currentUser?.role!=='admin'&&!isCRMScopePilotageRole(currentUser?.role))return;
-  const slug=getCrmSecteurScopeSlug();
-  const label=slug==='all'
-    ?(socId==='lambert'?'Entité CRM 2':'Entité CRM 1')
-    :(socId==='lambert'?'Lambert SAS':'Nemausus Fermetures');
+  const label=formatSocieteLegaleCourt(socId);
   const monthKey=(document.getElementById('crm-obj-soc-mois')?.value)||getDefaultObjCommMonthKey();
   const labelMois=formatMois(monthKey);
   const next=JSON.parse(JSON.stringify(getCrmSocieteObjectifs()));
@@ -12481,11 +12594,11 @@ try{
 
 const TUTO_SLIDES_BY_ROLE={
   commercial:[
-    {icon:'🎯',title:'Ton rôle en une phrase',desc:'Tu peux faire vivre chaque opportunité dans le CRM : appels, RDV, devis, signature ou perte documentée. BenAI affiche la liste ; tu peux y consigner la réalité terrain après chaque contact, quand tu le souhaites.',highlight:'Onglets visibles : Leads CRM, Messages, Absences, Guide — et « Signaler » pour un blocage technique'},
+    {icon:'🎯',title:'Ton rôle en une phrase',desc:'Tu peux faire vivre chaque opportunité dans le CRM : appels, RDV, devis, signature ou perte documentée. BenAI affiche la liste ; tu peux y consigner la réalité terrain après chaque contact, quand tu le souhaites.',highlight:'Onglets visibles : Leads CRM, Messages, Absences, Guide — et « Signaler » pour un blocage technique (le SAV est géré par l’administration et les assistantes)'},
     {icon:'🗺️',title:'Navigation CRM',desc:'Dans Leads CRM : « Mes leads » (liste ou kanban), puis « Mes ventes » (tableau des ventes et suivi d’objectifs).',highlight:'Tu peux basculer ☰ / ⊞ selon ce qui te convient le mieux'},
     {icon:'🔎',title:'Trier et filtrer',desc:'Les pastilles Tous, Non traité, RDV pris, Devis envoyé, Vendu, Perdu, Archives et Alertes aident à structurer la vue. La recherche texte retrouve nom, téléphone ou ville. Beaucoup d’équipes combinent Alertes et Non traité en premier regard.',highlight:'Tu peux adapter l’ordre de traitement à ta journée'},
     {icon:'➕',title:'Créer un lead (terrain / prospection)',desc:'Bouton + Nouveau lead : nom, téléphone, code postal et type de projet sont demandés à l’enregistrement. La source « ACTIF » t’attribue automatiquement le dossier ; pour les autres cas, l’organisation gère l’attribution selon vos règles.',highlight:'Un secteur cohérent avec le CP limite les erreurs de zone'},
-    {icon:'👤',title:'Étape A — Ouvrir et comprendre',desc:'Tu peux ouvrir la fiche : projet, adresse et commentaire de création. Tu peux compléter Suivi ou Commentaire quand tu as une info nouvelle — la timeline détaillée reste surtout utile à la direction (admin, dir. commercial, DG).',highlight:'Lire la fiche avant d’appeler fait souvent gagner du temps'},
+    {icon:'👤',title:'Étape A — Ouvrir et comprendre',desc:'Tu peux ouvrir la fiche : projet, adresse et commentaire de création. Tu peux compléter Suivi ou Commentaire quand tu as une info nouvelle.',highlight:'Lire la fiche avant d’appeler fait souvent gagner du temps'},
     {icon:'📞',title:'Étape B — Premier contact',desc:'Le bouton Appeler peut t’aider à composer. Après l’échange, tu peux choisir le sous-statut adapté (à rappeler, injoignable, faux numéro, RDV programmé…). Si un rappel plus tard t’aide, tu peux fixer une date/heure : BenAI peut te notifier autour de ce créneau.',highlight:'Tu peux noter chaque appel dans le CRM, même brièvement'},
     {icon:'📅',title:'Étape C — RDV',desc:'Quand un créneau est validé, tu peux renseigner la date (sous-statut RDV programmé) puis utiliser Agenda : Google Calendar s’ouvre avec le client et le lieu. Après le passage, « RDV fait » permet d’indiquer que le rendez-vous a eu lieu.',highlight:'Une date renseignée limite le risque de double réservation'},
     {icon:'🧾',title:'Étape D — Devis envoyé',desc:'Tu peux passer en jaune « Devis envoyé », saisir montant HT, date d’envoi et prochaine relance. Au bout de 7 jours sans nouvelle, BenAI peut proposer une alerte « devis sans réponse » : tu peux rappeler le client quand tu le juges utile.',highlight:'Montant + date aident le suivi du dossier'},
@@ -12498,13 +12611,13 @@ const TUTO_SLIDES_BY_ROLE={
     {icon:'✅',title:'Pistes de journée',desc:'Exemples : alertes ou non traités, appel + mise à jour du statut, RDV → Agenda puis « RDV fait », devis avec montants/dates, vendu avec prix HT, perdu avec motif, devis anciens à relancer, « Signaler » si l’outil bloque.',highlight:'Tu restes libre d’organiser ta journée comme tu préfères'},
   ],
   assistante:[
-    {icon:'🧭',title:'Ta place dans BenAI',desc:'Tu es souvent le premier contact avec le client et tu peux saisir le dossier dans l’outil. Un lead clair limite les allers-retours. Tu as BenAI IA, Notes, Messages, SAV, Leads CRM, Évolutions, Guide — et « Signaler » en cas de blocage.',highlight:'Les absences sont en pratique gérées par l’administration'},
+    {icon:'🧭',title:'Ta place dans BenAI',desc:'Tu es souvent le premier contact avec le client et tu peux saisir le dossier dans l’outil. Un lead clair limite les allers-retours. Tu as BenAI IA, Notes, Messages, SAV, Leads CRM, Évolutions, Guide — et « Signaler » en cas de blocage.',highlight:'Tu relies l’accueil téléphonique / magasin aux bons outils (CRM, SAV, messages équipe)'},
     {icon:'📥',title:'Entrants : saisir le contact',desc:'Quand le téléphone sonne : tu peux noter nom, projet, code postal, téléphone. Tu crées le lead avec ces infos — tu n’as pas à chercher toi-même les doublons ; la direction commerciale peut voir une alerte en cas de dossier similaire.',highlight:'Le code postal détermine automatiquement le secteur'},
     {icon:'➕',title:'Créer un lead',desc:'Leads CRM → + Nouveau lead. À l’enregistrement : nom, téléphone, adresse, code postal, type de projet. Le secteur se remplit selon le CP. Tu peux ajouter ville et un commentaire clair (source : magasin, site, téléphone…).',highlight:'Tu enregistres ici la prise de contact, pas la planification du RDV commercial'},
-    {icon:'🏷️',title:'Après ta saisie',desc:'Le directeur commercial peut attribuer un vendeur ; sans dir. co, une attribution automatique peut s’appliquer. Tu peux compléter commentaire ou suivi sur tes fiches ; le tunnel avancé (devis, vendu…) est en général tenu par le terrain une fois le dossier attribué.',highlight:'Pas de notification « leads urgents » automatique sur ton compte — la messagerie reste un canal calme'},
+    {icon:'🏷️',title:'Après ta saisie',desc:'Concentre-toi sur une fiche complète au départ : le CRM enchaîne ensuite avec le terrain. Tu peux compléter commentaire ou suivi sur tes fiches ; le tunnel avancé (devis, vendu…) est en général tenu par le commercial une fois le dossier pris en charge.',highlight:'Pas de notification « leads urgents » automatique sur ton compte — la messagerie reste un canal calme'},
     {icon:'📝',title:'Compléter une fiche',desc:'Tu peux mettre à jour commentaire ou suivi avec ce qui s’est dit (« client veut devis pergola », « rappeler semaine prochaine »). Il est préférable d’éviter statuts ou montants une fois le dossier pris en charge par un commercial.',highlight:'Une phrase claire vaut souvent un long échange'},
     {icon:'🔧',title:'SAV chantier',desc:'Menu SAV → Nouveau : client, problème, fournisseur, rappel. Les notifications suivent les règles BenAI.',highlight:'SAV et lead vente sont deux filières différentes'},
-    {icon:'💬',title:'Messages',desc:'Tu peux écrire à l’équipe pour consignes, questions ou coordination ; indique le nom du client ou l’identifiant du lead.',highlight:'Les urgences terrain peuvent aussi passer par le téléphone ou la fiche une fois le dossier attribué'},
+    {icon:'💬',title:'Messages',desc:'Tu peux écrire à toute l’équipe (commerciaux de ton entreprise, direction, administration) pour consignes, questions ou coordination ; indique le nom du client ou l’identifiant du lead.',highlight:'Les urgences terrain peuvent aussi passer par le téléphone ou la fiche une fois le dossier pris en charge'},
     {icon:'📝',title:'Notes perso',desc:'Notes sert à ton organisation personnelle. Pour une info utile au magasin ou au commercial, la fiche lead ou un message convient souvent mieux.',highlight:'CRM et Messages portent le partage d’équipe'},
     {icon:'🛟',title:'Signalement — en cas de blocage',desc:'Menu « Signaler » : page concernée, ce que tu faisais, message d’erreur. Évolutions = nouveautés produit ; les correctifs sont traités côté administration.',highlight:'Un signalement précis aide à corriger plus vite'},
     {icon:'✅',title:'Pistes de journée',desc:'Exemples : appel pertinent → fiche complète, messages pour la coordination, SAV si problème d’installation.',highlight:'Tu poses les bases ; le commercial peut prendre le relais sur la suite'},
