@@ -2309,9 +2309,22 @@ function pickLatestNote(prev,next){
 }
 
 function pickLatestSav(prev,next){
-  const a=Number(prev?.sync_ts||Date.parse(prev?.date_creation||0)||0);
-  const b=Number(next?.sync_ts||Date.parse(next?.date_creation||0)||0);
-  return b>=a?next:prev;
+  const aTs=Number(prev?.sync_ts||0);
+  const bTs=Number(next?.sync_ts||0);
+  if(bTs>aTs)return next;
+  if(aTs>bTs)return prev;
+  const aAct=Array.isArray(prev?.actions)?prev.actions.length:0;
+  const bAct=Array.isArray(next?.actions)?next.actions.length:0;
+  if(bAct>aAct)return next;
+  if(aAct>bAct)return prev;
+  const aSt=String(prev?.statut||'');
+  const bSt=String(next?.statut||'');
+  if(aSt!==bSt){
+    const rank={regle:3,en_cours:2,nouveau:1};
+    if((rank[bSt]||0)>(rank[aSt]||0))return next;
+    if((rank[bSt]||0)<(rank[aSt]||0))return prev;
+  }
+  return next;
 }
 
 function pickLatestAbsence(prev,next){
@@ -4801,7 +4814,7 @@ async function sendChat(txtOverride){
 
   // Correction auto avant envoi (ordinateur / large fenêtre uniquement)
   if(!txtOverride&&isBenAIDesktopAutocorrect()){
-    const apiKey=getApiKey();
+    const apiKey=await getApiKeyForChat();
     if(apiKey){
       try{
         const r=await fetch('https://api.anthropic.com/v1/messages',{
@@ -4955,7 +4968,7 @@ async function correctSpelling(){
   const input=document.getElementById('chat-input');
   const txt=input.value.trim();
   if(!txt)return;
-  const apiKey=getApiKey();if(!apiKey)return;
+  const apiKey=await getApiKeyForChat();if(!apiKey){showDriveNotif('⚠️ Clé API IA indisponible — Paramètres ou synchro équipe');return;}
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -4989,7 +5002,7 @@ function getSmartReminders(){
 // AUTO-CORRECTION BENJAMIN
 async function autoCorrectForBenjamin(txt,msgEl){
   if(!isBenAIDesktopAutocorrect())return;
-  const apiKey=getApiKey();if(!apiKey||!msgEl)return;
+  const apiKey=await getApiKeyForChat();if(!apiKey||!msgEl)return;
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -5003,7 +5016,7 @@ async function autoCorrectForBenjamin(txt,msgEl){
     corrDiv.className='correction-bubble';
     const encodedCorrect=encodeURIComponent(corrected);
     corrDiv.innerHTML=`📝 <span style="flex:1">${esc(corrected)}</span><button class="correction-use" onclick="useCorrection('${encodedCorrect}',this)">Utiliser</button><button class="correction-use" style="background:var(--s3);color:var(--t3)" onclick="this.parentElement.remove()">✕</button>`;
-    const wrapper=msgEl.querySelector('[style*="flex-direction:column"]');
+    const wrapper=msgEl.querySelector('.tmsg-body')||msgEl.querySelector('[style*="flex-direction:column"]')||msgEl;
     if(wrapper)wrapper.appendChild(corrDiv);
     if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
   }catch(e){}
@@ -5346,7 +5359,17 @@ function renderConvList(){
     const firstConvId=Object.keys(convs)[0];
     if(firstConvId)currentConv=firstConvId;
   }
-  Object.entries(convs).forEach(([cid,conv])=>{
+  const convEntries=Object.entries(convs).map(([cid,conv])=>{
+    const msgs=mem.messages[cid]||[];
+    const last=msgs[msgs.length-1];
+    const lastTs=Number(last?.ts||0)||0;
+    return{cid,conv,lastTs};
+  });
+  convEntries.sort((a,b)=>{
+    if(b.lastTs!==a.lastTs)return b.lastTs-a.lastTs;
+    return String(a.cid).localeCompare(String(b.cid));
+  });
+  convEntries.forEach(({cid,conv})=>{
     const msgs=mem.messages[cid]||[];const last=msgs[msgs.length-1];
     const unread=countUnread(currentUser.id,cid,mem,lr);
     const item=document.createElement('div');
@@ -5409,6 +5432,10 @@ function patchConvListRowForCid(cid){
     badge.textContent=String(unread);
   }else if(badge){
     badge.remove();
+  }
+  const header=list.querySelector('.conv-header');
+  if(header&&item.previousElementSibling!==header){
+    try{list.insertBefore(item,header.nextSibling);}catch(_){}
   }
   return true;
 }
@@ -5494,8 +5521,8 @@ function appendBenAIMotivationInternalMessage(recipientUid,plainText){
   const text='💪 BenAI\n\n'+String(plainText||'').trim();
   mem.messages[cid].push({from:fromUid,text,time:timeStr,ts:Date.now(),motivationBenAI:true});
   saveMem(mem);
-  try{logActivity(`BenAI a envoyé un message d'encouragement à ${getAllUsers().find(u=>u.id===recipientUid)?.name||recipientUid}`);}catch(_){}
-  if(currentUser?.id===recipientUid&&document.getElementById('page-messages')?.style.display==='flex'){
+  try{logActivity(`BenAI a envoyé un message d'encouragement à ${getAllUsers().find(u=>String(u.id)===String(recipientUid))?.name||recipientUid}`);}catch(_){}
+  if(String(currentUser?.id)===String(recipientUid)&&document.getElementById('page-messages')?.style.display==='flex'){
     if(currentConv===cid){
       markRead(recipientUid,cid);
       if(!tryAppendOneThreadMessage(cid)){
@@ -5720,13 +5747,15 @@ function renderSAV(){
 }
 
 function getClientHistory(client,excludeId,mem){
-  return (mem.sav||[]).filter(s=>!s._deleted&&s.client===client&&s.id!==excludeId).slice(0,5);
+  const ex=String(excludeId);
+  return (mem.sav||[]).filter(s=>!s._deleted&&s.client===client&&String(s.id)!==ex).slice(0,5);
 }
 
 async function deleteSAV(id){
   if(!await benaiConfirm('Supprimer ce SAV définitivement ?'))return;
   const mem=getMem();
-  const sav=mem.sav.find(s=>s.id===id);
+  const sid=String(id);
+  const sav=mem.sav.find(s=>String(s.id)===sid);
   if(!sav)return;
   sav._deleted=true;
   sav.sync_ts=Date.now();
@@ -5734,7 +5763,7 @@ async function deleteSAV(id){
 }
 
 function editSAV(id){
-  const mem=getMem();const s=mem.sav.find(x=>x.id===id);if(!s)return;
+  const mem=getMem();const sid=String(id);const s=mem.sav.find(x=>String(x.id)===sid);if(!s)return;
   document.getElementById('sav-client').value=s.client||'';
   document.getElementById('sav-commercial').value=s.commercial||'';
   document.getElementById('sav-pb').value=s.probleme||'';
@@ -5759,7 +5788,7 @@ async function saveEditSAV(id){
     await benaiAlert('Champs vides : '+missing.join(', '));
     return;
   }
-  const mem=getMem();const idx=mem.sav.findIndex(s=>s.id===id);if(idx===-1)return;
+  const mem=getMem();const sid=String(id);const idx=mem.sav.findIndex(s=>String(s.id)===sid);if(idx===-1)return;
   mem.sav[idx]={
     ...mem.sav[idx],
     client,probleme:pb,
@@ -5831,7 +5860,7 @@ function notifySavTeamStatusChange(sav,prevStatut,nextStatut){
 
 function savAction(id){
   const input=document.getElementById('action-'+id);const txt=input?.value.trim();if(!txt)return;
-  const mem=getMem();const sav=mem.sav.find(s=>s.id===id);if(!sav)return;
+  const mem=getMem();const sid=String(id);const sav=mem.sav.find(s=>String(s.id)===sid);if(!sav)return;
   const prevStatut=sav.statut||'nouveau';
   if(!sav.actions)sav.actions=[];
   sav.actions.push({action:txt,date:new Date().toLocaleDateString('fr-FR'),by:currentUser.name});
@@ -5842,7 +5871,7 @@ function savAction(id){
 }
 
 function changeStatut(id,statut){
-  const mem=getMem();const sav=mem.sav.find(s=>s.id===id);
+  const mem=getMem();const sid=String(id);const sav=mem.sav.find(s=>String(s.id)===sid);
   if(sav){
     const prevStatut=sav.statut||'nouveau';
     sav.statut=statut;if(statut==='regle')sav.date_reglement=new Date().toLocaleDateString('fr-FR');sav.sync_ts=Date.now();saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a réglé SAV : ${sav.client}`);
@@ -5871,14 +5900,14 @@ function refreshSAVBadge(){
 }
 
 function toggleSavArchive(id){
-  const mem=getMem();const sav=(mem.sav||[]).find(s=>s.id===id);if(!sav)return;
+  const mem=getMem();const sid=String(id);const sav=(mem.sav||[]).find(s=>String(s.id)===sid);if(!sav)return;
   sav.archive=!sav.archive;
   sav.sync_ts=Date.now();
   saveMem(mem);renderSAV();refreshSAVBadge();
 }
 
 function toggleSavMute(id){
-  const mem=getMem();const sav=(mem.sav||[]).find(s=>s.id===id);if(!sav)return;
+  const mem=getMem();const sid=String(id);const sav=(mem.sav||[]).find(s=>String(s.id)===sid);if(!sav)return;
   sav.muteReminder=!sav.muteReminder;
   sav.sync_ts=Date.now();
   saveMem(mem);renderSAV();refreshSAVBadge();
@@ -6633,6 +6662,7 @@ async function downloadPlanningAbsences(societe){
   const cal=buildCalendar(societe);
   const pageContent=cal||`<div style="padding:20px;color:#9CA3AF;text-align:center">Aucune absence enregistrée pour ${label}</div>`;
 
+  const fname=`Planning_absences_${isNem?'Nemausus':'Lambert'}_${new Date().toISOString().slice(0,10)}.html`;
   const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Planning ${label}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
@@ -6669,8 +6699,26 @@ async function downloadPlanningAbsences(societe){
   </div>
   </body></html>`;
 
-  window.open(URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})),'_blank');
-  logActivity(`Benjamin a ouvert le planning des absences ${label}`);
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  let opened=null;
+  try{opened=window.open(url,'_blank');}catch(_){opened=null;}
+  if(!opened||opened.closed){
+    try{
+      const a=document.createElement('a');
+      a.href=url;
+      a.download=fname;
+      a.rel='noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      showDriveNotif('📥 Fichier HTML téléchargé — ouvrez-le puis Ctrl+P (A4 paysage) pour imprimer ou PDF');
+    }catch(_){
+      await benaiAlert('Impossible d’ouvrir une nouvelle fenêtre (bloqueur). Autorisez les pop-ups pour BenAI ou utilisez le fichier téléchargé.');
+    }
+  }
+  setTimeout(()=>{try{URL.revokeObjectURL(url);}catch(_){}},opened&&!opened.closed?180000:90000);
+  logActivity(`Benjamin a exporté le planning des absences ${label}`);
 }
 // ══════════════════════════════════════════
 // 🔊 NOTIFICATIONS SONORES
@@ -9952,7 +10000,18 @@ function renderLeadsDashboard(){
   const month=now.getMonth();const year=now.getFullYear();
   const leadsMonth=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getMonth()===month&&d.getFullYear()===year;});
   const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
-  let commerciauxObj=dashCommercial?commerciaux.filter(c=>normalizeId(c.id)===normalizeId(currentUser.id)):commerciaux.slice();
+  let commerciauxObj=dashCommercial?commerciaux.filter(c=>normalizeId(String(c.id))===normalizeId(String(currentUser.id))):commerciaux.slice();
+  if(dashCommercial&&commerciauxObj.length===0&&currentUser?.role==='commercial'){
+    commerciauxObj.push({
+      id:currentUser.id,
+      name:currentUser.name||'Commercial',
+      role:'commercial',
+      societe:currentUser.societe||'',
+      vehicule:currentUser.vehicule||'',
+      color:currentUser.color||'linear-gradient(135deg,#E8943A,#B45309)',
+      initial:currentUser.initial||'?'
+    });
+  }
   if(!dashCommercial){
     const activeIds=new Set(commerciaux.map(c=>normalizeId(c.id)));
     const objKeys=new Set(Object.keys(getObjectifsCommerciaux()).map(normalizeId));
@@ -10317,7 +10376,7 @@ function renderLeadsDashboard(){
     if(!objCommMonthKeys.includes(selObjComm))selObjComm=getDefaultObjCommMonthKey();
     appStorage.setItem('benai_obj_comm_mois',selObjComm);
     if(dashPilotage){
-      html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-objectifs">${crmDashSummary('🎯 Objectifs commerciaux','CA réalisé vs cible : mois N et N-1 pour comparer à l’année précédente.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">L’objectif <strong>hebdomadaire</strong> est le même toutes les semaines ; l’objectif <strong>mensuel</strong> est celui du mois affiché. Mois disponibles : <strong>${year-1}</strong> et <strong>${year}</strong>.</div>`;
+      html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-objectifs">${crmDashSummary('🎯 Objectifs commerciaux','CA réalisé vs cible : mois N et N-1 pour comparer à l’année précédente.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">L’objectif <strong>mensuel</strong> est celui du mois affiché. Vous pouvez <strong>répartir le mois en objectifs par semaine ISO</strong> (modifiables) ; sinon l’<strong>objectif hebdo global</strong> sert de cible pour la semaine en cours. Mois disponibles : <strong>${year-1}</strong> et <strong>${year}</strong>.</div>`;
     } else {
       html+=`<div class="crm-dash-kicker k-pr" style="margin-top:8px">${dashCommercial?'Mes objectifs & suivi CA':'Objectifs par commercial'}</div>`;
     }
@@ -10343,7 +10402,7 @@ function renderLeadsDashboard(){
         </div>
         <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Mensuel (${moisHuman}) — ${prog.ca_mois.toLocaleString('fr-FR')}€ / ${prog.obj.mensuel.toLocaleString('fr-FR')}€ · ${prog.ventes_mois} ventes</div>
         <div class="objectif-bar" style="margin-bottom:6px"><div class="objectif-bar-fill" style="width:${pctMois}%;background:${pctMois>=100?'var(--g)':pctMois>=75?'var(--a)':'var(--r)'}"></div></div>
-        <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Hebdo (semaine en cours) — ${prog.ca_semaine.toLocaleString('fr-FR')}€ / ${prog.obj.hebdo.toLocaleString('fr-FR')}€ · ${prog.ventes_semaine} ventes</div>
+        <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Hebdo${prog._objWeekKey?' ('+esc(String(prog._objWeekKey).replace('-',' '))+')':''} — ${prog.ca_semaine.toLocaleString('fr-FR')}€ / ${prog.obj.hebdo.toLocaleString('fr-FR')}€ · ${prog.ventes_semaine} ventes</div>
         <div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pctHebdo}%;background:${pctHebdo>=100?'var(--g)':pctHebdo>=75?'var(--a)':'var(--r)'}"></div></div>
         ${pctMois>=100?`<div style="margin-top:6px;font-size:11px;color:var(--g);font-weight:600">🏆 Objectif mensuel dépassé (${moisHuman}) !</div>`:''}
       </div>`;
@@ -10383,12 +10442,26 @@ function editObjectifCommercial(uid,name){
   const curM=curEnt.months[monthKey]?.mensuel??0;
   const curH=Number(curEnt.hebdo)||0;
   const labelMois=formatMois(monthKey);
+  const parts=monthKey.split('-').map(Number);
+  const yM=parts[0],moM=parts[1];
+  const weekKeys=Number.isFinite(yM)&&Number.isFinite(moM)?collectIsoWeekKeysInMonth(yM,moM):[];
+  const weeksSaved=curEnt.months[monthKey]?.weeks||{};
+  const mensuelNum=Number(curM)||0;
+  const baseEach=weekKeys.length&&mensuelNum>0?Math.floor(mensuelNum/weekKeys.length):0;
+  const weekRows=weekKeys.map(wk=>{
+    const raw=weeksSaved[wk];
+    const val=Number(raw)>0?Number(raw):baseEach;
+    return`<div class="form-group" style="margin-bottom:8px">
+      <div class="form-label" style="font-size:11px">${esc(wk)}</div>
+      <input type="number" class="form-input obj-comm-wk" data-wk="${escAttr(wk)}" min="0" step="100" value="${val||0}" inputmode="decimal" style="font-family:inherit">
+    </div>`;
+  }).join('');
   const wrap=document.createElement('div');
   wrap.id='obj-comm-edit-overlay';
   wrap.className='lead-modal open';
   wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4500;display:flex;align-items:center;justify-content:center;padding:16px';
   wrap.innerHTML=`
-    <div class="lead-modal-box" style="max-width:440px" role="dialog" aria-modal="true" aria-labelledby="obj-comm-edit-title" onclick="event.stopPropagation()">
+    <div class="lead-modal-box" style="max-width:520px;max-height:92vh;overflow-y:auto" role="dialog" aria-modal="true" aria-labelledby="obj-comm-edit-title" onclick="event.stopPropagation()">
       <div class="lead-modal-header">
         <div>
           <div id="obj-comm-edit-title" style="font-size:16px;font-weight:700">Objectifs CA — ${esc(name)}</div>
@@ -10405,11 +10478,19 @@ function editObjectifCommercial(uid,name){
           </div>
         </div>
         <div class="lead-modal-section">
-          <div class="lead-modal-section-title">Objectif hebdomadaire (€ HT)</div>
+          <div class="lead-modal-section-title">Objectif hebdomadaire global (€ HT)</div>
           <div class="form-group">
-            <div class="form-label">Identique chaque semaine (toutes les semaines de l’année)</div>
+            <div class="form-label">Cible par défaut quand aucune semaine du mois n’a de montant saisi ci-dessous</div>
             <input type="number" class="form-input" id="obj-comm-hebdo" min="0" step="100" value="${Number(curH)||0}" inputmode="decimal" style="font-family:inherit">
           </div>
+        </div>
+        <div class="lead-modal-section">
+          <div class="lead-modal-section-title">Objectifs par semaine (ISO, ${esc(labelMois)})</div>
+          <div class="form-group">
+            <div class="form-label" style="font-size:11px;color:var(--t3)">Montants € HT par semaine calendaire intersectant ce mois. Priorité sur le global pour le suivi « semaine en cours ».</div>
+            <button type="button" id="obj-comm-split-weeks" style="margin-top:8px;margin-bottom:4px;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--t1);font-weight:600">⚖️ Répartir le mensuel à parts égales</button>
+          </div>
+          ${weekRows||'<div style="font-size:12px;color:var(--t3)">Impossible de lister les semaines pour ce mois.</div>'}
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap">
           <button type="button" id="obj-comm-cancel" style="padding:10px 16px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Annuler</button>
@@ -10426,12 +10507,31 @@ function editObjectifCommercial(uid,name){
   wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
   wrap.querySelector('#obj-comm-close-x')?.addEventListener('click',close);
   wrap.querySelector('#obj-comm-cancel')?.addEventListener('click',close);
+  wrap.querySelector('#obj-comm-split-weeks')?.addEventListener('click',()=>{
+    const mEl=document.getElementById('obj-comm-mensuel');
+    const m=Math.max(0,Number(String(mEl?.value||'0').replace(',','.'))||0);
+    const inputs=[...wrap.querySelectorAll('.obj-comm-wk')];
+    if(!inputs.length||!m)return;
+    const each=Math.floor(m/inputs.length);
+    let rest=m-each*inputs.length;
+    inputs.forEach((el,i)=>{
+      let v=each+(i===0?rest:0);
+      el.value=String(v);
+    });
+  });
   wrap.querySelector('#obj-comm-save')?.addEventListener('click',()=>{
     const mensuel=document.getElementById('obj-comm-mensuel')?.value;
     const hebdo=document.getElementById('obj-comm-hebdo')?.value;
-    setObjectifCommercial(uid,monthKey,mensuel,hebdo);
+    const weeks={};
+    wrap.querySelectorAll('.obj-comm-wk').forEach(el=>{
+      const wk=el.getAttribute('data-wk');
+      if(!wk)return;
+      const n=Number(String(el.value||'').replace(/\s/g,'').replace(',','.'));
+      if(Number.isFinite(n)&&n>0)weeks[wk]=n;
+    });
+    setObjectifCommercial(uid,monthKey,mensuel,hebdo,weeks);
     renderLeadsDashboard();
-    logActivity(`${currentUser.name} a fixé l’objectif mensuel de ${name} (${labelMois}) et l’objectif hebdo`);
+    logActivity(`${currentUser.name} a mis à jour les objectifs de ${name} (${labelMois})`);
     close();
   });
   document.body.appendChild(wrap);
@@ -10672,6 +10772,16 @@ function selectStatut(statut,btn,silent=false){
   document.querySelectorAll('.statut-btn').forEach(b=>b.classList.remove('selected'));
   if(btn)btn.classList.add('selected');
   else document.querySelectorAll('.statut-btn').forEach(b=>{if(b.classList.contains('sb-'+statut))b.classList.add('selected');});
+  if(statut==='vert'&&!silent){
+    const devisEl=document.getElementById('lead-montant-devis');
+    const venduEl=document.getElementById('lead-prix-vendu');
+    if(devisEl&&venduEl){
+      const m=String(devisEl.value||'').replace(/\s/g,'').replace(',','.');
+      const v=String(venduEl.value||'').replace(/\s/g,'').replace(',','.');
+      const mNum=Number(m);
+      if(m&&Number.isFinite(mNum)&&mNum>0&&(!v||!Number.isFinite(Number(v))||Number(v)<=0))venduEl.value=String(mNum);
+    }
+  }
   ['gris','rdv','jaune','vert','rouge'].forEach(s=>{
     const p=document.getElementById('panel-'+s);if(p)p.style.display=s===statut?'block':'none';
   });
@@ -11449,11 +11559,26 @@ function exportCRMTable(key){
 }
 
 function exportAllCRMTables(){
+  if(window._benaiExportAllBusy){
+    showDriveNotif('📦 Export déjà en cours — patientez une seconde');
+    return;
+  }
   const payload=buildCRMExportBundles();
-  Object.values(payload.bundles).forEach(item=>{
-    downloadCsv(item.filename,item.content);
+  const items=Object.values(payload.bundles||{});
+  if(!items.length){
+    showDriveNotif('⚠️ Aucun export à lancer');
+    return;
+  }
+  window._benaiExportAllBusy=true;
+  items.forEach((item,i)=>{
+    setTimeout(()=>{
+      downloadCsv(item.filename,item.content);
+      if(i===items.length-1){
+        window._benaiExportAllBusy=false;
+        showDriveNotif(`📦 Tableaux CRM exportés (${formatMois(payload.currentMonth)})`);
+      }
+    },i*480);
   });
-  showDriveNotif(`📦 Tableaux CRM exportés (${formatMois(payload.currentMonth)})`);
   logActivity(`${currentUser?.name||'Utilisateur'} a exporté tous les tableaux CRM`);
 }
 
@@ -11944,13 +12069,18 @@ function normalizeCommercialObjEntry(v){
     const months={};
     Object.keys(v.months).forEach(k=>{
       const m=v.months[k];
-      months[k]={mensuel:Number(m?.mensuel)||0};
+      const weeksRaw=m?.weeks&&typeof m.weeks==='object'&&!Array.isArray(m.weeks)?m.weeks:{};
+      const weeks={};
+      Object.keys(weeksRaw).forEach(wk=>{
+        weeks[wk]=Number(weeksRaw[wk])||0;
+      });
+      months[k]={mensuel:Number(m?.mensuel)||0,weeks};
     });
     return{hebdo:Number(v.hebdo)||0,months};
   }
   const d=new Date();
   const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  return{hebdo:Number(v.hebdo)||0,months:{[k]:{mensuel:Number(v.mensuel)||0}}};
+  return{hebdo:Number(v.hebdo)||0,months:{[k]:{mensuel:Number(v.mensuel)||0,weeks:{}}}};
 }
 function getObjCommMonthOptions(){
   const keys=new Set();
@@ -11991,7 +12121,7 @@ function getObjectifsCommerciaux(){
 }
 function saveObjectifsCommerciaux(o){appStorage.setItem('benai_obj_comm',JSON.stringify(o));}
 
-function setObjectifCommercial(uid,monthKey,mensuel,hebdo){
+function setObjectifCommercial(uid,monthKey,mensuel,hebdo,weeks){
   const all=getObjectifsCommerciaux();
   const prev=normalizeCommercialObjEntry(all[uid]||{});
   const parseNum=x=>{
@@ -12001,7 +12131,9 @@ function setObjectifCommercial(uid,monthKey,mensuel,hebdo){
   };
   prev.hebdo=parseNum(hebdo);
   if(!prev.months)prev.months={};
-  prev.months[monthKey]={mensuel:parseNum(mensuel)};
+  const prior=prev.months[monthKey]||{};
+  const wk=weeks&&typeof weeks==='object'&&!Array.isArray(weeks)?weeks:(prior.weeks&&typeof prior.weeks==='object'?prior.weeks:{});
+  prev.months[monthKey]={mensuel:parseNum(mensuel),weeks:wk};
   all[uid]=prev;
   saveObjectifsCommerciaux(all);
 }
@@ -12012,31 +12144,40 @@ function getProgressionCommercial(uid,forMonthKey){
   const year=Number(parts[0]),monthNum=Number(parts[1]);
   const monthIdx=monthNum-1;
   if(!Number.isFinite(year)||!Number.isFinite(monthIdx)||monthIdx<0||monthIdx>11){
-    return{ventes_mois:0,ventes_semaine:0,ca_mois:0,ca_semaine:0,obj:{mensuel:0,hebdo:0},_objMonthKey:monthKey};
+    return{ventes_mois:0,ventes_semaine:0,ca_mois:0,ca_semaine:0,obj:{mensuel:0,hebdo:0},_objMonthKey:monthKey,_objWeekKey:''};
   }
-  const leads=getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert'&&l.commercial===uid);
+  const uidStr=String(uid);
+  const leads=getCompanyScopedLeads(getLeads()).filter(l=>{
+    if(l.statut!=='vert')return false;
+    const c=l.commercial;
+    return c===uid||String(c)===uidStr||normalizeId(String(c))===normalizeId(String(uid));
+  });
   const ventesMois=leads.filter(l=>{
     const d=new Date(l.date_creation||0);
     return d.getMonth()===monthIdx&&d.getFullYear()===year;
   });
   const now=new Date();
-  const week=getWeekNumber(now);
+  const curWk=getISOWeekLabelFromDate(now);
   const ventesSem=leads.filter(l=>{
     const d=new Date(l.date_creation||0);
-    return getWeekNumber(d)===week&&d.getFullYear()===now.getFullYear();
+    if(isNaN(d.getTime()))return false;
+    return getISOWeekLabelFromDate(d)===curWk;
   });
   const caMois=ventesMois.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
   const caSem=ventesSem.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
   const entry=normalizeCommercialObjEntry(getObjectifsCommerciaux()[uid]||{});
   const objMensuel=entry.months[monthKey]?.mensuel??0;
-  const objHebdo=entry.hebdo||0;
+  const wkMap=entry.months[monthKey]?.weeks;
+  let objHebdo=Number(wkMap?.[curWk]||0);
+  if(!objHebdo)objHebdo=Number(entry.hebdo)||0;
   return{
     ventes_mois:ventesMois.length,
     ventes_semaine:ventesSem.length,
     ca_mois:caMois,
     ca_semaine:caSem,
     obj:{mensuel:objMensuel,hebdo:objHebdo},
-    _objMonthKey:monthKey
+    _objMonthKey:monthKey,
+    _objWeekKey:curWk
   };
 }
 
@@ -12046,26 +12187,64 @@ function getWeekNumber(d){
   const week1=new Date(date.getFullYear(),0,4);
   return 1+Math.round(((date.getTime()-week1.getTime())/86400000-3+(week1.getDay()+6)%7)/7);
 }
+function getISOWeekLabelFromDate(d0){
+  const d=new Date(d0);
+  if(isNaN(d.getTime()))return'';
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate()+3-(d.getDay()+6)%7);
+  const isoY=d.getFullYear();
+  const w=getWeekNumber(d0);
+  return`${isoY}-W${String(w).padStart(2,'0')}`;
+}
+function collectIsoWeekKeysInMonth(year,month1to12){
+  const keys=[];
+  const seen=new Set();
+  const last=new Date(year,month1to12,0).getDate();
+  for(let day=1;day<=last;day++){
+    const k=getISOWeekLabelFromDate(new Date(year,month1to12-1,day));
+    if(k&&!seen.has(k)){seen.add(k);keys.push(k);}
+  }
+  keys.sort();
+  return keys;
+}
 
 // Message motivation BenAI automatique
 async function genererMessageMotivation(uid,contexte){
-  const apiKey=getApiKey();if(!apiKey)return;
+  const apiKey=await getApiKeyForChat();if(!apiKey)return;
   const prog=getProgressionCommercial(uid);
-  const user=getAllUsers().find(u=>u.id===uid);if(!user)return;
+  const user=getAllUsers().find(u=>String(u.id)===String(uid));
+  if(!user)return;
   const pctMois=prog.obj.mensuel>0?Math.round(prog.ca_mois/prog.obj.mensuel*100):0;
-  const prompt=`Tu es BenAI, assistant du directeur commercial. Génère un message de motivation court (2-3 phrases max) et TRÈS personnalisé pour ${user.name}. 
-Contexte : ${contexte}
-Données réelles : ${prog.ventes_mois} ventes ce mois, CA ${prog.ca_mois.toLocaleString('fr-FR')}€, objectif ${prog.obj.mensuel.toLocaleString('fr-FR')}€ (${pctMois}% atteint), ${prog.ventes_semaine} ventes cette semaine.
-Le message doit mentionner ses vrais chiffres. Tutoie-le. Sois enthousiaste mais authentique. Pas de formule générique.`;
+  const histKey='benai_motiv_hist_'+String(uid);
+  let hist=[];
+  try{
+    hist=JSON.parse(appStorage.getItem(histKey)||'[]');
+    if(!Array.isArray(hist))hist=[];
+  }catch{hist=[];}
+  const histTxt=hist.slice(-14).map(t=>`- ${String(t).slice(0,200).replace(/\s+/g,' ').trim()}`).join('\n')||'- (aucun historique)';
+  const angles=['closing et clarté client','constance sur le terrain','fierté du progrès mesurable','énergie sur la dernière ligne droite','discipline CRM (dates, montants, suivis)','confiance sur le prochain rendez-vous'];
+  const angle=angles[Math.floor(Math.random()*angles.length)];
+  const jour=new Date().toLocaleDateString('fr-FR',{weekday:'long'});
+  const prompt=`Tu es BenAI, coach commercial interne. Génère un message court (2 phrases max, 3 seulement si indispensable), en français, pour ${user.name}.
+Contexte situationnel : ${contexte}
+Données réelles à intégrer naturellement (obligatoire) : ${prog.ventes_mois} vente(s) signée(s) ce mois, CA ${prog.ca_mois.toLocaleString('fr-FR')}€ HT, objectif mensuel ${prog.obj.mensuel.toLocaleString('fr-FR')}€ (${pctMois}% atteint), ${prog.ventes_semaine} vente(s) cette semaine ISO${prog._objWeekKey?' ('+prog._objWeekKey+')':''}, cible hebdo affichée ${prog.obj.hebdo.toLocaleString('fr-FR')}€ HT.
+Aujourd'hui : ${jour}. Angle d'écriture imposé : ${angle}.
+Contraintes : tutoie cette personne ; ton chaleureux mais crédible ; zéro cliché LinkedIn ; pas de liste à puces ; pas de « champion » ni « machine » ni « warrior ».
+ANTI-RÉPÉTITION : tu dois être différent de tout message déjà envoyé. Ne réutilise ni les mêmes phrases ni les mêmes ouvertures ni les mêmes images que l’historique ci-dessous (même si c’était bien) — varie structure, verbes, rythme.
+Historique des messages récents (à ne pas imiter ni paraphraser) :
+${histTxt}`;
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:200,messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:220,messages:[{role:'user',content:prompt}]})
     });
     const data=await res.json();
     if(data.content?.[0]?.text){
       const msg=data.content[0].text.trim();
+      hist.push(msg.slice(0,500));
+      if(hist.length>36)hist=hist.slice(-36);
+      appStorage.setItem(histKey,JSON.stringify(hist));
       appendBenAIMotivationInternalMessage(uid,msg);
     }
   }catch(e){}
@@ -12080,12 +12259,37 @@ function checkMotivationsAuto(){
   const lastMotiv=appStorage.getItem('benai_last_motiv_'+uid)||'';
   const today=new Date().toDateString();
   if(lastMotiv===today)return;
+  const nm=String(currentUser.name||'').trim().split(/\s+/)[0]||'toi';
   let contexte='';
-  if(pct>=1)contexte='Objectif mensuel dépassé ! Encourage-le à se surpasser encore.';
-  else if(pct>=0.75)contexte='Presque à l\'objectif mensuel, dans la dernière ligne droite.';
-  else if(new Date().getDay()===1)contexte='C\'est lundi, début de semaine, donne-lui de l\'élan.';
-  else if(prog.ventes_semaine===0&&new Date().getDay()>=3)contexte='Pas encore de vente cette semaine, encourage-le à relancer.';
-  else return;
+  if(pct>=1){
+    const opts=[
+      `Le plafond du mois est déjà dépassé pour ${nm} : souligne ce que ça implique pour la dynamique d’équipe et la qualité du pipe.`,
+      `${nm} a dépassé l’objectif mensuel : insiste sur la régularité (CRM, relances) pour capitaliser sans se disperser.`,
+      `CA du mois au-dessus de la cible pour ${nm} : message centré sur la suite (consolider, sécuriser les signatures, anticiper le mois suivant).`
+    ];
+    contexte=opts[Math.floor(Math.random()*opts.length)];
+  }else if(pct>=0.75){
+    const opts=[
+      `${nm} est dans la zone 75–100 % de l’objectif : parle priorisation des dossiers chauds et d’une fin de mois maîtrisée.`,
+      `Dernière ligne droite objectif pour ${nm} : insiste sur les relances devis et la clarté des prochaines actions.`,
+      `Encore un effort mesurable pour ${nm} pour boucler le mois : message ancré sur le terrain (RDV, devis, suivi).`
+    ];
+    contexte=opts[Math.floor(Math.random()*opts.length)];
+  }else if(new Date().getDay()===1){
+    const opts=[
+      `Lundi : ${nm} repart sur une semaine neuve — message sur rythme, intention de la semaine, et une victoire petite mais concrète à viser.`,
+      `Début de semaine pour ${nm} : propose un focus unique (ex. relances devis ou RDV) sans moraliser.`,
+      `Semaine qui démarre pour ${nm} : encourage la relecture du pipe et un premier « quick win » avant mercredi.`
+    ];
+    contexte=opts[Math.floor(Math.random()*opts.length)];
+  }else if(prog.ventes_semaine===0&&new Date().getDay()>=3){
+    const opts=[
+      `${nm} n’a pas encore signé cette semaine : message sur relances courtes, créneaux téléphoniques, et mise à jour CRM (sans culpabiliser).`,
+      `Semaine encore vide en signature pour ${nm} : parle opportunités proches (devis en attente, RDV à confirmer).`,
+      `Pas de vente cette semaine pour l’instant pour ${nm} : insiste sur le contrôle du pipeline et une action terrain simple aujourd’hui.`
+    ];
+    contexte=opts[Math.floor(Math.random()*opts.length)];
+  }else return;
   appStorage.setItem('benai_last_motiv_'+uid,today);
   setTimeout(()=>genererMessageMotivation(uid,contexte),3000);
 }
@@ -12895,7 +13099,12 @@ function isNewerVersion(remote,current){
 // ✏️ CORRECTION AUTOMATIQUE PARTOUT
 // ══════════════════════════════════════════
 function isBenAIDesktopAutocorrect(){
-  try{return window.matchMedia('(min-width: 769px)').matches;}catch{return false;}
+  try{
+    if(window.matchMedia('(pointer: fine)').matches)return true;
+    return window.matchMedia('(min-width: 641px)').matches;
+  }catch{
+    return true;
+  }
 }
 function enableSpellcheckEverywhere(){
   const isPhone=/iphone|ipad|ipod|android|mobile/i.test((navigator.userAgent||'').toLowerCase());
@@ -12927,15 +13136,19 @@ function enableSpellcheckEverywhere(){
 }
 
 try{
-  const _mqDesk=window.matchMedia('(min-width: 769px)');
   const _syncCorrectBtn=()=>{
     const btn=document.getElementById('btn-correct');
     if(btn&&document.getElementById('app')?.classList.contains('visible')){
-      btn.style.display=_mqDesk.matches?'inline-flex':'none';
+      btn.style.display=isBenAIDesktopAutocorrect()?'inline-flex':'none';
     }
   };
-  if(_mqDesk.addEventListener)_mqDesk.addEventListener('change',_syncCorrectBtn);
-  else if(_mqDesk.addListener)_mqDesk.addListener(_syncCorrectBtn);
+  ['(min-width: 641px)','(pointer: fine)'].forEach(q=>{
+    const m=window.matchMedia(q);
+    const fn=()=>_syncCorrectBtn();
+    if(m.addEventListener)m.addEventListener('change',fn);
+    else if(m.addListener)m.addListener(fn);
+  });
+  _syncCorrectBtn();
 }catch(e){}
 
 const TUTO_SLIDES_BY_ROLE={
@@ -13053,7 +13266,7 @@ function renderTutoSlide(){
   // Bouton suivant / terminer
   const btn=document.getElementById('tuto-next');
   if(tutoStep===currentTutoSlides.length-1){
-    btn.textContent='Commencer 🚀';
+    btn.textContent=currentUser&&shouldForceRoleGuide()?'Terminer → valider le Guide':'Commencer 🚀';
   } else {
     btn.textContent='Suivant →';
   }
@@ -13083,6 +13296,14 @@ function closeTuto(){
       keys.forEach(key=>localStorage.setItem(TUTO_DONE_LOCAL_PREFIX+key,'1'));
     }catch(e){}
   }
+  setTimeout(()=>{
+    try{
+      if(currentUser&&shouldForceRoleGuide()){
+        showDriveNotif('📘 Dernière étape : ouvrez l’onglet **Guide** puis cliquez sur « J’ai lu et je valide » pour débloquer tout BenAI.');
+        showPage('guide');
+      }
+    }catch(_){}
+  },350);
 }
 
 function getTutoDoneKeysForCurrentUser(){
