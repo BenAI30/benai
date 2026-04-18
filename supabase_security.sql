@@ -283,6 +283,22 @@ on public.profiles for select
 using (
   id = auth.uid()
   or public.current_profile_role() = 'admin'
+  -- Dir. commercial / DG : annuaire CRM (attribution leads) = profils de la même entreprise (+ « les-deux »).
+  or (
+    public.current_profile_role() in ('directeur_co','directeur_general')
+    and (
+      public.current_profile_company() = 'les-deux'
+      or public.profiles.company = public.current_profile_company()
+      or (
+        public.current_profile_company() = 'nemausus'
+        and public.profiles.company in ('nemausus','les-deux')
+      )
+      or (
+        public.current_profile_company() = 'lambert'
+        and public.profiles.company in ('lambert','les-deux')
+      )
+    )
+  )
 );
 
 drop policy if exists "profiles_admin_write" on public.profiles;

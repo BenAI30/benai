@@ -903,7 +903,7 @@ input[type=file]{display:none;}
           <span class="sb-icon">🔧</span><span class="sb-txt">SAV</span>
           <span class="sb-badge" id="sav-badge" style="display:none"></span>
         </div>
-      </div>
+        </div>
       <div class="sb-section" id="sb-org">
         <div class="sb-label">Organisation</div>
         <div class="sb-hint" id="sb-org-hint">Équipe, absences, pilotage</div>
@@ -1214,7 +1214,7 @@ input[type=file]{display:none;}
             <div class="crm-dash-grp-body">
               <div class="crm-dash-subtle">Détail mis à jour quand vous consultez ce bloc — utile pour suivre la facturation indicative.</div>
               <div id="token-stats"></div>
-            </div>
+          </div>
           </details>
 
           <details class="crm-dash-grp">
@@ -1227,7 +1227,7 @@ input[type=file]{display:none;}
             <div class="crm-dash-grp-body">
               <div class="crm-dash-subtle">Vue agrégée des tickets ; les actions restent dans l’onglet SAV.</div>
               <div id="sav-stats-admin"></div>
-            </div>
+          </div>
           </details>
 
           <div class="crm-dash-kicker crm-dash-anchor" id="admin-sec-hist">Historique &amp; contrôle</div>
@@ -1242,7 +1242,7 @@ input[type=file]{display:none;}
             <div class="crm-dash-grp-body">
               <div class="crm-dash-subtle">Fil chronologique condensé — repliez ce bloc si vous préférez plus d’espace.</div>
               <div id="activity-list"><div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div></div>
-            </div>
+          </div>
           </details>
 
           <details class="crm-dash-grp">
@@ -1255,7 +1255,7 @@ input[type=file]{display:none;}
             <div class="crm-dash-grp-body">
               <div class="crm-dash-subtle">Traçabilité des accès — ouvrez pour charger la liste complète.</div>
               <div id="connexions-list"></div>
-            </div>
+        </div>
           </details>
 
           <details class="crm-dash-grp">
@@ -4661,11 +4661,15 @@ function initApp(silent=false){
   migrateLegacyBenaiReadToMem();
   migrateMotivationMessagesToBenaiThread();
   refreshSharedSignatures(false);
-  if(u?.role==='admin'){
+  if(u?.role==='admin'||isCRMScopePilotageRole(u?.role)){
     void syncExtraUsersFromSupabaseProfiles().then(ok=>{
-      if(ok&&document.getElementById('page-annuaire')?.style.display==='flex'&&equipeUITab==='acces'){
+      if(!ok)return;
+      if(u?.role==='admin'&&document.getElementById('page-annuaire')?.style.display==='flex'&&equipeUITab==='acces'){
         renderUsersList();
         renderPwdList();
+      }
+      if(isCRMScopePilotageRole(u?.role)&&document.getElementById('page-leads')?.style.display==='flex'){
+        try{renderLeads();}catch(_){}
       }
     });
   }
@@ -5626,7 +5630,7 @@ function editMsg(cid,idx){
     const nouveau=(document.getElementById('edit-msg-body')?.value||'').trim();
     if(!nouveau)return;
     msg.text=nouveau;msg.edited=true;
-    saveMem(mem);renderThread(cid);
+  saveMem(mem);renderThread(cid);
     close();
   });
   document.body.appendChild(wrap);
@@ -7037,7 +7041,7 @@ function askEmailPaie(idx){
     const email=(document.getElementById('paie-email-input')?.value||'').trim().toLowerCase();
     if(!email||!email.includes('@')){if(errEl)errEl.textContent='Adresse e-mail invalide.';return;}
     if(errEl)errEl.textContent='';
-    paieResults[idx].email=email;renderPaieList();
+  paieResults[idx].email=email;renderPaieList();
     close();
   });
   document.body.appendChild(wrap);
@@ -7445,7 +7449,7 @@ function renderGuidePage(){
         <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px">📱 QR code</div>
         <div style="font-size:11px;color:var(--t3);line-height:1.5;margin-bottom:10px">Scanne ce code avec l’appareil photo pour ouvrir BenAI sur ton téléphone.</div>
         <img id="benai-guide-mobile-qr" src="${qrImgSrc}" data-qr-fallback="${qrFallbackEnc}" width="220" height="220" alt="QR code pour ouvrir BenAI sur le téléphone" style="width:220px;max-width:90%;height:auto;border-radius:14px;border:1px solid var(--b1);background:#fff;padding:10px;box-sizing:border-box;display:inline-block" loading="lazy" onerror="try{var u=decodeURIComponent(this.getAttribute('data-qr-fallback')||'');if(u&amp;&amp;this.src!==u){this.src=u;this.removeAttribute('data-qr-fallback');}}catch(e){}">
-      </div>
+    </div>
     </div>`:''}
     <div class="sav-form" style="margin-bottom:10px;border-color:rgba(96,165,250,.35);background:var(--bl2)">
       <div style="font-size:14px;font-weight:700;margin-bottom:6px">🎓 Tutoriel interactif</div>
@@ -7479,7 +7483,7 @@ function refreshAdmin(){
   const actList=document.getElementById('activity-list');
   if(actList){
     if(mem.activity?.length){
-      actList.innerHTML=mem.activity.slice(-10).reverse().map(a=>`<div class="act-item"><div class="act-av" style="background:${getUserColor(a.user)}">${getUserInitial(a.user)}</div><div class="act-txt">${esc(a.txt)}</div><div class="act-time">${a.time}</div></div>`).join('');
+    actList.innerHTML=mem.activity.slice(-10).reverse().map(a=>`<div class="act-item"><div class="act-av" style="background:${getUserColor(a.user)}">${getUserInitial(a.user)}</div><div class="act-txt">${esc(a.txt)}</div><div class="act-time">${a.time}</div></div>`).join('');
     }else{
       actList.innerHTML='<div style="color:var(--t3);font-size:12px;padding:8px 0">Aucune activité récente</div>';
     }
@@ -7776,7 +7780,11 @@ async function modifierBenaiLoginUid(uid){
 
 function getExtraUsers(){try{return JSON.parse(appStorage.getItem('benai_extra_users'))||[];}catch{return [];}}
 function saveExtraUsers(u){appStorage.setItem('benai_extra_users',JSON.stringify(u));}
-function getExtraUserById(id){return getExtraUsers().find(u=>u.id===id)||null;}
+function getExtraUserById(id){
+  const n=normalizeId(String(id??''));
+  if(!n)return null;
+  return getExtraUsers().find(u=>normalizeId(String(u.id??''))===n)||null;
+}
 function getHiddenUserIds(){
   try{return JSON.parse(appStorage.getItem('benai_hidden_users')||'[]')||[];}catch{return[];}
 }
@@ -7842,7 +7850,8 @@ function resolveCrmCommercialLabel(uid){
 }
 
 async function syncExtraUsersFromSupabaseProfiles(){
-  if(!currentUser||currentUser.role!=='admin')return false;
+  if(!currentUser)return false;
+  if(currentUser.role!=='admin'&&!isCRMScopePilotageRole(currentUser.role))return false;
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return false;
   const session=await ensureSupabaseSession();
   if(!session?.access_token)return false;
@@ -7907,10 +7916,21 @@ function getAllUsers(){
   return[...base,...extras];
 }
 
-// Trouver un utilisateur par identifiant normalisé
+// Trouver un utilisateur : id BenAI (slug), ou UUID auth Supabase, ou email
 function findUserById(uid){
-  const normalized=normalizeId(uid);
-  return getAllUsers().find(u=>normalizeId(u.id)===normalized)||null;
+  const raw=String(uid??'').trim();
+  if(!raw)return null;
+  const normalized=normalizeId(raw);
+  const all=getAllUsers();
+  let hit=all.find(u=>normalizeId(u.id)===normalized);
+  if(hit)return hit;
+  const rawLc=raw.toLowerCase();
+  if(isLikelyUuid(raw)){
+    hit=all.find(u=>String(u.auth_uid||u.authUid||'').toLowerCase()===rawLc);
+    if(hit)return hit;
+  }
+  hit=all.find(u=>String(u.email||'').toLowerCase()===rawLc);
+  return hit||null;
 }
 
 function generateBenAIPassword(len=14){
@@ -8327,17 +8347,17 @@ function editUser(uid){
     const nouveau=(document.getElementById('user-edit-name')?.value||'').trim();
     if(!nouveau){void benaiAlert('Le nom affiché ne peut pas être vide.');return;}
     if(showVeh)vehicule=(document.getElementById('user-edit-vehicule')?.value||'').trim();
-    if(USERS[uid]){
+  if(USERS[uid]){
       USERS[uid].name=nouveau;
-      USERS[uid].vehicule=vehicule;
-    }
-    const extras=getExtraUsers();
-    const idx=extras.findIndex(e=>e.id===uid);
+    USERS[uid].vehicule=vehicule;
+  }
+  const extras=getExtraUsers();
+  const idx=extras.findIndex(e=>e.id===uid);
     if(idx>-1){extras[idx].name=nouveau;extras[idx].vehicule=vehicule;saveExtraUsers(extras);}
-    const overrides=JSON.parse(appStorage.getItem('benai_name_overrides')||'{}');
+  const overrides=JSON.parse(appStorage.getItem('benai_name_overrides')||'{}');
     overrides[uid]=nouveau;
-    appStorage.setItem('benai_name_overrides',JSON.stringify(overrides));
-    renderUsersList();renderPwdList();
+  appStorage.setItem('benai_name_overrides',JSON.stringify(overrides));
+  renderUsersList();renderPwdList();
     logActivity(`Benjamin a modifié le nom de ${uid} → ${nouveau}`);
     close();
     void benaiAlert(`✅ Nom modifié : ${nouveau}`);
@@ -9761,6 +9781,17 @@ function initLeadsPage(){
   refreshLeadsBadge();
   checkLeadsAlertes();
   checkRappelsLeads();
+  if(isCRMScopePilotageRole(role)){
+    void syncExtraUsersFromSupabaseProfiles().then(ok=>{
+      if(!ok)return;
+      try{
+        const aid=(document.querySelector('.crm-tab.active')||{}).id||'';
+        if(aid==='crm-tab-non-attribues')renderNonAttribues();
+        else renderLeads();
+        fillCommercialFilter();
+      }catch(_){}
+    });
+  }
 }
 
 function addCRMTab(id,label,active){
@@ -9965,7 +9996,7 @@ function renderDispatchCard(l){
     if(currentUser?.role==='admin')return true;
     return crmAssigneeCoversLeadSociete(u,leadSoc);
   });
-  const selectOptions=commerciaux.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  const selectOptions=commerciaux.map(c=>`<option value="${escAttr(String(c.id??''))}">${esc(c.name)}</option>`).join('');
   return `<div class="lead-card" style="border-left:4px solid var(--r);background:rgba(248,113,113,.05)">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
       <span>${srcIcon}</span>
@@ -9997,7 +10028,7 @@ function pushLeadCrmNotif(titre,msg,icon,uid){
 // ATTRIBUTION RAPIDE
 function dispatchLead(id){
   const sel=document.getElementById('dispatch-'+id);
-  const commId=sel?.value;
+  const commId=String(sel?.value||'').trim();
   if(!commId){showDriveNotif('⚠️ Choisissez un commercial ou le dir. commercial');return;}
   const leads=getLeads();
   const idx=leads.findIndex(l=>l.id===id);if(idx===-1)return;
@@ -10339,7 +10370,7 @@ function renderLeadsDashboard(){
       ${rapportHead.nonAttrib.length?`<div style="margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--y)">⚠️ ${rapportHead.nonAttrib.length} lead(s) non attribué(s)</span>${rapportHead.nonAttrib.map(l=>`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} (${getLeadAge(l)})</div>`).join('')}</div>`:''}
       ${rapportHead.nonOuverts.length?`<div style="margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--r)">👁️ ${rapportHead.nonOuverts.length} lead(s) non ouvert(s) par le commercial</span>${rapportHead.nonOuverts.map(l=>`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} → ${esc(resolveCrmCommercialLabel(l.commercial))} (${getLeadAge(l)})</div>`).join('')}</div>`:''}
       ${rapportHead.enRetard.length?`<div><span style="font-size:11px;font-weight:700;color:var(--r)">⏰ ${rapportHead.enRetard.length} lead(s) sans action +24h</span>      ${rapportHead.enRetard.map(l=>`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} → ${esc(resolveCrmCommercialLabel(l.commercial))}</div>`).join('')}</div>`:''}
-    </div>`;
+  </div>`;
   }
   if(dashPilotage){
     html+=`<nav class="crm-dash-navstrip" aria-label="Sections du tableau de bord CRM">
@@ -10624,21 +10655,21 @@ function renderLeadsDashboard(){
   // Analyse leads perdus & archives (pilotage uniquement)
   if(dashPilotage){
     html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-analyse">${crmDashSummary('📋 Pertes & archives','Motifs des leads perdus ce mois, puis volumes (archives manuelles + leads d’années passées).')}<div class="crm-dash-grp-body">`;
-    const lost=getLeadLostAnalytics(leadsMonth);
-    html+=`<div class="secteur-card"><div class="secteur-title">📉 Analyse des leads perdus</div>`;
-    if(!lost.total){
-      html+=`<div style="font-size:12px;color:var(--t3)">Aucun lead perdu ce mois.</div>`;
-    } else {
-      html+=lost.rows.map(r=>`
+  const lost=getLeadLostAnalytics(leadsMonth);
+  html+=`<div class="secteur-card"><div class="secteur-title">📉 Analyse des leads perdus</div>`;
+  if(!lost.total){
+    html+=`<div style="font-size:12px;color:var(--t3)">Aucun lead perdu ce mois.</div>`;
+  } else {
+    html+=lost.rows.map(r=>`
       <div class="perf-row">
         <div class="perf-name">${esc(r.label)}</div>
         <div class="perf-stats">${r.count} lead(s)</div>
       </div>
     `).join('');
-    }
-    html+='</div>';
-    const arch=getArchivedLeadsStats(getCompanyScopedLeads(getLeads()));
-    html+=`<div class="secteur-card"><div class="secteur-title">🗃️ Historique archivé</div>
+  }
+  html+='</div>';
+  const arch=getArchivedLeadsStats(getCompanyScopedLeads(getLeads()));
+  html+=`<div class="secteur-card"><div class="secteur-title">🗃️ Historique archivé</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
       <div class="stat-box"><div class="stat-box-val">${arch.total}</div><div class="stat-box-lbl">Total archivés</div></div>
       <div class="stat-box"><div class="stat-box-val" style="color:var(--g)">${arch.byStatut.vert}</div><div class="stat-box-lbl">Vendus</div></div>
@@ -10727,8 +10758,8 @@ function renderLeadsDashboard(){
     } else if(detailVentes){
       renderTableauVentes(detailVentes);
     } else {
-      const tvDiv=document.createElement('div');tvDiv.className='secteur-card';
-      renderTableauVentes(tvDiv);
+  const tvDiv=document.createElement('div');tvDiv.className='secteur-card';
+  renderTableauVentes(tvDiv);
       list.appendChild(tvDiv);
     }
   }
@@ -10830,7 +10861,7 @@ function editObjectifCommercial(uid,name){
       if(Number.isFinite(n)&&n>0)weeks[wk]=n;
     });
     setObjectifCommercial(uid,monthKey,mensuel,hebdo,weeks);
-    renderLeadsDashboard();
+  renderLeadsDashboard();
     logActivity(`${currentUser.name} a mis à jour les objectifs de ${name} (${labelMois})`);
     close();
   });
@@ -11129,7 +11160,7 @@ function addLeadAction(){
   saveLeads(leads);
   input.value='';
   if(canViewLeadFullTimeline()){
-    document.getElementById('timeline-list').innerHTML=(l.timeline||[]).slice().reverse().map(t=>`
+  document.getElementById('timeline-list').innerHTML=(l.timeline||[]).slice().reverse().map(t=>`
     <div class="timeline-item">
       <div class="timeline-dot"></div>
       <div class="timeline-content">
@@ -11137,7 +11168,7 @@ function addLeadAction(){
         <div class="timeline-meta">${t.date} · ${esc(t.user)}</div>
       </div>
     </div>`).join('');
-    document.getElementById('lead-timeline').style.display='block';
+  document.getElementById('lead-timeline').style.display='block';
   }
   showDriveNotif('Action enregistrée');
 }
@@ -11366,7 +11397,7 @@ async function rouvrirLead(id){
     leads[idx].date_creation=new Date().toISOString();
     addLeadTimelineEntry(leads[idx],`Réouvert — remis dans le pipeline (${curY}, nouvelle date de création)`,currentUser.name);
   }else{
-    addLeadTimelineEntry(leads[idx],'Lead réouvert',currentUser.name);
+  addLeadTimelineEntry(leads[idx],'Lead réouvert',currentUser.name);
   }
   leads[idx].statut='gris';
   saveLeads(leads);
@@ -11525,8 +11556,8 @@ function getCommercialHistoryProposal(lead){
   if(!lead?.commercial)return null;
   const user=getAllUsers().find(u=>u.id===lead.commercial);
   if(user){
-    const access=getAccess();
-    const isActive=access[lead.commercial]!==false;
+  const access=getAccess();
+  const isActive=access[lead.commercial]!==false;
     return{id:user.id,name:user.name,isActive};
   }
   const arch=getCommercialArchiveByUid(lead.commercial);
@@ -11573,7 +11604,7 @@ function fillCommercialFilter(){
     }
     return true;
   });
-  sel.innerHTML='<option value="">Tous commerciaux</option>'+commerciaux.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  sel.innerHTML='<option value="">Tous commerciaux</option>'+commerciaux.map(c=>`<option value="${escAttr(String(c.id??''))}">${esc(c.name)}</option>`).join('');
 }
 function fillCommercialAssign(selected=''){
   const sel=document.getElementById('lead-commercial-assign');if(!sel)return;
@@ -11591,7 +11622,7 @@ function fillCommercialAssign(selected=''){
     return true;
   });
   const selN=selected?normalizeId(String(selected)):'';
-  let opts='<option value="">⏳ Non attribué</option>'+users.map(c=>`<option value="${c.id}"${selN&&normalizeId(String(c.id))===selN?' selected':''}>${esc(c.name)} (${c.role==='directeur_co'?'Dir.co':c.role==='directeur_general'?'Dir. général':'Commercial'})</option>`).join('');
+  let opts='<option value="">⏳ Non attribué</option>'+users.map(c=>`<option value="${escAttr(String(c.id??''))}"${selN&&normalizeId(String(c.id))===selN?' selected':''}>${esc(c.name)} (${c.role==='directeur_co'?'Dir.co':c.role==='directeur_general'?'Dir. général':'Commercial'})</option>`).join('');
   if(selected&&selected!==''&&!users.some(c=>normalizeId(String(c.id))===selN)){
     opts+=`<option value="${String(selected).replace(/"/g,'&quot;')}" selected>${esc(resolveCrmCommercialLabel(selected))}</option>`;
   }
@@ -11910,7 +11941,7 @@ function exportAllCRMTables(){
       downloadCsv(item.filename,item.content);
       if(i===items.length-1){
         window._benaiExportAllBusy=false;
-        showDriveNotif(`📦 Tableaux CRM exportés (${formatMois(payload.currentMonth)})`);
+  showDriveNotif(`📦 Tableaux CRM exportés (${formatMois(payload.currentMonth)})`);
       }
     },i*480);
   });
@@ -13462,15 +13493,15 @@ function benaiSkipGlobalSpellcheck(el){
 }
 function benaiApplySpellcheckPolicy(el,isPhone){
   if(benaiSkipGlobalSpellcheck(el))return;
-  if(isPhone){
-    el.spellcheck=false;
-    el.setAttribute('autocorrect','off');
-    el.setAttribute('autocapitalize','none');
-    return;
-  }
-  el.spellcheck=true;
-  el.setAttribute('autocorrect','on');
-  el.setAttribute('autocapitalize','sentences');
+    if(isPhone){
+      el.spellcheck=false;
+      el.setAttribute('autocorrect','off');
+      el.setAttribute('autocapitalize','none');
+      return;
+    }
+    el.spellcheck=true;
+    el.setAttribute('autocorrect','on');
+    el.setAttribute('autocapitalize','sentences');
 }
 function enableSpellcheckEverywhere(){
   const isPhone=/iphone|ipad|ipod|android|mobile/i.test((navigator.userAgent||'').toLowerCase());
