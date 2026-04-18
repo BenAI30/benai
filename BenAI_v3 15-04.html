@@ -3932,7 +3932,7 @@ function getAnthropicHeaders(apiKey){
   };
 }
 
-async function requestAnthropicMessages(body,retryOnInvalidKey=true){
+async function requestAnthropicMessages(body,retryOnInvalidKey=true,timeoutMs=120000){
   let apiKey=await getApiKeyForChat();
   if(!apiKey){
     throw new Error('Clé API manquante — reconnectez-vous puis revalidez la clé IA dans Paramètres');
@@ -3942,7 +3942,7 @@ async function requestAnthropicMessages(body,retryOnInvalidKey=true){
       method:'POST',
       headers:getAnthropicHeaders(key),
       body:JSON.stringify(body)
-    },15000);
+    },timeoutMs);
     let data={};
     try{data=await res.json();}catch(e){}
     return {res,data};
@@ -6951,7 +6951,7 @@ async function runHabitImprovementSuggestions(){
       max_tokens:2800,
       system:systemAdd+BENAI_CTX,
       messages:[{role:'user',content:userContent}]
-    });
+    },true,180000);
     const latency=Math.round(((typeof performance!=='undefined'&&performance.now)?performance.now():Date.now())-t0);
     const usage=data.usage||{};
     const inp=Number(usage.input_tokens||0);
@@ -6972,8 +6972,10 @@ async function runHabitImprovementSuggestions(){
     setHabitAiReportVisible(rawText);
     try{logActivity(`${currentUser.name} a lancé l’analyse « suggestions usage » IA`);}catch{}
   }catch(e){
-    if(met)met.textContent='Erreur : '+(e?.message||e||'?');
-    showDriveNotif('❌ Analyse IA impossible — vérifiez la clé API.');
+    const aborted=e?.name==='AbortError'||/aborted|AbortError/i.test(String(e?.message||''));
+    const errTxt=aborted?'Délai dépassé (réponse IA trop longue ou réseau lent). Réessayez dans un instant.':(e?.message||e||'?');
+    if(met)met.textContent='Erreur : '+errTxt;
+    showDriveNotif(aborted?'⏱️ Analyse interrompue — délai réseau. Réessayez.':'❌ Analyse IA impossible — vérifiez la clé API ou le réseau.');
   }finally{
     if(btn){btn.disabled=false;btn.textContent='Analyser mon usage et proposer des améliorations';}
   }
