@@ -2753,7 +2753,7 @@ function initApp(silent=false){
 
   // Réinitialiser TOUS les éléments admin avant d'appliquer les droits
   ['nav-admin','nav-absences','nav-annuaire','nav-paie','nav-leads',
-   'nav-benai','nav-notes','nav-messages','nav-sav','nav-guide','nav-bugs'].forEach(id=>{
+   'nav-benai','nav-notes','nav-messages','nav-sav','nav-guide','nav-evolution','nav-bugs','nav-signaler'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
 
@@ -2763,6 +2763,10 @@ function initApp(silent=false){
     const nav=document.getElementById('nav-'+p);
     if(nav)nav.style.display='flex';
   });
+  const navSig=document.getElementById('nav-signaler');
+  if(navSig)navSig.style.display='flex';
+  const navTk=document.getElementById('nav-bugs');
+  if(navTk)navTk.style.display=u.role==='admin'?'flex':'none';
   updateNavAbsencesVisibility();
   // Nav leads toujours visible si dans les droits
   if(allowed.includes('leads')){
@@ -2867,7 +2871,7 @@ function showPage(page){
   }
   if(page==='notes')renderNotes();
   if(page==='absences'){configureAbsencesPageForRole();renderAbsences();if(currentUser?.role==='admin')fillAbsEmpList();}
-  if(page==='evolution')renderEvolution();
+  if(page==='evolution'){syncEvolutionHabitAiPanel();renderEvolution();}
   if(page==='guide')renderGuidePage();
   if(page==='annuaire')initEquipePage();
   if(page==='paie')renderPaieList();
@@ -4962,7 +4966,17 @@ function hydrateHabitAiPanel(){
   }
 }
 
+function syncEvolutionHabitAiPanel(){
+  const wrap=document.getElementById('habit-ai-wrap');
+  if(!wrap)return;
+  wrap.style.display=currentUser?.role==='admin'?'block':'none';
+}
+
 async function runHabitImprovementSuggestions(){
+  if(currentUser?.role!=='admin'){
+    showDriveNotif('Analyse IA réservée à l’administration.');
+    return;
+  }
   const btn=document.getElementById('habit-ai-run-btn');
   const out=document.getElementById('habit-ai-output');
   const met=document.getElementById('habit-ai-metrics');
@@ -5108,11 +5122,11 @@ function renderGuidePage(){
       'Tu peux consulter le dashboard et traiter les alertes qui te semblent les plus utiles en premier.',
       'Le module SAV permet de suivre les rappels, d’archiver les dossiers clos et d’ajuster les notifications si besoin.',
       'Tu peux attribuer ou réattribuer les leads CRM pour équilibrer la charge.',
-      'Tu peux jeter un œil régulièrement aux retours Bugs et aux connexions.'
+      'Tu peux suivre les tickets depuis l’onglet administration et jeter un œil aux connexions.'
     ],
     directeur_co:[
       'Périmètre : l’entreprise et les zones CRM affichées suivent ton compte ; filtres, synthèses dashboard et objectifs restent cohérents.',
-      'Menus visibles : Leads CRM, Messages, Absences, Guide, Bugs.',
+      'Menus visibles : Leads CRM, Messages, Absences, Guide — signalement via « Signaler » (pas de liste des tickets).',
       'Leads CRM — « À attribuer » (sans commercial), « Tous les leads », puis « Dashboard ».',
       '« À attribuer » : dossiers en attente d’attribution ; tu peux attribuer depuis la carte ou la fiche.',
       '« Tous les leads » : filtres, recherche, pastilles ; filtre société seulement si ton accès couvre les deux entités.',
@@ -5121,12 +5135,12 @@ function renderGuidePage(){
       'Dashboard : KPI, secteurs, ventes, objectifs, exports.',
       'Exports : périmètre fichiers = leads et secteurs visibles pour toi.',
       'Notifications : badge Leads surtout sur non attribués et alertes.',
-      'Messages : échanges rapides. Absences : planning si l’équipe le renseigne. Bugs : dysfonctionnement à signaler.'
+      'Messages : échanges rapides. Absences : planning si l’équipe le renseigne. Signalement : menu « Signaler ».'
     ],
     directeur_general:[
       'Même logique de périmètre et d’onglets CRM que le dir. commercial ; mêmes usages (attribution, statuts, timeline, exports).',
       'Les rappels automatiques ciblent surtout le dir. commercial et les commerciaux ; le CRM reste disponible pour lecture ou action à la demande.',
-      'Messages pour les arbitrages ; Bugs pour les incidents techniques répétés.'
+      'Messages pour les arbitrages ; « Signaler » pour les incidents techniques répétés.'
     ],
     commercial:[
       'Le CRM regroupe tes dossiers en charge : « Mes leads » pour la liste ou le kanban, « Mes ventes » pour les signatures et le suivi d’objectifs.',
@@ -5141,10 +5155,10 @@ function renderGuidePage(){
       'Badge et notifications : tu peux réagir ou ajuster la date dans la fiche.',
       'Messages pour les relances ; fiche lead pour ce qui engage le dossier.',
       'Absences : tu peux déclarer les tiennes pour que l’équipe puisse anticiper.',
-      'Bugs : tu peux ouvrir l’onglet et décrire la page et ce que tu faisais.'
+      'En cas de blocage : menu « Signaler » — décris la page et ce que tu faisais.'
     ],
     assistante:[
-      'Menus BenAI : BenAI (IA), Notes, Messages, SAV, Leads CRM, Évolutions, Guide, Bugs.',
+      'Menus BenAI : BenAI (IA), Notes, Messages, SAV, Leads CRM, Évolutions, Guide — et « Signaler » en cas de blocage.',
       'Leads CRM : « Mes leads » pour retrouver et compléter tes saisies ; la recherche texte aide à retrouver un client.',
       'Création : + Nouveau lead — champs demandés à l’enregistrement ; le secteur suit le code postal ; tu peux compléter ville et commentaire.',
       'Tu enregistres le contact ; la direction peut être prévenue si un dossier similaire existe.',
@@ -5154,19 +5168,19 @@ function renderGuidePage(){
       'SAV : menu dédié avec rappel (souvent 5 jours).',
       'Messages : coordination ; cite le client ou l’ID lead.',
       'Notes : perso ; info utile au magasin → fiche ou message.',
-      'Évolutions : nouveautés. Bugs : tu peux signaler un blocage avec contexte.',
+      'Évolutions : nouveautés. Signalement : menu « Signaler » avec le contexte.',
       'Pistes de journée : appel → fiche complète → message si relais → SAV si installation.'
     ],
     metreur:[
       'Tu peux utiliser la messagerie interne pour transmettre les infos chantier.',
       'Tu peux ajouter des notes courtes et précises.',
-      'Tu peux signaler un bug depuis l’onglet dédié en cas de blocage.'
+      'Tu peux signaler un problème depuis le menu « Signaler » en cas de blocage.'
     ]
   };
   const common=[
     'BenAI suggère toujours, vous décidez toujours.',
     ...(canInstallMobile?['Sur mobile, installe BenAI via « 📲 Installer » pour un accès direct.']:[]),
-    'En cas d’anomalie, tu peux la signaler depuis l’onglet Bugs.'
+    'En cas d’anomalie, tu peux utiliser « Signaler » dans la barre latérale.'
   ];
   const actions=roleGuide[role]||roleGuide.assistante;
   const mustAck=shouldForceRoleGuide();
@@ -6766,11 +6780,11 @@ const CRM_ROLES=['directeur_co','directeur_general','commercial'];
 const CRM_PAGES_ONLY=['directeur_co','directeur_general','commercial'];
 const ROLE_PAGES={
   admin:['benai','notes','messages','sav','leads','absences','annuaire','paie','admin','evolution','guide','bugs'],
-  assistante:['benai','notes','messages','sav','leads','absences','evolution','guide','bugs'],
-  metreur:['benai','notes','messages','absences','evolution','guide','bugs'],
-  directeur_co:['leads','messages','absences','guide','bugs'],
-  directeur_general:['leads','messages','absences','guide','bugs'],
-  commercial:['leads','messages','absences','guide','bugs']
+  assistante:['benai','notes','messages','sav','leads','absences','evolution','guide'],
+  metreur:['benai','notes','messages','absences','evolution','guide'],
+  directeur_co:['benai','notes','messages','sav','leads','absences','evolution','guide'],
+  directeur_general:['benai','notes','messages','sav','leads','absences','evolution','guide'],
+  commercial:['benai','notes','messages','sav','leads','absences','evolution','guide']
 };
 /** Même périmètre CRM / pilotage (société, filtres, onglets) que le dir. commercial. */
 function isCRMScopePilotageRole(role){
@@ -8635,7 +8649,7 @@ function resolveAutoBug(page,desc,response='Auto-résolu'){
   });
   if(!changed)return false;
   saveBugs(bugs);
-  renderBugsList();
+  if(currentUser?.role==='admin')renderBugsList();
   refreshBugsBadge();
   return true;
 }
@@ -8804,6 +8818,43 @@ setupSafeSelfHealing();
 
 let currentBugFilter='tous';
 
+function openBugReportOverlay(){
+  const ov=document.getElementById('bug-rpt-overlay');
+  if(!ov)return;
+  const d=document.getElementById('rpt-desc');
+  if(d)d.value='';
+  ov.style.display='flex';
+}
+function closeBugReportOverlay(){
+  const ov=document.getElementById('bug-rpt-overlay');
+  if(ov)ov.style.display='none';
+}
+async function submitBugReportOverlay(){
+  const desc=(document.getElementById('rpt-desc')?.value||'').trim();
+  if(!desc){alert('Décris le problème avant d’envoyer.');return;}
+  const pageVal=document.getElementById('rpt-page')?.value||'Autre';
+  const gravVal=document.getElementById('rpt-gravite')?.value||'important';
+  const bugs=getBugs();
+  const now=new Date();
+  bugs.unshift({
+    id:Date.now(),
+    page:pageVal,
+    gravite:gravVal,
+    desc,
+    user:currentUser.name,
+    userId:currentUser.id,
+    date:now.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+    statut:'ouvert',
+    rapport_dev:buildDevIncidentReport({page:pageVal,desc,gravite:gravVal,extra:{canal:'overlay_signalement'},auto:false,source:'Signalement utilisateur'})
+  });
+  saveBugs(bugs);
+  closeBugReportOverlay();
+  if(currentUser?.role==='admin')renderBugsList();
+  refreshBugsBadge();
+  logActivity(`${currentUser.name} a signalé un problème`);
+  showDriveNotif('✅ Signalement envoyé — merci !');
+}
+
 function openNewBug(){
   document.getElementById('bug-form-wrap').style.display='block';
   document.getElementById('bug-desc').value='';
@@ -8830,7 +8881,7 @@ function saveBug(){
   saveBugs(bugs);
   document.getElementById('bug-form-wrap').style.display='none';
   document.getElementById('bug-desc').value='';
-  renderBugsList();
+  if(currentUser?.role==='admin')renderBugsList();
   refreshBugsBadge();
   logActivity(`${currentUser.name} a signalé un bug`);
   showDriveNotif('✅ Bug signalé — merci !');
@@ -8844,9 +8895,13 @@ function filterBugs(f,btn){
 }
 
 function initBugsPage(){
-  const role=currentUser?.role;
+  if(currentUser?.role!=='admin'){
+    const allowed=ROLE_PAGES[currentUser?.role]||ROLE_PAGES['assistante'];
+    showPage(allowed[0]||'guide');
+    return;
+  }
   const filterBar=document.getElementById('bug-filter-bar');
-  if(filterBar)filterBar.style.display=role==='admin'?'flex':'none';
+  if(filterBar)filterBar.style.display='flex';
   renderBugsList();
   refreshBugsBadge();
 }
@@ -8854,9 +8909,8 @@ function initBugsPage(){
 function renderBugsList(){
   const list=document.getElementById('bugs-list');if(!list)return;
   const role=currentUser?.role;
+  if(role!=='admin'){list.innerHTML='';return;}
   let bugs=getBugs();
-  // Non-admin voit seulement ses bugs
-  if(role!=='admin')bugs=bugs.filter(b=>b.userId===currentUser.id);
   // Filtres admin
   if(currentBugFilter==='ouvert')bugs=bugs.filter(b=>b.statut==='ouvert');
   else if(currentBugFilter==='resolu')bugs=bugs.filter(b=>b.statut==='resolu');
@@ -8890,7 +8944,8 @@ function resolveBug(id){
   const rep=document.getElementById('bug-rep-'+id)?.value.trim()||'Corrigé';
   b.statut='resolu';b.reponse=rep;b.date_resolution=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   saveBugs(bugs);
-  renderBugsList();refreshBugsBadge();
+  if(currentUser?.role==='admin')renderBugsList();
+  refreshBugsBadge();
   logActivity(`Benjamin a résolu un bug : ${b.page}`);
 }
 
@@ -8922,10 +8977,8 @@ function copyBugRapport(id){
 
 function refreshBugsBadge(){
   const badge=document.getElementById('bugs-badge');if(!badge)return;
-  const role=currentUser?.role;
-  let bugs=getBugs();
-  if(role!=='admin')bugs=bugs.filter(b=>b.userId===currentUser.id&&b.statut==='resolu'&&!b.notif_seen);
-  else bugs=bugs.filter(b=>b.statut==='ouvert');
+  if(currentUser?.role!=='admin'){badge.style.display='none';return;}
+  const bugs=getBugs().filter(b=>b.statut==='ouvert');
   if(bugs.length>0){badge.style.display='flex';badge.textContent=bugs.length;}
   else badge.style.display='none';
 }
@@ -9881,7 +9934,7 @@ try{
 
 const TUTO_SLIDES_BY_ROLE={
   commercial:[
-    {icon:'🎯',title:'Ton rôle en une phrase',desc:'Tu peux faire vivre chaque opportunité dans le CRM : appels, RDV, devis, signature ou perte documentée. BenAI affiche la liste ; tu peux y consigner la réalité terrain après chaque contact, quand tu le souhaites.',highlight:'Onglets visibles : Leads CRM, Messages, Absences, Guide, Bugs'},
+    {icon:'🎯',title:'Ton rôle en une phrase',desc:'Tu peux faire vivre chaque opportunité dans le CRM : appels, RDV, devis, signature ou perte documentée. BenAI affiche la liste ; tu peux y consigner la réalité terrain après chaque contact, quand tu le souhaites.',highlight:'Onglets visibles : Leads CRM, Messages, Absences, Guide — et « Signaler » pour un blocage technique'},
     {icon:'🗺️',title:'Navigation CRM',desc:'Dans Leads CRM : « Mes leads » (liste ou kanban), puis « Mes ventes » (tableau des ventes et suivi d’objectifs).',highlight:'Tu peux basculer ☰ / ⊞ selon ce qui te convient le mieux'},
     {icon:'🔎',title:'Trier et filtrer',desc:'Les pastilles Tous, Non traité, RDV pris, Devis envoyé, Vendu, Perdu, Archives et Alertes aident à structurer la vue. La recherche texte retrouve nom, téléphone ou ville. Beaucoup d’équipes combinent Alertes et Non traité en premier regard.',highlight:'Tu peux adapter l’ordre de traitement à ta journée'},
     {icon:'➕',title:'Créer un lead (terrain / prospection)',desc:'Bouton + Nouveau lead : nom, téléphone, code postal et type de projet sont demandés à l’enregistrement. La source « ACTIF » t’attribue automatiquement le dossier ; pour les autres cas, l’organisation gère l’attribution selon vos règles.',highlight:'Un secteur cohérent avec le CP limite les erreurs de zone'},
@@ -9894,12 +9947,12 @@ const TUTO_SLIDES_BY_ROLE={
     {icon:'⚠️',title:'Cas particulier — Hors secteur',desc:'Si le code postal sort de la zone habituelle, BenAI peut demander une courte justification avant d’enregistrer (ex. chantier exceptionnel, client historique).',highlight:'Même logique à la création ou à la mise à jour'},
     {icon:'🔔',title:'Notifications et badge',desc:'Le badge sur Leads met surtout en avant les dossiers avec alerte métier. Les notifications résument aussi les volumes à traiter : tu peux t’en servir comme rappel.',highlight:'Tu peux mettre à jour le CRM après traitement pour faire baisser les alertes'},
     {icon:'💬',title:'Messages et absences',desc:'Messages sert aux accords rapides (« je passe demain », « client veut l’autre coloris »). Les décisions structurantes peuvent rester dans la fiche lead. Tu peux déclarer tes absences pour que l’équipe anticipe si besoin.',highlight:'Messages et CRM se complètent'},
-    {icon:'🐛',title:'Onglet Bugs',desc:'Si un écran bloque, qu’un bouton ne répond pas ou qu’un message d’erreur apparaît, tu peux ouvrir l’onglet Bugs depuis le menu. Décris la page, l’action juste avant le problème et la gravité : BenAI peut préparer un rapport structuré (copiable) pour faciliter la correction.',highlight:'Un signalement détaillé aide en général à corriger plus vite'},
-    {icon:'✅',title:'Pistes de journée',desc:'Exemples : alertes ou non traités, appel + mise à jour du statut, RDV → Agenda puis « RDV fait », devis avec montants/dates, vendu avec prix HT, perdu avec motif, devis anciens à relancer, Bugs si l’outil bloque.',highlight:'Tu restes libre d’organiser ta journée comme tu préfères'},
+    {icon:'🛟',title:'Signaler un problème',desc:'Si un écran bloque, qu’un bouton ne répond pas ou qu’un message d’erreur apparaît, ouvre « Signaler » dans le menu. Décris la page, l’action juste avant le problème et la gravité : BenAI prépare un rapport structuré pour l’équipe technique (tu ne vois pas la liste des tickets).',highlight:'Un signalement détaillé aide en général à corriger plus vite'},
+    {icon:'✅',title:'Pistes de journée',desc:'Exemples : alertes ou non traités, appel + mise à jour du statut, RDV → Agenda puis « RDV fait », devis avec montants/dates, vendu avec prix HT, perdu avec motif, devis anciens à relancer, « Signaler » si l’outil bloque.',highlight:'Tu restes libre d’organiser ta journée comme tu préfères'},
   ],
   directeur_co:[
     {icon:'🏢',title:'Ton entreprise sur BenAI',desc:'Ce tutoriel décrit ce que tu vois dans BenAI pour ton compte : l’entreprise et les zones CRM affichées suivent le réglage du profil. Filtres secteur, cartes du tableau de bord et commerciaux listés restent alignés sur ce périmètre.',highlight:'Si un collègue te prête sa session, tu peux vérifier en haut de l’écran que c’est bien ton compte.'},
-    {icon:'📊',title:'Menus visibles',desc:'Leads CRM, Messages, Absences, Guide, Bugs. Le CRM sert à attribuer, suivre et chiffrer les dossiers.',highlight:'Tu peux ouvrir Leads CRM quand tu en as besoin'},
+    {icon:'📊',title:'Menus visibles',desc:'Leads CRM, Messages, Absences, Guide. En cas de blocage : menu « Signaler » (la liste des tickets reste côté administration). Le CRM sert à attribuer, suivre et chiffrer les dossiers.',highlight:'Tu peux ouvrir Leads CRM quand tu en as besoin'},
     {icon:'🧭',title:'Les trois onglets CRM',desc:'« À attribuer » : nouveaux dossiers sans commercial assigné. « Tous les leads » : le pipeline (recherche, pastilles de statut, liste ou kanban, archives, alertes). « Dashboard » : synthèses (KPI, secteurs, CA, équipe, exports, objectifs).',highlight:'Tu peux commencer par « À attribuer » pour enchaîner les nouveaux dossiers, si tu le souhaites'},
     {icon:'🎛️',title:'Filtres liste & kanban',desc:'Tu peux combiner recherche texte, pastilles (Non traité, RDV, Devis, Vendu, Perdu, Archives, Alertes), filtre secteur (les zones de ton périmètre), filtre commercial. Le filtre par société n’apparaît que si ton accès couvre les deux entités.',highlight:'Tu peux réinitialiser les filtres si une vue semble vide'},
     {icon:'🤝',title:'Attribuer ou reprendre un lead',desc:'Sur « À attribuer » ou dans la fiche : champ « Commercial » — tu peux choisir un vendeur, un autre dirigeant, ou toi-même pour porter le dossier. Changement = notification + entrée dans l’historique.',highlight:'Tu peux t’assigner comme un commercial'},
@@ -9909,17 +9962,17 @@ const TUTO_SLIDES_BY_ROLE={
     {icon:'📈',title:'Dashboard — ce que tu y vois',desc:'Résumé KPI, Secteurs & mois (souvent replié en premier pour toi), ventes & RDV, CA par entreprise, détail ventes, équipe puis Objectifs commerciaux (ouvert par défaut), pertes & archives, exports. Les objectifs listent l’annuaire vendeurs + les attributions visibles sur les leads.',highlight:'Barre « Aller à » : lien Objectifs après Équipe'},
     {icon:'📥',title:'Exports',desc:'Depuis le dashboard : menu Export secteur + bouton Performance secteurs ; plus bas « Exporter tous les leads » et paquets CSV. Les fichiers respectent ton périmètre leads + secteurs visibles.',highlight:'UTF-8, séparateur ; pour Excel France'},
     {icon:'🔔',title:'Badge & notifications',desc:'Le badge sur Leads compte surtout les dossiers à traiter sur ton périmètre (non attribués, alertes). Les notifications résument aussi les volumes à traiter.',highlight:'Tu peux mettre à jour les statuts des dossiers traités pour faire baisser les alertes'},
-    {icon:'💬',title:'Messages, absences, bugs',desc:'Messages pour les accords rapides ; onglet Absences si tu consultes les disponibilités saisies par l’équipe ; Bugs pour signaler un blocage technique (page, clic, message d’erreur).',highlight:'Bugs = canal utile pour les correctifs'},
+    {icon:'💬',title:'Messages, absences, signalement',desc:'Messages pour les accords rapides ; onglet Absences si tu consultes les disponibilités saisies par l’équipe ; menu « Signaler » pour un blocage technique (page, clic, message d’erreur) — sans accès à la liste des tickets.',highlight:'Un signalement précis aide l’équipe technique'},
     {icon:'✅',title:'Pistes pour t’organiser',desc:'Exemples : parcourir les dossiers à attribuer, repérer alertes ou non traités, ouvrir les fiches sensibles (timeline), consulter le dashboard en fin de période. Des champs devis / vendu / perdu renseignés améliorent la qualité des statistiques.',highlight:'Tu restes libre d’adapter la routine à ton équipe'},
   ],
   directeur_general:[
     {icon:'🏢',title:'Même périmètre que le dir. commercial',desc:'Tu consultes et agis sur les mêmes écrans que le dir. commercial ; entreprise et zones visibles suivent le réglage de ton compte.',highlight:'Tu as accès aux onglets CRM pilotage sur ton périmètre'},
     {icon:'🧭',title:'Onglets & dashboard',desc:'À attribuer, Tous les leads, Dashboard — mêmes usages que le directeur commercial (attribution, statuts, chiffres, exports).',highlight:'Tu peux dépanner si le dir. co est momentanément indisponible'},
     {icon:'📜',title:'Timeline & qualité des fiches',desc:'Tu vois la même timeline sur les dossiers attribués ; tu peux t’en servir pour repérer les infos manquantes (devis datés, vendu avec montant, perdu avec motif).',highlight:'Des fiches complètes rendent les comités plus fiables'},
-    {icon:'💬',title:'Messages & bugs',desc:'Messages pour les arbitrages rapides ; Bugs pour les incidents répétés.',highlight:'Tu peux détailler le signalement pour faciliter la correction'},
+    {icon:'💬',title:'Messages & signalement',desc:'Messages pour les arbitrages rapides ; menu « Signaler » pour les incidents répétés (pas d’accès à la liste des tickets).',highlight:'Tu peux détailler le signalement pour faciliter la correction'},
   ],
   assistante:[
-    {icon:'🧭',title:'Ta place dans BenAI',desc:'Tu es souvent le premier contact avec le client et tu peux saisir le dossier dans l’outil. Un lead clair limite les allers-retours. Tu as BenAI IA, Notes, Messages, SAV, Leads CRM, Évolutions, Guide, Bugs.',highlight:'Les absences sont en pratique gérées par l’administration'},
+    {icon:'🧭',title:'Ta place dans BenAI',desc:'Tu es souvent le premier contact avec le client et tu peux saisir le dossier dans l’outil. Un lead clair limite les allers-retours. Tu as BenAI IA, Notes, Messages, SAV, Leads CRM, Évolutions, Guide — et « Signaler » en cas de blocage.',highlight:'Les absences sont en pratique gérées par l’administration'},
     {icon:'📥',title:'Entrants : saisir le contact',desc:'Quand le téléphone sonne : tu peux noter nom, projet, code postal, téléphone. Tu crées le lead avec ces infos — tu n’as pas à chercher toi-même les doublons ; la direction commerciale peut voir une alerte en cas de dossier similaire.',highlight:'Le code postal détermine automatiquement le secteur'},
     {icon:'➕',title:'Créer un lead',desc:'Leads CRM → + Nouveau lead. À l’enregistrement : nom, téléphone, adresse, code postal, type de projet. Le secteur se remplit selon le CP. Tu peux ajouter ville et un commentaire clair (source : magasin, site, téléphone…).',highlight:'Tu enregistres ici la prise de contact, pas la planification du RDV commercial'},
     {icon:'🏷️',title:'Après ta saisie',desc:'Le directeur commercial peut attribuer un vendeur ; sans dir. co, une attribution automatique peut s’appliquer. Tu peux compléter commentaire ou suivi sur tes fiches ; le tunnel avancé (devis, vendu…) est en général tenu par le terrain une fois le dossier attribué.',highlight:'Pas de notification « leads urgents » automatique sur ton compte — la messagerie reste un canal calme'},
@@ -9927,26 +9980,26 @@ const TUTO_SLIDES_BY_ROLE={
     {icon:'🔧',title:'SAV chantier',desc:'Menu SAV → Nouveau : client, problème, fournisseur, rappel. Les notifications suivent les règles BenAI.',highlight:'SAV et lead vente sont deux filières différentes'},
     {icon:'💬',title:'Messages',desc:'Tu peux écrire à l’équipe pour consignes, questions ou coordination ; indique le nom du client ou l’identifiant du lead.',highlight:'Les urgences terrain peuvent aussi passer par le téléphone ou la fiche une fois le dossier attribué'},
     {icon:'📝',title:'Notes perso',desc:'Notes sert à ton organisation personnelle. Pour une info utile au magasin ou au commercial, la fiche lead ou un message convient souvent mieux.',highlight:'CRM et Messages portent le partage d’équipe'},
-    {icon:'🐛',title:'Bugs — en cas de blocage',desc:'Onglet Bugs : page concernée, ce que tu faisais, message d’erreur. Évolutions = nouveautés ; Bugs = correctifs.',highlight:'Un signalement précis aide à corriger plus vite'},
+    {icon:'🛟',title:'Signalement — en cas de blocage',desc:'Menu « Signaler » : page concernée, ce que tu faisais, message d’erreur. Évolutions = nouveautés produit ; les correctifs sont traités côté administration.',highlight:'Un signalement précis aide à corriger plus vite'},
     {icon:'✅',title:'Pistes de journée',desc:'Exemples : appel pertinent → fiche complète, messages pour la coordination, SAV si problème d’installation.',highlight:'Tu poses les bases ; le commercial peut prendre le relais sur la suite'},
   ],
   admin:[
     {icon:'🛡️',title:'Espace administrateur',desc:'Tu peux piloter l’activité globale : tableau de bord synthétique, SAV, messages, notes, et accès CRM complet selon les droits des comptes.',highlight:'Tu peux commencer par les alertes du tableau de bord si tu le souhaites'},
     {icon:'📊',title:'Tableau de bord & SAV',desc:'Tu peux consulter les cartes d’activité ; ouvrir SAV pour suivre les dossiers ouverts et les rappels ; archiver ou mettre en sourdine quand c’est clos.',highlight:'Tu peux rafraîchir le SAV en fin de journée si le volume est élevé'},
     {icon:'👥',title:'Leads & équipes',desc:'Tu peux attribuer ou réattribuer des leads, vérifier les connexions et l’usage mobile, et consulter le journal des suppressions si besoin.',highlight:'Les changements de commercial notifient la personne concernée'},
-    {icon:'🐛',title:'Qualité & Bugs',desc:'Tu peux encourager les retours via l’onglet Bugs (page, étapes, gravité) — canal fiable pour les dysfonctionnements.',highlight:'Un signalement précis limite les allers-retours'},
+    {icon:'🎫',title:'Qualité & tickets',desc:'Tu gères les tickets depuis l’onglet réservé admin ; tu peux encourager l’équipe à utiliser « Signaler » (page, étapes, gravité).',highlight:'Un signalement précis limite les allers-retours'},
   ],
   metreur:[
-    {icon:'📐',title:'Métreur — usage BenAI',desc:'BenAI peut t’aider à transmettre les informations chantier rapidement et clairement.',highlight:'Souvent utile : Messages, Notes, Bugs'},
+    {icon:'📐',title:'Métreur — usage BenAI',desc:'BenAI peut t’aider à transmettre les informations chantier rapidement et clairement.',highlight:'Souvent utile : Messages, Notes, Signaler'},
     {icon:'💬',title:'Messages internes',desc:'Tu peux partager les infos chantier importantes avec la bonne personne via Messages.',highlight:'Messages = communication équipe'},
     {icon:'📝',title:'Notes personnelles',desc:'Tu peux utiliser Notes pour tes rappels et éléments à vérifier.',highlight:'Notes = organisation perso'},
     {icon:'🤖',title:'BenAI IA',desc:'Tu peux t’appuyer sur BenAI IA pour reformuler un message, préparer un email ou clarifier une réponse.',highlight:'BenAI IA = aide de rédaction'},
-    {icon:'🐛',title:'Signaler un bug',desc:'En cas de blocage, tu peux ouvrir l’onglet Bugs avec une description précise.',highlight:'Contexte + action qui bloque aident beaucoup'},
+    {icon:'🛟',title:'Signaler un problème',desc:'En cas de blocage, ouvre « Signaler » dans le menu avec une description précise.',highlight:'Contexte + action qui bloque aident beaucoup'},
     {icon:'✅',title:'Piste utile',desc:'Laisser une trace claire des infos chantier limite souvent les oublis côté équipe.',highlight:null},
   ],
   default:[
     {icon:'👋',title:'Bienvenue sur BenAI',desc:'BenAI peut t’aider à traiter les actions du quotidien un peu plus vite et un peu plus proprement.',highlight:null},
-    {icon:'✅',title:'Prêt(e)',desc:'Tu peux suivre le guide de ton rôle, mettre à jour tes actions au fil de l’eau, et en cas de blocage technique ouvrir l’onglet Bugs pour un signalement structuré.',highlight:null},
+    {icon:'✅',title:'Prêt(e)',desc:'Tu peux suivre le guide de ton rôle, mettre à jour tes actions au fil de l’eau, et en cas de blocage technique utiliser « Signaler » pour un ticket structuré.',highlight:null},
   ]
 };
 

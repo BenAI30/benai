@@ -100,10 +100,12 @@ L’UI utilise `ROLE_PAGES` : **pages visibles** (pas forcément égal aux droit
 
 | Rôle | Pages (aperçu) |
 |------|------------------|
-| **admin** | benai, notes, messages, sav, leads, absences, annuaire, paie, admin, evolution, guide, bugs |
-| **assistante** | benai, notes, messages, sav, leads, absences, evolution, guide, bugs (**pas** annuaire / paie / admin) |
-| **metreur** | benai, notes, messages, absences, evolution, guide, bugs (**pas** sav/leads dans la liste) |
-| **directeur_co / directeur_general / commercial** | benai, notes, messages, sav, leads, absences, evolution, guide, bugs (aligné RLS société sur SAV / leads). |
+| **admin** | benai, notes, messages, sav, leads, absences, annuaire, paie, admin, evolution, guide, **bugs** (écran Tickets / liste des signalements) |
+| **assistante** | benai, notes, messages, sav, leads, absences, evolution, guide (**pas** bugs / annuaire / paie / admin) |
+| **metreur** | benai, notes, messages, absences, evolution, guide (**pas** bugs / sav / leads dans la liste) |
+| **directeur_co / directeur_general / commercial** | benai, notes, messages, sav, leads, absences, evolution, guide (**pas** bugs ; aligné RLS société sur SAV / leads). |
+
+**Signalement** : entrée **« Signaler »** (overlay) pour tous les comptes connectés — envoi d’un ticket **sans** accès à la liste ; la consultation / résolution reste **admin** (page `bugs`).
 
 Le rôle affiché après login Supabase passe par **`normalizeProfileRole()`** (minuscules, espaces/tirets → `_`, alias dg / dirco) pour coller au CHECK SQL et éviter une vue « commercial » (2 onglets CRM) si la base renvoie une chaîne mal formée.
 
