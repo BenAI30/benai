@@ -1741,6 +1741,7 @@ const APP_STORAGE_CLOUD_EXACT_ALLOWLIST=new Set([
   'benai_bugs',
   'benai_obj_comm',
   'benai_obj_comm_mois',
+  'benai_lead_obj_soc_mois',
   'benai_connexions',
   'benai_ventes_mois',
   'benai_roles_v2',
@@ -8482,29 +8483,65 @@ function saveLeads(l,sync=true){
     scheduleSupabaseSync(getMem(),getAnnuaire());
   }
 }
-/** Objectifs CRM par entreprise (CA HT mensuel courant uniquement — plus d’objectifs « secteur » ni leads). */
+/** Objectifs CRM par entreprise : CA HT de référence + montants optionnels par mois (YYYY-MM). */
+function normalizeSocObjEntry(rawSoc,baseCaHT){
+  const caHT=Math.max(0,Number(rawSoc?.caHT)||baseCaHT||0);
+  const months={};
+  if(rawSoc&&rawSoc.months&&typeof rawSoc.months==='object'&&!Array.isArray(rawSoc.months)){
+    Object.keys(rawSoc.months).forEach(k=>{
+      months[k]=Math.max(0,Number(rawSoc.months[k])||0);
+    });
+  }
+  return{caHT,months};
+}
 function getCrmSocieteObjectifs(){
-  const base={nemausus:{caHT:80000},lambert:{caHT:50000}};
+  const baseN=80000,baseL=50000;
+  const base={nemausus:{caHT:baseN,months:{}},lambert:{caHT:baseL,months:{}}};
   try{
     const raw=JSON.parse(appStorage.getItem('benai_lead_obj'));
-    if(!raw||typeof raw!=='object')return{...base};
-    if(raw._crmSocV2&&raw.nemausus&&raw.lambert){
+    if(!raw||typeof raw!=='object')return JSON.parse(JSON.stringify(base));
+    if(raw._crmSocV3&&raw.nemausus&&raw.lambert){
       return{
-        nemausus:{caHT:Math.max(0,Number(raw.nemausus.caHT)||base.nemausus.caHT)},
-        lambert:{caHT:Math.max(0,Number(raw.lambert.caHT)||base.lambert.caHT)}
+        nemausus:normalizeSocObjEntry(raw.nemausus,baseN),
+        lambert:normalizeSocObjEntry(raw.lambert,baseL)
       };
     }
-    const nH=Math.round((Number(raw.nimes?.ca)||0)+(Number(raw.avignon?.ca)||0)+(Number(raw.bagnoles?.ca)||0)+(Number(raw.zone_blanche?.ca)||0))||base.nemausus.caHT;
-    const next={_crmSocV2:true,nemausus:{caHT:nH},lambert:{caHT:base.lambert.caHT}};
+    if(raw._crmSocV2&&raw.nemausus&&raw.lambert){
+      const migrated={
+        _crmSocV3:true,
+        nemausus:{caHT:Math.max(0,Number(raw.nemausus.caHT)||baseN),months:{}},
+        lambert:{caHT:Math.max(0,Number(raw.lambert.caHT)||baseL),months:{}}
+      };
+      appStorage.setItem('benai_lead_obj',JSON.stringify(migrated));
+      return{
+        nemausus:normalizeSocObjEntry(migrated.nemausus,baseN),
+        lambert:normalizeSocObjEntry(migrated.lambert,baseL)
+      };
+    }
+    const nH=Math.round((Number(raw.nimes?.ca)||0)+(Number(raw.avignon?.ca)||0)+(Number(raw.bagnoles?.ca)||0)+(Number(raw.zone_blanche?.ca)||0))||baseN;
+    const next={_crmSocV3:true,nemausus:{caHT:nH,months:{}},lambert:{caHT:baseL,months:{}}};
     appStorage.setItem('benai_lead_obj',JSON.stringify(next));
-    return{nemausus:{...next.nemausus},lambert:{...next.lambert}};
-  }catch{return{...base};}
+    return{nemausus:normalizeSocObjEntry(next.nemausus,baseN),lambert:normalizeSocObjEntry(next.lambert,baseL)};
+  }catch{return JSON.parse(JSON.stringify(base));}
+}
+function getSocieteObjectifCaHT(socId,monthKey){
+  const o=getCrmSocieteObjectifs()[socId];
+  if(!o)return 0;
+  if(monthKey&&o.months&&Object.prototype.hasOwnProperty.call(o.months,monthKey)){
+    const v=Number(o.months[monthKey]);
+    return Number.isFinite(v)?Math.max(0,v):0;
+  }
+  return Math.max(0,Number(o.caHT)||0);
 }
 function saveCrmSocieteObjectifs(o){
+  const norm=id=>{
+    const s=o[id]||{};
+    return normalizeSocObjEntry(s,id==='nemausus'?80000:50000);
+  };
   appStorage.setItem('benai_lead_obj',JSON.stringify({
-    _crmSocV2:true,
-    nemausus:{caHT:Math.max(0,Number(o.nemausus?.caHT)||0)},
-    lambert:{caHT:Math.max(0,Number(o.lambert?.caHT)||0)}
+    _crmSocV3:true,
+    nemausus:norm('nemausus'),
+    lambert:norm('lambert')
   }));
 }
 function canAccessLeadByCompany(lead){
@@ -8523,8 +8560,11 @@ function canAccessLeadByCompany(lead){
   return false;
 }
 function getCompanyScopedLeads(list){
-  const leads=(list||getLeads()).filter(l=>l&&!l._deleted);
+  let leads=(list||getLeads()).filter(l=>l&&!l._deleted);
   if(!currentUser)return leads;
+  if(currentUser.role==='commercial'){
+    return leads.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
+  }
   if(!isCRMScopePilotageRole(currentUser.role))return leads;
   return leads.filter(canAccessLeadByCompany);
 }
@@ -8671,9 +8711,10 @@ function initLeadsPage(){
     filters.style.display='none'; // Pas de filtres pour l'assistante
     showCRMTab('mes-leads');
   } else {
-    addCRMTab('mes-leads','📋 Mes leads',true);
+    addCRMTab('dashboard','📊 Mon pilotage',true);
+    addCRMTab('mes-leads','📋 Mes leads',false);
     filters.style.display='flex';
-    showCRMTab('mes-leads');
+    showCRMTab('dashboard');
   }
   refreshLeadsBadge();
   checkLeadsAlertes();
@@ -9108,12 +9149,21 @@ function renderLeadsDashboard(){
   const container=document.getElementById('leads-container');if(!container)return;
   const list=document.getElementById('leads-list');
   if(list){list.style.display='flex';}
+  const role=currentUser?.role||'assistante';
+  const dashCommercial=role==='commercial';
   const leads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive);
-  const socObj=getCrmSocieteObjectifs();
+  const socMonthKeys=getObjCommMonthOptions();
+  let selSocMois=appStorage.getItem('benai_lead_obj_soc_mois')||getDefaultObjCommMonthKey();
+  if(!socMonthKeys.includes(selSocMois))selSocMois=getDefaultObjCommMonthKey();
+  appStorage.setItem('benai_lead_obj_soc_mois',selSocMois);
+  const socParts=selSocMois.split('-').map(Number);
+  const socY=socParts[0],socM=socParts[1];
+  const leadsMonthSoc=leads.filter(l=>{const d=new Date(l.date_creation||0);return!isNaN(d.getTime())&&d.getMonth()===socM-1&&d.getFullYear()===socY;});
   const now=new Date();
   const month=now.getMonth();const year=now.getFullYear();
   const leadsMonth=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getMonth()===month&&d.getFullYear()===year;});
   const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
+  const commerciauxObj=dashCommercial?commerciaux.filter(c=>normalizeId(c.id)===normalizeId(currentUser.id)):commerciaux;
   const secteurs=[
     {id:'nimes',label:'Nîmes',color:'var(--a)'},
     {id:'avignon',label:'Avignon',color:'var(--bl)'},
@@ -9125,7 +9175,7 @@ function renderLeadsDashboard(){
   const nonAttrib=leads.filter(l=>!l.commercial&&l.statut==='gris').length;
   const alertes=leads.filter(l=>isLeadAlerte(l)).length;
   const rdvMonthTotal=leads.reduce((sum,l)=>sum+getLeadRdvDoneMonthCount(l,now),0);
-  html+=`<div class="crm-dash-kicker">1 · Pilotage & synthèse</div>`;
+  html+=`<div class="crm-dash-kicker">${dashCommercial?'Mon pilotage':'1 · Pilotage & synthèse'}</div>`;
   html+=`<div class="crm-dash-grid-kpis" style="margin-bottom:12px">
     <div class="stat-box"><div class="stat-box-val">${totalLeads}</div><div class="stat-box-lbl">Total leads</div></div>
     <div class="stat-box"><div class="stat-box-val" style="color:var(--y)">${nonAttrib}</div><div class="stat-box-lbl">À attribuer</div></div>
@@ -9141,7 +9191,22 @@ function renderLeadsDashboard(){
       ca:ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0)
     };
   });
-  html+=`<details class="crm-dash-synth secteur-card" id="crm-dashboard-secteurs-export" open>
+  if(dashCommercial){
+    html+=`<details class="crm-dash-synth secteur-card" id="crm-dashboard-secteurs-export" open>
+    <summary>🗺️ Synthèse par secteur</summary>
+    <div style="padding-top:8px">
+    <div style="font-size:11px;color:var(--t3);margin:0 0 10px;line-height:1.45">Vos leads <strong>actifs</strong> : répartition par secteur (lecture seule, sans export).</div>
+    ${secteursSynthese.map(s=>`
+      <div class="perf-row">
+        <div class="perf-name" style="color:${s.color}">${s.label}</div>
+        <div class="perf-stats">${s.leads} lead(s) · ${s.ventes} vente(s)</div>
+        <div class="perf-ca">${s.ca.toLocaleString('fr-FR')} €</div>
+      </div>
+    `).join('')}
+    </div>
+  </details>`;
+  } else {
+    html+=`<details class="crm-dash-synth secteur-card" id="crm-dashboard-secteurs-export" open>
     <summary>🗺️ Synthèse géographique (secteurs) & export CSV</summary>
     <div style="padding-top:8px">
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px">
@@ -9168,6 +9233,7 @@ function renderLeadsDashboard(){
     `).join('')}
     </div>
   </details>`;
+  }
   const moisSecteurLabel=now.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
   const secteurMensuelRows=secteurs.map(s=>{
     const lm=leadsMonth.filter(l=>l.secteur===s.id);
@@ -9259,7 +9325,16 @@ function renderLeadsDashboard(){
     </div>
     ${rdvTop.length?rdvTop.map(x=>`<div class="perf-row"><div class="perf-name">${esc(x.lead.nom)}</div><div class="perf-stats">${x.count} RDV</div><div class="perf-ca">${esc(x.lead.type_projet||'')}</div></div>`).join(''):`<div style="font-size:12px;color:var(--t3)">Aucun RDV réalisé enregistré ce mois.</div>`}
   </div>`;
-  html+=`<div class="crm-dash-kicker k-pr">3 · Performance par entreprise (mois en cours)</div>`;
+  if(!dashCommercial){
+  html+=`<div class="crm-dash-kicker k-pr" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;row-gap:8px">
+    <span>3 · Performance par entreprise</span>
+    <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t2);font-weight:600;font-family:inherit">Mois affiché
+      <select id="crm-obj-soc-mois" class="form-input" onchange="window.appStorage.setItem('benai_lead_obj_soc_mois',this.value);renderLeadsDashboard()" style="padding:5px 10px;font-size:11px;border-radius:8px;min-width:140px">
+        ${socMonthKeys.map(m=>`<option value="${m}"${m===selSocMois?' selected':''}>${formatMois(m)}</option>`).join('')}
+      </select>
+    </label>
+  </div>
+  <div style="font-size:11px;color:var(--t3);margin:-4px 0 10px;line-height:1.45">Chiffres du <strong>${formatMois(selSocMois)}</strong> (création des leads). Objectif : montant saisi pour ce mois, sinon <strong>objectif de référence</strong> (valeur par défaut entreprise).</div>`;
   const entreprises=[
     {id:'nemausus',label:'Nemausus Fermetures',color:'var(--a)'},
     {id:'lambert',label:'Lambert SAS',color:'var(--bl)'}
@@ -9267,16 +9342,16 @@ function renderLeadsDashboard(){
   const socCanEdit=currentUser.role==='admin'||isCRMScopePilotageRole(currentUser.role);
   html+=`<div class="crm-ent-grid">`;
   entreprises.forEach(ent=>{
-    const sl=leadsMonth.filter(l=>(l.societe_crm||'nemausus')===ent.id);
+    const sl=leadsMonthSoc.filter(l=>(l.societe_crm||'nemausus')===ent.id);
     const total=sl.length;
     const ventes=sl.filter(l=>l.statut==='vert');
     const ca=ventes.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
     const pipeline=sl.filter(l=>l.statut==='jaune').reduce((sum,l)=>sum+Number(l.montant_devis||0),0);
-    const oCA=socObj[ent.id]?.caHT||0;
+    const oCA=getSocieteObjectifCaHT(ent.id,selSocMois);
     const pCA=oCA>0?Math.min(ca/oCA*100,110):0;
     html+=`<div class="crm-ent-card">
       <div class="secteur-title" style="color:${ent.color};margin-bottom:10px;font-size:14px">${ent.label}
-        ${socCanEdit?`<button type="button" onclick="editObjectifSociete('${ent.id}')" title="Définir ou modifier l'objectif CA HT mensuel (mois civil, même périmètre que les chiffres ci-dessous)" style="margin-left:auto;background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--t2);font-weight:600">⚙️ Objectif CA HT</button>`:''}
+        ${socCanEdit?`<button type="button" onclick="editObjectifSociete('${ent.id}')" title="Définir ou modifier l'objectif CA HT pour le mois sélectionné (${formatMois(selSocMois)})" style="margin-left:auto;background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--t2);font-weight:600">⚙️ Objectif CA HT</button>`:''}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div class="stat-box"><div class="stat-box-val" style="font-size:17px">${total}</div><div class="stat-box-lbl">Leads (mois)</div></div>
@@ -9284,13 +9359,14 @@ function renderLeadsDashboard(){
       </div>
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;font-size:11px;color:var(--t3);margin-bottom:4px;line-height:1.4">
         <span>CA HT signé : <strong style="color:var(--g)">${ca.toLocaleString('fr-FR')} €</strong> · objectif <strong style="color:var(--t1)">${oCA.toLocaleString('fr-FR')} €</strong></span>
-        ${socCanEdit?`<button type="button" onclick="editObjectifSociete('${ent.id}')" title="Saisir le montant de l'objectif CA HT mensuel pour ${esc(ent.label)}" style="flex-shrink:0;background:var(--s1);border:1px solid var(--a);border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--a)">Modifier l'objectif</button>`:''}
+        ${socCanEdit?`<button type="button" onclick="editObjectifSociete('${ent.id}')" title="Saisir l'objectif CA HT pour ${esc(ent.label)} — ${formatMois(selSocMois)}" style="flex-shrink:0;background:var(--s1);border:1px solid var(--a);border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--a)">Modifier l'objectif</button>`:''}
       </div>
       <div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pCA}%;background:${pCA>=100?'var(--g)':pCA>=75?'var(--a)':'var(--r)'}"></div></div>
       <div style="font-size:11px;color:var(--t2);margin-top:10px">Pipeline devis : <strong style="color:var(--y)">${pipeline.toLocaleString('fr-FR')} €</strong></div>
     </div>`;
   });
   html+=`</div>`;
+  }
   // Stats par source
   const sources=LEAD_SOURCE_CODES;
   const srcIcons=LEAD_SOURCE_ICONS;
@@ -9301,7 +9377,7 @@ function renderLeadsDashboard(){
     html+=`<div class="stat-box"><div style="font-size:16px">${srcIcons[src]}</div><div class="stat-box-val" style="font-size:16px">${sl.length}</div><div class="stat-box-lbl">${LEAD_SOURCE_LABELS[src]||src}</div><div style="font-size:10px;color:var(--g)">${v} ventes</div></div>`;
   });
   html+='</div></div>';
-  // Classement mensuel commerciaux
+  if(!dashCommercial){
   const ranking=getCommercialRankingMonth(leads);
   html+=`<div class="secteur-card"><div class="secteur-title">🏆 Classement mensuel commerciaux</div>`;
   if(!ranking.length){
@@ -9322,6 +9398,7 @@ function renderLeadsDashboard(){
     html+=`<div class="secteur-card"><div class="secteur-title">📈 Évolution CA par commercial (6 mois)</div>
     <div style="font-size:11px;color:var(--t3);margin:-4px 0 4px">Montants HT — ventes signées (date de création du lead).</div>
     <div class="crm-evo-grid">${buildCrmCommercialEvolutionCards(leads,commerciaux)}</div></div>`;
+  }
   }
   // Analyse leads perdus
   const lost=getLeadLostAnalytics(leadsMonth);
@@ -9347,7 +9424,6 @@ function renderLeadsDashboard(){
     </div>
     <div style="margin-top:8px;font-size:11px;color:var(--t3)">Consultez l’onglet filtre “📁 Archives” dans Leads pour le détail.</div>
   </div>`;
-  const role=currentUser?.role||'assistante';
   if(role==='admin'||isCRMScopePilotageRole(role)){
     html+=`<div class="crm-dash-kicker k-ex">4 · Exports & actions</div>`;
     html+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
@@ -9380,21 +9456,21 @@ function renderLeadsDashboard(){
   }
 
   // OBJECTIFS COMMERCIAUX (objectif CA mensuel par mois calendaire)
-  if(commerciaux.length>0){
+  if(commerciauxObj.length>0){
     const objCommMonthKeys=getObjCommMonthOptions();
     let selObjComm=appStorage.getItem('benai_obj_comm_mois')||getDefaultObjCommMonthKey();
     if(!objCommMonthKeys.includes(selObjComm))selObjComm=getDefaultObjCommMonthKey();
     appStorage.setItem('benai_obj_comm_mois',selObjComm);
-    html+=`<div class="crm-dash-kicker k-pr" style="margin-top:8px">Objectifs par commercial</div>`;
+    html+=`<div class="crm-dash-kicker k-pr" style="margin-top:8px">${dashCommercial?'Mes objectifs & suivi CA':'Objectifs par commercial'}</div>`;
     html+=`<div class="secteur-card"><div class="secteur-title" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
-      <span>🎯 Suivi & objectifs commerciaux</span>
+      <span>${dashCommercial?'🎯 Mes objectifs (changer le mois pour toute l’année)':'🎯 Suivi & objectifs commerciaux'}</span>
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t3);font-weight:600">Mois affiché
         <select id="crm-obj-comm-mois" class="form-input" onchange="window.appStorage.setItem('benai_obj_comm_mois',this.value);renderLeadsDashboard()" style="padding:5px 10px;font-size:11px;border-radius:8px;min-width:128px">
           ${objCommMonthKeys.map(m=>`<option value="${m}"${m===selObjComm?' selected':''}>${formatMois(m)}</option>`).join('')}
         </select>
       </label>
     </div>`;
-    commerciaux.forEach(c=>{
+    commerciauxObj.forEach(c=>{
       const prog=getProgressionCommercial(c.id,selObjComm);
       const moisHuman=formatMois(selObjComm);
       const pctMois=prog.obj.mensuel>0?Math.min(prog.ca_mois/prog.obj.mensuel*100,110):0;
@@ -9446,15 +9522,21 @@ async function editObjectifCommercial(uid,name){
 async function editObjectifSociete(socId){
   if(currentUser?.role!=='admin'&&!isCRMScopePilotageRole(currentUser?.role))return;
   const label=socId==='lambert'?'Lambert SAS':'Nemausus Fermetures';
-  const obj=getCrmSocieteObjectifs();
-  const cur=obj[socId]?.caHT||0;
-  const v=await benaiPrompt(`Objectif CA mensuel HT (€) pour ${label} — mois calendaire affiché dans le bloc « Performance par entreprise » :`,String(cur),`Objectif ${label}`);
+  const monthKey=(document.getElementById('crm-obj-soc-mois')?.value)||getDefaultObjCommMonthKey();
+  const labelMois=formatMois(monthKey);
+  const next=JSON.parse(JSON.stringify(getCrmSocieteObjectifs()));
+  const ent=next[socId]||{caHT:socId==='lambert'?50000:80000,months:{}};
+  if(!ent.months||typeof ent.months!=='object')ent.months={};
+  const hasM=Object.prototype.hasOwnProperty.call(ent.months,monthKey);
+  const cur=hasM?Number(ent.months[monthKey]):Number(ent.caHT)||0;
+  const v=await benaiPrompt(`Objectif CA HT (€) pour ${label} — mois ${labelMois} (changez le mois dans le menu « Mois affiché » pour préparer les autres mois de l’année) :`,String(cur),`Objectif ${label}`);
   if(v===null)return;
-  const n=Number(String(v).replace(/\s/g,'').replace(',','.'))||0;
-  obj[socId]={caHT:n};
-  saveCrmSocieteObjectifs(obj);
+  const n=Math.max(0,Number(String(v).replace(/\s/g,'').replace(',','.'))||0);
+  ent.months[monthKey]=n;
+  next[socId]=ent;
+  saveCrmSocieteObjectifs(next);
   renderLeadsDashboard();
-  logActivity(`${currentUser?.name||'?'} a fixé l’objectif CA HT ${label} : ${n.toLocaleString('fr-FR')} €`);
+  logActivity(`${currentUser?.name||'?'} a fixé l’objectif CA HT ${label} (${labelMois}) : ${n.toLocaleString('fr-FR')} €`);
 }
 
 // OUVRIR NOUVEAU LEAD
@@ -11013,13 +11095,15 @@ function checkMotivationsAuto(){
 function renderTableauVentes(container){
   const leads=getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert');
   const now=new Date();
+  const canExportSales=currentUser?.role!=='commercial';
   // Sélecteur mois — toujours au moins une <option> (select vide = bug UI rectangle blanc sous certains navigateurs)
   const currentKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  let moisDispos=[...new Set(leads.map(l=>{const d=new Date(l.date_creation||0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}))].sort().reverse();
+  const fromSales=[...new Set(leads.map(l=>{const d=new Date(l.date_creation||0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}))];
+  let moisDispos=[...new Set([...fromSales,...getObjCommMonthOptions()])].sort((a,b)=>b.localeCompare(a,'fr'));
   if(!moisDispos.length)moisDispos=[currentKey];
   let selectedMois=appStorage.getItem('benai_ventes_mois')||currentKey;
   if(!moisDispos.includes(selectedMois)){
-    moisDispos=[selectedMois,...moisDispos].filter(Boolean).sort().reverse();
+    moisDispos=[selectedMois,...moisDispos].filter(Boolean).sort((a,b)=>b.localeCompare(a,'fr'));
   }
   const [yr,mo]=selectedMois.split('-').map(Number);
   const leadsFiltered=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;});
@@ -11032,7 +11116,7 @@ function renderTableauVentes(container){
         <select onchange="window.appStorage.setItem('benai_ventes_mois',this.value);renderLeadsDashboard()" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--t1);outline:none;font-family:'Outfit',sans-serif">
           ${moisDispos.map(m=>`<option value="${m}"${m===selectedMois?' selected':''}>${formatMois(m)}</option>`).join('')}
         </select>
-        <button onclick="exportTableauVentes()" style="padding:6px 12px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📥 Export</button>
+        ${canExportSales?`<button onclick="exportTableauVentes()" style="padding:6px 12px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📥 Export</button>`:''}
       </div>
     </div>
     <div style="font-size:22px;font-weight:800;color:var(--g);margin-bottom:12px">${total.toLocaleString('fr-FR')} € HT <span style="font-size:12px;color:var(--t3);font-weight:400">${leadsFiltered.length} ventes</span></div>
@@ -11073,6 +11157,7 @@ function formatMois(str){
 }
 
 function exportTableauVentes(){
+  if(currentUser?.role==='commercial')return;
   const leads=getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert');
   const selectedMois=appStorage.getItem('benai_ventes_mois')||'';
   const [yr,mo]=selectedMois?selectedMois.split('-').map(Number):[new Date().getFullYear(),new Date().getMonth()+1];
