@@ -11,12 +11,17 @@ create table if not exists public.profiles (
   email text unique,
   app_uid text unique,
   full_name text not null,
-  role text not null check (role in ('admin','directeur_co','commercial','assistante','metreur')),
+  role text not null check (role in ('admin','directeur_co','directeur_general','commercial','assistante','metreur')),
   company text not null check (company in ('nemausus','lambert','les-deux')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 alter table public.profiles add column if not exists app_uid text;
+
+-- Bases déjà déployées : élargir le CHECK role (idempotent).
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles add constraint profiles_role_check
+  check (role in ('admin','directeur_co','directeur_general','commercial','assistante','metreur'));
 
 -- =========
 -- LEADS
@@ -226,7 +231,7 @@ begin
   end if;
 
   role_val := lower(coalesce(meta->>'role', 'assistante'));
-  if role_val not in ('admin','directeur_co','commercial','assistante','metreur') then
+  if role_val not in ('admin','directeur_co','directeur_general','commercial','assistante','metreur') then
     role_val := 'assistante';
   end if;
 
@@ -295,9 +300,9 @@ on public.leads for select
 using (
   -- admin sees all
   public.current_profile_role() = 'admin'
-  -- directeur_co sees only own company
+  -- directeur_co / directeur_general sees only own company
   or (
-    public.current_profile_role() = 'directeur_co'
+    public.current_profile_role() in ('directeur_co','directeur_general')
     and (
       public.current_profile_company() = 'les-deux'
       or societe_crm = public.current_profile_company()
@@ -319,7 +324,7 @@ drop policy if exists "leads_insert_policy" on public.leads;
 create policy "leads_insert_policy"
 on public.leads for insert
 with check (
-  public.current_profile_role() in ('admin','directeur_co','commercial','assistante')
+  public.current_profile_role() in ('admin','directeur_co','directeur_general','commercial','assistante')
   and created_by = auth.uid()
   and (
     public.current_profile_role() = 'admin'
@@ -334,7 +339,7 @@ on public.leads for update
 using (
   public.current_profile_role() = 'admin'
   or (
-    public.current_profile_role() = 'directeur_co'
+    public.current_profile_role() in ('directeur_co','directeur_general')
     and (
       public.current_profile_company() = 'les-deux'
       or societe_crm = public.current_profile_company()
@@ -352,7 +357,7 @@ using (
 with check (
   public.current_profile_role() = 'admin'
   or (
-    public.current_profile_role() = 'directeur_co'
+    public.current_profile_role() in ('directeur_co','directeur_general')
     and (
       public.current_profile_company() = 'les-deux'
       or societe_crm = public.current_profile_company()
@@ -382,7 +387,7 @@ on public.sav for select
 using (
   public.current_profile_role() = 'admin'
   or (
-    public.current_profile_role() = 'directeur_co'
+    public.current_profile_role() in ('directeur_co','directeur_general')
     and (
       public.current_profile_company() = 'les-deux'
       or societe = public.current_profile_company()
@@ -403,7 +408,7 @@ on public.sav for all
 using (
   public.current_profile_role() = 'admin'
   or (
-    public.current_profile_role() in ('directeur_co','assistante')
+    public.current_profile_role() in ('directeur_co','directeur_general','assistante')
     and (
       public.current_profile_company() = 'les-deux'
       or societe = public.current_profile_company()
@@ -413,7 +418,7 @@ using (
 with check (
   public.current_profile_role() = 'admin'
   or (
-    public.current_profile_role() in ('directeur_co','assistante')
+    public.current_profile_role() in ('directeur_co','directeur_general','assistante')
     and (
       public.current_profile_company() = 'les-deux'
       or societe = public.current_profile_company()
@@ -481,7 +486,7 @@ on public.annuaire for select
 using (
   public.current_profile_role() = 'admin'
   or (
-    public.current_profile_role() in ('directeur_co','assistante','commercial','metreur')
+    public.current_profile_role() in ('directeur_co','directeur_general','assistante','commercial','metreur')
     and (
       public.current_profile_company() = 'les-deux'
       or societe = public.current_profile_company()
@@ -544,7 +549,7 @@ with missing_users as (
     lower(regexp_replace(split_part(coalesce(au.email, ''), '@', 1), '[^a-z0-9_]+', '_', 'g')) as base_uid,
     coalesce(nullif(trim(coalesce(au.raw_user_meta_data->>'full_name', '')), ''), split_part(coalesce(au.email, ''), '@', 1), 'Utilisateur') as full_name,
     case
-      when lower(coalesce(au.raw_user_meta_data->>'role', 'assistante')) in ('admin','directeur_co','commercial','assistante','metreur')
+      when lower(coalesce(au.raw_user_meta_data->>'role', 'assistante')) in ('admin','directeur_co','directeur_general','commercial','assistante','metreur')
         then lower(au.raw_user_meta_data->>'role')
       else 'assistante'
     end as role,
