@@ -1714,6 +1714,7 @@ const APP_STORAGE_CLOUD_EXACT_ALLOWLIST=new Set([
   'benai_projets_sugg',
   'benai_bugs',
   'benai_obj_comm',
+  'benai_obj_comm_mois',
   'benai_connexions',
   'benai_ventes_mois',
   'benai_roles_v2',
@@ -9217,11 +9218,23 @@ function renderLeadsDashboard(){
     </div>`;
   }
 
-  // OBJECTIFS COMMERCIAUX
+  // OBJECTIFS COMMERCIAUX (objectif CA mensuel par mois calendaire)
   if(commerciaux.length>0){
-    html+=`<div class="secteur-card"><div class="secteur-title">🎯 Objectifs commerciaux</div>`;
+    const objCommMonthKeys=getObjCommMonthOptions();
+    let selObjComm=appStorage.getItem('benai_obj_comm_mois')||getDefaultObjCommMonthKey();
+    if(!objCommMonthKeys.includes(selObjComm))selObjComm=getDefaultObjCommMonthKey();
+    appStorage.setItem('benai_obj_comm_mois',selObjComm);
+    html+=`<div class="secteur-card"><div class="secteur-title" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
+      <span>🎯 Objectifs commerciaux</span>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t3);font-weight:600">Mois affiché
+        <select id="crm-obj-comm-mois" class="form-input" onchange="window.appStorage.setItem('benai_obj_comm_mois',this.value);renderLeadsDashboard()" style="padding:5px 10px;font-size:11px;border-radius:8px;min-width:128px">
+          ${objCommMonthKeys.map(m=>`<option value="${m}"${m===selObjComm?' selected':''}>${formatMois(m)}</option>`).join('')}
+        </select>
+      </label>
+    </div>`;
     commerciaux.forEach(c=>{
-      const prog=getProgressionCommercial(c.id);
+      const prog=getProgressionCommercial(c.id,selObjComm);
+      const moisHuman=formatMois(selObjComm);
       const pctMois=prog.obj.mensuel>0?Math.min(prog.ca_mois/prog.obj.mensuel*100,110):0;
       const pctHebdo=prog.obj.hebdo>0?Math.min(prog.ca_semaine/prog.obj.hebdo*100,110):0;
       const contacts=getContactsParCommercial()[c.id]||{ce_mois:0,cette_semaine:0};
@@ -9231,11 +9244,11 @@ function renderLeadsDashboard(){
           <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(c.name)}</div><div style="font-size:10px;color:var(--t3)">${contacts.ce_mois} contacts ce mois · ${contacts.cette_semaine} cette semaine${c.vehicule?` · 🚐 ${esc(c.vehicule)}`:''}</div></div>
           ${(currentUser.role==='admin'||isCRMScopePilotageRole(currentUser.role))?`<button onclick="editObjectifCommercial('${c.id}','${esc(c.name)}')" style="background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
         </div>
-        <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Mensuel — ${prog.ca_mois.toLocaleString('fr-FR')}€ / ${prog.obj.mensuel.toLocaleString('fr-FR')}€ · ${prog.ventes_mois} ventes</div>
+        <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Mensuel (${moisHuman}) — ${prog.ca_mois.toLocaleString('fr-FR')}€ / ${prog.obj.mensuel.toLocaleString('fr-FR')}€ · ${prog.ventes_mois} ventes</div>
         <div class="objectif-bar" style="margin-bottom:6px"><div class="objectif-bar-fill" style="width:${pctMois}%;background:${pctMois>=100?'var(--g)':pctMois>=75?'var(--a)':'var(--r)'}"></div></div>
-        <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Hebdo — ${prog.ca_semaine.toLocaleString('fr-FR')}€ / ${prog.obj.hebdo.toLocaleString('fr-FR')}€ · ${prog.ventes_semaine} ventes</div>
+        <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Hebdo (semaine en cours) — ${prog.ca_semaine.toLocaleString('fr-FR')}€ / ${prog.obj.hebdo.toLocaleString('fr-FR')}€ · ${prog.ventes_semaine} ventes</div>
         <div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pctHebdo}%;background:${pctHebdo>=100?'var(--g)':pctHebdo>=75?'var(--a)':'var(--r)'}"></div></div>
-        ${pctMois>=100?`<div style="margin-top:6px;font-size:11px;color:var(--g);font-weight:600">🏆 Objectif mensuel dépassé !</div>`:''}
+        ${pctMois>=100?`<div style="margin-top:6px;font-size:11px;color:var(--g);font-weight:600">🏆 Objectif mensuel dépassé (${moisHuman}) !</div>`:''}
       </div>`;
     });
     html+=`</div>`;
@@ -9249,15 +9262,18 @@ function renderLeadsDashboard(){
 }
 
 async function editObjectifCommercial(uid,name){
-  const obj=getObjectifsCommerciaux();
-  const cur=obj[uid]||{mensuel:0,hebdo:0};
-  const mensuel=await benaiPrompt(`Objectif CA mensuel (€) pour ${name} :`,String(cur.mensuel),'Objectifs commercial');
+  const monthKey=(document.getElementById('crm-obj-comm-mois')?.value)||getDefaultObjCommMonthKey();
+  const all=getObjectifsCommerciaux();
+  const curEnt=normalizeCommercialObjEntry(all[uid]||{});
+  const curM=curEnt.months[monthKey]?.mensuel??0;
+  const labelMois=formatMois(monthKey);
+  const mensuel=await benaiPrompt(`Objectif CA mensuel (€ HT) pour ${name} — ${labelMois} :`,String(curM),'Objectif mensuel');
   if(mensuel===null)return;
-  const hebdo=await benaiPrompt(`Objectif CA hebdo (€) pour ${name} :`,String(cur.hebdo),'Objectifs commercial');
+  const hebdo=await benaiPrompt(`Objectif CA hebdomadaire (€ HT) pour ${name} (identique toutes les semaines) :`,String(curEnt.hebdo),'Objectif hebdo');
   if(hebdo===null)return;
-  setObjectifCommercial(uid,mensuel,hebdo);
+  setObjectifCommercial(uid,monthKey,mensuel,hebdo);
   renderLeadsDashboard();
-  logActivity(`${currentUser.name} a fixé les objectifs de ${name}`);
+  logActivity(`${currentUser.name} a fixé l’objectif mensuel de ${name} (${labelMois}) et l’objectif hebdo`);
 }
 
 async function editObjectif(secteur){
@@ -10667,30 +10683,108 @@ function getHeuresOuvrees(since){
 }
 
 // ══════════════════════════════════════════
-// 🎯 OBJECTIFS COMMERCIAUX
+// 🎯 OBJECTIFS COMMERCIAUX (CA mensuel par mois YYYY-MM + CA hebdo global)
 // ══════════════════════════════════════════
+function getDefaultObjCommMonthKey(){
+  const d=new Date();
+  return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function normalizeCommercialObjEntry(v){
+  if(!v||typeof v!=='object')return{hebdo:0,months:{}};
+  if(v.months&&typeof v.months==='object'&&!Array.isArray(v.months)){
+    const months={};
+    Object.keys(v.months).forEach(k=>{
+      const m=v.months[k];
+      months[k]={mensuel:Number(m?.mensuel)||0};
+    });
+    return{hebdo:Number(v.hebdo)||0,months};
+  }
+  const d=new Date();
+  const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  return{hebdo:Number(v.hebdo)||0,months:{[k]:{mensuel:Number(v.mensuel)||0}}};
+}
+function getObjCommMonthOptions(){
+  const keys=new Set();
+  const now=new Date();
+  for(let i=-24;i<=12;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()+i,1);
+    keys.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }
+  try{
+    getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert').forEach(l=>{
+      const d=new Date(l.date_creation||0);
+      if(!isNaN(d.getTime()))keys.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+    });
+  }catch(e){}
+  return[...keys].sort((a,b)=>b.localeCompare(a,'fr'));
+}
 function getObjectifsCommerciaux(){
-  try{return JSON.parse(appStorage.getItem('benai_obj_comm'))||{};}catch{return{};}
+  try{
+    const raw=JSON.parse(appStorage.getItem('benai_obj_comm'))||{};
+    let migrated=false;
+    const out={};
+    Object.keys(raw).forEach(uid=>{
+      const v=raw[uid];
+      if(v&&typeof v==='object'&&v.months&&typeof v.months==='object'&&!Array.isArray(v.months)){
+        out[uid]=normalizeCommercialObjEntry(v);
+      }else{
+        migrated=true;
+        out[uid]=normalizeCommercialObjEntry(v||{});
+      }
+    });
+    if(migrated)saveObjectifsCommerciaux(out);
+    return out;
+  }catch{return{};}
 }
 function saveObjectifsCommerciaux(o){appStorage.setItem('benai_obj_comm',JSON.stringify(o));}
 
-function setObjectifCommercial(uid,mensuel,hebdo){
-  const obj=getObjectifsCommerciaux();
-  obj[uid]={mensuel:Number(mensuel)||0,hebdo:Number(hebdo)||0};
-  saveObjectifsCommerciaux(obj);
+function setObjectifCommercial(uid,monthKey,mensuel,hebdo){
+  const all=getObjectifsCommerciaux();
+  const prev=normalizeCommercialObjEntry(all[uid]||{});
+  const parseNum=x=>{
+    const s=String(x==null?'':x).replace(/\s/g,'').replace(',','.');
+    const n=Number(s);
+    return Number.isFinite(n)?n:0;
+  };
+  prev.hebdo=parseNum(hebdo);
+  if(!prev.months)prev.months={};
+  prev.months[monthKey]={mensuel:parseNum(mensuel)};
+  all[uid]=prev;
+  saveObjectifsCommerciaux(all);
 }
 
-function getProgressionCommercial(uid){
+function getProgressionCommercial(uid,forMonthKey){
+  const monthKey=forMonthKey||getDefaultObjCommMonthKey();
+  const parts=monthKey.split('-');
+  const year=Number(parts[0]),monthNum=Number(parts[1]);
+  const monthIdx=monthNum-1;
+  if(!Number.isFinite(year)||!Number.isFinite(monthIdx)||monthIdx<0||monthIdx>11){
+    return{ventes_mois:0,ventes_semaine:0,ca_mois:0,ca_semaine:0,obj:{mensuel:0,hebdo:0},_objMonthKey:monthKey};
+  }
   const leads=getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert'&&l.commercial===uid);
+  const ventesMois=leads.filter(l=>{
+    const d=new Date(l.date_creation||0);
+    return d.getMonth()===monthIdx&&d.getFullYear()===year;
+  });
   const now=new Date();
-  const month=now.getMonth(),year=now.getFullYear();
   const week=getWeekNumber(now);
-  const mensuel=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getMonth()===month&&d.getFullYear()===year;});
-  const hebdo=leads.filter(l=>{const d=new Date(l.date_creation||0);return getWeekNumber(d)===week&&d.getFullYear()===year;});
-  const caMensuel=mensuel.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
-  const caHebdo=hebdo.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
-  const obj=getObjectifsCommerciaux()[uid]||{mensuel:0,hebdo:0};
-  return{ventes_mois:mensuel.length,ventes_semaine:hebdo.length,ca_mois:caMensuel,ca_semaine:caHebdo,obj};
+  const ventesSem=leads.filter(l=>{
+    const d=new Date(l.date_creation||0);
+    return getWeekNumber(d)===week&&d.getFullYear()===now.getFullYear();
+  });
+  const caMois=ventesMois.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
+  const caSem=ventesSem.reduce((s,l)=>s+Number(l.prix_vendu||0),0);
+  const entry=normalizeCommercialObjEntry(getObjectifsCommerciaux()[uid]||{});
+  const objMensuel=entry.months[monthKey]?.mensuel??0;
+  const objHebdo=entry.hebdo||0;
+  return{
+    ventes_mois:ventesMois.length,
+    ventes_semaine:ventesSem.length,
+    ca_mois:caMois,
+    ca_semaine:caSem,
+    obj:{mensuel:objMensuel,hebdo:objHebdo},
+    _objMonthKey:monthKey
+  };
 }
 
 function getWeekNumber(d){
