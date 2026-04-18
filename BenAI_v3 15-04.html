@@ -9276,13 +9276,16 @@ function renderLeadsDashboard(){
     const pCA=oCA>0?Math.min(ca/oCA*100,110):0;
     html+=`<div class="crm-ent-card">
       <div class="secteur-title" style="color:${ent.color};margin-bottom:10px;font-size:14px">${ent.label}
-        ${socCanEdit?`<button type="button" onclick="editObjectifSociete('${ent.id}')" style="margin-left:auto;background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️ CA HT</button>`:''}
+        ${socCanEdit?`<button type="button" onclick="editObjectifSociete('${ent.id}')" title="Définir ou modifier l'objectif CA HT mensuel (mois civil, même périmètre que les chiffres ci-dessous)" style="margin-left:auto;background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--t2);font-weight:600">⚙️ Objectif CA HT</button>`:''}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div class="stat-box"><div class="stat-box-val" style="font-size:17px">${total}</div><div class="stat-box-lbl">Leads (mois)</div></div>
         <div class="stat-box"><div class="stat-box-val" style="font-size:17px;color:var(--g)">${ventes.length}</div><div class="stat-box-lbl">Ventes signées</div></div>
       </div>
-      <div style="font-size:11px;color:var(--t3);margin-bottom:4px">CA HT signé : <strong style="color:var(--g)">${ca.toLocaleString('fr-FR')} €</strong> / objectif <strong>${oCA.toLocaleString('fr-FR')} €</strong></div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;font-size:11px;color:var(--t3);margin-bottom:4px;line-height:1.4">
+        <span>CA HT signé : <strong style="color:var(--g)">${ca.toLocaleString('fr-FR')} €</strong> · objectif <strong style="color:var(--t1)">${oCA.toLocaleString('fr-FR')} €</strong></span>
+        ${socCanEdit?`<button type="button" onclick="editObjectifSociete('${ent.id}')" title="Saisir le montant de l'objectif CA HT mensuel pour ${esc(ent.label)}" style="flex-shrink:0;background:var(--s1);border:1px solid var(--a);border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--a)">Modifier l'objectif</button>`:''}
+      </div>
       <div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pCA}%;background:${pCA>=100?'var(--g)':pCA>=75?'var(--a)':'var(--r)'}"></div></div>
       <div style="font-size:11px;color:var(--t2);margin-top:10px">Pipeline devis : <strong style="color:var(--y)">${pipeline.toLocaleString('fr-FR')} €</strong></div>
     </div>`;
