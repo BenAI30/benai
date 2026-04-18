@@ -1489,6 +1489,7 @@ input[type=file]{display:none;}
                     <option value="assistante">Assistante (BenAI complet)</option>
                     <option value="commercial">Commercial (CRM uniquement)</option>
                     <option value="directeur_co">Directeur commercial (CRM complet)</option>
+                    <option value="directeur_general">Directeur général (CRM sans alertes)</option>
                   </select>
                 </div>
                 <div style="display:flex;gap:6px">
@@ -2523,6 +2524,7 @@ function getColorForRole(role){
     : role==='assistante'?'linear-gradient(135deg,#22C55E,#15803D)'
     : role==='commercial'?'linear-gradient(135deg,#F472B6,#DB2777)'
     : role==='directeur_co'?'linear-gradient(135deg,#A78BFA,#7C3AED)'
+    : role==='directeur_general'?'linear-gradient(135deg,#94A3B8,#475569)'
     : 'linear-gradient(135deg,#60A5FA,#1D4ED8)';
 }
 
@@ -4065,7 +4067,7 @@ async function logout(){
 function isSwitchPreviewSession(){
   return !!(currentUser&&currentUser.id!=='benjamin'&&sessionStack.length>0);
 }
-const ROLE_LABELS={admin:'Admin',assistante:'Assistante',metreur:'Métreur',commercial:'Commercial',directeur_co:'Dir. commercial'};
+const ROLE_LABELS={admin:'Admin',assistante:'Assistante',metreur:'Métreur',commercial:'Commercial',directeur_co:'Dir. commercial',directeur_general:'Dir. général'};
 
 function toggleSwitchPanel(){
   // Si pas Benjamin et qu'on peut revenir → retour direct sans panel
@@ -4817,8 +4819,8 @@ function getConvsForUser(uid){
   const me=allUsers.find(u=>u.id===uid);
   const role=me?.role||'assistante';
 
-  // CRM only roles (commercial, directeur_co) — voient uniquement les autres CRM + Benjamin
-  const crmOnly=['commercial','directeur_co'];
+  // CRM only roles — voient uniquement les autres CRM + Benjamin
+  const crmOnly=['commercial','directeur_co','directeur_general'];
   const isCRMOnly=crmOnly.includes(role);
 
   if(uid==='benjamin'){
@@ -6517,6 +6519,12 @@ function renderGuidePage(){
       'Surveille les devis sans réponse après 7 jours.',
       'Utilise les motifs de perte pour corriger le discours commercial.'
     ],
+    directeur_general:[
+      'Ouvre le dashboard CRM pour une vue globale (pipe, chiffres, leads perdus).',
+      'Tu as le même accès que le dir. commercial, sans les alertes automatiques qui lui sont réservées.',
+      'Utilise les filtres pour analyser par société ou par commercial.',
+      'Les motifs de perte aident à comprendre les écarts de conversion.'
+    ],
     commercial:[
       'Travaille uniquement tes leads et mets à jour le statut après chaque action.',
       'Utilise le bouton Appeler pour lancer les appels clients depuis BenAI.',
@@ -6804,7 +6812,7 @@ async function creerUtilisateur(){
     return;
   }
   const extras=getExtraUsers();
-  const roleLabel={assistante:'Assistante',commercial:'Commercial',directeur_co:'Directeur commercial'}[role]||'Assistante';
+  const roleLabel={assistante:'Assistante',commercial:'Commercial',directeur_co:'Directeur commercial',directeur_general:'Directeur général'}[role]||'Assistante';
   status.style.color='var(--a)';
   status.textContent='⏳ Création du compte (cloud + local)...';
   const createResult=await createSupabaseUserProvisioning({
@@ -6919,7 +6927,7 @@ function renderUsersList(){
   list.innerHTML='';
   users.forEach(u=>{
     const isBlocked=access[u.id]===false;
-    const isCRM=(u.role==='commercial'||u.role==='directeur_co');
+    const isCRM=(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general');
     const derniereConnexion=getConnexions(u.id)[0]?.date||null;
     const div=document.createElement('div');div.className='user-row';
     const av=document.createElement('div');
@@ -6931,7 +6939,7 @@ function renderUsersList(){
     info.innerHTML=`
         <div class="user-name">${esc(u.name)}</div>
         <div class="user-role">${ROLE_LABELS[u.role]||u.role} · ${u.societe==='les-deux'?'Nemausus & Lambert':u.societe==='nemausus'?'Nemausus':'Lambert'}</div>
-        ${(u.role==='commercial'||u.role==='directeur_co')?`<div style="font-size:10px;color:var(--t3)">🚐 Véhicule : ${esc(u.vehicule||'Non renseigné')}</div>`:''}
+        ${(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general')?`<div style="font-size:10px;color:var(--t3)">🚐 Véhicule : ${esc(u.vehicule||'Non renseigné')}</div>`:''}
         <div style="font-size:10px;color:var(--t3)">${derniereConnexion?'Dernière connexion : '+derniereConnexion:'Jamais connecté'}</div>`;
     div.append(av,info);
     if(u.id!=='benjamin'){
@@ -6976,7 +6984,7 @@ function editUser(uid){
   const nouveau=prompt(`Modifier ${u.name}\n\nNom affiché (actuel: ${u.name}) :`);
   if(!nouveau||!nouveau.trim())return;
   let vehicule=u.vehicule||'';
-  if(u.role==='commercial'||u.role==='directeur_co'){
+  if(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general'){
     const vPrompt=prompt(`Véhicule de société pour ${nouveau.trim()} (optionnel) :`,vehicule);
     if(vPrompt!==null)vehicule=vPrompt.trim();
   }
@@ -7797,15 +7805,20 @@ async function installBenAI(){
 // 📋 CRM LEADS — LOGIQUE COMPLÈTE v2
 // ══════════════════════════════════════════
 
-const CRM_ROLES=['directeur_co','commercial'];
-const CRM_PAGES_ONLY=['directeur_co','commercial'];
+const CRM_ROLES=['directeur_co','directeur_general','commercial'];
+const CRM_PAGES_ONLY=['directeur_co','directeur_general','commercial'];
 const ROLE_PAGES={
   admin:['benai','notes','messages','sav','leads','absences','annuaire','paie','admin','evolution','guide','bugs'],
   assistante:['benai','notes','messages','sav','leads','absences','evolution','guide','bugs'],
   metreur:['benai','notes','messages','absences','evolution','guide','bugs'],
   directeur_co:['leads','messages','absences','guide','bugs'],
+  directeur_general:['leads','messages','absences','guide','bugs'],
   commercial:['leads','messages','absences','guide','bugs']
 };
+/** Même périmètre CRM / pilotage (société, filtres, onglets) que le dir. commercial. */
+function isCRMScopePilotageRole(role){
+  return role==='directeur_co'||role==='directeur_general';
+}
 
 function getLeads(){
   if(!Array.isArray(runtimeLeadsState))runtimeLeadsState=[];
@@ -7826,7 +7839,7 @@ function saveLeadObjectifs(o){appStorage.setItem('benai_lead_obj',JSON.stringify
 function canAccessLeadByCompany(lead){
   if(!currentUser||!lead)return false;
   if(currentUser.role==='admin')return true;
-  if(currentUser.role==='directeur_co'){
+  if(isCRMScopePilotageRole(currentUser.role)){
     const leadSoc=lead.societe_crm||'nemausus';
     return currentUser.societe==='les-deux'||currentUser.societe===leadSoc;
   }
@@ -7841,7 +7854,7 @@ function canAccessLeadByCompany(lead){
 function getCompanyScopedLeads(list){
   const leads=(list||getLeads()).filter(l=>l&&!l._deleted);
   if(!currentUser)return leads;
-  if(currentUser.role!=='directeur_co')return leads;
+  if(!isCRMScopePilotageRole(currentUser.role))return leads;
   return leads.filter(canAccessLeadByCompany);
 }
 /** Dir. co qui voient ce lead dans le CRM (même règle que canAccessLeadByCompany côté dir.). */
@@ -7957,8 +7970,8 @@ function initLeadsPage(){
   const srcActif=document.getElementById('src-actif-btn');
   if(srcActif)srcActif.style.display=role==='commercial'?'flex':'none';
 
-  // Filtres globaux réservés aux profils pilotage (admin / directeur_co).
-  const canUseGlobalScopeFilters=(role==='admin'||role==='directeur_co');
+  // Filtres globaux réservés aux profils pilotage (admin / dir. co / dir. général).
+  const canUseGlobalScopeFilters=(role==='admin'||isCRMScopePilotageRole(role));
   if(filterSecteur){
     filterSecteur.style.display=canUseGlobalScopeFilters?'inline-flex':'none';
     if(!canUseGlobalScopeFilters)filterSecteur.value='';
@@ -7973,14 +7986,14 @@ function initLeadsPage(){
   }
 
   tabs.innerHTML='';
-  if(role==='admin'||role==='directeur_co'){
+  if(role==='admin'||isCRMScopePilotageRole(role)){
     addCRMTab('non-attribues','⚠️ À attribuer',true);
     addCRMTab('mes-leads','📋 Tous les leads',false);
     addCRMTab('dashboard','📊 Dashboard',false);
     fillCommercialFilter();
     filters.style.display='flex';
-    // Directeur co arrive sur son dashboard
-    showCRMTab(role==='directeur_co'?'dashboard':'non-attribues');
+    // Dir. co / dir. général arrivent sur le dashboard
+    showCRMTab(isCRMScopePilotageRole(role)?'dashboard':'non-attribues');
   } else if(role==='assistante'){
     // Assistante : onglet unique — saisie + ses leads
     addCRMTab('mes-leads','📋 Mes leads',true);
@@ -8080,7 +8093,7 @@ const STATUT_CLS={gris:'ls-gris',rdv:'ls-rdv',jaune:'ls-jaune',vert:'ls-vert',ro
 function getFilteredLeads(){
   const role=currentUser?.role;
   const search=(document.getElementById('crm-search')?.value||'').toLowerCase();
-  const hasGlobalScopeFilters=(role==='admin'||role==='directeur_co');
+  const hasGlobalScopeFilters=(role==='admin'||isCRMScopePilotageRole(role));
   const secteurFilter=hasGlobalScopeFilters?(document.getElementById('crm-filter-secteur')?.value||''):'';
   const societeFilter=hasGlobalScopeFilters?(document.getElementById('crm-filter-societe')?.value||''):'';
   const commFilter=hasGlobalScopeFilters?(document.getElementById('crm-filter-commercial')?.value||''):'';
@@ -8093,10 +8106,10 @@ function getFilteredLeads(){
   } else if(role==='assistante'){
     // Assistante voit uniquement les leads qu'elle a créés
     leads=leads.filter(l=>l.cree_par===currentUser.id||l.cree_par===currentUser.name);
-  } else if(role==='directeur_co'){
+  } else if(isCRMScopePilotageRole(role)){
     leads=getCompanyScopedLeads(leads);
   }
-  // Admin et directeur_co voient TOUT — aucun filtre de rôle
+  // Admin et pilotage CRM voient tout le périmètre société — aucun filtre « mes leads »
 
   // Archive
   if(currentLeadFilter!=='archive')leads=leads.filter(l=>!l.archive);
@@ -8132,7 +8145,7 @@ function renderLeads(){
   const list=document.getElementById('leads-list');if(!list)return;
 
   // VUE DIRECTEUR CO — deux sections
-  if(role==='directeur_co'||role==='admin'){
+  if(isCRMScopePilotageRole(role)||role==='admin'){
     const allLeads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive);
     const nonAttrib=allLeads.filter(isLeadInNonAttribQueue);
     const attrib=getFilteredLeads().filter(l=>l.commercial||l.statut!=='gris');
@@ -8273,7 +8286,7 @@ function renderLeadCard(l,role){
   const statCls=STATUT_CLS[l.statut]||'ls-gris';
   const srcIcon=LEAD_SOURCE_ICONS[l.source]||'📋';
   const montant=l.statut==='vert'&&l.prix_vendu?` · 💰 ${Number(l.prix_vendu).toLocaleString('fr-FR')} €`:l.statut==='jaune'&&l.montant_devis?` · 📋 ${Number(l.montant_devis).toLocaleString('fr-FR')} €`:'';
-  const vuBy=(role==='admin'||role==='directeur_co');
+  const vuBy=(role==='admin'||isCRMScopePilotageRole(role));
   const vuInfo=vuBy?(l.vu_date?`<span class="lead-vu">👁️ ${l.vu_date}</span>`:`<span class="lead-non-vu">👁️ Jamais ouvert</span>`):'';
   const dernAction=l.timeline?.length?l.timeline[l.timeline.length-1]:null;
   const rdvDone=getLeadRdvDoneCount(l);
@@ -8535,7 +8548,7 @@ function renderLeadsDashboard(){
   // Perf commerciaux
   const role=currentUser?.role||'assistante';
   const commerciaux=getAllUsers().filter(u=>u.role==='commercial');
-  if(role==='admin'||role==='directeur_co'){
+  if(role==='admin'||isCRMScopePilotageRole(role)){
     html+=`<div style="font-size:11px;color:var(--t3);font-weight:700;margin:6px 0">4) EXPORTS ET ACTIONS</div>`;
     html+=`<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button onclick="exportLeadsExcel()" style="flex:1;min-width:220px;padding:8px;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">📥 Exporter tous les leads</button>
@@ -8578,7 +8591,7 @@ function renderLeadsDashboard(){
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <div style="width:28px;height:28px;border-radius:8px;background:${c.color};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff">${c.initial}</div>
           <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(c.name)}</div><div style="font-size:10px;color:var(--t3)">${contacts.ce_mois} contacts ce mois · ${contacts.cette_semaine} cette semaine${c.vehicule?` · 🚐 ${esc(c.vehicule)}`:''}</div></div>
-          ${(currentUser.role==='admin'||currentUser.role==='directeur_co')?`<button onclick="editObjectifCommercial('${c.id}','${esc(c.name)}')" style="background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
+          ${(currentUser.role==='admin'||isCRMScopePilotageRole(currentUser.role))?`<button onclick="editObjectifCommercial('${c.id}','${esc(c.name)}')" style="background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
         </div>
         <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Mensuel — ${prog.ca_mois.toLocaleString('fr-FR')}€ / ${prog.obj.mensuel.toLocaleString('fr-FR')}€ · ${prog.ventes_mois} ventes</div>
         <div class="objectif-bar" style="margin-bottom:6px"><div class="objectif-bar-fill" style="width:${pctMois}%;background:${pctMois>=100?'var(--g)':pctMois>=75?'var(--a)':'var(--r)'}"></div></div>
@@ -8628,7 +8641,7 @@ function openNewLead(){
   // Statut visible seulement si attribué (commercial) ou dir co / admin
   document.getElementById('modal-statut-section').style.display='none';
   const commWrap=document.getElementById('lead-commercial-wrap');
-  if(commWrap)commWrap.style.display=(role==='admin'||role==='directeur_co')?'block':'none';
+  if(commWrap)commWrap.style.display=(role==='admin'||isCRMScopePilotageRole(role))?'block':'none';
   fillCommercialAssign();fillProjetsSuggestions();
   document.getElementById('btn-delete-lead').style.display='none';
   document.getElementById('lead-timeline').style.display='none';
@@ -8643,7 +8656,7 @@ function openLead(id){
   currentLeadId=id;currentLeadStatut=l.statut||'gris';currentLeadSource=l.source||'MAG';
   // Marquer comme vu
   const role=currentUser?.role;
-  if(role!=='admin'&&role!=='directeur_co'&&!l.vu_date){
+  if(role!=='admin'&&!isCRMScopePilotageRole(role)&&!l.vu_date){
     const idx=leads.findIndex(x=>x.id===id);
     const dateStr=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     leads[idx].vu_date=dateStr;
@@ -8659,7 +8672,7 @@ function openLead(id){
     <span>${getLeadAge(l)}</span>
     <span style="color:var(--g)">📅 ${rdvClientCount} RDV chez ce client</span>
     ${rdvLeadCount!==rdvClientCount?`<span style="color:var(--t2)">Fiche actuelle: ${rdvLeadCount}</span>`:''}
-    ${l.vu_date?`<span class="lead-vu">👁️ Vu le ${l.vu_date}</span>`:(role==='admin'||role==='directeur_co')?'<span class="lead-non-vu">👁️ Non ouvert</span>':''}
+    ${l.vu_date?`<span class="lead-vu">👁️ Vu le ${l.vu_date}</span>`:(role==='admin'||isCRMScopePilotageRole(role))?'<span class="lead-non-vu">👁️ Non ouvert</span>':''}
   `;
   resetLeadForm();
   // Remplir champs
@@ -8676,8 +8689,8 @@ function openLead(id){
   document.getElementById('lead-commentaire').value=l.commentaire||'';
   // Source
   selectSourceByVal(l.source||'MAG');
-  // Statut — visible si lead attribué OU si admin/directeur_co
-  const canChangeStatut=(l.commercial&&(role==='commercial'||role==='admin'||role==='directeur_co'))||(role==='admin'||role==='directeur_co');
+  // Statut — visible si lead attribué OU si admin / pilotage CRM
+  const canChangeStatut=(l.commercial&&(role==='commercial'||role==='admin'||isCRMScopePilotageRole(role)))||(role==='admin'||isCRMScopePilotageRole(role));
   document.getElementById('modal-statut-section').style.display=canChangeStatut?'block':'none';
   if(canChangeStatut){
     selectStatut(l.statut||'gris',null,true);
@@ -8696,7 +8709,7 @@ function openLead(id){
   }
   // Attribution
   const commWrap=document.getElementById('lead-commercial-wrap');
-  if(commWrap)commWrap.style.display=(role==='admin'||role==='directeur_co')?'block':'none';
+  if(commWrap)commWrap.style.display=(role==='admin'||isCRMScopePilotageRole(role))?'block':'none';
   fillCommercialAssign(l.commercial);
   fillProjetsSuggestions();
   // Suppression — Benjamin uniquement
@@ -9247,7 +9260,7 @@ function fillCommercialFilter(){
   const commerciaux=getAllUsers().filter(u=>{
     if(u.role!=='commercial')return false;
     if(currentUser?.role==='admin')return true;
-    if(currentUser?.role==='directeur_co'){
+    if(isCRMScopePilotageRole(currentUser?.role)){
       return currentUser.societe==='les-deux'||u.societe===currentUser.societe||u.societe==='les-deux';
     }
     return true;
@@ -9259,12 +9272,12 @@ function fillCommercialAssign(selected=''){
   const users=getAllUsers().filter(u=>{
     if(!(u.role==='commercial'||u.role==='directeur_co'))return false;
     if(currentUser?.role==='admin')return true;
-    if(currentUser?.role==='directeur_co'){
+    if(isCRMScopePilotageRole(currentUser?.role)){
       return currentUser.societe==='les-deux'||u.societe===currentUser.societe||u.societe==='les-deux';
     }
     return true;
   });
-  sel.innerHTML='<option value="">⏳ Non attribué</option>'+users.map(c=>`<option value="${c.id}"${c.id===selected?' selected':''}>${esc(c.name)} (${c.role==='directeur_co'?'Dir.co':'Commercial'})</option>`).join('');
+  sel.innerHTML='<option value="">⏳ Non attribué</option>'+users.map(c=>`<option value="${c.id}"${c.id===selected?' selected':''}>${esc(c.name)} (${c.role==='directeur_co'?'Dir.co':c.role==='directeur_general'?'Dir. général':'Commercial'})</option>`).join('');
 }
 
 // ALERTES & RAPPELS
@@ -9290,6 +9303,8 @@ function getLeadNotifScopeForUser(){
   let scoped=getLeads().filter(l=>!l._deleted&&!l.archive&&l.statut!=='vert'&&l.statut!=='rouge');
   if(currentUser.role==='commercial'){
     scoped=scoped.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
+  }else if(currentUser.role==='directeur_general'){
+    scoped=[];
   }else if(currentUser.role==='directeur_co'){
     scoped=getCompanyScopedLeads(scoped);
   }else if(currentUser.role==='admin'&&currentUser.id!=='benjamin'){
@@ -9300,6 +9315,7 @@ function getLeadNotifScopeForUser(){
 
 function checkLeadSmartNotifications(){
   if(!currentUser)return;
+  if(currentUser.role==='directeur_general')return;
   const scoped=getLeadNotifScopeForUser();
   if(!scoped.length)return;
   const nonAttribues=scoped.filter(l=>!l.commercial&&l.statut==='gris').length;
@@ -9369,6 +9385,7 @@ function refreshLeadsBadge(){
   const badge=document.getElementById('leads-badge');if(!badge)return;
   const role=currentUser?.role;
   if(role==='admin'){badge.style.display='none';return;}
+  if(role==='directeur_general'){badge.style.display='none';return;}
   let leads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive);
   // Directeur co : badge = non attribués
   if(role==='directeur_co'){
@@ -9413,7 +9430,7 @@ function buildCRMExportBundles(){
   const leadsMonth=actifs.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;});
   const salesMonth=leadsMonth.filter(l=>l.statut==='vert');
   const stamp=new Date().toISOString().slice(0,10);
-  const scopeLabel=(currentUser?.role==='directeur_co')?`scope_${currentUser.societe||'societe'}`:'scope_global';
+  const scopeLabel=isCRMScopePilotageRole(currentUser?.role)?`scope_${currentUser.societe||'societe'}`:'scope_global';
 
   const leadsHeader='Date,Source,Nom,Téléphone,Ville,CP,Projet,Statut,Commercial,Secteur,Hors secteur,Zone blanche,Devis (€),CA (€),Suivi,Commentaire\n';
   const leadsRows=actifs.map(l=>{
@@ -10295,7 +10312,7 @@ function markLeadRdvDone(id,source='manuel'){
     renderLeads();
   }
   refreshLeadsBadge();
-  if(currentUser?.role==='admin'||currentUser?.role==='directeur_co'){
+  if(currentUser?.role==='admin'||isCRMScopePilotageRole(currentUser?.role)){
     renderLeadsDashboard();
   }
   showDriveNotif(`✅ RDV comptabilisé pour ${lead.nom}`);
@@ -10866,6 +10883,17 @@ const TUTO_SLIDES_BY_ROLE={
     {icon:'💬',title:'6) Communication interne',desc:'Utilise Messages pour coordonner l\'équipe et débloquer les points urgents.',highlight:'Message court, consigne claire, action attendue'},
     {icon:'🐛',title:'7) Remontée des anomalies',desc:'En cas de problème applicatif, utilise l\'onglet Bugs pour signaler le blocage.',highlight:'Ajouter un contexte précis pour correction rapide'},
     {icon:'✅',title:'Routine recommandée',desc:'Matin: attribution + alertes. Midi: contrôle devis/RDV. Soir: check final du pipe.',highlight:null},
+  ],
+  directeur_general:[
+    {icon:'📊',title:'Directeur général — vision CRM',desc:'Même accès que le dir. commercial sur les leads et le dashboard, sans les notifications automatiques qui lui sont réservées.',highlight:'Leads CRM + Dashboard'},
+    {icon:'⚠️',title:'1) Suivi des non attribués',desc:'Tu vois les leads en attente d’attribution et peux les réaffecter comme le dir. commercial.',highlight:'Onglet À attribuer'},
+    {icon:'📈',title:'2) Suivre le pipe',desc:'Contrôle les statuts, les devis et les pertes pour la vision globale.',highlight:'Dashboard CRM'},
+    {icon:'📅',title:'3) RDV et Agenda',desc:'Dans chaque fiche lead, Agenda ouvre Google Agenda avec le RDV prérempli.',highlight:'Vérifier date / horaire / adresse avant validation'},
+    {icon:'📞',title:'4) Pilotage',desc:'Coordonne avec le directeur commercial pour les priorités terrain.',highlight:'Messages = équipe'},
+    {icon:'🧩',title:'5) Qualité des données',desc:'Exige une qualification propre des leads (statut, motif de perte, montants).',highlight:'Un CRM propre = statistiques fiables'},
+    {icon:'💬',title:'6) Communication interne',desc:'Utilise Messages pour les échanges avec l’équipe.',highlight:'Message court, consigne claire'},
+    {icon:'🐛',title:'7) Remontée des anomalies',desc:'En cas de problème applicatif, utilise l’onglet Bugs.',highlight:'Contexte précis pour correction rapide'},
+    {icon:'✅',title:'Routine recommandée',desc:'Matin: vue d’ensemble. Midi: contrôle devis/RDV. Soir: synthèse du pipe.',highlight:null},
   ],
   assistante:[
     {icon:'🧭',title:'Assistante — mission',desc:'Tu qualifies les demandes entrantes et tu assures une saisie claire pour fluidifier tout le traitement.',highlight:'Leads CRM + SAV + Messages'},
