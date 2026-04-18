@@ -7963,7 +7963,7 @@ async function creerUtilisateur(){
   const val=sel?.value||'';
   let pwd=(document.getElementById('new-user-pwd')?.value||'').trim();
   if(!pwd||pwd.length<10)pwd=generateBenAIPassword(14);
-  const role=document.getElementById('new-user-role')?.value||'assistante';
+  const role=String(document.getElementById('new-user-role')?.value||'assistante').trim();
   const status=document.getElementById('add-user-status');
   if(!status){await benaiAlert('Élément d’état manquant — rechargez la page.');return;}
   if(!val){status.style.color='var(--r)';status.textContent='⚠️ Sélectionnez un salarié';return;}

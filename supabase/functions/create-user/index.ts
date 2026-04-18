@@ -14,6 +14,26 @@ type CreateUserPayload = {
   app_uid?: string;
 };
 
+/** Rôles tels qu’attendus par BenAI / table `profiles` (ASCII, underscores). */
+function normalizeBenaiRole(input: unknown): string {
+  let s = String(input ?? "").trim().toLowerCase();
+  try {
+    s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  } catch {
+    // ignore normalize errors
+  }
+  s = s.replace(/[\s-]+/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+  return s;
+}
+
+function normalizeBenaiCompany(input: unknown): string {
+  const key = normalizeBenaiRole(input);
+  if (key === "les_deux" || key === "lesdeux") return "les-deux";
+  if (key === "nemausus") return "nemausus";
+  if (key === "lambert") return "lambert";
+  return "";
+}
+
 function sanitizeAppUid(seed: string): string {
   const cleaned = String(seed || "")
     .trim()
@@ -144,12 +164,14 @@ Deno.serve(async (req) => {
       return json(403, { error: "Accès réservé à l'administrateur" }, origin);
     }
 
-    const payload = (await req.json()) as CreateUserPayload;
+    const payload = (await req.json()) as CreateUserPayload & Record<string, unknown>;
     const email = String(payload.email || "").trim().toLowerCase();
     const password = String(payload.password || "");
     const fullName = String(payload.full_name || "").trim();
-    const role = payload.role;
-    const company = payload.company;
+    const roleRaw = payload.role ?? payload.Role;
+    const role = normalizeBenaiRole(roleRaw);
+    const companyRaw = payload.company ?? payload.Company;
+    const company = normalizeBenaiCompany(companyRaw);
     const requestedAppUid = sanitizeAppUid(String(payload.app_uid || "").trim().toLowerCase() || email.split("@")[0] || "user");
 
     if (!email || !email.includes("@")) {
@@ -162,12 +184,17 @@ Deno.serve(async (req) => {
       return json(400, { error: "Nom complet manquant" }, origin);
     }
 
-    const allowedRoles = ["admin", "directeur_co", "directeur_general", "commercial", "assistante", "metreur"];
-    const allowedCompanies = ["nemausus", "lambert", "les-deux"];
-    if (!allowedRoles.includes(role)) {
-      return json(400, { error: "Rôle invalide" }, origin);
+    const allowedRoles = ["admin", "directeur_co", "directeur_general", "commercial", "assistante", "metreur"] as const;
+    const allowedCompanies = ["nemausus", "lambert", "les-deux"] as const;
+    if (!role) {
+      return json(400, { error: "Rôle manquant" }, origin);
     }
-    if (!allowedCompanies.includes(company)) {
+    if (!allowedRoles.includes(role as (typeof allowedRoles)[number])) {
+      return json(400, {
+        error: `Rôle invalide (reçu : « ${role || "(vide)"} » — attendu : ${allowedRoles.join(", ")})`,
+      }, origin);
+    }
+    if (!company || !allowedCompanies.includes(company as (typeof allowedCompanies)[number])) {
       return json(400, { error: "Société invalide" }, origin);
     }
 
