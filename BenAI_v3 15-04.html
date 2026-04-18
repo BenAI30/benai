@@ -249,6 +249,18 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .evol-actions{display:flex;gap:8px;margin-top:10px;}
 .evol-btn-ok{background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;}
 .evol-btn-later{background:var(--s3);color:var(--t3);border:1px solid var(--b1);border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;}
+.habit-ai-report-toolbar{display:none;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
+.habit-ai-report-toolbar.is-visible{display:flex;}
+.habit-ai-toolbar-btn{padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid var(--b1);background:var(--s3);color:var(--t2);}
+.habit-ai-toolbar-btn:hover{border-color:var(--a);color:var(--a);}
+.habit-ai-toolbar-btn.danger:hover{border-color:var(--r);color:var(--r);}
+#habit-ai-output.habit-ai-output--rich{font-size:12px;color:var(--t1);background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;max-height:420px;overflow-y:auto;white-space:normal;line-height:1.45;}
+.habit-ai-sec{font-size:13px;font-weight:700;color:var(--t1);margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--b1);}
+.habit-ai-sec:first-child{margin-top:0;}
+.habit-ai-ul{margin:0 0 10px;padding-left:20px;color:var(--t2);font-size:12px;}
+.habit-ai-ul li{margin:4px 0;}
+.habit-ai-p{margin:0 0 10px;font-size:12px;color:var(--t2);}
+.habit-ai-kv{font-size:11px;color:var(--t3);margin:2px 0 0 4px;padding-left:10px;border-left:2px solid var(--b1);}
 /* STATS */
 .stat-bar-wrap{margin-bottom:8px;}
 .stat-bar-label{display:flex;justify-content:space-between;font-size:11px;color:var(--t2);margin-bottom:4px;}
@@ -1103,14 +1115,19 @@ input[type=file]{display:none;}
         </div>
         <div id="habit-ai-wrap" style="padding:12px 16px 14px;flex-shrink:0;border-bottom:1px solid var(--b1);background:var(--s2)">
           <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px">💡 Suggestions basées sur l’usage (IA)</div>
-          <div style="font-size:11px;color:var(--t3);line-height:1.45;margin-bottom:10px">Les pages ouvertes sont comptées <strong>localement</strong> (pour l’ordre d’usage). L’appel IA n’envoie <strong>ni volumes ni chiffres métier</strong> — seulement le rôle, la liste des noms de pages (sans compteurs) et la version. <strong>Un appel API sur demande</strong> (tokens + latence affichés après). <strong>Désactivé par défaut.</strong> Coût € = estimation code (Sonnet), non contractuelle.</div>
+          <div style="font-size:11px;color:var(--t3);line-height:1.45;margin-bottom:10px">Les pages ouvertes sont comptées <strong>localement</strong> (pour l’ordre d’usage). L’appel IA n’envoie <strong>ni volumes ni chiffres métier</strong> — seulement le rôle, la liste des noms de pages (sans compteurs) et la version. <strong>Un appel API sur demande</strong> (tokens + latence affichés après). Le <strong>dernier rapport</strong> est mémorisé ici pour le copier vers un outil de dev. <strong>Désactivé par défaut.</strong> Coût € = estimation code (Sonnet), non contractuelle.</div>
           <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);cursor:pointer;margin-bottom:10px">
             <input type="checkbox" id="habit-ai-enabled" onchange="saveHabitAiSettings()">
             Autoriser l’appel IA depuis ce panneau
           </label>
           <button type="button" class="btn-primary" id="habit-ai-run-btn" onclick="runHabitImprovementSuggestions()" style="margin-bottom:8px">Analyser mon usage et proposer des améliorations</button>
           <div id="habit-ai-metrics" style="font-size:11px;color:var(--t3);min-height:18px;margin-bottom:6px"></div>
-          <div id="habit-ai-output" style="display:none;font-size:12px;color:var(--t1);background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px;max-height:260px;overflow-y:auto;white-space:pre-wrap"></div>
+          <div id="habit-ai-report-toolbar" class="habit-ai-report-toolbar" aria-label="Actions sur le rapport IA">
+            <span style="font-size:11px;color:var(--t3)">Rapport (conservé sur cet appareil)&nbsp;:</span>
+            <button type="button" class="habit-ai-toolbar-btn" onclick="copyHabitAiLastReport()">📋 Copier pour Cursor / développeur</button>
+            <button type="button" class="habit-ai-toolbar-btn danger" onclick="clearHabitAiReport()">Effacer</button>
+          </div>
+          <div id="habit-ai-output" class="habit-ai-output--rich" style="display:none"></div>
         </div>
         <div style="padding:16px;flex:1;overflow-y:auto" id="evolution-list"></div>
       </div>
@@ -6768,6 +6785,7 @@ async function askEmailPaie(idx){
 const USAGE_PAGES_STORAGE_KEY='benai_usage_pages_v1';
 const HABIT_AI_ENABLED_KEY='benai_habit_suggestions_enabled';
 const HABIT_AI_LAST_METRICS_KEY='benai_habit_ai_last_metrics';
+const HABIT_AI_LAST_REPORT_KEY='benai_habit_ai_last_report';
 
 function recordUsagePageVisit(page){
   if(!page||!currentUser)return;
@@ -6823,6 +6841,94 @@ function hydrateHabitAiPanel(){
   }catch{
     met.textContent='';
   }
+  hydrateHabitAiReportFromStorage();
+}
+
+function habitAiEscHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/** Affichage HTML sûr à partir du markdown simple (##, listes -). */
+function formatHabitAiReportHtml(raw){
+  const lines=String(raw||'').split('\n');
+  let html='';
+  let inUl=false;
+  const closeUl=()=>{if(inUl){html+='</ul>';inUl=false;}};
+  lines.forEach(line=>{
+    const trimmed=line.trim();
+    const tEnd=line.trimEnd();
+    if(/^##\s+/.test(trimmed)){
+      closeUl();
+      html+='<div class="habit-ai-sec">'+habitAiEscHtml(trimmed.replace(/^##\s+/,''))+'</div>';
+    }else if(/^###\s+/.test(trimmed)){
+      closeUl();
+      html+='<div class="habit-ai-kv"><strong>'+habitAiEscHtml(trimmed.replace(/^###\s+/,''))+'</strong></div>';
+    }else if(/^[-*]\s+/.test(trimmed)){
+      if(!inUl){html+='<ul class="habit-ai-ul">';inUl=true;}
+      html+='<li>'+habitAiEscHtml(trimmed.replace(/^[-*]\s+/,''))+'</li>';
+    }else if(!trimmed){
+      closeUl();
+    }else{
+      closeUl();
+      html+='<p class="habit-ai-p">'+habitAiEscHtml(tEnd)+'</p>';
+    }
+  });
+  closeUl();
+  return html||'<p class="habit-ai-p" style="color:var(--t3)">(Réponse vide)</p>';
+}
+
+function setHabitAiReportVisible(rawText){
+  const outEl=document.getElementById('habit-ai-output');
+  const bar=document.getElementById('habit-ai-report-toolbar');
+  const t=String(rawText||'').trim();
+  if(!outEl)return;
+  if(!t){
+    outEl.style.display='none';
+    outEl.innerHTML='';
+    if(bar)bar.classList.remove('is-visible');
+    return;
+  }
+  outEl.style.display='block';
+  outEl.innerHTML=formatHabitAiReportHtml(t);
+  if(bar)bar.classList.add('is-visible');
+}
+
+function hydrateHabitAiReportFromStorage(){
+  try{
+    const raw=appStorage.getItem(HABIT_AI_LAST_REPORT_KEY)||'';
+    setHabitAiReportVisible(raw);
+  }catch{
+    setHabitAiReportVisible('');
+  }
+}
+
+function copyHabitAiLastReport(){
+  const raw=appStorage.getItem(HABIT_AI_LAST_REPORT_KEY)||'';
+  if(!String(raw).trim()){showDriveNotif('Aucun rapport à copier — lancez d’abord une analyse.');return;}
+  const run=()=>showDriveNotif('Rapport copié — collez-le dans Cursor ou votre suivi.');
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(raw).then(run).catch(()=>{
+      try{
+        const ta=document.createElement('textarea');
+        ta.value=raw;ta.style.position='fixed';ta.style.left='-9999px';
+        document.body.appendChild(ta);ta.select();document.execCommand('copy');
+        document.body.removeChild(ta);run();
+      }catch{showDriveNotif('Copie impossible');}
+    });
+  }else{
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=raw;ta.style.position='fixed';ta.style.left='-9999px';
+      document.body.appendChild(ta);ta.select();document.execCommand('copy');
+      document.body.removeChild(ta);run();
+    }catch{showDriveNotif('Copie impossible');}
+  }
+}
+
+function clearHabitAiReport(){
+  appStorage.removeItem(HABIT_AI_LAST_REPORT_KEY);
+  setHabitAiReportVisible('');
+  showDriveNotif('Rapport effacé de ce navigateur.');
 }
 
 async function runHabitImprovementSuggestions(){
@@ -6835,14 +6941,14 @@ async function runHabitImprovementSuggestions(){
   }
   if(!currentUser){showDriveNotif('Connectez-vous.');return;}
   const snap=buildUsageHabitContextText();
-  const userContent=`Voici un résumé factuel d’utilisation de BenAI. Propose 5 à 8 améliorations concrètes du produit ou des flux (pas de banalités). Réponds en français, titres ## courts, listes à puces, ton professionnel.\n\n---\n${snap}`;
-  const systemAdd=`Tu es BenAI côté évolution produit. Tu proposes — l’utilisateur décide. Ne promets pas de délais. Aucune action automatique.`;
+  const userContent=`Voici un résumé factuel d’utilisation de BenAI (sans chiffres métier).\n\nTa sortie sera RELUE par un développeur humain ou une IA de code : elle doit être ACTIONNABLE.\n\nRègles strictes :\n- Réponds en français.\n- Propose EXACTEMENT 5 à 7 améliorations numérotées.\n- Pour CHAQUE amélioration, utilise EXACTEMENT ce gabarit (lignes telles quelles, avec les libellés) :\n\n## N — Titre court (max 8 mots)\n- **Module** : un parmi [benai, messages, sav, leads, notes, absences, annuaire, paie, admin, bugs, evolution, guide, autre]\n- **Problème / opportunité** : une phrase claire.\n- **Comportement attendu** : 1 à 2 phrases (ce que l’app doit faire).\n- **Critères d’acceptation** : 2 ou 3 puces commençant par « - » testables par un testeur.\n- **Priorité** : P1 | P2 | P3 (P1 = le plus urgent)\n- **Dépendances / risques** : une phrase (ou « Aucun »).\n\nPas d’introduction ni de conclusion hors de ces blocs. Pas de markdown gras ailleurs que les libellés **...** ci-dessus.\n\n---\n${snap}`;
+  const systemAdd=`Tu es BenAI côté évolution produit. Tu rédiges des fiches « backlog » lisibles par un développeur. Tu ne promets pas de délais. Aucune action automatique dans l’app. Zéro jargon vide : chaque phrase doit aider à coder ou à tester.`;
   if(btn){btn.disabled=true;btn.textContent='Analyse en cours…';}
   const t0=(typeof performance!=='undefined'&&performance.now)?performance.now():Date.now();
   try{
     const data=await requestAnthropicMessages({
       model:'claude-sonnet-4-20250514',
-      max_tokens:1200,
+      max_tokens:2800,
       system:systemAdd+BENAI_CTX,
       messages:[{role:'user',content:userContent}]
     });
@@ -6861,10 +6967,9 @@ async function runHabitImprovementSuggestions(){
       costEur:Number.isFinite(costNum)?costNum:costStr
     }));
     if(met)met.textContent=`Dernier appel : ${latency} ms · ${inp} + ${outTok} tokens · ~${costStr} € (estim. Sonnet — indicatif)`;
-    if(outEl){
-      outEl.style.display='block';
-      outEl.textContent=(data.content&&data.content[0]&&data.content[0].text)?String(data.content[0].text):'(Réponse vide)';
-    }
+    const rawText=(data.content&&data.content[0]&&data.content[0].text)?String(data.content[0].text):'';
+    try{appStorage.setItem(HABIT_AI_LAST_REPORT_KEY,rawText);}catch(_){}
+    setHabitAiReportVisible(rawText);
     try{logActivity(`${currentUser.name} a lancé l’analyse « suggestions usage » IA`);}catch{}
   }catch(e){
     if(met)met.textContent='Erreur : '+(e?.message||e||'?');
