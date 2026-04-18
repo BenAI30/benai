@@ -1716,7 +1716,7 @@ input[type=file]{display:none;}
             </div>
           </div>
           <div style="padding:0 16px 10px;flex-shrink:0">
-            <input type="text" placeholder="Rechercher un employé…" id="ann-search" oninput="renderAnnuaire()" style="width:100%;max-width:420px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:9px 12px;color:var(--t1);font-family:inherit;font-size:13px;outline:none;box-sizing:border-box">
+            <input type="text" placeholder="Rechercher (fiche ou compte hors annuaire)…" id="ann-search" oninput="renderAnnuaire()" style="width:100%;max-width:420px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:9px 12px;color:var(--t1);font-family:inherit;font-size:13px;outline:none;box-sizing:border-box">
           </div>
           <div id="ann-chips-filter" class="ann-chips">
             <button type="button" class="ann-filter active" onclick="setAnnFilter('tous',this)">Tous</button>
@@ -1727,17 +1727,7 @@ input[type=file]{display:none;}
             <button type="button" class="ann-filter" onclick="setAnnFilter('Commercial',this)">Commerciaux</button>
             <button type="button" class="ann-filter" onclick="setAnnFilter('Assistante',this)">Assistantes</button>
           </div>
-          <div style="padding:0 16px 8px;width:100%;box-sizing:border-box;flex-shrink:0" id="annuaire-list"></div>
-          <div id="equipe-comptes-bloc" class="crm-dash-anchor" style="padding:0 16px 20px;border-top:1px solid var(--b1);margin-top:6px;padding-top:16px;flex-shrink:0">
-            <div class="equipe-card">
-              <div style="font-size:12px;font-weight:700;margin-bottom:4px">Comptes BenAI &amp; mots de passe</div>
-              <div style="font-size:11px;color:var(--t3);margin-bottom:10px;line-height:1.45">Même page <strong>Équipe</strong> : fiches ci-dessus, puis comptes (blocage, suppression) et <strong>mots de passe</strong> de référence. Création d’accès : case à l’enregistrement ou <strong>+ Accès BenAI</strong> sur la carte. Pseudo de connexion : <strong>Benjamin</strong> uniquement.</div>
-              <input type="text" id="user-search" placeholder="🔍 Rechercher un compte…" oninput="renderUsersList()" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:12px;outline:none;margin-bottom:8px;box-sizing:border-box">
-              <div id="users-list" style="margin-top:4px"></div>
-              <div style="font-size:11px;font-weight:700;margin:14px 0 6px;padding-top:12px;border-top:1px dashed var(--b1);color:var(--t2)">Mots de passe (référence interne)</div>
-              <div id="pwd-list" style="margin-top:2px"></div>
-            </div>
-          </div>
+          <div style="padding:0 16px 20px;width:100%;box-sizing:border-box;flex-shrink:0" id="annuaire-list"></div>
         </div>
         </div>
       </div>

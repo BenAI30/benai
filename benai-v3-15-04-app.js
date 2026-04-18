@@ -112,7 +112,6 @@ const RUNTIME_LEADS_SESSION_PREFIX='benai_runtime_leads_';
 const appStorageCache=Object.create(null);
 let appStorageHydratedForUid='';
 let appStoragePersistTimer=null;
-let equipeUITab='annuaire';
 let editingEmployeId=null;
 let editingEmployeHadBenai=false;
 const APP_STORAGE_CLOUD_EXACT_ALLOWLIST=new Set([
@@ -2165,8 +2164,8 @@ function refreshVisibleDataAfterSupabaseSync(){
   if(document.getElementById('page-notes')?.style.display==='flex')renderNotes();
   if(document.getElementById('page-absences')?.style.display==='flex'){configureAbsencesPageForRole();renderAbsences();if(currentUser?.role==='admin')fillAbsEmpList();}
   if(document.getElementById('page-annuaire')?.style.display==='flex'){
-    if(equipeUITab==='acces'){renderUsersList();renderPwdList();}
-    else renderAnnuaire();
+    renderAnnuaire();
+    renderPwdList();
   }
   if(document.getElementById('page-leads')?.style.display==='flex')refreshLeadsPageIfVisible();
   if(document.getElementById('page-messages')?.style.display==='flex'){
@@ -3006,8 +3005,8 @@ function initApp(silent=false){
   if(u?.role==='admin'||isCRMScopePilotageRole(u?.role)){
     void syncExtraUsersFromSupabaseProfiles().then(ok=>{
       if(!ok)return;
-      if(u?.role==='admin'&&document.getElementById('page-annuaire')?.style.display==='flex'&&equipeUITab==='acces'){
-        renderUsersList();
+      if(u?.role==='admin'&&document.getElementById('page-annuaire')?.style.display==='flex'){
+        renderAnnuaire();
         renderPwdList();
       }
       if(isCRMScopePilotageRole(u?.role)&&document.getElementById('page-leads')?.style.display==='flex'){
@@ -3520,22 +3519,17 @@ async function handleDevisPDF(file){
   busy=false;document.getElementById('btn-send').disabled=false;
 }
 
-// PAGE ÉQUIPE (annuaire + accès BenAI)
-function setEquipeTab(tab){
-  if(tab!=='acces'&&tab!=='annuaire')tab='annuaire';
-  equipeUITab=tab;
-  const target=document.getElementById(tab==='acces'?'equipe-comptes-bloc':'equipe-sec-contacts');
-  if(target)try{target.scrollIntoView({behavior:'smooth',block:'start'});}catch{target.scrollIntoView(true);}
+// PAGE ÉQUIPE (fiches annuaire + compte / mot de passe sur chaque fiche)
+function setEquipeTab(){
   const addBtn=document.getElementById('ann-btn-add-emp');
   if(addBtn)addBtn.style.display='inline-flex';
-  renderAnnuaire();renderUsersList();renderPwdList();
+  renderAnnuaire();renderPwdList();
 }
 function initEquipePage(){
   if(!document.getElementById('equipe-unified-scroll')){renderAnnuaire();return;}
-  setEquipeTab(equipeUITab);
+  setEquipeTab();
 }
-function showAnnuaireTeamTab(which){
-  equipeUITab=which==='acces'?'acces':'annuaire';
+function showAnnuaireTeamTab(){
   showPage('annuaire');
 }
 
@@ -5017,18 +5011,22 @@ function renderAnnuaire(search){
   const lam=all.filter(e=>e.societe==='lambert'||e.societe==='les-deux').length;
   const sub=document.getElementById('ann-counter-sub');
   if(sub)sub.textContent=`${all.length} fiche(s) dans l’annuaire`;
-  if(!emps.length){list.innerHTML=`<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">${search||annFilter!=='tous'?'Aucun résultat':'Aucun employé — cliquez sur + Ajouter'}</div>`;return;}
+  const orphansHtml=buildOrphanBenaiUsersSectionHtml(search);
+  if(!emps.length){
+    if(orphansHtml){list.innerHTML=orphansHtml;return;}
+    list.innerHTML=`<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">${search||annFilter!=='tous'?'Aucun résultat':'Aucun employé — cliquez sur + Ajouter'}</div>`;
+    return;
+  }
   const fc={'Technicien':'#60A5FA','Métreur':'#A78BFA','Commercial':'#E8943A','Assistante':'#22C55E','Comptable':'#FBBF24','Autre':'#888'};
   const today=new Date();
   const byFonction={};
   emps.forEach(e=>{const f=e.fonction||'Autre';if(!byFonction[f])byFonction[f]=[];byFonction[f].push(e);});
-  list.innerHTML=Object.entries(byFonction).map(([fonction,groupe])=>`
+  const mainHtml=Object.entries(byFonction).map(([fonction,groupe])=>`
     <div style="margin-bottom:16px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${fc[fonction]||'#888'};padding:6px 0;display:flex;align-items:center;gap:6px">
         <span style="flex:1">${fonction}</span><span style="background:${fc[fonction]||'#888'}22;color:${fc[fonction]||'#888'};padding:2px 8px;border-radius:10px;font-size:11px">${groupe.length}</span>
       </div>
       ${groupe.map(e=>{
-        // Anniversaire aujourd'hui ?
         let annivToday='';let annivInfo='';
         if(e.naissance){
           const d=new Date(e.naissance);
@@ -5037,26 +5035,29 @@ function renderAnnuaire(search){
           }
           annivInfo=`<div style="font-size:10px;color:var(--t3)">🎂 ${new Date(e.naissance).toLocaleDateString('fr-FR',{day:'2-digit',month:'long'})}</div>`;
         }
-        return`<div class="emp-card" style="${annivToday?'border-color:var(--g);background:var(--g2)':''}">
+        let benaiPanel='';
+        if(canManageBenaiUsersAdmin()){
+          const lk=findBenaiAccountLinkedToAnnuaireEmploye(e);
+          benaiPanel=lk?buildBenaiAccountControlsHtml(lk):`<div style="width:100%;margin-top:8px;padding-top:8px;border-top:1px solid var(--b1);box-sizing:border-box"><button type="button" onclick="void openBenaiAccessForEmployeCard(${e.id})" class="equipe-link-btn" style="padding:5px 10px;font-size:11px;border-radius:6px">+ Accès BenAI</button></div>`;
+        }
+        return`<div class="emp-card" style="${annivToday?'border-color:var(--g);background:var(--g2)':''};flex-wrap:wrap;align-items:flex-start">
+          <div style="display:flex;align-items:center;gap:12px;width:100%;min-width:0">
           <div class="emp-avatar">${e.prenom[0].toUpperCase()}${e.nom[0].toUpperCase()}${annivToday}</div>
-          <div style="flex:1">
+          <div style="flex:1;min-width:0">
             <div class="emp-name">${esc(e.prenom)} ${esc(e.nom)} <span style="background:var(--s3);color:var(--t3);padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600">${e.societe==='nemausus'?'Nemausus':e.societe==='lambert'?'Lambert':'Les deux'}</span></div>
             <div class="emp-detail">${e.tel?'📞 '+esc(e.tel):''}</div>
             ${e.email?`<div class="emp-email" onclick="navigator.clipboard.writeText('${esc(e.email)}');showDriveNotif('📋 Email copié')" title="Email perso — cliquer pour copier">✉️ ${esc(e.email)} <span style="font-size:9px;color:var(--t3)">(perso)</span></div>`:''}
             ${e.emailPro?`<div class="emp-email" style="color:var(--bl)" onclick="navigator.clipboard.writeText('${esc(e.emailPro)}');showDriveNotif('📋 Email pro copié')" title="Email pro — cliquer pour copier">✉️ ${esc(e.emailPro)} <span style="font-size:9px;color:var(--t3)">(pro)</span></div>`:''}
             ${annivInfo}
-            ${(()=>{
-              const lk=findBenaiAccountLinkedToAnnuaireEmploye(e);
-              if(!canManageBenaiUsersAdmin())return'';
-              if(lk)return`<div style="font-size:10px;margin-top:6px;color:var(--g);line-height:1.35">🔐 BenAI · ${esc(ROLE_LABELS[lk.role]||lk.role)} <span style="color:var(--t3)">(${esc(String(lk.id))})</span></div>`;
-              return`<div style="margin-top:8px"><button type="button" onclick="void openBenaiAccessForEmployeCard(${e.id})" class="equipe-link-btn" style="padding:5px 10px;font-size:11px;border-radius:6px">+ Accès BenAI</button></div>`;
-            })()}
           </div>
-          <button onclick="editEmploye(${e.id})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:16px;padding:4px" title="Modifier">✏️</button>
-          <button onclick="deleteEmploye(${e.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:16px;padding:4px" title="Supprimer">🗑️</button>
+          <button onclick="editEmploye(${e.id})" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:16px;padding:4px;flex-shrink:0" title="Modifier">✏️</button>
+          <button onclick="deleteEmploye(${e.id})" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:16px;padding:4px;flex-shrink:0" title="Supprimer">🗑️</button>
+          </div>
+          ${benaiPanel}
         </div>`;
       }).join('')}
     </div>`).join('');
+  list.innerHTML=mainHtml+orphansHtml;
 }
 
 function fillAbsEmpList(opts={}){
@@ -6388,6 +6389,93 @@ function getAllUsers(){
   return[...base,...extras];
 }
 
+function benaiJsonAttr(v){
+  return JSON.stringify(v==null?'':String(v));
+}
+/** Comptes BenAI sans fiche annuaire associée (ex. Benjamin). */
+function getBenaiUsersWithoutLinkedAnnuaireFiche(){
+  const ann=getAnnuaireActive();
+  const linked=new Set();
+  ann.forEach(e=>{
+    const lk=findBenaiAccountLinkedToAnnuaireEmploye(e);
+    if(lk&&lk.id)linked.add(lk.id);
+  });
+  return getAllUsers().filter(u=>u&&u.id&&!linked.has(u.id)).sort((a,b)=>{
+    if(a.id==='benjamin')return-1;
+    if(b.id==='benjamin')return 1;
+    return String(a.name||'').localeCompare(String(b.name||''),'fr');
+  });
+}
+function buildBenaiAccountControlsHtml(u){
+  const ja=benaiJsonAttr;
+  const access=getAccess();
+  const isBlocked=access[u.id]===false;
+  const isCRM=(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general');
+  const derniereConnexion=getConnexions(u.id)[0]?.date||null;
+  const socLabel=u.societe==='les-deux'?'Multi-périmètres CRM':u.societe==='nemausus'?'Périmètre CRM — entité 1':u.societe==='lambert'?'Périmètre CRM — entité 2':'—';
+  const crmVeh=isCRM?`<div style="font-size:10px;color:var(--t3);margin-top:2px">🚐 Véhicule : ${esc(u.vehicule||'Non renseigné')}</div>`:'';
+  const derniere=`<div style="font-size:10px;color:var(--t3);margin-top:2px">${derniereConnexion?'Dernière connexion : '+esc(derniereConnexion):'Jamais connecté'}</div>`;
+  const idLine=u.id==='benjamin'
+    ?`<div style="font-size:10px;color:var(--t3);margin-top:2px">Identifiant interne : <code style="font-size:10px;background:var(--s2);padding:2px 6px;border-radius:4px">${esc(u.id)}</code>${canAssignBenaiLoginPseudo()?' <span style="opacity:.9">· pseudo à la connexion (Supabase)</span>':''}</div>`
+    :`<div style="font-size:10px;color:var(--t3);margin-top:2px">Connexion : <code style="font-size:10px;background:var(--s2);padding:2px 6px;border-radius:4px">${esc(u.id)}</code></div>`;
+  let actions='';
+  if(u.id!=='benjamin'){
+    const uid=u.id;
+    const btnStyle='padding:4px 8px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit';
+    actions=`<button type="button" style="${btnStyle};background:var(--a3);color:var(--a);border:1px solid var(--a)" onclick="editUser(${ja(uid)})" title="Modifier">✏️</button>
+<div class="toggle ${isBlocked?'':'on'}" onclick="void toggleAccess(${ja(uid)})" title="${isBlocked?'Bloqué':'Actif'}" style="flex-shrink:0"></div>`;
+    if(isCRM){
+      actions+=`<button type="button" style="${btnStyle};${isBlocked?'background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3)':'background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3)'}" onclick="void toggleBlockCommercial(${ja(uid)})">${isBlocked?'🔓 Débloquer':'🔒 Bloquer'}</button>`;
+    }
+    actions+=`<button type="button" style="${btnStyle};background:var(--r2);color:var(--r);border:1px solid rgba(248,113,113,.3)" onclick="void supprimerUtilisateur(${ja(uid)})" title="Supprimer">🗑️</button>`;
+    if(canAssignBenaiLoginPseudo()){
+      actions+=`<button type="button" style="${btnStyle};background:var(--s2);color:var(--t1);border:1px solid var(--b1)" title="Identifiant de connexion" onclick="void modifierBenaiLoginUid(${ja(uid)})">🔑</button>`;
+    }
+  }else{
+    actions='<span style="font-size:10px;color:var(--t3)">Admin</span>';
+    if(canAssignBenaiLoginPseudo()){
+      actions+=`<button type="button" style="padding:4px 8px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit;background:var(--s2);color:var(--t1);border:1px solid var(--b1)" onclick="void modifierBenaiLoginUid(${ja('benjamin')})">🔑</button>`;
+    }
+  }
+  const pwdRow=currentUser?.role==='admin'?`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--b1)">
+    <span style="font-size:10px;color:var(--t3)">Mot de passe</span>
+    <span style="font-size:11px;color:var(--t3);font-family:JetBrains Mono,monospace;background:var(--bg);padding:4px 10px;border-radius:6px">•••• sécurisé</span>
+    <button type="button" class="equipe-link-btn" onclick="changerMdp(${ja(u.id)},${ja(u.name)})" style="padding:4px 10px;font-size:11px;font-weight:600">Modifier</button>
+  </div>`:'';
+  return`<div class="emp-benai-panel" style="border-top:1px solid var(--b1);margin-top:10px;padding-top:10px;width:100%;box-sizing:border-box">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-bottom:6px">Compte BenAI</div>
+    <div style="font-size:12px;font-weight:600">${esc(u.name)}</div>
+    ${idLine}
+    <div style="font-size:11px;color:var(--t2);margin-top:4px">${esc(ROLE_LABELS[u.role]||u.role||'')} · ${esc(socLabel)}</div>
+    ${crmVeh}${derniere}
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px">${actions}</div>
+    ${pwdRow}
+  </div>`;
+}
+function buildOrphanBenaiUsersSectionHtml(search){
+  if(!canManageBenaiUsersAdmin())return'';
+  let orphans=getBenaiUsersWithoutLinkedAnnuaireFiche();
+  const q=String(search||'').toLowerCase().trim();
+  if(q){
+    orphans=orphans.filter(u=>{
+      const id=String(u.id||'').toLowerCase();
+      return (u.name||'').toLowerCase().includes(q)||(u.role||'').toLowerCase().includes(q)||id.includes(q);
+    });
+  }
+  if(!orphans.length)return'';
+  return`<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--b1)">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);padding:6px 0">Comptes sans fiche annuaire liée</div>
+    <div style="font-size:11px;color:var(--t2);margin-bottom:12px;line-height:1.45">Accès BenAI non rattachés à un contact (ex. administrateur).</div>
+    ${orphans.map(u=>`<div class="emp-card" style="flex-wrap:wrap;align-items:flex-start">
+      <div style="display:flex;align-items:center;gap:12px;width:100%;min-width:0">
+        <div class="emp-avatar" style="background:${esc(u.color||'#555')}">${esc(String(u.initial||'?'))}</div>
+        <div style="flex:1;min-width:0"><div class="emp-name">${esc(u.name)}</div><div class="emp-detail" style="font-size:11px;color:var(--t3)">Hors annuaire</div></div>
+      </div>
+      ${buildBenaiAccountControlsHtml(u)}
+    </div>`).join('')}
+  </div>`;
+}
+
 /** Salarié annuaire déjà lié à un compte BenAI (nom affiché ou e-mail pro/perso). */
 function findBenaiAccountLinkedToAnnuaireEmploye(emp){
   if(!emp)return null;
@@ -6742,8 +6830,9 @@ function renderConnexionsHistory(){
 }
 
 function renderUsersList(){
-  const list=document.getElementById('users-list');if(!list)return;
+  const list=document.getElementById('users-list');
   const search=(document.getElementById('user-search')?.value||'').toLowerCase();
+  if(list){
   let users=getAllUsers();
   if(search){
     users=users.filter(u=>{
@@ -6825,6 +6914,8 @@ function renderUsersList(){
     }
     list.appendChild(div);
   });
+  }
+  if(document.getElementById('annuaire-list'))renderAnnuaire();
 }
 
 function editUser(uid){
@@ -6899,7 +6990,8 @@ function editUser(uid){
 }
 
 function renderPwdList(){
-  const list=document.getElementById('pwd-list');if(!list)return;
+  const list=document.getElementById('pwd-list');
+  if(list){
   list.innerHTML=getAllUsers().map(u=>`
     <div class="user-row">
       <div class="user-av" style="background:${u.color};width:26px;height:26px;border-radius:7px;font-size:11px">${u.initial}</div>
@@ -6907,7 +6999,7 @@ function renderPwdList(){
       <div style="font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;background:var(--bg);padding:4px 10px;border-radius:6px">•••• sécurisé</div>
       <button onclick="changerMdp('${u.id}','${u.name}')" style="padding:5px 10px;background:var(--a3);color:var(--a);border:1px solid var(--a);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">Modifier</button>
     </div>`).join('');
-  // Panel settings aussi
+  }
   renderTeamPwdSettings();
 }
 
