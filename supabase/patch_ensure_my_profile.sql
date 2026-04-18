@@ -1,11 +1,19 @@
--- Répare la connexion BenAI + Supabase :
--- 1) Erreur HTTP 500 sur GET /profiles : les politiques RLS appelaient current_profile_* sans SECURITY DEFINER → récursion.
--- 2) Erreur 404 sur rpc/ensure_my_profile : la fonction n’existait pas encore dans la base.
+-- =============================================================================
+-- AVANT DE CLIQUER SUR « RUN » : LIRE (30 secondes)
+-- =============================================================================
+-- Supabase peut afficher une fenêtre « Problème potentiel… » sur public.profiles.
+-- Ce n’est PAS un bug de BenAI : c’est un garde-fou du tableau de bord.
 --
--- Exécuter TOUT ce fichier une fois dans Supabase → SQL Editor, puis Run.
--- Fenêtre « sans RLS » : bouton vert « Exécuter et activer RLS » uniquement.
+-- Si cette fenêtre s’affiche, vous devez cliquer UNIQUEMENT sur le bouton VERT :
+--   « Exécuter et activer RLS »  (ou équivalent en anglais).
+-- Ne cliquez PAS sur « Courir sans RLS » (marron) — la sécurité resterait désactivée.
+-- « Annuler » = le script ne s’applique pas : dans ce cas, recollez le script et Run → vert.
 --
--- BenAI appelle POST /rest/v1/rpc/ensure_my_profile après connexion si la ligne profiles manque.
+-- Ce script ne supprime rien. Il corrige :
+--   1) erreur 500 sur /profiles (récursion RLS dans les helpers),
+--   2) erreur 404 sur rpc/ensure_my_profile (fonction absente ou cache API),
+-- puis recharge le cache PostgREST.
+-- =============================================================================
 
 -- ========= Helpers (évite récursion RLS sur public.profiles) =========
 create or replace function public.current_profile_role()

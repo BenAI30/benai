@@ -4330,7 +4330,7 @@ async function login(){
         ?'Connexion impossible en ouvrant le fichier en local (file://).'
         :'Erreur réseau vers Supabase.';
     }else if(reason==='profile_missing'){
-      supabaseFailureLabel='Connexion Supabase OK mais profil manquant dans la table profiles. Réexécutez supabase/patch_ensure_my_profile.sql dans l’éditeur SQL Supabase (bouton vert « activer RLS » si une fenêtre s’affiche), puis réessayez.';
+      supabaseFailureLabel='Connexion Supabase OK mais profil manquant dans la table profiles. Réexécutez supabase/patch_ensure_my_profile.sql dans l’éditeur SQL ; si une fenêtre s’affiche, cliquez uniquement sur le bouton vert « Exécuter et activer RLS », puis réessayez.';
       if(lastSupabaseProfileLoginHint)supabaseFailureLabel+=' Détail : '+lastSupabaseProfileLoginHint+'.';
     }else{
       supabaseFailureLabel='Connexion Supabase refusée : '+(supabaseAuthResult?.reason||'erreur inconnue');
