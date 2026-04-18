@@ -1308,7 +1308,7 @@ input[type=file]{display:none;}
               <button class="crm-filter f-jaune" onclick="filterLeads('jaune',this)">🟡 Devis envoyé</button>
               <button class="crm-filter f-vert" onclick="filterLeads('vert',this)">🟢 Vendu</button>
               <button class="crm-filter f-rouge" onclick="filterLeads('rouge',this)">🔴 Perdu</button>
-              <button class="crm-filter" onclick="filterLeads('archive',this)" title="Archives manuelles + leads créés avant l’année civile en cours">📁 Archives</button>
+              <button class="crm-filter" onclick="filterLeads('archive',this)" title="Archives : manuelles, ventes des mois passés (auto), leads créés avant l’année en cours">📁 Archives</button>
               <button class="crm-filter" onclick="filterLeads('alerte',this)" style="color:var(--r)">🚨 Alertes</button>
               <select id="crm-filter-secteur" onchange="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:'Outfit',sans-serif;outline:none">
                 <option value="">Tous secteurs</option>
@@ -8786,13 +8786,44 @@ function getLeadCreationYearValue(l){
   if(isNaN(d.getTime()))return null;
   return d.getFullYear();
 }
-/** Hors vues actives du CRM : archive manuelle OU création strictement avant l’année civile en cours. */
+/** Hors vues actives du CRM : archive manuelle, ventes (vert) passées au mois suivant (auto), OU création strictement avant l’année civile en cours. */
 function isLeadCrmArchivedView(l){
   if(!l)return false;
   if(l.archive)return true;
   const y=getLeadCreationYearValue(l);
   if(y===null)return false;
   return y<new Date().getFullYear();
+}
+/** Mois calendaire de référence pour archiver un vendu : date de signature si saisie, sinon date de création (aligné tableau des ventes). */
+function getLeadVenduArchiveMonthAnchor(l){
+  if(!l||l.statut!=='vert')return null;
+  const ds=String(l.date_signature||'').trim();
+  if(ds){
+    const d=new Date(ds.includes('T')?ds:ds+'T12:00:00');
+    if(!isNaN(d.getTime()))return{year:d.getFullYear(),month:d.getMonth()};
+  }
+  const d=new Date(l.date_creation||0);
+  if(isNaN(d.getTime()))return null;
+  return{year:d.getFullYear(),month:d.getMonth()};
+}
+/** Dès qu’un nouveau mois civil commence : les vendus du mois précédent passent en archive (conservation des données, visibles filtre Archives + tableau des ventes). */
+function autoArchiveVenduLeadsPastCurrentMonth(){
+  const now=new Date();
+  const curY=now.getFullYear(),curM=now.getMonth();
+  const leads=getLeads();
+  let changed=false;
+  leads.forEach(l=>{
+    if(!l||l._deleted||l.statut!=='vert'||l.archive)return;
+    const am=getLeadVenduArchiveMonthAnchor(l);
+    if(!am)return;
+    if(am.year<curY||(am.year===curY&&am.month<curM)){
+      l.archive=true;
+      l.date_modification=new Date().toISOString();
+      try{addLeadTimelineEntry(l,'Vendu — archivé automatiquement (mois écoulé)','BenAI');}catch(e){}
+      changed=true;
+    }
+  });
+  if(changed)saveLeads(leads,true);
 }
 /** Objectifs CRM par entreprise : CA HT de référence + montants optionnels par mois (YYYY-MM). */
 function normalizeSocObjEntry(rawSoc,baseCaHT){
@@ -8982,7 +9013,7 @@ function crmSubtabStorageKey(){
 function getCrmSubtabsForRole(role){
   if(role==='admin'||isCRMScopePilotageRole(role))return['dashboard','non-attribues','mes-leads'];
   if(role==='assistante')return['mes-leads'];
-  return['dashboard','mes-leads'];
+  return['mes-leads','dashboard'];
 }
 function readStoredCrmSubtab(fallback){
   const allowed=getCrmSubtabsForRole(currentUser?.role);
@@ -8991,7 +9022,7 @@ function readStoredCrmSubtab(fallback){
     const v=String(appStorage.getItem(crmSubtabStorageKey())||'').trim();
     if(v&&allowed.includes(v))return v;
   }catch{}
-  return allowed.includes(fallback)?fallback:(allowed.includes('dashboard')?'dashboard':allowed[0]);
+  return allowed.includes(fallback)?fallback:allowed[0];
 }
 
 // INIT PAGE LEADS
@@ -9040,10 +9071,11 @@ function initLeadsPage(){
     filters.style.display='none'; // Pas de filtres pour l'assistante
     showCRMTab('mes-leads');
   } else {
-    addCRMTab('dashboard','📊 Mes ventes',true);
-    addCRMTab('mes-leads','📋 Mes leads',false);
+    const crmSub=readStoredCrmSubtab('mes-leads');
+    addCRMTab('mes-leads','📋 Mes leads',crmSub==='mes-leads');
+    addCRMTab('dashboard','📊 Mes ventes',crmSub==='dashboard');
     filters.style.display='flex';
-    showCRMTab(readStoredCrmSubtab('dashboard'));
+    showCRMTab(crmSub);
   }
   refreshLeadsBadge();
   checkLeadsAlertes();
@@ -9200,6 +9232,7 @@ function getFilteredLeads(){
 }
 
 function renderLeads(){
+  autoArchiveVenduLeadsPastCurrentMonth();
   if(currentCRMView==='kanban'){renderKanban();return;}
   const role=currentUser?.role;
   const list=document.getElementById('leads-list');if(!list)return;
@@ -9525,6 +9558,7 @@ function refreshLeadsPageIfVisible(){
 // DASHBOARD
 function renderLeadsDashboard(){
   const container=document.getElementById('leads-container');if(!container)return;
+  autoArchiveVenduLeadsPastCurrentMonth();
   const list=document.getElementById('leads-list');
   const dashOpenIds=captureCrmDashboardDetailsOpenState();
   if(list){list.style.display='flex';}
