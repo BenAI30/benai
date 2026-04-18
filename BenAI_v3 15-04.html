@@ -5670,19 +5670,74 @@ async function saveEditSAV(id){
   renderSAV();logActivity(`Benjamin a modifié le SAV de ${client}`);
 }
 
+const SAV_STATUT_NOTIF_LABELS={nouveau:'Nouveau',en_cours:'En cours',regle:'Réglé'};
+
+/** Destinataires des notifs SAV (hors auteur du changement) : admin, assistantes de la même société, créateur et commercial si reconnus par le nom. */
+function getSavTeamNotifRecipientIds(sav,actorId){
+  const ids=[];
+  const add=(id)=>{
+    if(!id)return;
+    const n=normalizeId(String(id));
+    if(actorId&&normalizeId(String(actorId))===n)return;
+    if(!ids.some(x=>normalizeId(String(x))===n))ids.push(id);
+  };
+  const soc=String(sav?.societe||'').trim();
+  getAllUsers().forEach(u=>{
+    if(!u?.id)return;
+    if(u.role==='admin'){add(u.id);return;}
+    if(u.role==='assistante'&&soc&&(u.societe===soc||u.societe==='les-deux')){add(u.id);}
+  });
+  const matchNameToId=nameRaw=>{
+    const n=String(nameRaw||'').trim().toLowerCase();
+    if(!n)return;
+    const u=getAllUsers().find(x=>String(x.name||'').trim().toLowerCase()===n);
+    if(u)add(u.id);
+  };
+  matchNameToId(sav.by);
+  matchNameToId(sav.commercial);
+  return ids;
+}
+
+/** Notifie l’équipe d’un changement de statut SAV (flux partagé Supabase si activé). */
+function notifySavTeamStatusChange(sav,prevStatut,nextStatut){
+  if(!sav||!currentUser)return;
+  if(String(prevStatut||'')===String(nextStatut||''))return;
+  const labelPrev=SAV_STATUT_NOTIF_LABELS[prevStatut]||prevStatut;
+  const labelNext=SAV_STATUT_NOTIF_LABELS[nextStatut]||nextStatut;
+  const clientShort=String(sav.client||'').trim().slice(0,120)||'Client';
+  const titre=`🔧 SAV · ${labelNext}`;
+  const msg=`${clientShort} — ${labelPrev} → ${labelNext} · ${currentUser.name}`;
+  const icon='🔧';
+  const recipients=getSavTeamNotifRecipientIds(sav,currentUser.id);
+  if(!recipients.length)return;
+  const now=Date.now();
+  const timeStr=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  if(SUPABASE_CONFIG.enabled&&SUPABASE_CONFIG.url){
+    const feed=recipients.map((uid,i)=>({id:now*1000+i*97+Math.floor(Math.random()*40),target_uid:String(uid),titre,msg,icon,time:timeStr,ts:now}));
+    void pushSharedCoreDataToSupabase(getMem(),getAnnuaire(),getLeads(),feed);
+  }
+  refreshNotifBadge();
+}
+
 function savAction(id){
   const input=document.getElementById('action-'+id);const txt=input?.value.trim();if(!txt)return;
   const mem=getMem();const sav=mem.sav.find(s=>s.id===id);if(!sav)return;
+  const prevStatut=sav.statut||'nouveau';
   if(!sav.actions)sav.actions=[];
   sav.actions.push({action:txt,date:new Date().toLocaleDateString('fr-FR'),by:currentUser.name});
   sav.statut='en_cours';
   sav.sync_ts=Date.now();
   saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a traité SAV : ${sav.client}`);
+  notifySavTeamStatusChange(sav,prevStatut,'en_cours');
 }
 
 function changeStatut(id,statut){
   const mem=getMem();const sav=mem.sav.find(s=>s.id===id);
-  if(sav){sav.statut=statut;if(statut==='regle')sav.date_reglement=new Date().toLocaleDateString('fr-FR');sav.sync_ts=Date.now();saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a réglé SAV : ${sav.client}`);}
+  if(sav){
+    const prevStatut=sav.statut||'nouveau';
+    sav.statut=statut;if(statut==='regle')sav.date_reglement=new Date().toLocaleDateString('fr-FR');sav.sync_ts=Date.now();saveMem(mem);renderSAV();refreshSAVBadge();logActivity(`${currentUser.name} a réglé SAV : ${sav.client}`);
+    notifySavTeamStatusChange(sav,prevStatut,statut);
+  }
 }
 
 function refreshSAVBadge(){
