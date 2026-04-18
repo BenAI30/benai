@@ -9495,6 +9495,31 @@ function userMatchesCrmPilotageCommercial(u){
   if(!isCRMScopePilotageRole(currentUser?.role))return true;
   return currentUser.societe==='les-deux'||u.societe===currentUser.societe||u.societe==='les-deux';
 }
+/** Commerciaux présents sur les leads du périmètre mais absents du filtre annuaire (évite un bloc objectifs vide). */
+function enrichCommerciauxObjWithLeadAssignments(commerciauxBase,leads){
+  const out=commerciauxBase.slice();
+  const seen=new Set(out.map(c=>normalizeId(c.id)));
+  (leads||[]).forEach(l=>{
+    const raw=l?.commercial;
+    if(raw===undefined||raw===null||raw==='')return;
+    const idN=normalizeId(String(raw));
+    if(!idN||seen.has(idN))return;
+    seen.add(idN);
+    const label=String(resolveCrmCommercialLabel(raw)||raw).trim()||'Commercial';
+    const iniMatch=label.match(/[A-Za-zÀ-ÿ0-9]/);
+    out.push({
+      id:raw,
+      name:label+' (vu sur des leads)',
+      role:'commercial',
+      societe:'',
+      vehicule:'',
+      color:'linear-gradient(135deg,#64748b,#475569)',
+      initial:iniMatch?iniMatch[0].toUpperCase():'?',
+      _fromLeadRefs:true
+    });
+  });
+  return out;
+}
 function buildCrmDashboardExportSecteurSelectHtml(){
   const slug=getCrmSecteurScopeSlug();
   const ids=getCrmSecteurIdsForScopeSlug(slug);
@@ -9520,7 +9545,7 @@ function getDirecteurCoTutoSlides(){
     {icon:'📇',title:'Ouvrir une fiche lead attribué',desc:'Clique un dossier : tu lis identité, projet, commentaire d’origine, secteur, source. Tu peux corriger les champs de base, suivi, commentaire, montants et dates selon les droits affichés.',highlight:'Une fiche à jour évite les doublons d’appels'},
     {icon:'📜',title:'Historique & timeline',desc:'Sur un lead attribué (ou sur le tien), la section Historique liste les actions dans l’ordre inverse : ouverture de fiche, changements de statut, d’attribution, de montants, etc., avec date et auteur. C’est ta trace d’audit terrain.',highlight:'Lis la timeline avant d’appeler le commercial ou le client'},
     {icon:'👁️',title:'Pastille « non ouvert »',desc:'Indique que le commercial assigné n’a pas encore ouvert la fiche une première fois — signal de pilotage, pas une sanction.',highlight:'Souvent réglé par un rappel interne'},
-    {icon:'📈',title:'Dashboard — ce que tu y vois',desc:'Résumé KPI, blocs Secteurs & mois (tableau du mois civil, synthèses alignées sur ton périmètre secteur), ventes & RDV, CA par entreprise (une ou deux cartes selon ton compte), classement commerciaux, courbes 6 mois, pertes & archives, exports CSV / Excel, fusion de doublons, objectifs CA par vendeur.',highlight:'Barre « Aller à » pour sauter aux sections'},
+    {icon:'📈',title:'Dashboard — ce que tu y vois',desc:'Résumé KPI, Secteurs & mois (souvent replié en premier pour toi), ventes & RDV, CA par entreprise, détail ventes, équipe puis tout de suite Objectifs commerciaux (ouvert par défaut), pertes & archives, exports. Les objectifs listent l’annuaire vendeurs + les attributions visibles sur les leads.',highlight:'Barre « Aller à » : lien Objectifs après Équipe'},
     {icon:'📥',title:'Exports',desc:'Depuis le dashboard : menu Export secteur + bouton Performance secteurs ; plus bas « Exporter tous les leads » et paquets CSV. Les fichiers respectent ton périmètre leads + secteurs visibles.',highlight:'UTF-8, séparateur ; pour Excel France'},
     {icon:'🔔',title:'Badge & notifications',desc:'Le badge sur Leads compte surtout les dossiers à traiter sur ton périmètre (non attribués, alertes). Les notifications résument aussi les volumes à traiter.',highlight:'Quand tu agis, mets le CRM à jour pour faire retomber les alertes'},
     {icon:'💬',title:'Messages, absences, bugs',desc:'Messages pour les accords rapides ; absences pour voir les disponibilités ; Bugs pour tout blocage technique avec contexte (page, clic, message d’erreur).',highlight:'Bugs = canal officiel des correctifs'},
@@ -10207,6 +10232,7 @@ function renderLeadsDashboard(){
   const role=currentUser?.role||'assistante';
   const dashCommercial=role==='commercial';
   const dashPilotage=!dashCommercial;
+  const crmDashPilotDirCo=isCRMScopePilotageRole(role);
   const leads=getCompanyScopedLeads(getLeads()).filter(l=>!isLeadCrmArchivedView(l));
   const socMonthKeys=getObjCommMonthOptions();
   let selSocMois=appStorage.getItem('benai_lead_obj_soc_mois')||getDefaultObjCommMonthKey();
@@ -10219,7 +10245,7 @@ function renderLeadsDashboard(){
   const month=now.getMonth();const year=now.getFullYear();
   const leadsMonth=leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getMonth()===month&&d.getFullYear()===year;});
   const commerciaux=getAllUsers().filter(u=>u.role==='commercial'&&userMatchesCrmPilotageCommercial(u));
-  let commerciauxObj=dashCommercial?commerciaux.filter(c=>normalizeId(String(c.id))===normalizeId(String(currentUser.id))):commerciaux.slice();
+  let commerciauxObj=dashCommercial?commerciaux.filter(c=>normalizeId(String(c.id))===normalizeId(String(currentUser.id))):enrichCommerciauxObjWithLeadAssignments(commerciaux.slice(),leads);
   if(dashCommercial&&commerciauxObj.length===0&&currentUser?.role==='commercial'){
     commerciauxObj.push({
       id:currentUser.id,
@@ -10278,7 +10304,7 @@ function renderLeadsDashboard(){
   </div>`;
   if(dashPilotage){
     const scopeHint=secteurScopeSlug==='all'?'':`<div style="font-size:12px;color:var(--t2);margin:0 0 8px;line-height:1.55"><strong>Périmètre compte :</strong> ${esc(getBenaiPilotageCompanyTitle())}. ${esc(getBenaiPilotageSecteurShortLine())}</div>`;
-    html+=`<div class="crm-dash-intro">${scopeHint}<strong>Mode d’emploi</strong> — les trois cases ci-dessus résument la situation. Utilisez la barre <strong>Aller à</strong> pour sauter à une section ; chaque bloc se replie ou se déplie via sa ligne de titre. Par défaut seul <strong>Secteurs & mois</strong> reste ouvert pour une première vue lisible.</div>`;
+    html+=`<div class="crm-dash-intro">${scopeHint}<strong>Mode d’emploi</strong> — les trois cases ci-dessus résument la situation. Utilisez la barre <strong>Aller à</strong> pour sauter à une section ; chaque bloc se replie ou se déplie via sa ligne de titre.${crmDashPilotDirCo?' Par défaut la section <strong>Objectifs commerciaux</strong> est ouverte en premier ; <strong>Secteurs & mois</strong> reste replié pour aller droit au suivi CA vendeur.':' Par défaut seul <strong>Secteurs & mois</strong> reste ouvert pour une première vue lisible.'}</div>`;
   } else if(dashCommercial){
     html+=`<div class="crm-dash-intro">Ici : votre <strong>tableau de ventes</strong> (détail par mois, comparaison N-1) et <strong>vos objectifs</strong>. Les vues secteurs, chiffres par secteur, RDV agrégés et analyses de pertes restent réservées à la direction commerciale, au DG et à l’administration.</div>`;
   }
@@ -10301,9 +10327,9 @@ function renderLeadsDashboard(){
         <a class="crm-dash-navlink" href="#crm-dash-ca-soc">CA par société</a>
         <a class="crm-dash-navlink" href="#crm-dash-detail-ventes">Détail ventes</a>
         <a class="crm-dash-navlink" href="#crm-dash-equipe">Équipe</a>
+        <a class="crm-dash-navlink" href="#crm-dash-objectifs">Objectifs</a>
         <a class="crm-dash-navlink" href="#crm-dash-analyse">Pertes &amp; archives</a>
         <a class="crm-dash-navlink" href="#crm-dash-donnees">Exports</a>
-        <a class="crm-dash-navlink" href="#crm-dash-objectifs">Objectifs</a>
       </div>
     </nav>`;
   } else if(dashCommercial){
@@ -10394,7 +10420,7 @@ function renderLeadsDashboard(){
     </div>
   </div>`:'';
   if(!dashCommercial){
-    html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-secteurs" open>${crmDashSummary('📍 Secteurs & mois en cours','Carte par zone, export CSV, puis tableau détaillé du mois civil.')}<div class="crm-dash-grp-body">
+    html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-secteurs"${crmDashPilotDirCo?'':' open'}>${crmDashSummary('📍 Secteurs & mois en cours','Carte par zone, export CSV, puis tableau détaillé du mois civil.')}<div class="crm-dash-grp-body">
     <div class="crm-dash-subtle">D’abord la vue « toutes périodes » et l’export ; puis le tableau ne compte que les <strong>leads créés ce mois</strong> (date de création).</div>
     <div class="secteur-card"><div class="secteur-title" style="font-size:13px">Export & résumé par zone</div>
     <div style="padding-top:4px">
@@ -10522,7 +10548,7 @@ function renderLeadsDashboard(){
     }).join('');
   }
   html+='</div>';
-  const commerciauxEvoCharts=[...commerciaux,...commerciauxObj.filter(c=>c._archivedCommercial)];
+  const commerciauxEvoCharts=[...commerciaux,...commerciauxObj.filter(c=>c._archivedCommercial||c._fromLeadRefs)];
   if(commerciauxEvoCharts.length){
     html+=`<div class="secteur-card"><div class="secteur-title">📈 Évolution CA par commercial (6 mois)</div>
     <div style="font-size:11px;color:var(--t3);margin:-4px 0 4px">Montants HT — ventes signées (date de création du lead).</div>
@@ -10530,6 +10556,46 @@ function renderLeadsDashboard(){
   }
   if(dashPilotage){
     html+=`</div></details>`;
+  }
+  if(dashPilotage){
+    const objCommMonthKeysP=getObjCommMonthOptions();
+    let selObjCommP=appStorage.getItem('benai_obj_comm_mois')||getDefaultObjCommMonthKey();
+    if(!objCommMonthKeysP.includes(selObjCommP))selObjCommP=getDefaultObjCommMonthKey();
+    appStorage.setItem('benai_obj_comm_mois',selObjCommP);
+    const objDetailsOpen=crmDashPilotDirCo?' open':'';
+    html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-objectifs"${objDetailsOpen}>${crmDashSummary('🎯 Objectifs commerciaux','CA réalisé vs cible : mois N et N-1 pour comparer à l’année précédente.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">L’objectif <strong>mensuel</strong> est celui du mois affiché. Vous pouvez <strong>répartir le mois en objectifs par semaine ISO</strong> (modifiables) ; sinon l’<strong>objectif hebdo global</strong> sert de cible pour la semaine en cours. Mois disponibles : <strong>${year-1}</strong> et <strong>${year}</strong>. Les vendeurs listés incluent l’annuaire <em>et</em> les attributions visibles sur les leads du périmètre.</div>`;
+    html+=`<div class="secteur-card"><div class="secteur-title" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
+      <span>🎯 Suivi & objectifs commerciaux</span>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t3);font-weight:600">Mois affiché
+        <select id="crm-obj-comm-mois" class="form-input" onchange="window.appStorage.setItem('benai_obj_comm_mois',this.value);renderLeadsDashboard()" style="padding:5px 10px;font-size:11px;border-radius:8px;min-width:128px">
+          ${objCommMonthKeysP.map(m=>`<option value="${m}"${m===selObjCommP?' selected':''}>${formatMois(m)}</option>`).join('')}
+        </select>
+      </label>
+    </div>`;
+    if(!commerciauxObj.length){
+      html+=`<div style="background:var(--s3);border-radius:10px;padding:14px;margin-bottom:8px;font-size:12px;color:var(--t2);line-height:1.55;border:1px dashed var(--b1)">Aucun commercial dans la liste : soit aucun compte vendeur ne correspond à ton périmètre, soit aucun lead attribué n’est visible. Vérifie les comptes dans l’administration ou ouvre <strong>Tous les leads</strong> pour contrôler les attributions. Tu peux quand même saisir des objectifs dès qu’un commercial apparaît (bouton ⚙️ sur chaque ligne).</div>`;
+    }else{
+      commerciauxObj.forEach(c=>{
+        const prog=getProgressionCommercial(c.id,selObjCommP);
+        const moisHuman=formatMois(selObjCommP);
+        const pctMois=prog.obj.mensuel>0?Math.min(prog.ca_mois/prog.obj.mensuel*100,110):0;
+        const pctHebdo=prog.obj.hebdo>0?Math.min(prog.ca_semaine/prog.obj.hebdo*100,110):0;
+        const contacts=getContactsParCommercial()[c.id]||{ce_mois:0,cette_semaine:0};
+        html+=`<div style="background:var(--s3);border-radius:10px;padding:12px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="width:28px;height:28px;border-radius:8px;background:${c.color};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff">${c.initial}</div>
+            <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(c.name)}</div><div style="font-size:10px;color:var(--t3)">${contacts.ce_mois} contacts ce mois · ${contacts.cette_semaine} cette semaine${c.vehicule?` · 🚐 ${esc(c.vehicule)}`:''}</div></div>
+            ${!c._archivedCommercial&&(currentUser.role==='admin'||isCRMScopePilotageRole(currentUser.role))?`<button onclick="editObjectifCommercial(${JSON.stringify(c.id)},${JSON.stringify(c.name)})" style="background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;color:var(--t2)">⚙️</button>`:''}
+          </div>
+          <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Mensuel (${moisHuman}) — ${prog.ca_mois.toLocaleString('fr-FR')}€ / ${prog.obj.mensuel.toLocaleString('fr-FR')}€ · ${prog.ventes_mois} ventes</div>
+          <div class="objectif-bar" style="margin-bottom:6px"><div class="objectif-bar-fill" style="width:${pctMois}%;background:${pctMois>=100?'var(--g)':pctMois>=75?'var(--a)':'var(--r)'}"></div></div>
+          <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Hebdo${prog._objWeekKey?' ('+esc(String(prog._objWeekKey).replace('-',' '))+')':''} — ${prog.ca_semaine.toLocaleString('fr-FR')}€ / ${prog.obj.hebdo.toLocaleString('fr-FR')}€ · ${prog.ventes_semaine} ventes</div>
+          <div class="objectif-bar"><div class="objectif-bar-fill" style="width:${pctHebdo}%;background:${pctHebdo>=100?'var(--g)':pctHebdo>=75?'var(--a)':'var(--r)'}"></div></div>
+          ${pctMois>=100?`<div style="margin-top:6px;font-size:11px;color:var(--g);font-weight:600">🏆 Objectif mensuel dépassé (${moisHuman}) !</div>`:''}
+        </div>`;
+      });
+    }
+    html+=`</div></div></details>`;
   }
   }
   // Analyse leads perdus & archives (pilotage uniquement)
@@ -10587,19 +10653,15 @@ function renderLeadsDashboard(){
     }
   }
 
-  // OBJECTIFS COMMERCIAUX (objectif CA mensuel par mois calendaire)
-  if(commerciauxObj.length>0){
+  // OBJECTIFS — vue commercial uniquement (dir. co / DG / admin : bloc plus haut après Équipe)
+  if(dashCommercial&&commerciauxObj.length>0){
     const objCommMonthKeys=getObjCommMonthOptions();
     let selObjComm=appStorage.getItem('benai_obj_comm_mois')||getDefaultObjCommMonthKey();
     if(!objCommMonthKeys.includes(selObjComm))selObjComm=getDefaultObjCommMonthKey();
     appStorage.setItem('benai_obj_comm_mois',selObjComm);
-    if(dashPilotage){
-      html+=`<details class="crm-dash-grp crm-dash-anchor" id="crm-dash-objectifs">${crmDashSummary('🎯 Objectifs commerciaux','CA réalisé vs cible : mois N et N-1 pour comparer à l’année précédente.')}<div class="crm-dash-grp-body"><div class="crm-dash-subtle">L’objectif <strong>mensuel</strong> est celui du mois affiché. Vous pouvez <strong>répartir le mois en objectifs par semaine ISO</strong> (modifiables) ; sinon l’<strong>objectif hebdo global</strong> sert de cible pour la semaine en cours. Mois disponibles : <strong>${year-1}</strong> et <strong>${year}</strong>.</div>`;
-    } else {
-      html+=`<div class="crm-dash-kicker k-pr" style="margin-top:8px">${dashCommercial?'Mes objectifs & suivi CA':'Objectifs par commercial'}</div>`;
-    }
-    html+=`<div class="secteur-card${dashCommercial?' crm-dash-anchor':''}"${dashCommercial?' id="crm-dash-mes-obj"':''}><div class="secteur-title" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
-      <span>${dashCommercial?'🎯 Mes objectifs (mois N et N-1 pour comparer)':'🎯 Suivi & objectifs commerciaux'}</span>
+    html+=`<div class="crm-dash-kicker k-pr" style="margin-top:8px">Mes objectifs & suivi CA</div>`;
+    html+=`<div class="secteur-card crm-dash-anchor" id="crm-dash-mes-obj"><div class="secteur-title" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
+      <span>🎯 Mes objectifs (mois N et N-1 pour comparer)</span>
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t3);font-weight:600">Mois affiché
         <select id="crm-obj-comm-mois" class="form-input" onchange="window.appStorage.setItem('benai_obj_comm_mois',this.value);renderLeadsDashboard()" style="padding:5px 10px;font-size:11px;border-radius:8px;min-width:128px">
           ${objCommMonthKeys.map(m=>`<option value="${m}"${m===selObjComm?' selected':''}>${formatMois(m)}</option>`).join('')}
@@ -10626,9 +10688,6 @@ function renderLeadsDashboard(){
       </div>`;
     });
     html+=`</div>`;
-    if(dashPilotage){
-      html+=`</div></details>`;
-    }
   }
 
   // TABLEAU DE VENTES
