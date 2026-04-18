@@ -6497,8 +6497,8 @@ function renderGuidePage(){
   const role=currentUser?.role||'assistante';
   const roleTitle=ROLE_LABELS[role]||role;
   const canInstallMobile=canUseBenAIMobileApp(role);
-  const expoInstallUrl='https://expo.dev/@claudemartin/vocal-app?serviceContext=expo&host=expo.dev';
-  const qrRemote='https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(expoInstallUrl);
+  const mobileAppOpenUrl='https://expo.dev/@claudemartin/vocal-app?serviceContext=expo&host=expo.dev';
+  const qrRemote='https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(mobileAppOpenUrl);
   let qrImgSrc=qrRemote;
   try{
     qrImgSrc=new URL('benai-guide-qr-mobile.png',document.baseURI||document.URL||window.location.href).href;
@@ -6558,14 +6558,14 @@ function renderGuidePage(){
         <br>2) Clique sur <strong>📲 Installer</strong> (en haut à droite).
         <br>3) iPhone: Safari → Partager → Ajouter à l’ecran d’accueil.
         <br>4) Android: confirme l’installation proposee.`
-          :`Le raccourci « comme une app » sur l’écran d’accueil est proposé uniquement aux profils <strong>Directeur commercial</strong> et <strong>Commercial</strong>. Les autres rôles utilisent BenAI dans le navigateur.`}
+          :`Pour retrouver BenAI sur ton téléphone, ouvre la même adresse que sur ordinateur, ou scanne le code ci-dessous.`}
       </div>
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--b1);text-align:center">
-        <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px">📱 QR code — app mobile (Expo)</div>
-        <div style="font-size:11px;color:var(--t3);line-height:1.5;margin-bottom:10px">Ouvre l’appareil photo ou <strong>Expo Go</strong>, puis vise ce code pour lancer l’app. <strong>Connexion Internet requise</strong> pour afficher le QR ; si une image locale <code style="font-size:10px">benai-guide-qr-mobile.png</code> est livrée à côté de cette page BenAI, elle remplace automatiquement ce visuel.</div>
-        <img id="benai-guide-expo-qr" src="${qrImgSrc}" data-qr-fallback="${qrFallbackEnc}" width="220" height="220" alt="QR code installation app mobile" style="width:220px;max-width:90%;height:auto;border-radius:14px;border:1px solid var(--b1);background:#fff;padding:10px;box-sizing:border-box;display:inline-block" loading="lazy" onerror="try{var u=decodeURIComponent(this.getAttribute('data-qr-fallback')||'');if(u&amp;&amp;this.src!==u){this.src=u;this.removeAttribute('data-qr-fallback');}}catch(e){}">
+        <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px">📱 QR code</div>
+        <div style="font-size:11px;color:var(--t3);line-height:1.5;margin-bottom:10px">Scanne ce code avec l’appareil photo pour ouvrir BenAI sur ton téléphone.</div>
+        <img id="benai-guide-mobile-qr" src="${qrImgSrc}" data-qr-fallback="${qrFallbackEnc}" width="220" height="220" alt="QR code pour ouvrir BenAI sur le téléphone" style="width:220px;max-width:90%;height:auto;border-radius:14px;border:1px solid var(--b1);background:#fff;padding:10px;box-sizing:border-box;display:inline-block" loading="lazy" onerror="try{var u=decodeURIComponent(this.getAttribute('data-qr-fallback')||'');if(u&amp;&amp;this.src!==u){this.src=u;this.removeAttribute('data-qr-fallback');}}catch(e){}">
         <div style="margin-top:10px;font-size:11px">
-          <a href="${expoInstallUrl.replace(/&/g,'&amp;')}" target="_blank" rel="noopener noreferrer" style="color:var(--a);font-weight:600">Ouvrir le lien sur ce téléphone</a>
+          <a href="${mobileAppOpenUrl.replace(/&/g,'&amp;')}" target="_blank" rel="noopener noreferrer" style="color:var(--a);font-weight:600">Ouvrir le lien sur ce téléphone</a>
         </div>
       </div>
     </div>
