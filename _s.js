@@ -1556,12 +1556,23 @@ function ensureRuntimeLeadsCommercialDenorm(){
   if(touched)schedulePersistRuntimeToSession(currentUser?.id);
 }
 
+function resolveLeadRowCreatedByUuid(l){
+  if(!l||typeof l!=='object')return currentSupabaseSession?.user?.id||null;
+  const top=String(l.created_by||'').trim();
+  if(isLikelyUuid(top))return top;
+  const fromPayload=l.payload&&typeof l.payload==='object'?String(l.payload.created_by||'').trim():'';
+  if(isLikelyUuid(fromPayload))return fromPayload;
+  const fromCree=resolveAuthUidForUserId(l.cree_par);
+  if(isLikelyUuid(fromCree))return fromCree;
+  return currentSupabaseSession?.user?.id||null;
+}
+
 function mapLeadsToSupabaseRows(items){
-  const createdBy=currentSupabaseSession?.user?.id||null;
   return (items||[]).map(l=>{
     const rawId=Number(l?.id);
     const leadId=(Number.isFinite(rawId)&&rawId>0)?Math.trunc(rawId):Date.now()+Math.floor(Math.random()*1000);
     const societe=(l.societe_crm==='lambert'||l.societe==='lambert')?'lambert':'nemausus';
+    const createdBy=resolveLeadRowCreatedByUuid(l);
     const allowedStatuts=['gris','rdv','jaune','vert','rouge'];
     const statut=allowedStatuts.includes(l.statut)?l.statut:'gris';
     const commercialAuthUid=l.commercial_user_id||resolveAuthUidForUserId(l.commercial)||null;

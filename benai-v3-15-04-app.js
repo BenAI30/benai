@@ -292,7 +292,7 @@ const appStorage={
 window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
-const BENAI_VERSION = '3.15.6';
+const BENAI_VERSION = '3.15.7';
 const GUIDE_REQUIRED_VERSION='3.21';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 /** Même clé que appStorage : persistance navigateur (localStorage) car l’ACK guide est exclu du snapshot cloud. */
@@ -1690,12 +1690,24 @@ function resolveAuthUidForUserId(uid){
   return null;
 }
 
+/** UUID profil Supabase du créateur — aligné RLS `created_by = auth.uid()` pour UPDATE/INSERT assistante/mètreur (ne pas remplacer par l’utilisateur qui sync). */
+function resolveLeadRowCreatedByUuid(l){
+  if(!l||typeof l!=='object')return currentSupabaseSession?.user?.id||null;
+  const top=String(l.created_by||'').trim();
+  if(isLikelyUuid(top))return top;
+  const fromPayload=l.payload&&typeof l.payload==='object'?String(l.payload.created_by||'').trim():'';
+  if(isLikelyUuid(fromPayload))return fromPayload;
+  const fromCree=resolveAuthUidForUserId(l.cree_par);
+  if(isLikelyUuid(fromCree))return fromCree;
+  return currentSupabaseSession?.user?.id||null;
+}
+
 function mapLeadsToSupabaseRows(items){
-  const createdBy=currentSupabaseSession?.user?.id||null;
   return (items||[]).map(l=>{
     const rawId=Number(l?.id);
     const leadId=(Number.isFinite(rawId)&&rawId>0)?Math.trunc(rawId):Date.now()+Math.floor(Math.random()*1000);
-    const societe=(l.societe_crm==='lambert'||l.societe==='lambert')?'lambert':'nemausus';
+    const societe=getLeadCRMCompany(l);
+    const createdBy=resolveLeadRowCreatedByUuid(l);
     const allowedStatuts=['gris','rdv','jaune','vert','rouge'];
     const statut=allowedStatuts.includes(l.statut)?l.statut:'gris';
     const commercialAuthUid=l.commercial_user_id||resolveAuthUidForUserId(l.commercial)||null;

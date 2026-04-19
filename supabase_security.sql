@@ -350,7 +350,7 @@ drop policy if exists "leads_insert_policy" on public.leads;
 create policy "leads_insert_policy"
 on public.leads for insert
 with check (
-  public.current_profile_role() in ('admin','directeur_co','directeur_general','commercial','assistante')
+  public.current_profile_role() in ('admin','directeur_co','directeur_general','commercial','assistante','metreur')
   and created_by = auth.uid()
   and (
     public.current_profile_role() = 'admin'
@@ -376,7 +376,7 @@ using (
     and commercial_user_id = auth.uid()
   )
   or (
-    public.current_profile_role() = 'assistante'
+    public.current_profile_role() in ('assistante','metreur')
     and created_by = auth.uid()
   )
 )
@@ -394,7 +394,7 @@ with check (
     and commercial_user_id = auth.uid()
   )
   or (
-    public.current_profile_role() = 'assistante'
+    public.current_profile_role() in ('assistante','metreur')
     and created_by = auth.uid()
   )
 );
