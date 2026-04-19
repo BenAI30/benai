@@ -1,5 +1,0 @@
-voir pour changer ladresse du site
-
-ne pas mettre la version de maj sur benai
-
-GitHub ma bloquer la dernier maj car il a detecter une clé api
