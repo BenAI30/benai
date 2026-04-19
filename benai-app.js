@@ -159,14 +159,34 @@ function clearAppStorageCache(){
   Object.keys(appStorageCache).forEach(k=>delete appStorageCache[k]);
 }
 function persistAppStorageCacheToSession(){
+  const payload=JSON.stringify(appStorageCache);
   try{
-    sessionStorage.setItem(APP_STORAGE_SESSION_KEY,JSON.stringify(appStorageCache));
+    sessionStorage.setItem(APP_STORAGE_SESSION_KEY,payload);
+  }catch(e){}
+  try{
+    localStorage.setItem(APP_STORAGE_SESSION_KEY,payload);
+  }catch(e){}
+}
+function clearAppStorageSessionMirrors(){
+  try{
+    sessionStorage.removeItem(APP_STORAGE_SESSION_KEY);
+  }catch(e){}
+  try{
+    localStorage.removeItem(APP_STORAGE_SESSION_KEY);
   }catch(e){}
 }
 function loadAppStorageCacheFromSession(){
+  let raw='';
   try{
-    const raw=sessionStorage.getItem(APP_STORAGE_SESSION_KEY);
-    if(!raw)return;
+    raw=sessionStorage.getItem(APP_STORAGE_SESSION_KEY)||'';
+  }catch(e){}
+  if(!raw){
+    try{
+      raw=localStorage.getItem(APP_STORAGE_SESSION_KEY)||'';
+    }catch(e){}
+  }
+  if(!raw)return;
+  try{
     const parsed=JSON.parse(raw);
     if(parsed&&typeof parsed==='object'){
       Object.keys(parsed).forEach(k=>{
@@ -292,7 +312,7 @@ const appStorage={
 window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
-const BENAI_VERSION = '3.15.16';
+const BENAI_VERSION = '3.15.17';
 const GUIDE_REQUIRED_VERSION='3.21';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 /** Même clé que appStorage : persistance navigateur (localStorage) car l’ACK guide est exclu du snapshot cloud. */
@@ -992,9 +1012,7 @@ function getSupabaseClient(){
   if(!supabaseClient){
     const persistSession=useMobilePersistedSupabaseAuth();
     supabaseClient=window.supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.publishableKey,{
-      // Session persistée seulement sur « mobile » (largeur ≤768px) : rester connecté après fermeture d’onglet.
-      // Sur ordi (fenêtre large) : pas de stockage de session Auth — à reconnecter après fermeture du navigateur.
-      // Les données métier restent sur Supabase dans tous les cas.
+      // Session Auth Supabase persistée (persistSession activé) : refresh F5 / fermeture navigateur / PWA — déconnexion explicite ou effacement site pour sortir.
       auth:{persistSession,autoRefreshToken:true,detectSessionInUrl:true}
     });
     try{
@@ -3147,6 +3165,8 @@ async function logout(){
     await persistAppStorageToSupabaseNow(currentUser.id,snapshot);
   }
   resetAppStorageRuntime();
+  clearAppStorageSessionMirrors();
+  persistAppStorageCacheToSession();
   sessionStack=[];
   const client=getSupabaseClient();
   if(client)client.auth.signOut().catch(()=>{});
