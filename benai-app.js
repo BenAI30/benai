@@ -292,7 +292,7 @@ const appStorage={
 window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
-const BENAI_VERSION = '3.15.14';
+const BENAI_VERSION = '3.15.15';
 const GUIDE_REQUIRED_VERSION='3.21';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 /** Même clé que appStorage : persistance navigateur (localStorage) car l’ACK guide est exclu du snapshot cloud. */
@@ -687,21 +687,31 @@ function getSharedMessagesEpochFromBundle(bundle){
   const n=Math.floor(Number(bundle?.messages_epoch));
   return Number.isFinite(n)&&n>0?n:0;
 }
-function readSharedMessagesEpochSeen(){
+function readRawMessagesEpochFromStorages(){
+  let a=0;
+  let b=0;
   try{
-    const n=Math.floor(Number(localStorage.getItem(SHARED_MESSAGES_EPOCH_STORAGE_KEY)||0));
-    return Number.isFinite(n)&&n>0?n:0;
-  }catch{
-    return 0;
-  }
+    a=Math.floor(Number(localStorage.getItem(SHARED_MESSAGES_EPOCH_STORAGE_KEY)||0))||0;
+  }catch{}
+  try{
+    b=Math.floor(Number(sessionStorage.getItem(SHARED_MESSAGES_EPOCH_STORAGE_KEY)||0))||0;
+  }catch{}
+  const m=Math.max(a,b);
+  return Number.isFinite(m)&&m>0?m:0;
+}
+function readSharedMessagesEpochSeen(){
+  return readRawMessagesEpochFromStorages();
 }
 function writeSharedMessagesEpochSeenIfGreater(n){
   const v=Math.floor(Number(n))||0;
   if(v<=0)return;
+  const cur=readRawMessagesEpochFromStorages();
+  if(v<=cur)return;
   try{
-    const cur=readSharedMessagesEpochSeen();
-    if(v<=cur)return;
     localStorage.setItem(SHARED_MESSAGES_EPOCH_STORAGE_KEY,String(v));
+  }catch{}
+  try{
+    sessionStorage.setItem(SHARED_MESSAGES_EPOCH_STORAGE_KEY,String(v));
   }catch{}
 }
 function mergeMessagesMap(remoteMap,localMap,msgDeletionsByCid){
