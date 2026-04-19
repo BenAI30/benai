@@ -9079,9 +9079,8 @@ function showCRMTab(id){
     if(kb)kb.style.display='none';
     renderNonAttribues();
   } else {
-    const role=currentUser?.role;
-    // Assistante ne voit pas les filtres
-    filters.style.display=role==='assistante'?'none':'flex';
+    // Barre sous les onglets CRM : filtres pilotage (admin / direction) ou segmentation « Mes leads » (assistante).
+    if(filters)filters.style.display='flex';
     setCRMView(currentCRMView);
     renderLeads();
   }
@@ -9270,11 +9269,16 @@ function renderDispatchCard(l){
   const srcIcon=LEAD_SOURCE_ICONS[l.source]||'📋';
   const leadSoc=getLeadCRMCompany(l);
   const commerciaux=getAllUsers().filter(u=>{
-    if(!(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general'))return false;
+    const ur=normalizeProfileRole(u.role);
+    if(!(ur==='commercial'||ur==='directeur_co'||ur==='directeur_general'))return false;
     if(currentUser?.role==='admin')return true;
     return crmAssigneeCoversLeadSociete(u,leadSoc);
   });
-  const selectOptions=commerciaux.map(c=>`<option value="${escAttr(String(c.id??''))}">${esc(c.name)}</option>`).join('');
+  const selectOptions=commerciaux.map(c=>{
+    const r=normalizeProfileRole(c.role);
+    const lab=r==='directeur_co'?'Dir.co':r==='directeur_general'?'Dir. général':'Commercial';
+    return`<option value="${escAttr(String(c.id??''))}">${esc(`${c.name||''} (${lab})`)}</option>`;
+  }).join('');
   return `<div class="lead-card" style="border-left:4px solid var(--r);background:rgba(248,113,113,.05)">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
       <span>${srcIcon}</span>
@@ -9286,7 +9290,7 @@ function renderDispatchCard(l){
       ${makeLeadCallLink(l.id,l.telephone)}
       ${makeGPSLink(l.adresse,l.ville,l.cp)}
       <select id="dispatch-${l.id}" class="form-input" style="flex:1;padding:6px 8px;font-size:12px;min-width:120px">
-        <option value="">Choisir un commercial...</option>
+        <option value="">Choisir un porteur (commercial / dir. co)…</option>
         ${selectOptions}
       </select>
       <button onclick="dispatchLead(${l.id})" style="padding:6px 12px;background:var(--a);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✓ Attribuer</button>
@@ -9337,6 +9341,12 @@ function renderLeadCardAssistante(l){
   const age=getLeadAge(l);
   const assigneeId=getLeadCommercialAssigneeId(l);
   const commLabel=assigneeId?resolveCrmCommercialLabel(assigneeId):'';
+  const asScope=readAssistanteMesLeadsScope();
+  let archMeta='';
+  if(asScope==='archives_crm'&&isLeadAssistanteMesLeadsArchived(l)){
+    const why=isLeadCrmArchivedView(l)?'Archives CRM':(l.statut==='rouge'?'Dossier perdu':'RDV terrain enregistré');
+    archMeta=`<span style="background:var(--s2);color:var(--t2);padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;border:1px solid var(--b1)">📁 ${esc(why)}</span>`;
+  }
   // Infos RDV/rappel
   let rdvInfo='';
   if(l.rappel&&l.sous_statut==='rdv_programme'){
@@ -9354,10 +9364,11 @@ function renderLeadCardAssistante(l){
     </div>
     <div style="font-size:13px;font-weight:700;color:var(--a);margin-bottom:3px">${esc(l.type_projet||'—')}</div>
     <div class="lead-info">${esc(l.ville||'')}</div>
-    <div class="lead-meta" style="margin-top:6px;gap:8px">
+    <div class="lead-meta" style="margin-top:6px;gap:8px;flex-wrap:wrap">
       ${assigneeId
         ?`<span style="background:var(--a3);color:var(--a);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">👤 ${esc(commLabel)}</span>`
         :'<span style="background:var(--y2);color:var(--y);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⏳ En attente d\'attribution</span>'}
+      ${archMeta}
       ${makeLeadCallLink(l.id,l.telephone)}
     </div>
     ${rdvInfo}
