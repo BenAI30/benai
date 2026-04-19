@@ -184,7 +184,7 @@ const appStorage={
 window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
-const BENAI_VERSION = '3.15.8';
+const BENAI_VERSION = '3.15.9';
 const GUIDE_REQUIRED_VERSION='3.15';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 const STORAGE_KEYS = {
