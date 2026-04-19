@@ -6599,6 +6599,50 @@ function getCommercialArchiveByUid(uid){
   const n=normalizeId(uid);
   return getCommercialArchives().find(a=>normalizeId(a.id)===n)||null;
 }
+/** Id BenAI du porteur (résout auth UUID / `commercial_user_id` / accents sur `commercial`). */
+function getLeadCommercialAssigneeId(lead){
+  if(!lead)return'';
+  const raw=String(lead.commercial||'').trim();
+  if(raw){
+    const u1=getAllUsers().find(u=>u.id===raw||normalizeId(u.id)===normalizeId(raw));
+    if(u1?.id)return String(u1.id);
+    if(isLikelyUuid(raw)){
+      const u2=getAllUsers().find(x=>String(x.auth_uid||x.authUid||'')===raw);
+      if(u2?.id)return String(u2.id);
+    }
+    return raw;
+  }
+  const auth=String(lead.commercial_user_id||'').trim();
+  if(isLikelyUuid(auth)){
+    const u3=getAllUsers().find(x=>String(x.auth_uid||x.authUid||'')===auth);
+    if(u3?.id)return String(u3.id);
+  }
+  return'';
+}
+function leadHasAssignedCommercial(lead){
+  return !!normalizeId(getLeadCommercialAssigneeId(lead));
+}
+/** Recolle `lead.commercial` sur l’id app dès que l’équipe est chargée (évite pastille « en attente » alors qu’un terrain est déjà lié). */
+function ensureLeadCommercialSyncedFromRefs(lead){
+  if(!lead||lead._deleted)return false;
+  const resolved=getLeadCommercialAssigneeId(lead);
+  if(!normalizeId(resolved))return false;
+  const u=getAllUsers().find(x=>normalizeId(x.id)===normalizeId(resolved));
+  if(!u?.id)return false;
+  if(normalizeId(String(lead.commercial||''))!==normalizeId(u.id)){
+    lead.commercial=u.id;
+    return true;
+  }
+  return false;
+}
+function ensureRuntimeLeadsCommercialDenorm(){
+  if(!Array.isArray(runtimeLeadsState))return;
+  let touched=false;
+  runtimeLeadsState.forEach(l=>{
+    if(ensureLeadCommercialSyncedFromRefs(l))touched=true;
+  });
+  if(touched)schedulePersistRuntimeToSession(currentUser?.id);
+}
 /** Conserve nom / société / couleur pour l’historique CRM après suppression d’un profil assignable sur les leads (commercial ou dir. co.). */
 function archiveCommercialUserSnapshot(u){
   if(!u||normalizeId(u.id)==='benjamin')return;
@@ -6622,7 +6666,11 @@ function archiveCommercialUserSnapshot(u){
 /** Libellé affichage / export : utilisateur actif ou entrée d’archive « (compte supprimé) ». */
 function resolveCrmCommercialLabel(uid){
   if(uid==null||uid==='')return'—';
-  const live=getAllUsers().find(u=>u.id===uid||normalizeId(u.id)===normalizeId(uid));
+  const uidStr=String(uid).trim();
+  let live=getAllUsers().find(u=>u.id===uidStr||normalizeId(u.id)===normalizeId(uidStr));
+  if(!live&&isLikelyUuid(uidStr)){
+    live=getAllUsers().find(u=>String(u.auth_uid||u.authUid||'')===uidStr);
+  }
   if(live)return String(live.name||live.id||'').trim()||String(uid);
   const arch=getCommercialArchiveByUid(uid);
   if(arch){
@@ -8334,10 +8382,12 @@ function crmAssigneeCoversLeadSociete(user,leadSoc){
 
 function getLeads(){
   if(!Array.isArray(runtimeLeadsState))runtimeLeadsState=[];
+  ensureRuntimeLeadsCommercialDenorm();
   return runtimeLeadsState;
 }
 function saveLeads(l,sync=true){
   runtimeLeadsState=Array.isArray(l)?l:[];
+  ensureRuntimeLeadsCommercialDenorm();
   // Persistance session (temporaire) pour survivre à un refresh.
   persistRuntimeToSession(currentUser?.id);
   appStorage.removeItem('benai_leads');
@@ -8952,7 +9002,7 @@ function showCRMTab(id){
 }
 
 function isLeadInNonAttribQueue(l){
-  return !!l&&!isLeadCrmArchivedView(l)&&!normalizeId(l.commercial||'')&&l.statut==='gris';
+  return !!l&&!isLeadCrmArchivedView(l)&&!leadHasAssignedCommercial(l)&&l.statut==='gris';
 }
 
 function renderNonAttribues(){
@@ -9184,7 +9234,8 @@ function dispatchLead(id){
 function renderLeadCardAssistante(l){
   const srcIcon=LEAD_SOURCE_ICONS[l.source]||'📋';
   const age=getLeadAge(l);
-  const commLabel=l.commercial?resolveCrmCommercialLabel(l.commercial):'';
+  const assigneeId=getLeadCommercialAssigneeId(l);
+  const commLabel=assigneeId?resolveCrmCommercialLabel(assigneeId):'';
   // Infos RDV/rappel
   let rdvInfo='';
   if(l.rappel&&l.sous_statut==='rdv_programme'){
@@ -9203,7 +9254,7 @@ function renderLeadCardAssistante(l){
     <div style="font-size:13px;font-weight:700;color:var(--a);margin-bottom:3px">${esc(l.type_projet||'—')}</div>
     <div class="lead-info">${esc(l.ville||'')}</div>
     <div class="lead-meta" style="margin-top:6px;gap:8px">
-      ${l.commercial
+      ${assigneeId
         ?`<span style="background:var(--a3);color:var(--a);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">👤 ${esc(commLabel)}</span>`
         :'<span style="background:var(--y2);color:var(--y);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⏳ En attente d\'attribution</span>'}
       ${makeLeadCallLink(l.id,l.telephone)}
@@ -10520,7 +10571,17 @@ async function saveLead(){
     if(data.ancien_client&&historicalProposal&&historicalProposal.isActive&&data.hors_secteur&&currentUser?.role==='directeur_co'&&!selectedCommercial){
       showDriveNotif(`🔁 Ancien client détecté : proposition de réattribution à ${historicalProposal.name}`);
     }
-    const newLead={...data,id:Date.now(),date_creation:now,timeline:[],rdv_history:[],cree_par:currentUser.id,societe_crm:societe,commercial:autoCommercial};
+    const newLead={
+      ...data,
+      id:Date.now(),
+      date_creation:now,
+      timeline:[],
+      rdv_history:[],
+      cree_par:currentUser.id,
+      societe_crm:societe,
+      commercial:autoCommercial,
+      commercial_user_id:autoCommercial?resolveAuthUidForUserId(autoCommercial):(data.commercial_user_id||null)
+    };
     if(newLead.date_rdv_fait){
       const doneDate=new Date(newLead.date_rdv_fait+'T09:00:00');
       registerLeadRdvDone(newLead,'creation',doneDate.toISOString());
@@ -11003,7 +11064,7 @@ function refreshLeadsBadge(){
   let leads=getCompanyScopedLeads(getLeads()).filter(l=>!isLeadCrmArchivedView(l));
   // Direction commerciale / DG : badge = leads non attribués (pilotage)
   if(role==='directeur_co'||role==='directeur_general'){
-    const n=leads.filter(l=>!l.commercial&&l.statut==='gris').length;
+    const n=leads.filter(l=>!leadHasAssignedCommercial(l)&&l.statut==='gris').length;
     if(n>0){badge.style.display='flex';badge.textContent=n;badge.style.background='var(--r)';}
     else badge.style.display='none';
     return;

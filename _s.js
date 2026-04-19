@@ -1495,6 +1495,49 @@ function resolveAuthUidForUserId(uid){
   return null;
 }
 
+function getLeadCommercialAssigneeId(lead){
+  if(!lead)return'';
+  const raw=String(lead.commercial||'').trim();
+  if(raw){
+    const u1=getAllUsers().find(u=>u.id===raw||normalizeId(u.id)===normalizeId(raw));
+    if(u1?.id)return String(u1.id);
+    if(isLikelyUuid(raw)){
+      const u2=getAllUsers().find(x=>String(x.auth_uid||x.authUid||'')===raw);
+      if(u2?.id)return String(u2.id);
+    }
+    return raw;
+  }
+  const auth=String(lead.commercial_user_id||'').trim();
+  if(isLikelyUuid(auth)){
+    const u3=getAllUsers().find(x=>String(x.auth_uid||x.authUid||'')===auth);
+    if(u3?.id)return String(u3.id);
+  }
+  return'';
+}
+function leadHasAssignedCommercial(lead){
+  return !!normalizeId(getLeadCommercialAssigneeId(lead));
+}
+function ensureLeadCommercialSyncedFromRefs(lead){
+  if(!lead||lead._deleted)return false;
+  const resolved=getLeadCommercialAssigneeId(lead);
+  if(!normalizeId(resolved))return false;
+  const u=getAllUsers().find(x=>normalizeId(x.id)===normalizeId(resolved));
+  if(!u?.id)return false;
+  if(normalizeId(String(lead.commercial||''))!==normalizeId(u.id)){
+    lead.commercial=u.id;
+    return true;
+  }
+  return false;
+}
+function ensureRuntimeLeadsCommercialDenorm(){
+  if(!Array.isArray(runtimeLeadsState))return;
+  let touched=false;
+  runtimeLeadsState.forEach(l=>{
+    if(ensureLeadCommercialSyncedFromRefs(l))touched=true;
+  });
+  if(touched)schedulePersistRuntimeToSession(currentUser?.id);
+}
+
 function mapLeadsToSupabaseRows(items){
   const createdBy=currentSupabaseSession?.user?.id||null;
   return (items||[]).map(l=>{
@@ -7000,10 +7043,12 @@ function isCRMScopePilotageRole(role){
 
 function getLeads(){
   if(!Array.isArray(runtimeLeadsState))runtimeLeadsState=[];
+  ensureRuntimeLeadsCommercialDenorm();
   return runtimeLeadsState;
 }
 function saveLeads(l,sync=true){
   runtimeLeadsState=Array.isArray(l)?l:[];
+  ensureRuntimeLeadsCommercialDenorm();
   // Persistance session (temporaire) pour survivre à un refresh.
   persistRuntimeToSession(currentUser?.id);
   appStorage.removeItem('benai_leads');
@@ -7224,7 +7269,7 @@ function showCRMTab(id){
 }
 
 function isLeadInNonAttribQueue(l){
-  return !!l&&!l.archive&&!l.commercial&&l.statut==='gris';
+  return !!l&&!l.archive&&!leadHasAssignedCommercial(l)&&l.statut==='gris';
 }
 
 function renderNonAttribues(){
@@ -7326,7 +7371,7 @@ function renderLeads(){
   if(isCRMScopePilotageRole(role)||role==='admin'){
     const allLeads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive);
     const nonAttrib=allLeads.filter(isLeadInNonAttribQueue);
-    const attrib=getFilteredLeads().filter(l=>l.commercial||l.statut!=='gris');
+    const attrib=getFilteredLeads().filter(l=>leadHasAssignedCommercial(l)||l.statut!=='gris');
     let html='';
     // Section À ATTRIBUER
     if(nonAttrib.length>0){
@@ -7419,7 +7464,8 @@ function dispatchLead(id){
 function renderLeadCardAssistante(l){
   const srcIcon=LEAD_SOURCE_ICONS[l.source]||'📋';
   const age=getLeadAge(l);
-  const comm=getAllUsers().find(u=>u.id===l.commercial);
+  const assigneeId=getLeadCommercialAssigneeId(l);
+  const comm=getAllUsers().find(u=>normalizeId(u.id)===normalizeId(assigneeId));
   // Infos RDV/rappel
   let rdvInfo='';
   if(l.rappel&&l.sous_statut==='rdv_programme'){
@@ -7438,8 +7484,8 @@ function renderLeadCardAssistante(l){
     <div style="font-size:13px;font-weight:700;color:var(--a);margin-bottom:3px">${esc(l.type_projet||'—')}</div>
     <div class="lead-info">${esc(l.ville||'')}</div>
     <div class="lead-meta" style="margin-top:6px;gap:8px">
-      ${comm
-        ?`<span style="background:var(--a3);color:var(--a);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">👤 ${esc(comm.name)}</span>`
+      ${assigneeId
+        ?`<span style="background:var(--a3);color:var(--a);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">👤 ${esc(comm?.name||assigneeId)}</span>`
         :'<span style="background:var(--y2);color:var(--y);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⏳ En attente d\'attribution</span>'}
       ${makeLeadCallLink(l.id,l.telephone)}
     </div>
@@ -7458,7 +7504,8 @@ function getLeadSecteurLabel(secteur){
 function renderLeadCard(l,role){
   const alerte=isLeadAlerte(l);
   const age=getLeadAge(l);
-  const comm=getAllUsers().find(u=>u.id===l.commercial);
+  const assigneeId=getLeadCommercialAssigneeId(l);
+  const comm=getAllUsers().find(u=>normalizeId(u.id)===normalizeId(assigneeId));
   const secteurLabel=getLeadSecteurLabel(l.secteur);
   const statLabel=STATUT_LABELS[l.statut]||'🔵 Non traité';
   const statCls=STATUT_CLS[l.statut]||'ls-gris';
@@ -8202,7 +8249,17 @@ function saveLead(){
     if(data.ancien_client&&historicalProposal&&historicalProposal.isActive&&data.hors_secteur&&currentUser?.role==='directeur_co'&&!selectedCommercial){
       showDriveNotif(`🔁 Ancien client détecté : proposition de réattribution à ${historicalProposal.name}`);
     }
-    const newLead={...data,id:Date.now(),date_creation:now,timeline:[],rdv_history:[],cree_par:currentUser.id,societe_crm:societe,commercial:autoCommercial};
+    const newLead={
+      ...data,
+      id:Date.now(),
+      date_creation:now,
+      timeline:[],
+      rdv_history:[],
+      cree_par:currentUser.id,
+      societe_crm:societe,
+      commercial:autoCommercial,
+      commercial_user_id:autoCommercial?resolveAuthUidForUserId(autoCommercial):(data.commercial_user_id||null)
+    };
     if(newLead.date_rdv_fait){
       const doneDate=new Date(newLead.date_rdv_fait+'T09:00:00');
       registerLeadRdvDone(newLead,'creation',doneDate.toISOString());
