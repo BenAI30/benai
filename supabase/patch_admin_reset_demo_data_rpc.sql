@@ -18,11 +18,9 @@ begin
   if auth.uid() is null then
     raise exception 'Connexion requise';
   end if;
-  if not exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role = 'admin'
-  ) then
-    raise exception 'Action reservee au role admin';
+  if (select lower(trim(coalesce(p.role, ''))) from public.profiles p where p.id = auth.uid() limit 1)
+     is distinct from 'admin' then
+    raise exception 'Action reservee au role admin (dans Supabase : public.profiles → colonne role = admin pour votre utilisateur).';
   end if;
 
   truncate table
@@ -97,3 +95,6 @@ $$;
 
 revoke all on function public.admin_wipe_benai_reset() from public;
 grant execute on function public.admin_wipe_benai_reset() to authenticated;
+
+-- PostgREST met parfois plusieurs secondes à voir la nouvelle RPC sans ce signal.
+notify pgrst, 'reload schema';

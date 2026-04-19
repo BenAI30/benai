@@ -1437,12 +1437,19 @@ async function rpcAdminWipeBenaiResetCloud(){
     const text=await res.text().catch(()=>'');
     if(!res.ok){
       let detail=text||(`HTTP ${res.status}`);
+      let code='';
       try{
         const j=JSON.parse(text);
+        code=String(j.code||'').trim();
         detail=String(j.message||j.error||j.details||j.hint||detail);
       }catch(_){}
-      if(/Could not find the function|function .* does not exist|PGRST202/i.test(detail)){
-        detail+='\n\n→ Exécutez une fois le fichier SQL supabase/patch_admin_reset_demo_data_rpc.sql dans l’éditeur Supabase (crée la fonction), puis réessayez.';
+      const head=`HTTP ${res.status}${code?` (${code})`:''}`;
+      detail=detail?`${head}: ${detail}`:head;
+      if(/schema cache|Could not find the function|function .* does not exist|PGRST202|PGRST301/i.test(detail+text)){
+        detail+='\n\n→ SQL : exécutez supabase/patch_admin_reset_demo_data_rpc.sql (Run en entier). Attendez ~10 s, rechargez BenAI (F5), réessayez. Si ça persiste : dans SQL Editor, exécutez notify pgrst, \'reload schema\'; puis Run.';
+      }
+      if(res.status===401||/jwt|expired|invalid/i.test(detail)){
+        detail+='\n\n→ Déconnectez-vous / reconnectez-vous (session Supabase expirée).';
       }
       return {ok:false,error:detail};
     }
