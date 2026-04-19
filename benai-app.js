@@ -4030,6 +4030,15 @@ function addBenAIInternalConv(uid,convs){
   convs[makeConvId(uid,'benai')]={name:'BenAI',other:'benai',color:b.color,initial:b.initial};
 }
 
+/** Messagerie Benjamin : uniquement les comptes reliés à une fiche annuaire non supprimée (évite profils / tests orphelins dans la liste). */
+function isBenaiUserLinkedToActiveAnnuaire(u){
+  if(!u||u.builtin||u.id==='benjamin'||u.id==='benai')return false;
+  return getAnnuaireActive().some(emp=>{
+    const linked=findBenaiAccountLinkedToAnnuaireEmploye(emp);
+    return linked&&normalizeId(String(linked.id||''))===normalizeId(String(u.id||''));
+  });
+}
+
 /** Anciens messages auto (motivation) étaient dans la conv. avec Benjamin — les déplacer une fois vers BenAI. */
 function migrateMotivationMessagesToBenaiThread(){
   if(appStorage.getItem('benai_motiv_conv_migrated_v1')==='1')return;
@@ -4074,8 +4083,7 @@ function getConvsForUser(uid){
   const teamScopedMessaging=isCRMOnly||role==='metreur'||role==='assistante';
 
   if(uid==='benjamin'){
-    // Benjamin voit tout le monde
-    allUsers.filter(u=>u.id!=='benjamin').forEach(u=>{
+    allUsers.filter(u=>u.id!=='benjamin'&&isBenaiUserLinkedToActiveAnnuaire(u)).forEach(u=>{
       const cid=makeConvId('benjamin',u.id);
       convs[cid]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
     });
@@ -6990,7 +6998,6 @@ async function syncExtraUsersFromSupabaseProfiles(opts){
     const hiddenSet=new Set(getHiddenUserIds().map(normalizeId));
     const old=getExtraUsers().filter(u=>!hiddenSet.has(normalizeId(u.id)));
     const oldMap=new Map(old.map(u=>[u.id,u]));
-    const authIdsInSupabase=new Set(rows.map(p=>String(p?.id||'').trim()).filter(Boolean));
     let merged;
     let colorIdx=0;
     if(rows.length){
@@ -7026,8 +7033,7 @@ async function syncExtraUsersFromSupabaseProfiles(opts){
         seenIds.add(uid);
       });
       old.forEach(u=>{
-        const auth=String(u.auth_uid||'').trim();
-        if(auth&&!authIdsInSupabase.has(auth))return;
+        if(String(u.auth_uid||'').trim())return;
         if(seenIds.has(u.id))return;
         merged.push(u);
       });
