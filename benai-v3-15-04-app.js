@@ -292,7 +292,7 @@ const appStorage={
 window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
-const BENAI_VERSION = '3.15.7';
+const BENAI_VERSION = '3.15.8';
 const GUIDE_REQUIRED_VERSION='3.21';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 /** Même clé que appStorage : persistance navigateur (localStorage) car l’ACK guide est exclu du snapshot cloud. */
@@ -10446,6 +10446,8 @@ function openLead(id){
   document.getElementById('lead-secteur').value=allowedSect.includes(sv)?sv:(allowedSect[0]||'nimes');
   const leadHorsSecteurJustif=document.getElementById('lead-hors-secteur-justif');
   if(leadHorsSecteurJustif)leadHorsSecteurJustif.value=l.justification_hors_secteur||'';
+  const leadEntiteJustif=document.getElementById('lead-entite-croisee-justif');
+  if(leadEntiteJustif)leadEntiteJustif.value=l.justification_entite_croisee||'';
   document.getElementById('lead-suivi').value=l.suivi||'';
   document.getElementById('lead-commentaire').value=l.commentaire||'';
   // Source
@@ -10538,6 +10540,10 @@ function resetLeadForm(){
   if(leadSectorAlert){leadSectorAlert.style.display='none';leadSectorAlert.textContent='';}
   const leadHorsSecteurWrap=document.getElementById('lead-hors-secteur-wrap');
   if(leadHorsSecteurWrap)leadHorsSecteurWrap.style.display='none';
+  const leadEntiteJustif=document.getElementById('lead-entite-croisee-justif');
+  if(leadEntiteJustif)leadEntiteJustif.value='';
+  const leadEntiteWrap=document.getElementById('lead-entite-croisee-wrap');
+  if(leadEntiteWrap)leadEntiteWrap.style.display='none';
   document.getElementById('lead-sous-statut').value='a_rappeler';
   const dateRdvFait=document.getElementById('lead-date-rdv-fait');if(dateRdvFait)dateRdvFait.value='';
   const montantRdv=document.getElementById('lead-montant-rdv');if(montantRdv)montantRdv.value='';
@@ -10703,10 +10709,6 @@ async function saveLead(){
     if(!prixVenduRaw)missing.push('Prix final vendu HT');
     else if(!Number.isFinite(prixVenduValue)||prixVenduValue<=0)missing.push('Prix final vendu HT (> 0)');
   }
-  if(missing.length){
-    await benaiAlert('Champs vides : '+missing.join(', '));
-    return;
-  }
   const leads=getLeads();
   let agendaAutoOpened=false;
   let movedOutOfNonAttrib=false;
@@ -10784,6 +10786,24 @@ async function saveLead(){
       raison_mort:null
     });
   }
+  const entiteJustifRaw=(document.getElementById('lead-entite-croisee-justif')?.value||'').trim();
+  const oldLeadCtx=currentLeadId?leads.find(x=>x.id===currentLeadId):null;
+  const previewSocEnt=oldLeadCtx
+    ?resolveLeadSocieteCrmForPersistence(data.secteur,oldLeadCtx.societe_crm||getSocieteFromUser(currentUser.id))
+    :resolveLeadSocieteCrmForPersistence(data.secteur,getSocieteFromUser(currentUser.id));
+  const previewLeadEnt={...(oldLeadCtx||{}),...data,societe_crm:previewSocEnt};
+  const crossEnt=isLeadCrossEntitySecteurAnomaly(previewLeadEnt);
+  const lsEnt=getLeadCRMCompany(previewLeadEnt);
+  const roleSavEnt=normalizeProfileRole(currentUser?.role);
+  const needsEntiteJustif=crossEnt&&!entiteJustifRaw&&(
+    (roleSavEnt==='directeur_co'&&crmAssigneeCoversLeadSociete(currentUser,lsEnt))||
+    (roleSavEnt==='commercial'&&!hasDirecteurCommercialForSociete(lsEnt)&&normalizeId(getLeadCommercialAssigneeId(previewLeadEnt))===normalizeId(currentUser.id))
+  );
+  if(needsEntiteJustif)missing.push('Justification secteur / autre société');
+  if(missing.length){
+    await benaiAlert('Champs vides : '+missing.join(', '));
+    return;
+  }
   if(currentLeadId){
     const idx=leads.findIndex(l=>l.id===currentLeadId);
     if(idx!==-1){
@@ -10813,7 +10833,8 @@ async function saveLead(){
         date_creation:old.date_creation,
         date_modification:now,
         commercial_user_id:data.commercial_user_id||old.commercial_user_id||null,
-        societe_crm:resolveLeadSocieteCrmForPersistence(data.secteur,old.societe_crm||getSocieteFromUser(currentUser.id))
+        societe_crm:resolveLeadSocieteCrmForPersistence(data.secteur,old.societe_crm||getSocieteFromUser(currentUser.id)),
+        justification_entite_croisee:resolveJustificationEntiteCroiseeForSave(old,previewLeadEnt,entiteJustifRaw)
       };
       leads[idx]=updatedLead;
       if(activeCRMTabId==='non-attribues'&&!isLeadInNonAttribQueue(updatedLead)){
@@ -10848,6 +10869,8 @@ async function saveLead(){
     if(data.ancien_client&&historicalProposal&&historicalProposal.isActive&&data.hors_secteur&&currentUser?.role==='directeur_co'&&!selectedCommercial){
       showDriveNotif(`🔁 Ancien client détecté : proposition de réattribution à ${historicalProposal.name}`);
     }
+    const commercial_user_id_new=autoCommercial?resolveAuthUidForUserId(autoCommercial):(data.commercial_user_id||null);
+    const previewNewLead={...data,societe_crm:societe,commercial:autoCommercial,commercial_user_id:commercial_user_id_new};
     const newLead={
       ...data,
       id:Date.now(),
@@ -10857,7 +10880,8 @@ async function saveLead(){
       cree_par:currentUser.id,
       societe_crm:societe,
       commercial:autoCommercial,
-      commercial_user_id:autoCommercial?resolveAuthUidForUserId(autoCommercial):(data.commercial_user_id||null)
+      commercial_user_id:commercial_user_id_new,
+      justification_entite_croisee:resolveJustificationEntiteCroiseeForSave(null,previewNewLead,entiteJustifRaw)
     };
     if(newLead.date_rdv_fait){
       const doneDate=new Date(newLead.date_rdv_fait+'T09:00:00');
@@ -11013,17 +11037,91 @@ function resolveLeadSocieteCrmForPersistence(secteur,fallbackSociete){
   }
   return resolveLeadSocieteBySecteur(secteur,fallbackSociete);
 }
+/** Secteur CP (Nîmes, Bagnols…) habituellement rattaché à l’autre société que `societe_crm` du dossier. */
+function isLeadCrossEntitySecteurAnomaly(l){
+  if(!l)return false;
+  const own=CRM_SECTOR_OWNERS[l.secteur];
+  if(!own||own==='zone_blanche')return false;
+  return getLeadCRMCompany(l)!==own;
+}
+function crossEntitySecteurJustificationFilled(l){
+  return!!String(l?.justification_entite_croisee||'').trim();
+}
+function canEditCrossEntityLeadJustification(user,leadPreview){
+  if(!user||!leadPreview)return false;
+  const role=normalizeProfileRole(user.role);
+  if(role==='admin')return true;
+  const ls=getLeadCRMCompany(leadPreview);
+  if(role==='directeur_co')return crmAssigneeCoversLeadSociete(user,ls);
+  if(role==='commercial'&&!hasDirecteurCommercialForSociete(ls)){
+    return normalizeId(getLeadCommercialAssigneeId(leadPreview))===normalizeId(user.id);
+  }
+  return false;
+}
+/** Pastille : dir. co tant que non justifié ; commercial seulement s’il n’y a pas de dir. co sur la société ; pilotage (admin, DG, assistante, mètreur) tant que non justifié. */
+function shouldShowCrossEntitySecteurBadgeHtml(l){
+  if(!l||!isLeadCrossEntitySecteurAnomaly(l))return false;
+  if(crossEntitySecteurJustificationFilled(l))return false;
+  const u=currentUser;
+  if(!u)return true;
+  const role=normalizeProfileRole(u.role);
+  if(role==='admin'||role==='directeur_general'||role==='assistante'||role==='metreur')return true;
+  if(role==='directeur_co')return crmAssigneeCoversLeadSociete(u,getLeadCRMCompany(l));
+  if(role==='commercial'){
+    const ls=getLeadCRMCompany(l);
+    if(hasDirecteurCommercialForSociete(ls))return false;
+    return normalizeId(getLeadCommercialAssigneeId(l))===normalizeId(u.id);
+  }
+  return false;
+}
 /** Pastille si le secteur géographique (Nîmes / Bagnols…) est habituellement rattaché à l’autre entité que societe_crm. */
 function formatLeadCrossEntitySecteurBadgeHtml(l){
-  if(!l)return'';
+  if(!shouldShowCrossEntitySecteurBadgeHtml(l))return'';
   const own=CRM_SECTOR_OWNERS[l.secteur];
-  if(!own||own==='zone_blanche')return'';
-  const crm=getLeadCRMCompany(l);
-  if(crm===own)return'';
   const lab=CRM_SECTOR_LABELS[l.secteur]||l.secteur;
   const ownerLab=own==='nemausus'?'Nemausus':'Lambert';
-  const tip=`Secteur « ${lab} » (${ownerLab}) : dossier géré sous votre entité mais localisation liée à l’autre société — ancien client ou accord possible.`;
+  const tip=`Secteur « ${lab} » (${ownerLab}) : dossier géré sous votre entité mais localisation liée à l’autre société — ancien client ou accord possible. Justification attendue du dir. commercial (ou du commercial si pas de dir. co sur la société).`;
   return`<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px;background:rgba(251,191,36,.22);color:#b45309;border:1px solid rgba(251,191,36,.5);white-space:normal;line-height:1.25;max-width:100%" title="${escAttr(tip)}">⚠️ ${esc(lab)} · ${esc(ownerLab)}</span>`;
+}
+function getLeadModalCrossEntityPreviewLead(){
+  const secteur=document.getElementById('lead-secteur')?.value||'nimes';
+  const cp=document.getElementById('lead-cp')?.value.trim()||'';
+  const commSel=document.getElementById('lead-commercial-assign')?.value;
+  const leads=getLeads();
+  if(currentLeadId){
+    const l=leads.find(x=>x.id===currentLeadId);
+    if(!l)return null;
+    return{...l, cp, secteur, commercial:commSel||l.commercial};
+  }
+  const societe=resolveLeadSocieteCrmForPersistence(secteur,getSocieteFromUser(currentUser?.id));
+  return{
+    secteur,
+    cp,
+    societe_crm:societe,
+    societe,
+    commercial:commSel||null,
+    cree_par:currentUser?.id
+  };
+}
+function refreshLeadEntiteCroiseeJustifUi(){
+  const wrap=document.getElementById('lead-entite-croisee-wrap');
+  if(!wrap)return;
+  const prev=getLeadModalCrossEntityPreviewLead();
+  const u=currentUser;
+  if(!prev||!u||!isLeadCrossEntitySecteurAnomaly(prev)){
+    wrap.style.display='none';
+    return;
+  }
+  if(crossEntitySecteurJustificationFilled(prev)){
+    wrap.style.display='none';
+    return;
+  }
+  wrap.style.display=canEditCrossEntityLeadJustification(u,prev)?'block':'none';
+}
+function resolveJustificationEntiteCroiseeForSave(oldLead,previewLead,entiteJustifRaw){
+  const trimmed=String(entiteJustifRaw||'').trim();
+  if(!canEditCrossEntityLeadJustification(currentUser,previewLead))return oldLead?.justification_entite_croisee??null;
+  return trimmed?applyFrenchTypographyToFreeText(trimmed):null;
 }
 
 function normalizeLeadCP(raw){
@@ -11092,6 +11190,7 @@ function updateLeadSectorSignals(){
     }
   }
   if(justifWrap)justifWrap.style.display=(state.outOfSector&&currentUser?.role!=='assistante')?'block':'none';
+  try{refreshLeadEntiteCroiseeJustifUi();}catch(_){}
   return state;
 }
 function normalizeLeadIdentityText(value){
