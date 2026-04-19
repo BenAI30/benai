@@ -292,7 +292,7 @@ const appStorage={
 window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
-const BENAI_VERSION = '3.15.13';
+const BENAI_VERSION = '3.15.14';
 const GUIDE_REQUIRED_VERSION='3.21';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 /** Même clé que appStorage : persistance navigateur (localStorage) car l’ACK guide est exclu du snapshot cloud. */
@@ -8882,7 +8882,7 @@ function getDirecteurCoTutoSlides(){
     {icon:'🏢',title:'Ton entreprise sur BenAI',desc:`Ce tutoriel décrit ce que tu vois dans BenAI pour : ${company}. ${zones} Filtres secteur, cartes du tableau de bord et commerciaux listés restent alignés sur ce périmètre.`,highlight:sessionHint},
     {icon:'📊',title:'Menus visibles',desc:'Notes, Leads CRM, Messages, Absences, Guide. En cas de blocage : « Signaler » (la liste des tickets reste côté administration). L’assistant BenAI IA est réservé à l’administration et aux assistantes.',highlight:'Le CRM sert à attribuer, suivre et chiffrer les dossiers'},
     {icon:'🧭',title:'Les trois onglets CRM',desc:'« À attribuer » : nouveaux dossiers sans commercial assigné. « Dossiers CRM » : d’abord tes dossiers à ton nom, puis le pipeline équipe (recherche, pastilles, liste ou kanban, archives, alertes). « Dashboard » : synthèses (KPI, secteurs, CA, équipe, exports, objectifs).',highlight:'Tu peux commencer par « À attribuer » pour enchaîner les nouveaux dossiers, si tu le souhaites'},
-    {icon:'🎛️',title:'Filtres liste & kanban',desc:'Liste : section « Mes dossiers » séparée du « Pipeline équipe ». Kanban : sans filtre commercial, seuls tes dossiers à ton nom s’affichent pour ne pas mélanger avec les autres ; avec un filtre commercial, tu vois le kanban du vendeur choisi. Tu peux combiner recherche, pastilles, filtre secteur, filtre commercial. Filtre société seulement si ton accès couvre les deux entités.',highlight:'Réinitialise les filtres si une vue semble vide'},
+    {icon:'🎛️',title:'Filtres liste & kanban',desc:'Liste : section « Mes dossiers » séparée du « Pipeline équipe ». Kanban : même périmètre que les filtres actifs (société, secteur, commercial, pastilles, recherche) — tu vois tout le pipeline attribué dans ces colonnes ; avec un filtre commercial, le kanban se restreint au vendeur choisi. Filtre société seulement si ton accès couvre les deux entités.',highlight:'Réinitialise les filtres si une vue semble vide'},
     {icon:'🤝',title:'Attribuer ou reprendre un lead',desc:'Sur « À attribuer » ou dans la fiche : champ « Commercial » — tu peux choisir un vendeur, un autre dirigeant, ou toi-même pour porter le dossier. Changement = notification + entrée dans l’historique.',highlight:'Tu peux t’assigner comme un commercial'},
     {icon:'📇',title:'Ouvrir une fiche lead attribué',desc:'En cliquant un dossier : identité, projet, commentaire d’origine, secteur, source. Tu peux corriger les champs de base, suivi, commentaire, montants et dates selon les droits affichés.',highlight:'Une fiche à jour limite les doublons d’appels'},
     {icon:'📜',title:'Historique & timeline',desc:'Sur un lead attribué (ou sur le tien), la section Historique liste les actions : ouverture de fiche, changements de statut, d’attribution, de montants, etc., avec date et auteur — trace utile sur le terrain.',highlight:'Tu peux lire la timeline avant d’appeler le commercial ou le client'},
@@ -9584,11 +9584,7 @@ function renderKanban(){
   const kanban=document.getElementById('leads-kanban');if(!kanban)return;
   kanban.style.display='flex';
   const role=currentUser?.role;
-  let leads=getFilteredLeads();
-  const commFilterRaw=(role==='admin'||isCRMScopePilotageRole(role))?(document.getElementById('crm-filter-commercial')?.value||''):'';
-  if(isCRMScopePilotageRole(role)&&role!=='admin'&&!commFilterRaw){
-    leads=leads.filter(l=>normalizeId(getLeadCommercialAssigneeId(l))===normalizeId(String(currentUser.id)));
-  }
+  const leads=getFilteredLeads();
   const cols=[
     {id:'gris',label:'🔵 Non traité',cls:'ls-gris'},
     {id:'rdv',label:'📞 RDV pris',cls:'ls-rdv'},
