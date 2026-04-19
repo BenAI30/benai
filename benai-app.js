@@ -292,7 +292,7 @@ const appStorage={
 window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
-const BENAI_VERSION = '3.15.15';
+const BENAI_VERSION = '3.15.16';
 const GUIDE_REQUIRED_VERSION='3.21';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 /** Même clé que appStorage : persistance navigateur (localStorage) car l’ACK guide est exclu du snapshot cloud. */
@@ -4090,15 +4090,6 @@ function addBenAIInternalConv(uid,convs){
   convs[makeConvId(uid,'benai')]={name:'BenAI',other:'benai',color:b.color,initial:b.initial};
 }
 
-/** Messagerie Benjamin : uniquement les comptes reliés à une fiche annuaire non supprimée (évite profils / tests orphelins dans la liste). */
-function isBenaiUserLinkedToActiveAnnuaire(u){
-  if(!u||u.builtin||u.id==='benjamin'||u.id==='benai')return false;
-  return getAnnuaireActive().some(emp=>{
-    const linked=findBenaiAccountLinkedToAnnuaireEmploye(emp);
-    return linked&&normalizeId(String(linked.id||''))===normalizeId(String(u.id||''));
-  });
-}
-
 /** Anciens messages auto (motivation) étaient dans la conv. avec Benjamin — les déplacer une fois vers BenAI. */
 function migrateMotivationMessagesToBenaiThread(){
   if(appStorage.getItem('benai_motiv_conv_migrated_v1')==='1')return;
@@ -4143,7 +4134,7 @@ function getConvsForUser(uid){
   const teamScopedMessaging=isCRMOnly||role==='metreur'||role==='assistante';
 
   if(uid==='benjamin'){
-    allUsers.filter(u=>u.id!=='benjamin'&&isBenaiUserLinkedToActiveAnnuaire(u)).forEach(u=>{
+    allUsers.filter(u=>u.id!=='benjamin').forEach(u=>{
       const cid=makeConvId('benjamin',u.id);
       convs[cid]={name:u.name,other:u.id,color:u.color,initial:u.initial,role:u.role};
     });
@@ -7058,6 +7049,7 @@ async function syncExtraUsersFromSupabaseProfiles(opts){
     const hiddenSet=new Set(getHiddenUserIds().map(normalizeId));
     const old=getExtraUsers().filter(u=>!hiddenSet.has(normalizeId(u.id)));
     const oldMap=new Map(old.map(u=>[u.id,u]));
+    const authIdsInSupabase=new Set(rows.map(p=>String(p?.id||'').trim()).filter(Boolean));
     let merged;
     let colorIdx=0;
     if(rows.length){
@@ -7093,7 +7085,8 @@ async function syncExtraUsersFromSupabaseProfiles(opts){
         seenIds.add(uid);
       });
       old.forEach(u=>{
-        if(String(u.auth_uid||'').trim())return;
+        const auth=String(u.auth_uid||'').trim();
+        if(auth&&!authIdsInSupabase.has(auth))return;
         if(seenIds.has(u.id))return;
         merged.push(u);
       });
