@@ -7070,7 +7070,8 @@ const ROLE_PAGES={
 };
 /** Même périmètre CRM / pilotage (société, filtres, onglets) que le dir. commercial. */
 function isCRMScopePilotageRole(role){
-  return role==='directeur_co'||role==='directeur_general';
+  const r=normalizeProfileRole(role);
+  return r==='directeur_co'||r==='directeur_general';
 }
 
 function getLeads(){
@@ -8306,6 +8307,12 @@ async function saveLead(){
         autoCommercial=getRoundRobinCommercial(societe);
       }
     }
+    if(!autoCommercial&&!hasDirecteurCommercialForSociete(societe)){
+      autoCommercial=getAutoAttribution(societe);
+    }
+    if(!autoCommercial&&!hasDirecteurCommercialForSociete(societe)){
+      autoCommercial=getFallbackCommercialIdFromAnnuaire(societe);
+    }
     if(!autoCommercial&&['assistante','admin'].includes(String(currentUser?.role||''))&&!hasDirecteurCommercialForSociete(societe)){
       showDriveNotif('⚠️ Aucun commercial actif détecté pour l’attribution auto. Assignez à la main ou ré-appliquez supabase/patch_profiles_select_pilotage.sql.');
     }
@@ -8585,14 +8592,19 @@ function fillCommercialFilter(){
 function fillCommercialAssign(selected=''){
   const sel=document.getElementById('lead-commercial-assign');if(!sel)return;
   const users=getAllUsers().filter(u=>{
-    if(!(u.role==='commercial'||u.role==='directeur_co'))return false;
+    const ur=normalizeProfileRole(u.role);
+    if(!(ur==='commercial'||ur==='directeur_co'||ur==='directeur_general'))return false;
     if(currentUser?.role==='admin')return true;
     if(isCRMScopePilotageRole(currentUser?.role)){
       return currentUser.societe==='les-deux'||u.societe===currentUser.societe||u.societe==='les-deux';
     }
     return true;
   });
-  sel.innerHTML='<option value="">⏳ Non attribué</option>'+users.map(c=>`<option value="${c.id}"${c.id===selected?' selected':''}>${esc(c.name)} (${c.role==='directeur_co'?'Dir.co':c.role==='directeur_general'?'Dir. général':'Commercial'})</option>`).join('');
+  sel.innerHTML='<option value="">⏳ Non attribué</option>'+users.map(c=>{
+    const r=normalizeProfileRole(c.role);
+    const lab=r==='directeur_co'?'Dir.co':r==='directeur_general'?'Dir. général':'Commercial';
+    return`<option value="${c.id}"${c.id===selected?' selected':''}>${esc(c.name)} (${lab})</option>`;
+  }).join('');
 }
 
 // ALERTES & RAPPELS
@@ -9853,10 +9865,44 @@ function getSocieteFromUser(uid){
 }
 
 function getAutoAttribution(societe){
-  // Attribution automatique si un seul commercial sur la société
-  const commerciaux=getAllUsers().filter(u=>u.role==='commercial'&&(u.societe===societe||u.societe==='les-deux'));
-  if(commerciaux.length===1)return commerciaux[0].id;
+  const target=String(societe||'').trim().toLowerCase()==='lambert'?'lambert':'nemausus';
+  const access=getAccess();
+  const pool=getAllUsers().filter(u=>{
+    if(normalizeProfileRole(u.role)!=='commercial')return false;
+    const id=String(u.id||'');
+    if(access[id]===false||access[normalizeId(id)]===false)return false;
+    const su=normalizeProfileCompany(u.societe);
+    if(su==='les-deux')return true;
+    if(su===target)return true;
+    if(!su)return true;
+    return false;
+  });
+  if(pool.length===1)return pool[0].id;
   return null;
+}
+function getFallbackCommercialIdFromAnnuaire(societe){
+  const target=String(societe||'').trim().toLowerCase()==='lambert'?'lambert':'nemausus';
+  const access=getAccess();
+  const seen=new Set();
+  const pool=[];
+  getAnnuaireActive().forEach(emp=>{
+    const es=normalizeProfileCompany(emp?.societe);
+    if(es&&es!=='les-deux'&&es!==target)return;
+    const bu=findBenaiAccountLinkedToAnnuaireEmploye(emp);
+    if(!bu||seen.has(normalizeId(String(bu.id||''))))return;
+    if(normalizeProfileRole(bu.role)!=='commercial')return;
+    const bid=String(bu.id||'');
+    if(access[bid]===false||access[normalizeId(bid)]===false)return;
+    seen.add(normalizeId(bid));
+    pool.push(bu);
+  });
+  if(!pool.length)return null;
+  const key='benai_rr_annuaire_'+target;
+  let idx=parseInt(appStorage.getItem(key)||'0',10);
+  if(Number.isNaN(idx))idx=0;
+  const pick=pool[idx%pool.length];
+  appStorage.setItem(key,String((idx+1)%pool.length));
+  return pick?.id||null;
 }
 
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');

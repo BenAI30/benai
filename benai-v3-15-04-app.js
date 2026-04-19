@@ -8386,7 +8386,8 @@ function canAccessBenAIIAChat(){
 }
 /** Même périmètre CRM / pilotage (société, filtres, onglets) que le dir. commercial. */
 function isCRMScopePilotageRole(role){
-  return role==='directeur_co'||role==='directeur_general';
+  const r=normalizeProfileRole(role);
+  return r==='directeur_co'||r==='directeur_general';
 }
 /** Timeline complète de la fiche lead : admin + direction uniquement (pas les commerciaux). */
 function canViewLeadFullTimeline(){
@@ -8394,7 +8395,8 @@ function canViewLeadFullTimeline(){
 }
 /** Création terrain, source ACTIF, auto-attribution : même logique que les commerciaux (+ dir. co / DG). */
 function isCrmSalesActorRole(role){
-  return role==='commercial'||role==='directeur_co'||role==='directeur_general';
+  const r=normalizeProfileRole(role);
+  return r==='commercial'||r==='directeur_co'||r==='directeur_general';
 }
 /** Vérifie qu’un profil (commercial, dir. co…) peut porter un lead sur la société CRM du dossier. */
 function crmAssigneeCoversLeadSociete(user,leadSoc){
@@ -10618,6 +10620,12 @@ async function saveLead(){
         autoCommercial=getRoundRobinCommercialTerrain(societe);
       }
     }
+    if(!autoCommercial&&!hasDirecteurCommercialForSociete(societe)){
+      autoCommercial=getAutoAttribution(societe);
+    }
+    if(!autoCommercial&&!hasDirecteurCommercialForSociete(societe)){
+      autoCommercial=getFallbackCommercialIdFromAnnuaire(societe);
+    }
     if(!autoCommercial&&['assistante','admin'].includes(String(currentUser?.role||''))&&!hasDirecteurCommercialForSociete(societe)){
       showDriveNotif('⚠️ Aucun commercial actif détecté pour l’attribution auto (rôle + société dans Supabase, ou liste filtrée par RLS). Assignez à la main ou ré-appliquez supabase/patch_profiles_select_pilotage.sql.');
     }
@@ -10951,7 +10959,8 @@ function fillCommercialFilter(){
   const sel=document.getElementById('crm-filter-commercial');if(!sel)return;
   const prev=sel.value||'';
   const assignables=getAllUsers().filter(u=>{
-    if(!(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general'))return false;
+    const ur=normalizeProfileRole(u.role);
+    if(!(ur==='commercial'||ur==='directeur_co'||ur==='directeur_general'))return false;
     if(currentUser?.role==='admin')return true;
     if(isCRMScopePilotageRole(currentUser?.role)){
       return currentUser.societe==='les-deux'||u.societe===currentUser.societe||u.societe==='les-deux';
@@ -10970,7 +10979,8 @@ function fillCommercialFilter(){
 function fillCommercialAssign(selected=''){
   const sel=document.getElementById('lead-commercial-assign');if(!sel)return;
   const users=getAllUsers().filter(u=>{
-    if(!(u.role==='commercial'||u.role==='directeur_co'||u.role==='directeur_general'))return false;
+    const ur=normalizeProfileRole(u.role);
+    if(!(ur==='commercial'||ur==='directeur_co'||ur==='directeur_general'))return false;
     if(currentUser?.role==='admin')return true;
     if(isCRMScopePilotageRole(currentUser?.role)){
       const cs=String(currentUser.societe||'').trim().toLowerCase();
@@ -10985,7 +10995,8 @@ function fillCommercialAssign(selected=''){
   const selN=selected?normalizeId(String(selected)):'';
   const socLab=pilotageShowsDistinctEntityNames();
   let opts='<option value="">⏳ Non attribué</option>'+users.map(c=>{
-    const roleShort=c.role==='directeur_co'?'Dir.co':c.role==='directeur_general'?'Dir. général':'Commercial';
+    const r=normalizeProfileRole(c.role);
+    const roleShort=r==='directeur_co'?'Dir.co':r==='directeur_general'?'Dir. général':'Commercial';
     const suf=socLab&&c.societe?` · ${formatSocieteLegaleCourt(c.societe)}`:'';
     return`<option value="${escAttr(String(c.id??''))}"${selN&&normalizeId(String(c.id))===selN?' selected':''}>${esc(`${c.name||''} (${roleShort}${suf})`)}</option>`;
   }).join('');
@@ -12505,10 +12516,45 @@ function getSocieteFromUser(uid){
 }
 
 function getAutoAttribution(societe){
-  // Attribution automatique si un seul porteur de ventes (commercial / dir. co / DG) sur la société
-  const commerciaux=getAllUsers().filter(u=>isCrmSalesActorRole(u.role)&&(u.societe===societe||u.societe==='les-deux'));
-  if(commerciaux.length===1)return commerciaux[0].id;
+  const target=String(societe||'').trim().toLowerCase()==='lambert'?'lambert':'nemausus';
+  const access=getAccess();
+  const pool=getAllUsers().filter(u=>{
+    if(!isCrmSalesActorRole(u.role))return false;
+    const id=String(u.id||'');
+    if(access[id]===false||access[normalizeId(id)]===false)return false;
+    const su=normalizeProfileCompany(u.societe);
+    if(su==='les-deux')return true;
+    if(su===target)return true;
+    if(!su)return true;
+    return false;
+  });
+  if(pool.length===1)return pool[0].id;
   return null;
+}
+/** Dernier recours : commerciaux liés à l’annuaire (même si la sync REST profiles est vide à cause du RLS). */
+function getFallbackCommercialIdFromAnnuaire(societe){
+  const target=String(societe||'').trim().toLowerCase()==='lambert'?'lambert':'nemausus';
+  const access=getAccess();
+  const seen=new Set();
+  const pool=[];
+  getAnnuaireActive().forEach(emp=>{
+    const es=normalizeProfileCompany(emp?.societe);
+    if(es&&es!=='les-deux'&&es!==target)return;
+    const bu=findBenaiAccountLinkedToAnnuaireEmploye(emp);
+    if(!bu||seen.has(normalizeId(String(bu.id||''))))return;
+    if(normalizeProfileRole(bu.role)!=='commercial')return;
+    const bid=String(bu.id||'');
+    if(access[bid]===false||access[normalizeId(bid)]===false)return;
+    seen.add(normalizeId(bid));
+    pool.push(bu);
+  });
+  if(!pool.length)return null;
+  const key='benai_rr_annuaire_'+target;
+  let idx=parseInt(appStorage.getItem(key)||'0',10);
+  if(Number.isNaN(idx))idx=0;
+  const pick=pool[idx%pool.length];
+  appStorage.setItem(key,String((idx+1)%pool.length));
+  return pick?.id||null;
 }
 
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');

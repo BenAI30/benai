@@ -31,6 +31,12 @@ using (
         public.current_profile_role() in ('directeur_co','directeur_general','commercial','assistante','metreur')
         and trim(coalesce(public.profiles.company,'')) = ''
       )
+      -- Compte connecté sans company en base : les branches ci-dessus ne matchent jamais → équipe invisible.
+      or (
+        public.current_profile_role() in ('directeur_co','directeur_general','commercial','assistante','metreur')
+        and nullif(trim(coalesce(public.current_profile_company(),'')), '') is null
+        and public.profiles.role in ('commercial','directeur_co','directeur_general')
+      )
     )
   )
 );
