@@ -8084,9 +8084,9 @@ function openLead(id){
   const btnAgenda=document.getElementById('btn-agenda-lead');
   const btnRdvDone=document.getElementById('btn-rdv-done-lead');
   const btnEmail=document.getElementById('btn-export-lead');
-  if(btnAgenda)btnAgenda.style.display=(l.rappel||l.date_rdv)?'inline-block':'none';
-  if(btnRdvDone)btnRdvDone.style.display='inline-block';
-  if(btnEmail)btnEmail.style.display='inline-block';
+  if(btnAgenda)btnAgenda.style.display=(l.rappel||l.date_rdv)?'inline-flex':'none';
+  if(btnRdvDone)btnRdvDone.style.display='inline-flex';
+  if(btnEmail)btnEmail.style.display='inline-flex';
   updateLeadSectorSignals();
 }
 

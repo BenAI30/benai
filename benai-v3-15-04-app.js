@@ -10489,10 +10489,10 @@ function openLead(id){
     if(btnAgenda)btnAgenda.style.display='none';
     if(btnRdvDone)btnRdvDone.style.display='none';
   }else{
-    if(btnAgenda)btnAgenda.style.display=(l.rappel||l.date_rdv)?'inline-block':'none';
+    if(btnAgenda)btnAgenda.style.display=(l.rappel||l.date_rdv)?'inline-flex':'none';
     if(btnRdvDone)btnRdvDone.style.display='inline-flex';
   }
-  if(btnEmail)btnEmail.style.display='inline-block';
+  if(btnEmail)btnEmail.style.display='inline-flex';
   applyLeadModalAssistanteUi();
   updateLeadSectorSignals();
 }
