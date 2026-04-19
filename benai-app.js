@@ -1417,47 +1417,40 @@ async function updateSupabaseUserPasswordProvisioning(body){
   }
 }
 
-/** Appelle la RPC SQL admin_wipe_benai_reset (même origine que le reste de Supabase → pas de Edge Function). */
+/** Appelle la RPC SQL admin_wipe_benai_reset via le client Supabase (session + en-têtes alignés sur le reste de l’app). */
 async function rpcAdminWipeBenaiResetCloud(){
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return {ok:false,error:'Supabase désactivé ou URL manquante.'};
+  const client=getSupabaseClient();
+  if(!client)return {ok:false,error:'Client Supabase indisponible (script supabase-js). Ouvrez BenAI avec la page HTML prévue.'};
   await ensureSupabaseSession();
-  const token=currentSupabaseSession?.access_token||'';
-  if(!token)return {ok:false,error:'Reconnectez-vous (session Supabase).'};
   try{
-    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/rpc/admin_wipe_benai_reset`,{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        Accept:'application/json',
-        apikey:SUPABASE_CONFIG.publishableKey,
-        Authorization:'Bearer '+token
-      },
-      body:'{}'
-    },90000);
-    const text=await res.text().catch(()=>'');
-    if(!res.ok){
-      let detail=text||(`HTTP ${res.status}`);
-      let code='';
-      try{
-        const j=JSON.parse(text);
-        code=String(j.code||'').trim();
-        detail=String(j.message||j.error||j.details||j.hint||detail);
-      }catch(_){}
-      const head=`HTTP ${res.status}${code?` (${code})`:''}`;
-      detail=detail?`${head}: ${detail}`:head;
-      if(/schema cache|Could not find the function|function .* does not exist|PGRST202|PGRST301/i.test(detail+text)){
-        detail+='\n\n→ SQL : exécutez supabase/patch_admin_reset_demo_data_rpc.sql (Run en entier). Attendez ~10 s, rechargez BenAI (F5), réessayez. Si ça persiste : dans SQL Editor, exécutez notify pgrst, \'reload schema\'; puis Run.';
+    const {data:authWrap}=await client.auth.getSession();
+    const sess=authWrap?.session;
+    if(sess?.access_token)currentSupabaseSession=sess;
+  }catch(_){}
+  if(!currentSupabaseSession?.access_token){
+    const hint=currentAuthMode==='local'
+      ? '\n\nVous êtes en connexion locale (identifiant BenAI + mot de passe local sans jeton cloud). Déconnectez-vous puis reconnectez-vous avec l’e-mail Supabase Auth et le mot de passe du compte cloud.'
+      : '\n\nDéconnectez-vous puis reconnectez-vous avec l’e-mail et le mot de passe du compte Supabase (Auth).';
+    return {ok:false,error:'Session cloud Supabase absente — la RPC ne peut pas s’exécuter sans JWT.'+hint};
+  }
+  try{
+    const {data,error}=await client.rpc('admin_wipe_benai_reset',{});
+    if(error){
+      let detail=[error.message,error.code?`(${String(error.code)})`:null,error.details].filter(Boolean).join(' ');
+      if(/schema cache|Could not find the function|function .* does not exist|PGRST202|PGRST301/i.test(detail)){
+        detail+='\n\n→ SQL : exécutez supabase/patch_admin_reset_demo_data_rpc.sql en entier, attendez ~10 s, F5 sur BenAI. Sinon : notify pgrst, \'reload schema\'; dans SQL Editor.';
       }
-      if(res.status===401||/jwt|expired|invalid/i.test(detail)){
-        detail+='\n\n→ Déconnectez-vous / reconnectez-vous (session Supabase expirée).';
+      if(/42501|permission denied for/i.test(detail)){
+        detail+='\n\n→ Revérifiez dans le patch SQL : grant execute on function public.admin_wipe_benai_reset() to authenticated;';
       }
-      return {ok:false,error:detail};
+      if(/jwt|expired|invalid|401/i.test(detail)){
+        detail+='\n\n→ Session expirée : déconnectez-vous / reconnectez-vous.';
+      }
+      return {ok:false,error:detail||'Erreur RPC'};
     }
-    let data={};
-    if(text){
-      try{data=JSON.parse(text);}catch(_){}
-    }
-    return {ok:true,data};
+    const payload=data&&typeof data==='object'&&!Array.isArray(data)?data:{};
+    return {ok:true,data:payload};
   }catch(e){
     return {ok:false,error:String(e?.message||e||'réseau')};
   }
@@ -1471,6 +1464,24 @@ async function pilotageRepartirZeroDepuisApp(){
   }
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url){
     void benaiAlert('Activez Supabase et reconnectez-vous avec le compte cloud.');
+    return;
+  }
+  const sbClient=getSupabaseClient();
+  if(!sbClient){
+    void benaiAlert('Client Supabase indisponible. Ouvrez BenAI avec la page HTML prévue (chargement du script cloud).');
+    return;
+  }
+  await ensureSupabaseSession();
+  try{
+    const {data:preAuth}=await sbClient.auth.getSession();
+    if(preAuth?.session?.access_token)currentSupabaseSession=preAuth.session;
+  }catch(_){}
+  if(!currentSupabaseSession?.access_token){
+    void benaiAlert(
+      'Connexion cloud Supabase requise pour effacer les données sur le serveur.\n\n'+
+      'Si vous vous connectez seulement avec l’identifiant court BenAI + mot de passe local, BenAI n’a pas de jeton Supabase : la remise à zéro cloud est impossible.\n\n'+
+      'Faites : déconnexion → connexion avec l’e-mail du compte Supabase (Auth) et le mot de passe de ce compte. Ensuite réessayez ce bouton.'
+    );
     return;
   }
   const step1=await benaiConfirm(
