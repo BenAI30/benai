@@ -292,7 +292,7 @@ const appStorage={
 window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
-const BENAI_VERSION = '3.15.11';
+const BENAI_VERSION = '3.15.12';
 const GUIDE_REQUIRED_VERSION='3.21';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 /** Même clé que appStorage : persistance navigateur (localStorage) car l’ACK guide est exclu du snapshot cloud. */
@@ -11144,9 +11144,9 @@ function formatLeadCrossEntitySecteurBadgeHtml(l){
   const lab=CRM_SECTOR_LABELS[l.secteur]||l.secteur;
   const ownerLab=own==='nemausus'?'Nemausus':'Lambert';
   const crmCourt=formatSocieteLegaleCourt(getLeadCRMCompany(l));
-  const tip=`Le code postal place ce dossier en zone « ${lab} », en principe suivie par ${ownerLab}. Ici le lead est géré sous ${crmCourt} : vérifier accord, client historique ou délégation. Justification attendue du dir. commercial (ou du commercial si aucun dir. co sur cette société).`;
-  const short=`⚠️ Zone ${lab} → plutôt ${ownerLab}`;
-  return`<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px;background:rgba(251,191,36,.22);color:#b45309;border:1px solid rgba(251,191,36,.5);white-space:normal;line-height:1.25;max-width:100%" title="${escAttr(tip)}">${esc(short)} <span style="font-weight:600;opacity:.9">(${esc(crmCourt)})</span></span>`;
+  const tip=`Le code postal place ce dossier en zone « ${lab} », en principe suivie par ${ownerLab}. Le dossier est enregistré sous l’entité CRM « ${crmCourt} » : vérifier accord, client historique ou délégation. Justification attendue du dir. commercial (ou du commercial si aucun dir. co sur cette société).`;
+  const short=`⚠️ Zone « ${lab} » : terrain habituel ${ownerLab} — dossier CRM : ${crmCourt}`;
+  return`<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px;background:rgba(251,191,36,.22);color:#b45309;border:1px solid rgba(251,191,36,.5);white-space:normal;line-height:1.25;max-width:100%" title="${escAttr(tip)}">${esc(short)}</span>`;
 }
 function getLeadModalCrossEntityPreviewLead(){
   const secteur=document.getElementById('lead-secteur')?.value||'nimes';
