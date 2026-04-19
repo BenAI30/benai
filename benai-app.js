@@ -292,7 +292,7 @@ const appStorage={
 window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
-const BENAI_VERSION = '3.15.9';
+const BENAI_VERSION = '3.15.10';
 const GUIDE_REQUIRED_VERSION='3.21';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 /** Même clé que appStorage : persistance navigateur (localStorage) car l’ACK guide est exclu du snapshot cloud. */
@@ -6774,6 +6774,26 @@ function resolveCrmCommercialLabel(uid){
   }
   return String(uid);
 }
+/** Rôle du porteur assigné (cartes CRM lisibles pour admin / pilotage). */
+function getCrmAssigneeRoleLabelForUid(uid){
+  if(uid==null||uid==='')return'Porteur';
+  const uidStr=String(uid).trim();
+  const live=getAllUsers().find(u=>u.id===uidStr||normalizeId(u.id)===normalizeId(uidStr))
+    ||(isLikelyUuid(uidStr)?getAllUsers().find(u=>String(u.auth_uid||u.authUid||'')===uidStr):null);
+  if(!live)return'Porteur';
+  const r=normalizeProfileRole(live.role);
+  if(r==='directeur_co')return'Dir. commercial';
+  if(r==='directeur_general')return'Dir. général';
+  if(r==='commercial')return'Commercial';
+  if(r==='admin')return'Admin';
+  return'Porteur';
+}
+function formatLeadPorteurChipHtml(assigneeId,commLabel){
+  if(!assigneeId)return'';
+  const roleLab=getCrmAssigneeRoleLabelForUid(assigneeId);
+  const tip=`${roleLab} assigné sur ce dossier : ${commLabel}.`;
+  return`<span class="lead-commercial" title="${escAttr(tip)}">👤 <span style="font-weight:700">${esc(roleLab)}</span> : ${esc(commLabel)}</span>`;
+}
 
 /** Rôles qui ont besoin de la liste complète des profils (même société) : messagerie, CRM, sync équipe. */
 function roleNeedsPeerProfilesSyncFromSupabase(role){
@@ -9367,11 +9387,12 @@ function renderDispatchCard(l){
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
       <span>${srcIcon}</span>
       <div class="lead-nom">${esc(l.nom)}</div>
-      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--s3);color:var(--a);border:1px solid var(--b1);white-space:nowrap" title="Entité CRM du dossier">🏢 ${esc(socCourt)}</span>
+      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--s3);color:var(--a);border:1px solid var(--b1);white-space:normal;max-width:min(200px,46vw);line-height:1.25" title="Entreprise sous laquelle le lead est rangé dans le CRM">🏢 Entité CRM : ${esc(socCourt)}</span>
       ${formatLeadCrossEntitySecteurBadgeHtml(l)}
       <span style="margin-left:auto;font-size:10px;color:var(--t3)">${getLeadAge(l)}</span>
     </div>
     <div class="lead-info">${esc(l.ville||'')}${l.cp?' ('+l.cp+')':''} · ${esc(l.type_projet||'')}</div>
+    <div style="font-size:10px;color:var(--t2);margin-top:4px"><span style="font-weight:700;color:var(--t3)">Zone CP</span> : ${esc(getLeadSecteurLabel(l.secteur))}</div>
     <div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
       ${makeLeadCallLink(l.id,l.telephone)}
       ${makeGPSLink(l.adresse,l.ville,l.cp)}
@@ -9484,7 +9505,15 @@ function formatLeadSecteurGeographiqueChipHtml(l){
     const crm=formatSocieteLegaleCourt(getLeadCRMCompany(l));
     tip=`${baseTip} Ce secteur est en principe rattaché à ${ownerLab}, alors que ce lead est suivi sous ${crm} (accord, ancien client, etc.).`;
   }
-  return`<span class="lead-secteur" title="${escAttr(tip)}">📍 ${esc(lab)}</span>`;
+  return`<span class="lead-secteur" title="${escAttr(tip)}"><span style="font-weight:700;color:var(--t3)">Zone CP</span> : ${esc(lab)}</span>`;
+}
+/** Ligne « entité CRM du dossier » — admin / dir. co / DG (tous statuts). */
+function formatLeadEntiteCrmRowHtml(l,role){
+  if(!l)return'';
+  if(!(role==='admin'||isCRMScopePilotageRole(role)))return'';
+  const soc=formatSocieteLegaleCourt(getLeadCRMCompany(l));
+  const tip=`Entreprise sous laquelle le lead est rangé dans le CRM (societe_crm). Distinct de la zone géographique (code postal).`;
+  return`<div style="font-size:10px;font-weight:600;margin-top:6px;padding-top:6px;border-top:1px solid var(--b1);display:flex;flex-wrap:wrap;gap:6px;align-items:center;line-height:1.35"><span style="background:var(--a3);color:var(--a);padding:3px 9px;border-radius:8px" title="${escAttr(tip)}">🏢 <span style="opacity:.92">Entité CRM dossier</span> — <span style="font-weight:800">${esc(soc)}</span></span></div>`;
 }
 
 function renderLeadCard(l,role){
@@ -9503,9 +9532,7 @@ function renderLeadCard(l,role){
   const rdvClientDone=getClientRdvDoneCount(l);
   const showHistSnippet=canViewLeadFullTimeline();
   const dernContact=showHistSnippet&&dernAction?`<div style="font-size:10px;color:var(--t2);margin-top:3px">🕐 ${dernAction.date} — ${esc(dernAction.action)}</div>`:'';
-  const pilotGrisEntity=(l.statut==='gris'&&(role==='admin'||normalizeProfileRole(role)==='directeur_general'))
-    ?`<div style="font-size:10px;font-weight:700;margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:center"><span style="background:var(--a3);color:var(--a);padding:2px 8px;border-radius:8px">🏢 ${esc(formatSocieteLegaleCourt(getLeadCRMCompany(l)))}</span></div>`
-    :'';
+  const entiteRow=formatLeadEntiteCrmRowHtml(l,role);
   return `<div class="lead-card statut-${l.statut}${alerte?' alerte24':''}${isLeadCrmArchivedView(l)?';opacity:.6':''}" onclick="openLead(${l.id})" style="position:relative">
     ${alerte?'<div class="lead-alerte" style="position:absolute;top:10px;right:10px">⏰ Alerte</div>':''}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
@@ -9515,12 +9542,12 @@ function renderLeadCard(l,role){
     </div>
     <div style="font-size:13px;font-weight:700;color:var(--a);margin-bottom:3px">${esc(l.type_projet||'—')}</div>
     <div class="lead-info">${esc(l.ville||'')}${l.cp?' ('+l.cp+')':''} ${montant}</div>
-    ${pilotGrisEntity}
+    ${entiteRow}
     <div class="lead-meta" style="margin-top:5px">
       <span class="lead-statut ${statCls}">${statLabel}</span>
       ${formatLeadSecteurGeographiqueChipHtml(l)}
       ${formatLeadCrossEntitySecteurBadgeHtml(l)}
-      ${assigneeId?`<span class="lead-commercial">${esc(commLabel)}</span>`:''}
+      ${formatLeadPorteurChipHtml(assigneeId,commLabel)}
       ${rdvClientDone>0?`<span style="background:var(--g2);color:var(--g);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">📅 ${rdvClientDone} RDV client</span>`:''}
       ${rdvDone>0&&rdvDone!==rdvClientDone?`<span style="background:var(--s3);color:var(--t2);padding:2px 7px;border-radius:10px;font-size:10px">fiche: ${rdvDone}</span>`:''}
       ${vuInfo}
@@ -9557,14 +9584,21 @@ function renderKanban(){
       <div class="kanban-col-body">
         ${colLeads.map(l=>{
           const cross=formatLeadCrossEntitySecteurBadgeHtml(l);
-          const showKanbanSoc=(role==='admin'||normalizeProfileRole(role)==='directeur_general')&&col.id==='gris';
-          const geoLine=`<div style="font-size:10px;color:var(--t2);margin-top:3px;line-height:1.25" title="${escAttr(`Zone géographique (code postal) : ${getLeadSecteurLabel(l.secteur)} — indépendante de l’entreprise CRM du dossier (${formatSocieteLegaleCourt(getLeadCRMCompany(l))}).`)}">📍 <span style="font-weight:600">${esc(getLeadSecteurLabel(l.secteur))}</span> <span style="font-size:9px;color:var(--t3);font-weight:500">(zone CP)</span></div>`;
-          const badges=(showKanbanSoc||cross)?`<div style="font-size:9px;font-weight:700;margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start">${showKanbanSoc?`<span style="background:var(--a3);color:var(--a);padding:2px 7px;border-radius:7px;line-height:1.2">🏢 ${esc(formatSocieteLegaleCourt(getLeadCRMCompany(l)))}</span>`:''}${cross}</div>`:'';
+          const showKanbanPilot=role==='admin'||isCRMScopePilotageRole(role);
+          const aid=getLeadCommercialAssigneeId(l);
+          const commLab=aid?resolveCrmCommercialLabel(aid):'';
+          const geoTip=`Zone géographique déduite du code postal : ${getLeadSecteurLabel(l.secteur)}. Distincte de l’entité CRM du dossier (${formatSocieteLegaleCourt(getLeadCRMCompany(l))}).`;
+          const geoLine=`<div style="font-size:10px;color:var(--t2);margin-top:4px;line-height:1.3" title="${escAttr(geoTip)}"><span style="font-weight:700;color:var(--t3)">Zone CP</span> : <span style="font-weight:600">${esc(getLeadSecteurLabel(l.secteur))}</span></div>`;
+          const entiteKan=showKanbanPilot?`<div style="font-size:9px;font-weight:700;margin-top:4px;padding:3px 7px;border-radius:7px;background:var(--a3);color:var(--a);line-height:1.25" title="Entreprise sous laquelle le lead est rangé dans le CRM.">🏢 Entité CRM : ${esc(formatSocieteLegaleCourt(getLeadCRMCompany(l)))}</div>`:'';
+          const portKan=aid?`<div style="font-size:10px;color:var(--t2);margin-top:3px;line-height:1.25" title="${escAttr(`${getCrmAssigneeRoleLabelForUid(aid)} assigné sur ce dossier.`)}">👤 <span style="font-weight:700">${esc(getCrmAssigneeRoleLabelForUid(aid))}</span> : ${esc(commLab)}</div>`:'';
+          const badges=cross?`<div style="font-size:9px;font-weight:700;margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start">${cross}</div>`:'';
           return`
           <div class="kanban-card" onclick="openLead(${l.id})">
             <div class="kanban-card-nom">${esc(l.nom)}</div>
             <div class="kanban-card-info">${esc(l.ville||'')} · ${esc(l.type_projet||'')}</div>
+            ${entiteKan}
             ${geoLine}
+            ${portKan}
             ${badges}
             ${l.montant_devis||l.prix_vendu?`<div style="font-size:11px;color:var(--g);font-weight:600;margin-top:2px">${Number(l.prix_vendu||l.montant_devis||0).toLocaleString('fr-FR')} €</div>`:''}
           </div>`;
