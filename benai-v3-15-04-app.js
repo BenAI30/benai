@@ -1203,11 +1203,12 @@ function getColorForRole(role){
 
 /** Aligné sur le CHECK SQL profiles.role — évite un rôle mal câblé (casse, espace) → UI « commercial » par défaut. */
 function normalizeProfileRole(raw){
-  const r=String(raw||'').trim().toLowerCase().replace(/\s+/g,'_').replace(/-/g,'_');
+  const r=String(raw||'').trim().toLowerCase().replace(/\s+/g,'_').replace(/-/g,'_').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const allowed=['admin','directeur_co','directeur_general','commercial','assistante','metreur'];
   if(allowed.includes(r))return r;
   if(r==='dg'||r==='dir_gen'||r==='directeurgeneral')return 'directeur_general';
   if(r==='dirco'||r==='directeurcommercial')return 'directeur_co';
+  if(r==='vendeur'||r==='technico_commercial'||r==='techico_commercial'||r==='commercant')return 'commercial';
   return 'assistante';
 }
 function normalizeProfileCompany(raw){
@@ -2318,6 +2319,25 @@ function getCrmCommercialUsersForTerrain(){
     return true;
   });
 }
+/** Profils + fiches annuaire liées (même vendeur absent du REST profiles). */
+function getMergedCommercialTerrainPool(){
+  const access=getAccess();
+  const map=new Map();
+  const add=u=>{
+    if(!u||normalizeProfileRole(u.role)!=='commercial')return;
+    const id=String(u.id||'');
+    if(access[id]===false||access[normalizeId(id)]===false)return;
+    const k=normalizeId(id);
+    if(!k)return;
+    map.set(k,u);
+  };
+  getCrmCommercialUsersForTerrain().forEach(add);
+  getAnnuaireActive().forEach(emp=>{
+    const bu=findBenaiAccountLinkedToAnnuaireEmploye(emp);
+    if(bu)add(bu);
+  });
+  return[...map.values()];
+}
 /** Round-robin sur les commerciaux : périmètre société, puis sans société CRM, puis tout le vivier commercial. */
 function getRoundRobinCommercialTerrain(societe){
   const target=String(societe||'').trim().toLowerCase();
@@ -2328,7 +2348,7 @@ function getRoundRobinCommercialTerrain(societe){
     if(su===target)return true;
     return false;
   };
-  const pool=getCrmCommercialUsersForTerrain();
+  const pool=getMergedCommercialTerrainPool();
   let users=pool.filter(u=>matchSoc(u));
   if(!users.length){
     users=pool.filter(u=>!normalizeProfileCompany(u.societe));
@@ -10339,6 +10359,8 @@ function resetLeadForm(){
   selectStatut('gris',null,true);
   selectSourceByVal('MAG');
   applyLeadModalAssistanteUi();
+  const cselReset=document.getElementById('lead-commercial-assign');
+  if(cselReset)cselReset.value='';
 }
 
 function selectSource(btn){
@@ -10497,7 +10519,13 @@ async function saveLead(){
   const activeCRMTabId=(document.querySelector('.crm-tab.active')?.id||'').replace('crm-tab-','');
   const now=new Date().toISOString();
   const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  const _commSel=document.getElementById('lead-commercial-assign')?.value;
+  const commWrap=document.getElementById('lead-commercial-wrap');
+  let _commSel=document.getElementById('lead-commercial-assign')?.value;
+  if(commWrap){
+    try{
+      if(commWrap.style.display==='none'||window.getComputedStyle(commWrap).display==='none')_commSel='';
+    }catch(_){_commSel='';}
+  }
   const selectedCommercial=(_commSel&&String(_commSel).trim())||null;
   const defaultCommercial=isCrmSalesActorRole(currentUser?.role)?currentUser.id:null;
   const assignedCommercial=currentLeadSource==='ACTIF'?currentUser.id:(selectedCommercial||defaultCommercial||null);
@@ -10624,7 +10652,10 @@ async function saveLead(){
       autoCommercial=getAutoAttribution(societe);
     }
     if(!autoCommercial&&!hasDirecteurCommercialForSociete(societe)){
-      autoCommercial=getFallbackCommercialIdFromAnnuaire(societe);
+      autoCommercial=getFallbackCommercialIdFromAnnuaire(societe,true);
+    }
+    if(!autoCommercial&&!hasDirecteurCommercialForSociete(societe)){
+      autoCommercial=getFallbackCommercialIdFromAnnuaire(societe,false);
     }
     if(!autoCommercial&&['assistante','admin'].includes(String(currentUser?.role||''))&&!hasDirecteurCommercialForSociete(societe)){
       showDriveNotif('⚠️ Aucun commercial actif détecté pour l’attribution auto (rôle + société dans Supabase, ou liste filtrée par RLS). Assignez à la main ou ré-appliquez supabase/patch_profiles_select_pilotage.sql.');
@@ -12531,15 +12562,17 @@ function getAutoAttribution(societe){
   if(pool.length===1)return pool[0].id;
   return null;
 }
-/** Dernier recours : commerciaux liés à l’annuaire (même si la sync REST profiles est vide à cause du RLS). */
-function getFallbackCommercialIdFromAnnuaire(societe){
+/** Dernier recours : commerciaux liés à l’annuaire. `strictSociete` : filtre sur société fiche annuaire ; sinon tout commercial lié. */
+function getFallbackCommercialIdFromAnnuaire(societe,strictSociete){
   const target=String(societe||'').trim().toLowerCase()==='lambert'?'lambert':'nemausus';
   const access=getAccess();
   const seen=new Set();
   const pool=[];
   getAnnuaireActive().forEach(emp=>{
-    const es=normalizeProfileCompany(emp?.societe);
-    if(es&&es!=='les-deux'&&es!==target)return;
+    if(strictSociete!==false){
+      const es=normalizeProfileCompany(emp?.societe);
+      if(es&&es!=='les-deux'&&es!==target)return;
+    }
     const bu=findBenaiAccountLinkedToAnnuaireEmploye(emp);
     if(!bu||seen.has(normalizeId(String(bu.id||''))))return;
     if(normalizeProfileRole(bu.role)!=='commercial')return;
@@ -12549,7 +12582,7 @@ function getFallbackCommercialIdFromAnnuaire(societe){
     pool.push(bu);
   });
   if(!pool.length)return null;
-  const key='benai_rr_annuaire_'+target;
+  const key='benai_rr_annuaire_'+target+(strictSociete===false?'_all':'');
   let idx=parseInt(appStorage.getItem(key)||'0',10);
   if(Number.isNaN(idx))idx=0;
   const pick=pool[idx%pool.length];
