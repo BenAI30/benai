@@ -4,7 +4,7 @@
 -- À exécuter UNE FOIS dans Supabase → SQL → Run (installe la fonction).
 -- Ensuite dans BenAI : Pilotage → Fichiers & outils → « Repartir de zéro (1 clic) ».
 --
--- Réservé au rôle admin (vérifie auth.uid() dans public.profiles).
+-- Réservé au compte Benjamin : public.profiles → role admin + (app_uid benjamin OU partie locale e-mail benjamin).
 -- SECURITY DEFINER : contourne la RLS pour truncate / app_settings.
 -- ═══════════════════════════════════════════════════════════════════════════
 
@@ -18,9 +18,16 @@ begin
   if auth.uid() is null then
     raise exception 'Connexion requise';
   end if;
-  if (select lower(trim(coalesce(p.role, ''))) from public.profiles p where p.id = auth.uid() limit 1)
-     is distinct from 'admin' then
-    raise exception 'Action reservee au role admin (dans Supabase : public.profiles → colonne role = admin pour votre utilisateur).';
+  if not exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+      and lower(trim(coalesce(p.role, ''))) = 'admin'
+      and (
+        lower(trim(coalesce(p.app_uid, ''))) = 'benjamin'
+        or lower(split_part(coalesce(p.email, ''), '@', 1)) = 'benjamin'
+      )
+  ) then
+    raise exception 'Action reservee au compte Benjamin (profiles : admin + app_uid ou e-mail local-part benjamin).';
   end if;
 
   truncate table

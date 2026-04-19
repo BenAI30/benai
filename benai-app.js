@@ -1500,8 +1500,8 @@ async function rpcAdminWipeBenaiResetCloud(){
 
 /** Pilotage → Fichiers & outils : repartir de zéro via RPC (après installation SQL une fois). */
 async function pilotageRepartirZeroDepuisApp(){
-  if(currentUser?.role!=='admin'){
-    void benaiAlert('Réservé au compte administrateur (rôle admin).');
+  if(!canRunPilotageCloudWipe()){
+    void benaiAlert('Réservé au compte Benjamin (administrateur principal).');
     return;
   }
   if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url){
@@ -6576,6 +6576,10 @@ function canManageBenaiUsersAdmin(){
 function canAssignBenaiLoginPseudo(){
   return currentUser?.role==='admin'&&currentUser?.id==='benjamin';
 }
+/** Wipe cloud « repartir de zéro » : même périmètre que les actions les plus sensibles — Benjamin uniquement. */
+function canRunPilotageCloudWipe(){
+  return currentUser?.role==='admin'&&currentUser?.id==='benjamin';
+}
 /** Même règle que create-user (app_uid stocké en base). */
 function sanitizeAppUidForUid(seed){
   const cleaned=String(seed||'').trim().toLowerCase().replace(/[^a-z0-9_]+/g,'_').replace(/^_+|_+$/g,'');
@@ -10311,7 +10315,7 @@ function renderLeadsDashboard(){
         <button onclick="exportCRMTable('pertes')" style="padding:8px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:8px;font-family:inherit;font-size:12px;cursor:pointer">Analyse pertes</button>
       </div>
     </div>`;
-    if(role==='admin'&&dashPilotage){
+    if(canRunPilotageCloudWipe()&&dashPilotage){
       html+=`<div class="secteur-card" style="margin-top:14px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.06)">
       <div class="secteur-title" style="color:var(--r)">🧹 Repartir de zéro</div>
       <div style="font-size:11px;color:var(--t2);line-height:1.55;margin-bottom:10px"><strong>1)</strong> Une seule fois : SQL Editor → exécuter le fichier <code style="font-size:10px">supabase/patch_admin_reset_demo_data_rpc.sql</code> (crée la fonction). <strong>2)</strong> Ensuite le bouton ci-dessous appelle Supabase comme le reste de BenAI (pas de fonction Edge ni CORS séparé).</div>
