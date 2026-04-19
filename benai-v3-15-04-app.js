@@ -1203,12 +1203,11 @@ function getColorForRole(role){
 
 /** Aligné sur le CHECK SQL profiles.role — évite un rôle mal câblé (casse, espace) → UI « commercial » par défaut. */
 function normalizeProfileRole(raw){
-  const r=String(raw||'').trim().toLowerCase().replace(/\s+/g,'_').replace(/-/g,'_').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const r=String(raw||'').trim().toLowerCase().replace(/\s+/g,'_').replace(/-/g,'_');
   const allowed=['admin','directeur_co','directeur_general','commercial','assistante','metreur'];
   if(allowed.includes(r))return r;
   if(r==='dg'||r==='dir_gen'||r==='directeurgeneral')return 'directeur_general';
   if(r==='dirco'||r==='directeurcommercial')return 'directeur_co';
-  if(r==='vendeur'||r==='technico_commercial'||r==='techico_commercial'||r==='commercant')return 'commercial';
   return 'assistante';
 }
 function normalizeProfileCompany(raw){
@@ -2319,25 +2318,6 @@ function getCrmCommercialUsersForTerrain(){
     return true;
   });
 }
-/** Profils + fiches annuaire liées (même vendeur absent du REST profiles). */
-function getMergedCommercialTerrainPool(){
-  const access=getAccess();
-  const map=new Map();
-  const add=u=>{
-    if(!u||normalizeProfileRole(u.role)!=='commercial')return;
-    const id=String(u.id||'');
-    if(access[id]===false||access[normalizeId(id)]===false)return;
-    const k=normalizeId(id);
-    if(!k)return;
-    map.set(k,u);
-  };
-  getCrmCommercialUsersForTerrain().forEach(add);
-  getAnnuaireActive().forEach(emp=>{
-    const bu=findBenaiAccountLinkedToAnnuaireEmploye(emp);
-    if(bu)add(bu);
-  });
-  return[...map.values()];
-}
 /** Round-robin sur les commerciaux : périmètre société, puis sans société CRM, puis tout le vivier commercial. */
 function getRoundRobinCommercialTerrain(societe){
   const target=String(societe||'').trim().toLowerCase();
@@ -2348,7 +2328,7 @@ function getRoundRobinCommercialTerrain(societe){
     if(su===target)return true;
     return false;
   };
-  const pool=getMergedCommercialTerrainPool();
+  const pool=getCrmCommercialUsersForTerrain();
   let users=pool.filter(u=>matchSoc(u));
   if(!users.length){
     users=pool.filter(u=>!normalizeProfileCompany(u.societe));
@@ -8828,6 +8808,41 @@ let currentLeadStatut='gris';
 let currentLeadSource='MAG';
 let currentCRMView='list';
 
+/** Après vue assistante, réinjecte la barre standard (select secteur, etc.) pour les autres rôles. */
+const CRM_FILTERS_ASSISTANTE_ATTR='data-benai-assistante-filters';
+const ASSISTANTE_MES_LEADS_SCOPE_KEY='benai_assistante_mes_leads_scope';
+const CRM_FILTERS_DEFAULT_INNER_HTML='<button class="crm-filter active" onclick="filterLeads(\'tous\',this)">Tous</button><button class="crm-filter f-gris" onclick="filterLeads(\'gris\',this)">🔵 Non traité</button><button class="crm-filter" onclick="filterLeads(\'rdv\',this)" style="color:var(--bl)">📞 RDV pris</button><button class="crm-filter f-jaune" onclick="filterLeads(\'jaune\',this)">🟡 Devis envoyé</button><button class="crm-filter f-vert" onclick="filterLeads(\'vert\',this)">🟢 Vendu</button><button class="crm-filter f-rouge" onclick="filterLeads(\'rouge\',this)">🔴 Perdu</button><button class="crm-filter" onclick="filterLeads(\'archive\',this)" title="Archives : manuelles, ventes des mois passés (auto), leads créés avant l’année en cours">📁 Archives</button><button class="crm-filter" onclick="filterLeads(\'alerte\',this)" style="color:var(--r)">🚨 Alertes</button><select id="crm-filter-secteur" onchange="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:\'Outfit\',sans-serif;outline:none"><option value="">Tous secteurs</option><option value="nimes">Nîmes</option><option value="avignon">Avignon</option></select><select id="crm-filter-societe" onchange="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:\'Outfit\',sans-serif;outline:none"><option value="">Tous périmètres CRM</option><option value="nemausus">Entité 1</option><option value="lambert">Entité 2</option></select><select id="crm-filter-commercial" onchange="renderLeads()" style="background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:4px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;font-family:\'Outfit\',sans-serif;outline:none;display:none"><option value="">Tous commerciaux</option></select>';
+function restoreCrmFiltersBarFromAssistanteMode(){
+  const filters=document.getElementById('crm-filters');
+  if(!filters||filters.getAttribute(CRM_FILTERS_ASSISTANTE_ATTR)!=='1')return;
+  filters.innerHTML=CRM_FILTERS_DEFAULT_INNER_HTML;
+  filters.removeAttribute(CRM_FILTERS_ASSISTANTE_ATTR);
+}
+function readAssistanteMesLeadsScope(){
+  try{
+    const v=String(appStorage.getItem(ASSISTANTE_MES_LEADS_SCOPE_KEY)||'').trim();
+    if(v==='transmis'||v==='archives_crm')return v;
+    return'en_attente';
+  }catch{return'en_attente';}
+}
+function writeAssistanteMesLeadsScope(scope){
+  try{appStorage.setItem(ASSISTANTE_MES_LEADS_SCOPE_KEY,scope);}catch{}
+}
+function buildAssistanteMesLeadsFilterBar(){
+  const filters=document.getElementById('crm-filters');if(!filters)return;
+  const scope=readAssistanteMesLeadsScope();
+  const active=s=>scope===s?' active':'';
+  filters.innerHTML=`<button type="button" class="crm-filter crm-filter-assistante${active('en_attente')}" onclick="filterAssistanteMesLeads('en_attente',this)">⏳ En attente d'attribution</button><button type="button" class="crm-filter crm-filter-assistante${active('transmis')}" onclick="filterAssistanteMesLeads('transmis',this)">✅ Transmis au terrain</button><button type="button" class="crm-filter crm-filter-assistante${active('archives_crm')}" onclick="filterAssistanteMesLeads('archives_crm',this)" title="Dossiers archivés côté CRM (manuel, vendu ancien mois, année civile passée)">📁 Archives CRM</button>`;
+  filters.setAttribute(CRM_FILTERS_ASSISTANTE_ATTR,'1');
+}
+function filterAssistanteMesLeads(scope,btn){
+  if(scope!=='en_attente'&&scope!=='transmis'&&scope!=='archives_crm')return;
+  writeAssistanteMesLeadsScope(scope);
+  document.querySelectorAll('.crm-filter-assistante').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderLeads();
+}
+
 function getRdvDayKey(entry){
   if(!entry)return '';
   const raw=String(entry.date||entry.ts||'').trim();
@@ -8932,6 +8947,7 @@ function readStoredCrmSubtab(fallback){
 
 // INIT PAGE LEADS
 function initLeadsPage(){
+  restoreCrmFiltersBarFromAssistanteMode();
   const role=currentUser?.role;
   const tabs=document.getElementById('crm-tabs');
   const filters=document.getElementById('crm-filters');
@@ -8986,9 +9002,10 @@ function initLeadsPage(){
     filters.style.display='flex';
     showCRMTab(initial);
   } else if(role==='assistante'){
-    // Assistante : onglet unique — saisie + ses leads
+    // Assistante : onglet unique — saisie + ses leads (segments en attente / transmis / archives CRM)
     addCRMTab('mes-leads','📋 Mes leads',true);
-    filters.style.display='none'; // Pas de filtres pour l'assistante
+    filters.style.display='flex';
+    buildAssistanteMesLeadsFilterBar();
     showCRMTab('mes-leads');
   } else {
     const crmSub=readStoredCrmSubtab('mes-leads');
@@ -9131,26 +9148,33 @@ function getFilteredLeads(){
     // Terrain (commercial sans pilotage) : uniquement ses leads assignés
     leads=leads.filter(l=>normalizeId(getLeadCommercialAssigneeId(l))===normalizeId(currentUser.id));
   } else if(role==='assistante'){
-    // Assistante voit uniquement les leads qu'elle a créés
+    // Assistante voit uniquement les leads qu'elle a créés ; segments « en attente » / transmis / archives CRM
     leads=leads.filter(l=>l.cree_par===currentUser.id||l.cree_par===currentUser.name);
+    const asScope=readAssistanteMesLeadsScope();
+    if(asScope==='en_attente')leads=leads.filter(l=>!leadHasAssignedCommercial(l)&&!isLeadCrmArchivedView(l));
+    else if(asScope==='transmis')leads=leads.filter(l=>leadHasAssignedCommercial(l)&&!isLeadCrmArchivedView(l));
+    else leads=leads.filter(l=>isLeadCrmArchivedView(l));
   } else if(isCRMScopePilotageRole(role)){
     leads=getCompanyScopedLeads(leads);
   }
   // Admin et pilotage CRM voient tout le périmètre société — aucun filtre « mes leads »
 
-  // Archives (manuel) + années civiles passées
-  if(currentLeadFilter!=='archive')leads=leads.filter(l=>!isLeadCrmArchivedView(l));
+  const assistanteSegmentsDone=role==='assistante';
+  // Archives (manuel) + années civiles passées — la assistante applique déjà son segment ci-dessus
+  if(!assistanteSegmentsDone&&currentLeadFilter!=='archive')leads=leads.filter(l=>!isLeadCrmArchivedView(l));
   // Filtres UI
   if(secteurFilter)leads=leads.filter(l=>l.secteur===secteurFilter);
   if(societeFilter)leads=leads.filter(l=>getLeadCRMCompany(l)===societeFilter);
   if(commFilter)leads=leads.filter(l=>normalizeId(getLeadCommercialAssigneeId(l))===normalizeId(String(commFilter)));
-  if(currentLeadFilter==='gris')leads=leads.filter(l=>l.statut==='gris');
-  else if(currentLeadFilter==='rdv')leads=leads.filter(l=>l.statut==='rdv');
-  else if(currentLeadFilter==='jaune')leads=leads.filter(l=>l.statut==='jaune');
-  else if(currentLeadFilter==='vert')leads=leads.filter(l=>l.statut==='vert');
-  else if(currentLeadFilter==='rouge')leads=leads.filter(l=>l.statut==='rouge');
-  else if(currentLeadFilter==='alerte')leads=leads.filter(l=>isLeadAlerte(l));
-  else if(currentLeadFilter==='archive')leads=leads.filter(l=>isLeadCrmArchivedView(l));
+  if(!assistanteSegmentsDone){
+    if(currentLeadFilter==='gris')leads=leads.filter(l=>l.statut==='gris');
+    else if(currentLeadFilter==='rdv')leads=leads.filter(l=>l.statut==='rdv');
+    else if(currentLeadFilter==='jaune')leads=leads.filter(l=>l.statut==='jaune');
+    else if(currentLeadFilter==='vert')leads=leads.filter(l=>l.statut==='vert');
+    else if(currentLeadFilter==='rouge')leads=leads.filter(l=>l.statut==='rouge');
+    else if(currentLeadFilter==='alerte')leads=leads.filter(l=>isLeadAlerte(l));
+    else if(currentLeadFilter==='archive')leads=leads.filter(l=>isLeadCrmArchivedView(l));
+  }
   // Recherche
   if(search)leads=leads.filter(l=>
     (l.nom||'').toLowerCase().includes(search)||
@@ -9214,7 +9238,15 @@ function renderLeads(){
   // VUE ASSISTANTE — ses leads uniquement, sans statuts, sans cheminement
   if(role==='assistante'){
     const leads=getFilteredLeads();
-    if(!leads.length){list.innerHTML='<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead saisi pour le moment.<br><br>Cliquez sur <strong>+ Nouveau lead</strong> pour en créer un.</div>';return;}
+    const scope=readAssistanteMesLeadsScope();
+    if(!leads.length){
+      list.innerHTML=scope==='en_attente'
+        ?'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead en attente d’attribution.<br><br>Les dossiers passés à un commercial apparaissent sous <strong>Transmis au terrain</strong>.<br><br>Cliquez sur <strong>+ Nouveau lead</strong> pour en saisir un.</div>'
+        :scope==='transmis'
+          ?'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead transmis en cours.<br><br>Les dossiers encore sans commercial restent sous <strong>En attente d’attribution</strong>.</div>'
+          :'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune entrée dans les archives CRM pour vos saisies.</div>';
+      return;
+    }
     list.innerHTML=leads.map(l=>renderLeadCardAssistante(l)).join('');
     return;
   }
@@ -10359,8 +10391,6 @@ function resetLeadForm(){
   selectStatut('gris',null,true);
   selectSourceByVal('MAG');
   applyLeadModalAssistanteUi();
-  const cselReset=document.getElementById('lead-commercial-assign');
-  if(cselReset)cselReset.value='';
 }
 
 function selectSource(btn){
@@ -10519,13 +10549,7 @@ async function saveLead(){
   const activeCRMTabId=(document.querySelector('.crm-tab.active')?.id||'').replace('crm-tab-','');
   const now=new Date().toISOString();
   const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  const commWrap=document.getElementById('lead-commercial-wrap');
-  let _commSel=document.getElementById('lead-commercial-assign')?.value;
-  if(commWrap){
-    try{
-      if(commWrap.style.display==='none'||window.getComputedStyle(commWrap).display==='none')_commSel='';
-    }catch(_){_commSel='';}
-  }
+  const _commSel=document.getElementById('lead-commercial-assign')?.value;
   const selectedCommercial=(_commSel&&String(_commSel).trim())||null;
   const defaultCommercial=isCrmSalesActorRole(currentUser?.role)?currentUser.id:null;
   const assignedCommercial=currentLeadSource==='ACTIF'?currentUser.id:(selectedCommercial||defaultCommercial||null);
@@ -10652,10 +10676,7 @@ async function saveLead(){
       autoCommercial=getAutoAttribution(societe);
     }
     if(!autoCommercial&&!hasDirecteurCommercialForSociete(societe)){
-      autoCommercial=getFallbackCommercialIdFromAnnuaire(societe,true);
-    }
-    if(!autoCommercial&&!hasDirecteurCommercialForSociete(societe)){
-      autoCommercial=getFallbackCommercialIdFromAnnuaire(societe,false);
+      autoCommercial=getFallbackCommercialIdFromAnnuaire(societe);
     }
     if(!autoCommercial&&['assistante','admin'].includes(String(currentUser?.role||''))&&!hasDirecteurCommercialForSociete(societe)){
       showDriveNotif('⚠️ Aucun commercial actif détecté pour l’attribution auto (rôle + société dans Supabase, ou liste filtrée par RLS). Assignez à la main ou ré-appliquez supabase/patch_profiles_select_pilotage.sql.');
@@ -11157,6 +11178,13 @@ function refreshLeadsBadge(){
   const badge=document.getElementById('leads-badge');if(!badge)return;
   const role=currentUser?.role;
   if(role==='admin'){badge.style.display='none';return;}
+  if(role==='assistante'){
+    const mine=getLeads().filter(l=>!l._deleted&&(l.cree_par===currentUser.id||l.cree_par===currentUser.name));
+    const n=mine.filter(l=>!leadHasAssignedCommercial(l)&&!isLeadCrmArchivedView(l)).length;
+    if(n>0){badge.style.display='flex';badge.textContent=String(n);badge.style.background='var(--a)';}
+    else badge.style.display='none';
+    return;
+  }
   let leads=getCompanyScopedLeads(getLeads()).filter(l=>!isLeadCrmArchivedView(l));
   // Direction commerciale / DG : badge = leads non attribués (pilotage)
   if(role==='directeur_co'||role==='directeur_general'){
@@ -12562,17 +12590,15 @@ function getAutoAttribution(societe){
   if(pool.length===1)return pool[0].id;
   return null;
 }
-/** Dernier recours : commerciaux liés à l’annuaire. `strictSociete` : filtre sur société fiche annuaire ; sinon tout commercial lié. */
-function getFallbackCommercialIdFromAnnuaire(societe,strictSociete){
+/** Dernier recours : commerciaux liés à l’annuaire (même si la sync REST profiles est vide à cause du RLS). */
+function getFallbackCommercialIdFromAnnuaire(societe){
   const target=String(societe||'').trim().toLowerCase()==='lambert'?'lambert':'nemausus';
   const access=getAccess();
   const seen=new Set();
   const pool=[];
   getAnnuaireActive().forEach(emp=>{
-    if(strictSociete!==false){
-      const es=normalizeProfileCompany(emp?.societe);
-      if(es&&es!=='les-deux'&&es!==target)return;
-    }
+    const es=normalizeProfileCompany(emp?.societe);
+    if(es&&es!=='les-deux'&&es!==target)return;
     const bu=findBenaiAccountLinkedToAnnuaireEmploye(emp);
     if(!bu||seen.has(normalizeId(String(bu.id||''))))return;
     if(normalizeProfileRole(bu.role)!=='commercial')return;
@@ -12582,7 +12608,7 @@ function getFallbackCommercialIdFromAnnuaire(societe,strictSociete){
     pool.push(bu);
   });
   if(!pool.length)return null;
-  const key='benai_rr_annuaire_'+target+(strictSociete===false?'_all':'');
+  const key='benai_rr_annuaire_'+target;
   let idx=parseInt(appStorage.getItem(key)||'0',10);
   if(Number.isNaN(idx))idx=0;
   const pick=pool[idx%pool.length];
