@@ -3135,13 +3135,13 @@ function generateLocalCRMReport(){
   const vendus=actifs.filter(l=>l.statut==='vert');
   const devis=actifs.filter(l=>l.statut==='jaune');
   const perdus=actifs.filter(l=>l.statut==='rouge');
-  const nonAttrib=actifs.filter(l=>!l.commercial&&l.statut==='gris');
+  const nonAttrib=actifs.filter(l=>!leadHasAssignedCommercial(l)&&l.statut==='gris');
   const alertes=actifs.filter(l=>isLeadAlerte(l));
   const zoneBlanche=actifs.filter(l=>l.zone_blanche||l.secteur==='zone_blanche');
   const horsSecteurSansJustif=actifs.filter(l=>l.hors_secteur&&!String(l.justification_hors_secteur||'').trim());
   const rdvSansDate=actifs.filter(l=>(l.statut==='rdv'||l.sous_statut==='rdv_programme')&&!l.rappel&&!l.date_rdv_fait);
   const devisSansMontant=actifs.filter(l=>l.statut==='jaune'&&!Number(l.montant_devis||0));
-  const olderNoCommercial=actifs.filter(l=>!l.commercial&&getHeuresOuvrees(new Date(l.date_creation||Date.now()))>24);
+  const olderNoCommercial=actifs.filter(l=>!leadHasAssignedCommercial(l)&&getHeuresOuvrees(new Date(l.date_creation||Date.now()))>24);
   const caTotal=vendus.reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
   const caMonth=leadsMonth.filter(l=>l.statut==='vert').reduce((sum,l)=>sum+Number(l.prix_vendu||0),0);
   const lostTop=getLeadLostAnalytics(leadsMonth).rows.slice(0,3);
@@ -7067,7 +7067,7 @@ function canAccessLeadByCompany(lead){
     return currentUser.societe==='les-deux'||currentUser.societe===leadSoc;
   }
   if(currentUser.role==='commercial'){
-    return normalizeId(lead.commercial)===normalizeId(currentUser.id);
+    return normalizeId(getLeadCommercialAssigneeId(lead))===normalizeId(currentUser.id);
   }
   if(currentUser.role==='assistante'){
     return lead.cree_par===currentUser.id||lead.cree_par===currentUser.name;
@@ -7077,6 +7077,9 @@ function canAccessLeadByCompany(lead){
 function getCompanyScopedLeads(list){
   const leads=(list||getLeads()).filter(l=>l&&!l._deleted);
   if(!currentUser)return leads;
+  if(currentUser.role==='commercial'){
+    return leads.filter(l=>normalizeId(getLeadCommercialAssigneeId(l))===normalizeId(currentUser.id));
+  }
   if(!isCRMScopePilotageRole(currentUser.role))return leads;
   return leads.filter(canAccessLeadByCompany);
 }
@@ -7325,7 +7328,7 @@ function getFilteredLeads(){
   // RÈGLES STRICTES PAR RÔLE
   if(role==='commercial'){
     // Commercial voit UNIQUEMENT ses leads assignés
-    leads=leads.filter(l=>l.commercial===currentUser.id);
+    leads=leads.filter(l=>normalizeId(getLeadCommercialAssigneeId(l))===normalizeId(currentUser.id));
   } else if(role==='assistante'){
     // Assistante voit uniquement les leads qu'elle a créés
     leads=leads.filter(l=>l.cree_par===currentUser.id||l.cree_par===currentUser.name);
@@ -7339,7 +7342,7 @@ function getFilteredLeads(){
   // Filtres UI
   if(secteurFilter)leads=leads.filter(l=>l.secteur===secteurFilter);
   if(societeFilter)leads=leads.filter(l=>(l.societe_crm||'nemausus')===societeFilter);
-  if(commFilter)leads=leads.filter(l=>l.commercial===commFilter);
+  if(commFilter)leads=leads.filter(l=>normalizeId(getLeadCommercialAssigneeId(l))===normalizeId(String(commFilter)));
   if(currentLeadFilter==='gris')leads=leads.filter(l=>l.statut==='gris');
   else if(currentLeadFilter==='rdv')leads=leads.filter(l=>l.statut==='rdv');
   else if(currentLeadFilter==='jaune')leads=leads.filter(l=>l.statut==='jaune');
@@ -7529,7 +7532,7 @@ function renderLeadCard(l,role){
     <div class="lead-meta" style="margin-top:5px">
       <span class="lead-statut ${statCls}">${statLabel}</span>
       <span class="lead-secteur">${secteurLabel}</span>
-      ${comm?`<span class="lead-commercial">${esc(comm.name)}</span>`:''}
+      ${(comm||assigneeId)?`<span class="lead-commercial">${esc(comm?.name||assigneeId)}</span>`:''}
       ${rdvClientDone>0?`<span style="background:var(--g2);color:var(--g);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">📅 ${rdvClientDone} RDV client</span>`:''}
       ${rdvDone>0&&rdvDone!==rdvClientDone?`<span style="background:var(--s3);color:var(--t2);padding:2px 7px;border-radius:10px;font-size:10px">fiche: ${rdvDone}</span>`:''}
       ${vuInfo}
@@ -7595,15 +7598,17 @@ function getCommercialRankingMonth(leads){
   const now=new Date();
   const month=now.getMonth(),year=now.getFullYear();
   const sales=(leads||[]).filter(l=>{
-    if(l.statut!=='vert'||!l.commercial)return false;
+    if(l.statut!=='vert'||!leadHasAssignedCommercial(l))return false;
     const d=new Date(l.date_creation||0);
     return d.getMonth()===month&&d.getFullYear()===year;
   });
   const map={};
   sales.forEach(l=>{
-    if(!map[l.commercial])map[l.commercial]={uid:l.commercial,ventes:0,ca:0};
-    map[l.commercial].ventes++;
-    map[l.commercial].ca+=Number(l.prix_vendu||0);
+    const uid=getLeadCommercialAssigneeId(l);
+    if(!normalizeId(uid))return;
+    if(!map[uid])map[uid]={uid,ventes:0,ca:0};
+    map[uid].ventes++;
+    map[uid].ca+=Number(l.prix_vendu||0);
   });
   return Object.values(map).sort((a,b)=>b.ca-a.ca||b.ventes-a.ventes);
 }
@@ -7638,7 +7643,7 @@ function renderLeadsDashboard(){
   let html='';
   // Stats globales
   const totalLeads=leads.length;
-  const nonAttrib=leads.filter(l=>!l.commercial&&l.statut==='gris').length;
+  const nonAttrib=leads.filter(l=>!leadHasAssignedCommercial(l)&&l.statut==='gris').length;
   const alertes=leads.filter(l=>isLeadAlerte(l)).length;
   const rdvMonthTotal=leads.reduce((sum,l)=>sum+getLeadRdvDoneMonthCount(l,now),0);
   html+=`<div class="secteur-card" style="padding:10px 14px">
@@ -7816,8 +7821,8 @@ function renderLeadsDashboard(){
     html+=`<div class="secteur-card" style="border-color:var(--r)">
       <div class="secteur-title" style="color:var(--r)">🚨 Rapport alertes (${rapport.total})</div>
       ${rapport.nonAttrib.length?`<div style="margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--y)">⚠️ ${rapport.nonAttrib.length} lead(s) non attribué(s)</span>${rapport.nonAttrib.map(l=>`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} (${getLeadAge(l)})</div>`).join('')}</div>`:''}
-      ${rapport.nonOuverts.length?`<div style="margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--r)">👁️ ${rapport.nonOuverts.length} lead(s) non ouvert(s) par le commercial</span>${rapport.nonOuverts.map(l=>{const c=getAllUsers().find(u=>u.id===l.commercial);return`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} → ${esc(c?.name||'?')} (${getLeadAge(l)})</div>`;}).join('')}</div>`:''}
-      ${rapport.enRetard.length?`<div><span style="font-size:11px;font-weight:700;color:var(--r)">⏰ ${rapport.enRetard.length} lead(s) sans action +24h</span>${rapport.enRetard.map(l=>{const c=getAllUsers().find(u=>u.id===l.commercial);return`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} → ${esc(c?.name||'?')}</div>`;}).join('')}</div>`:''}
+      ${rapport.nonOuverts.length?`<div style="margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--r)">👁️ ${rapport.nonOuverts.length} lead(s) non ouvert(s) par le commercial</span>${rapport.nonOuverts.map(l=>{const aid=getLeadCommercialAssigneeId(l);const c=getAllUsers().find(u=>normalizeId(u.id)===normalizeId(aid));return`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} → ${esc(c?.name||aid||'?')} (${getLeadAge(l)})</div>`;}).join('')}</div>`:''}
+      ${rapport.enRetard.length?`<div><span style="font-size:11px;font-weight:700;color:var(--r)">⏰ ${rapport.enRetard.length} lead(s) sans action +24h</span>${rapport.enRetard.map(l=>{const aid=getLeadCommercialAssigneeId(l);const c=getAllUsers().find(u=>normalizeId(u.id)===normalizeId(aid));return`<div style="font-size:11px;color:var(--t2);padding:2px 0 2px 12px">→ ${esc(l.nom)} → ${esc(c?.name||aid||'?')}</div>`;}).join('')}</div>`:''}
     </div>`;
   }
 
@@ -7932,7 +7937,7 @@ function openLead(id){
   // Source
   selectSourceByVal(l.source||'MAG');
   // Statut — visible si lead attribué OU si admin / pilotage CRM
-  const canChangeStatut=(l.commercial&&(role==='commercial'||role==='admin'||isCRMScopePilotageRole(role)))||(role==='admin'||isCRMScopePilotageRole(role));
+  const canChangeStatut=(leadHasAssignedCommercial(l)&&(role==='commercial'||role==='admin'||isCRMScopePilotageRole(role)))||(role==='admin'||isCRMScopePilotageRole(role));
   document.getElementById('modal-statut-section').style.display=canChangeStatut?'block':'none';
   if(canChangeStatut){
     selectStatut(l.statut||'gris',null,true);
@@ -7952,16 +7957,17 @@ function openLead(id){
   // Attribution
   const commWrap=document.getElementById('lead-commercial-wrap');
   if(commWrap)commWrap.style.display=(role==='admin'||isCRMScopePilotageRole(role))?'block':'none';
-  fillCommercialAssign(l.commercial);
+  fillCommercialAssign(getLeadCommercialAssigneeId(l));
   fillProjetsSuggestions();
   // Suppression — Benjamin uniquement
   document.getElementById('btn-delete-lead').style.display=currentUser.id==='benjamin'?'block':'none';
   // Lead orphelin (commercial supprimé) → remettre en attente d'attribution
-  if(l.commercial&&!getAllUsers().find(u=>u.id===l.commercial)){
+  {const aid=getLeadCommercialAssigneeId(l);
+  if(aid&&!getAllUsers().find(u=>normalizeId(u.id)===normalizeId(aid))){
     const idx2=leads.findIndex(x=>x.id===id);
-    if(idx2!==-1){leads[idx2].commercial=null;saveLeads(leads);}
+    if(idx2!==-1){leads[idx2].commercial=null;leads[idx2].commercial_user_id=null;saveLeads(leads);}
     showDriveNotif('⚠️ Commercial introuvable — lead remis en attente');
-  }
+  }}
   // Bouton réouvrir si archivé
   const btnSave=document.getElementById('btn-save-lead');
   if(l.archive&&btnSave){
@@ -8538,7 +8544,7 @@ function isLeadAlerte(l){
   if(l.statut==='rdv')return false;// RDV pris = traité
   if(!l.date_creation)return false;
   const h=getHeuresOuvrees(new Date(l.date_creation));
-  if(!l.commercial)return h>2;
+  if(!leadHasAssignedCommercial(l))return h>2;
   if(!l.vu_date)return h>4;
   return h>24;
 }
@@ -8554,7 +8560,7 @@ function getLeadNotifScopeForUser(){
   if(!currentUser)return [];
   let scoped=getLeads().filter(l=>!l._deleted&&!l.archive&&l.statut!=='vert'&&l.statut!=='rouge');
   if(currentUser.role==='commercial'){
-    scoped=scoped.filter(l=>normalizeId(l.commercial)===normalizeId(currentUser.id));
+    scoped=scoped.filter(l=>normalizeId(getLeadCommercialAssigneeId(l))===normalizeId(currentUser.id));
   }else if(currentUser.role==='assistante'){
     scoped=scoped.filter(l=>l.cree_par===currentUser.id||l.cree_par===currentUser.name);
   }else if(currentUser.role==='directeur_co'){
@@ -8576,7 +8582,7 @@ function checkLeadSmartNotifications(){
   if(currentUser.role==='directeur_general'||currentUser.role==='metreur')return;
   const scoped=getLeadNotifScopeForUser();
   if(!scoped.length)return;
-  const nonAttribues=scoped.filter(l=>!l.commercial&&l.statut==='gris').length;
+  const nonAttribues=scoped.filter(l=>!leadHasAssignedCommercial(l)&&l.statut==='gris').length;
   const alertes=scoped.filter(l=>isLeadAlerte(l)).length;
   const aRappeler=scoped.filter(l=>l.statut==='gris'||l.statut==='jaune').length;
   const totalAction=Math.max(nonAttribues,0)+Math.max(alertes,0);
@@ -8619,7 +8625,7 @@ function checkRappelsLeads(){
   if(!currentUser)return;
   if(currentUser.role==='directeur_general'||currentUser.role==='metreur')return;
   const now=new Date();
-  const leads=getLeads().filter(l=>!l._deleted&&l.rappel&&(l.commercial===currentUser.id||currentUser.role==='directeur_co'||currentUser.id==='benjamin'));
+  const leads=getLeads().filter(l=>!l._deleted&&l.rappel&&(normalizeId(getLeadCommercialAssigneeId(l))===normalizeId(currentUser.id)||currentUser.role==='directeur_co'||currentUser.id==='benjamin'));
   leads.forEach(l=>{
     const rappel=new Date(l.rappel);
     const diff=Math.abs(rappel-now)/60000;
@@ -8648,12 +8654,12 @@ function refreshLeadsBadge(){
   let leads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive);
   // Directeur co : badge = non attribués
   if(role==='directeur_co'){
-    const n=leads.filter(l=>!l.commercial&&l.statut==='gris').length;
+    const n=leads.filter(l=>!leadHasAssignedCommercial(l)&&l.statut==='gris').length;
     if(n>0){badge.style.display='flex';badge.textContent=n;badge.style.background='var(--r)';}
     else badge.style.display='none';
     return;
   }
-  if(role==='commercial')leads=leads.filter(l=>l.commercial===currentUser.id);
+  if(role==='commercial')leads=leads.filter(l=>normalizeId(getLeadCommercialAssigneeId(l))===normalizeId(currentUser.id));
   const alertes=leads.filter(l=>isLeadAlerte(l)).length;
   if(alertes>0){badge.style.display='flex';badge.textContent=alertes;badge.style.background='var(--r)';}
   else{const n=leads.filter(l=>l.statut==='gris').length;
@@ -8666,7 +8672,8 @@ function exportLeadsExcel(){
   const leads=getCompanyScopedLeads(getLeads());
   const header='Date,Source,Nom,Téléphone,Ville,CP,Projet,Statut,Commercial,Secteur,Devis (€),CA (€),Suivi,Commentaire\n';
   const rows=leads.map(l=>{
-    const comm=getAllUsers().find(u=>u.id===l.commercial);
+    const aid=getLeadCommercialAssigneeId(l);
+    const comm=getAllUsers().find(u=>normalizeId(u.id)===normalizeId(aid));
     return[
       new Date(l.date_creation||0).toLocaleDateString('fr-FR'),
       l.source||'',csv(l.nom),csv(l.telephone),csv(l.ville),l.cp||'',
@@ -8744,7 +8751,8 @@ function buildCRMExportBundles(){
 
   const leadsHeader='Date,Source,Nom,Téléphone,Ville,CP,Projet,Statut,Commercial,Secteur,Hors secteur,Zone blanche,Devis (€),CA (€),Suivi,Commentaire\n';
   const leadsRows=actifs.map(l=>{
-    const comm=getAllUsers().find(u=>u.id===l.commercial);
+    const aid=getLeadCommercialAssigneeId(l);
+    const comm=getAllUsers().find(u=>normalizeId(u.id)===normalizeId(aid));
     return [
       new Date(l.date_creation||0).toLocaleDateString('fr-FR'),
       l.source||'',
@@ -8760,7 +8768,8 @@ function buildCRMExportBundles(){
 
   const ventesHeader='Mois,Source,Commercial,Client,Téléphone,Ville,Produit,HT (€),Date signature\n';
   const ventesRows=salesMonth.map(l=>{
-    const comm=getAllUsers().find(u=>u.id===l.commercial);
+    const aid=getLeadCommercialAssigneeId(l);
+    const comm=getAllUsers().find(u=>normalizeId(u.id)===normalizeId(aid));
     return [currentMonth,l.source||'',csv(comm?.name||''),csv(l.nom),csv(l.telephone),csv(l.ville),csv(l.produit_vendu||l.type_projet),l.prix_vendu||'',l.date_signature||''].join(',');
   }).join('\n');
 
@@ -9339,7 +9348,7 @@ function setObjectifCommercial(uid,mensuel,hebdo){
 }
 
 function getProgressionCommercial(uid){
-  const leads=getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert'&&l.commercial===uid);
+  const leads=getCompanyScopedLeads(getLeads()).filter(l=>l.statut==='vert'&&normalizeId(getLeadCommercialAssigneeId(l))===normalizeId(uid));
   const now=new Date();
   const month=now.getMonth(),year=now.getFullYear();
   const week=getWeekNumber(now);
@@ -9436,7 +9445,8 @@ function renderTableauVentes(container){
         </tr></thead>
         <tbody>
           ${leadsFiltered.map(l=>{
-            const comm=getAllUsers().find(u=>u.id===l.commercial);
+            const aid=getLeadCommercialAssigneeId(l);
+            const comm=getAllUsers().find(u=>normalizeId(u.id)===normalizeId(aid));
             return `<tr style="border-top:1px solid var(--b1)">
               <td style="padding:8px 10px">${srcIcons2[l.source]||'📋'}</td>
               <td style="padding:8px 10px;font-weight:500">${esc(comm?.name||'—')}</td>
@@ -9468,7 +9478,8 @@ function exportTableauVentes(){
   const filtered=selectedMois?leads.filter(l=>{const d=new Date(l.date_creation||0);return d.getFullYear()===yr&&d.getMonth()+1===mo;}):leads;
   const header='Source,Commercial,Client,Téléphone,Ville,Produit,HT (€),Date signature\n';
   const rows=filtered.map(l=>{
-    const comm=getAllUsers().find(u=>u.id===l.commercial);
+    const aid=getLeadCommercialAssigneeId(l);
+    const comm=getAllUsers().find(u=>normalizeId(u.id)===normalizeId(aid));
     return[l.source||'',csv(comm?.name||''),csv(l.nom),csv(l.telephone),csv(l.ville),csv(l.produit_vendu||l.type_projet),l.prix_vendu||'',l.date_signature||''].join(',');
   }).join('\n');
   download(`Ventes_${selectedMois||'export'}.csv`,header+rows,'text/csv;charset=utf-8');
@@ -9516,9 +9527,9 @@ function makeGPSLink(adresse,ville,cp){
 function genererRapportAlertes(){
   const leads=getCompanyScopedLeads(getLeads()).filter(l=>!l.archive&&l.statut!=='vert'&&l.statut!=='rouge');
   const now=new Date();
-  const nonAttrib=leads.filter(l=>!l.commercial);
-  const nonOuverts=leads.filter(l=>l.commercial&&!l.vu_date);
-  const enRetard=leads.filter(l=>l.commercial&&l.vu_date&&isLeadAlerte(l));
+  const nonAttrib=leads.filter(l=>!leadHasAssignedCommercial(l));
+  const nonOuverts=leads.filter(l=>leadHasAssignedCommercial(l)&&!l.vu_date);
+  const enRetard=leads.filter(l=>leadHasAssignedCommercial(l)&&l.vu_date&&isLeadAlerte(l));
   const devisSansReponse=leads.filter(l=>l.statut==='jaune'&&l.rappel_devis&&new Date(l.rappel_devis)<now);
   return{nonAttrib,nonOuverts,enRetard,devisSansReponse,total:nonAttrib.length+nonOuverts.length+enRetard.length+devisSansReponse.length};
 }
@@ -9547,13 +9558,16 @@ function getContactsParCommercial(){
   const leads=getCompanyScopedLeads(getLeads());
   const result={};
   leads.forEach(l=>{
-    if(!l.commercial)return;
-    if(!result[l.commercial])result[l.commercial]={total:0,cette_semaine:0,ce_mois:0};
-    result[l.commercial].total++;
+    const aid=getLeadCommercialAssigneeId(l);
+    if(!normalizeId(aid))return;
+    const u=getAllUsers().find(x=>normalizeId(x.id)===normalizeId(aid));
+    const key=u?u.id:aid;
+    if(!result[key])result[key]={total:0,cette_semaine:0,ce_mois:0};
+    result[key].total++;
     const d=new Date(l.date_creation||0);
     const now=new Date();
-    if(d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear())result[l.commercial].ce_mois++;
-    if(getWeekNumber(d)===getWeekNumber(now)&&d.getFullYear()===now.getFullYear())result[l.commercial].cette_semaine++;
+    if(d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear())result[key].ce_mois++;
+    if(getWeekNumber(d)===getWeekNumber(now)&&d.getFullYear()===now.getFullYear())result[key].cette_semaine++;
   });
   return result;
 }
