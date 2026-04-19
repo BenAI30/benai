@@ -7,29 +7,45 @@ const baseCorsHeaders = {
 
 type Body = { password?: string };
 
-function getAllowedOrigins(): Set<string> {
-  const raw = Deno.env.get("CORS_ALLOWED_ORIGINS") ?? "";
-  const envOrigins = raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const defaults = ["http://localhost:3000", "http://127.0.0.1:3000"];
-  return new Set([...defaults, ...envOrigins]);
+/** CORS : liste explicite + option « * » = renvoyer l’Origin de la requête (nécessaire avec Authorization). */
+function parseCorsConfig(): { origins: Set<string>; reflectAnyOrigin: boolean } {
+  const raw = (Deno.env.get("CORS_ALLOWED_ORIGINS") ?? "").trim();
+  const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  const reflectAnyOrigin = parts.includes("*");
+  const defaults = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+  ];
+  const origins = new Set([...defaults, ...parts.filter((p) => p !== "*")]);
+  return { origins, reflectAnyOrigin };
 }
 
-const allowedOrigins = getAllowedOrigins();
+const corsCfg = parseCorsConfig();
 
 function isOriginAllowed(origin: string | null): boolean {
-  if (!origin) return true;
-  return allowedOrigins.has(origin);
+  if (corsCfg.reflectAnyOrigin) return true;
+  if (!origin || origin === "null") return true;
+  return corsCfg.origins.has(origin);
 }
 
 function corsHeadersFor(origin: string | null): Record<string, string> {
   const headers: Record<string, string> = { ...baseCorsHeaders };
-  if (origin && allowedOrigins.has(origin)) {
-    headers["Access-Control-Allow-Origin"] = origin;
-    headers["Vary"] = "Origin";
+  let allowOrigin: string | undefined;
+  if (corsCfg.reflectAnyOrigin) {
+    if (origin && origin !== "null") allowOrigin = origin;
+    else allowOrigin = "null";
+  } else if (!origin || origin === "null") {
+    allowOrigin = "null";
+  } else if (corsCfg.origins.has(origin)) {
+    allowOrigin = origin;
+  }
+  if (allowOrigin !== undefined) {
+    headers["Access-Control-Allow-Origin"] = allowOrigin;
+    if (allowOrigin !== "null") headers["Vary"] = "Origin";
   }
   return headers;
 }

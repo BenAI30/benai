@@ -1417,92 +1417,22 @@ async function updateSupabaseUserPasswordProvisioning(body){
   }
 }
 
-async function adminResetDemoDataProvisioning(password){
-  await ensureSupabaseSession();
-  const accessToken=currentSupabaseSession?.access_token||'';
-  if(!SUPABASE_CONFIG.url||!accessToken)return {ok:false,error:'Session Supabase manquante'};
-  try{
-    const fnUrl=`${SUPABASE_CONFIG.url}/functions/v1/admin-reset-demo-data`;
-    const res=await fetchWithTimeout(fnUrl,{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        apikey:SUPABASE_CONFIG.publishableKey,
-        Authorization:'Bearer '+accessToken
-      },
-      body:JSON.stringify({password:String(password||'')})
-    },120000);
-    let bodyJson=null;
-    const rawBody=await res.text();
-    if(rawBody){
-      try{bodyJson=JSON.parse(rawBody);}catch(_){}
-    }
-    if(!res.ok){
-      const detail=bodyJson?.error||bodyJson?.message||rawBody||`HTTP ${res.status}`;
-      return {ok:false,error:String(detail)};
-    }
-    return {ok:true,data:bodyJson||{}};
-  }catch(e){
-    return {ok:false,error:e?.message||'Erreur réseau admin-reset-demo-data (CORS / timeout)'};
-  }
-}
-
-/** Pilotage → Fichiers & outils : remise à zéro CRM + messages, conserve comptes + annuaire (admin + mot de passe cloud). */
-async function pilotageAdminResetDemoData(){
+/** Pilotage → Fichiers & outils : guide « repartir de zéro » uniquement via SQL Supabase (sans Edge Function). */
+async function pilotageAfficherGuideRepartirZero(){
   if(currentUser?.role!=='admin'){
     void benaiAlert('Réservé au compte administrateur (rôle admin).');
     return;
   }
-  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url){
-    void benaiAlert('Activez Supabase et reconnectez-vous avec le compte cloud.');
-    return;
-  }
-  const step1=await benaiConfirm(
-    'Remise à zéro : leads, SAV, notes, absences, messages équipe, snapshots cloud, puis côté pilotage les données synchronisées (objectifs CA, ventes par mois, connexions, archives commercial, notifs/briefings stockés en cloud par utilisateur).\n\nVos comptes (Auth) et la table annuaire sont conservés ; les mots de passe ne changent pas.',
-    'Repartir de zéro (données)'
-  );
-  if(!step1)return;
-  const word=await benaiPrompt('Pour confirmer, tapez exactement : EFFACER','','Confirmation');
-  if(String(word||'').trim()!=='EFFACER'){
-    void benaiAlert('Annulé.');
-    return;
-  }
-  const pwd=await benaiPrompt(
-    'Mot de passe de connexion cloud (le même que pour BenAI / Supabase) de ce compte admin.',
-    '',
-    'Vérification',
-    'password'
-  );
-  if(!pwd){
-    void benaiAlert('Annulé.');
-    return;
-  }
-  showDriveNotif('⏳ Remise à zéro en cours…');
-  const res=await adminResetDemoDataProvisioning(pwd);
-  if(!res.ok){
-    showDriveNotif('');
-    void benaiAlert(res.error||'Échec');
-    return;
-  }
-  showDriveNotif('');
-  const ann=Array.isArray(res.data?.annuaire)?res.data.annuaire:[];
-  const nAnn=Number(res.data?.annuaire_count);
-  try{
-    saveMem(createEmptyMemState(),false);
-    saveLeads([],false);
-    saveAnnuaire(ann,false);
-    clearRuntimeSession(currentUser?.id);
-    sharedCoreLastSignature='';
-    await loadSharedCoreDataFromSupabase(true);
-    refreshSharedSignatures(true);
-  }catch(_){}
-  const nLab=Number.isFinite(nAnn)?nAnn:ann.length;
-  const nSnap=Number(res.data?.user_states_scrubbed);
-  const snapTxt=Number.isFinite(nSnap)&&nSnap>=0?` Snapshots « stats pilotage » nettoyés : ${nSnap}.`:'';
   await benaiAlert(
-    `Terminé : CRM, messages et stats cloud effacés ; ${nLab} fiche(s) annuaire conservée(s) depuis la base.${snapTxt}\n\nLa page va se recharger.`
+    'Mode simple — tout se fait dans le navigateur Supabase, une seule fois :\n\n'+
+    '1. Ouvrez votre projet sur supabase.com → section SQL → New query.\n'+
+    '2. Sur votre PC, dans ce dossier BenAI, ouvrez le fichier :\n   supabase\\patch_admin_reset_demo_data_rpc.sql\n'+
+    '3. Sélectionnez tout le texte (Ctrl+A), copiez, collez dans l’éditeur SQL Supabase.\n'+
+    '4. Cliquez sur Run (ou Ctrl+Enter).\n\n'+
+    'Ensuite : rechargez BenAI (F5) sur chaque ordinateur.\n\n'+
+    'Ce script efface leads, SAV, notes, absences, messages cloud, stats enregistrées ; il garde les comptes et l’annuaire.',
+    'Repartir de zéro — pas d’installation'
   );
-  location.reload();
 }
 
 async function updateSupabaseUserAppUidProvisioning(body){
@@ -10259,10 +10189,10 @@ function renderLeadsDashboard(){
       </div>
     </div>`;
     if(role==='admin'&&dashPilotage){
-      html+=`<div class="secteur-card" style="margin-top:14px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.07)">
-      <div class="secteur-title" style="color:var(--r)">🧹 Repartir de zéro (données)</div>
-      <div style="font-size:11px;color:var(--t2);line-height:1.55;margin-bottom:10px">Supprime leads, SAV, notes, absences, messages, <code style="font-size:10px">benai_state</code> et le miroir <code style="font-size:10px">shared_core</code>, plus les <strong>ventes / objectifs / stats pilotage</strong> enregistrés par compte dans <code style="font-size:10px">user_state_*</code> (cloud). Conserve <strong>Auth</strong> et la table <strong>annuaire</strong>. SQL : <code style="font-size:10px">patch_admin_reset_demo_data_rpc.sql</code> · <code style="font-size:10px">admin-reset-demo-data</code>.</div>
-      <button type="button" onclick="pilotageAdminResetDemoData()" style="padding:10px 14px;background:var(--r);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">Effacer CRM + messages (garder annuaire)</button>
+      html+=`<div class="secteur-card" style="margin-top:14px;border:1px solid rgba(59,130,246,.35);background:rgba(59,130,246,.08)">
+      <div class="secteur-title" style="color:var(--bl)">🧹 Repartir de zéro (simple)</div>
+      <div style="font-size:11px;color:var(--t2);line-height:1.55;margin-bottom:10px">Pas de programme à installer : un fichier SQL à coller dans Supabase. Conserve comptes + annuaire ; efface CRM, messages et stats cloud. Le bouton ci-dessous affiche les étapes.</div>
+      <button type="button" onclick="pilotageAfficherGuideRepartirZero()" style="padding:10px 14px;background:var(--bl);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">Voir les étapes (SQL)</button>
     </div>`;
     }
     if(dashPilotage){
