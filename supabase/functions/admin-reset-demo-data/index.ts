@@ -41,24 +41,6 @@ function json(status: number, body: unknown, origin: string | null) {
   });
 }
 
-function isUuid(s: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    String(s || "").trim(),
-  );
-}
-
-function randomPassword(): string {
-  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const lower = "abcdefghijkmnpqrstuvwxyz";
-  const num = "23456789";
-  const spe = "!@#$%&*";
-  const pick = (set: string) => set[Math.floor(Math.random() * set.length)];
-  const all = upper + lower + num + spe;
-  let out = pick(upper) + pick(lower) + pick(num) + pick(spe);
-  for (let i = 0; i < 10; i++) out += all[Math.floor(Math.random() * all.length)];
-  return out;
-}
-
 async function verifyPasswordGrant(
   supabaseUrl: string,
   anonKey: string,
@@ -76,86 +58,48 @@ async function verifyPasswordGrant(
   return res.ok;
 }
 
-type AuthUserRow = { id: string; email: string };
-
-async function listAllAuthUsers(
-  adminClient: ReturnType<typeof createClient>,
-): Promise<AuthUserRow[]> {
-  const rows: AuthUserRow[] = [];
-  let page = 1;
-  const perPage = 200;
-  while (true) {
-    const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage });
-    if (error) throw new Error(error.message || "listUsers");
-    const users = data?.users ?? [];
-    for (const u of users) {
-      rows.push({ id: String(u.id), email: String(u.email ?? "").trim() });
-    }
-    if (users.length < perPage) break;
-    page++;
-  }
-  return rows;
+/** Repasse une ligne SQL `annuaire` vers la forme attendue par l’app (shared_core / localStorage). */
+function clientAnnuaireFromDbRow(row: Record<string, unknown>, syncBase: number, idx: number): Record<string, unknown> {
+  const pl =
+    row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
+      ? (row.payload as Record<string, unknown>)
+      : {};
+  const idNum = Number(pl.id ?? row.id);
+  const id = Number.isFinite(idNum) && idNum > 0 ? idNum : Number(row.id) || syncBase + idx;
+  return {
+    ...pl,
+    id,
+    prenom: String(row.prenom ?? pl.prenom ?? ""),
+    nom: String(row.nom ?? pl.nom ?? ""),
+    email: String(row.email ?? pl.email ?? ""),
+    emailPro: String(row.email_pro ?? pl.emailPro ?? ""),
+    tel: String(row.tel ?? pl.tel ?? ""),
+    naissance: row.naissance ?? pl.naissance ?? "",
+    fonction: String(row.fonction ?? pl.fonction ?? "Autre"),
+    societe: String(row.societe ?? pl.societe ?? "nemausus"),
+    sync_ts: syncBase + idx,
+  };
 }
 
-function cleanSharedCoreData(
-  data: Record<string, unknown>,
-  authIdSet: Set<string>,
-  extraAllowedFrom: Set<string>,
-): Record<string, unknown> {
-  const allowedFrom = new Set([...authIdSet, ...extraAllowedFrom]);
-
-  const messagesRaw = data.messages;
-  const messages: Record<string, unknown[]> =
-    messagesRaw && typeof messagesRaw === "object" && !Array.isArray(messagesRaw)
-      ? (messagesRaw as Record<string, unknown[]>)
-      : {};
-
-  const cleanedMessages: Record<string, unknown[]> = {};
-  for (const [cid, arr] of Object.entries(messages)) {
-    const list = Array.isArray(arr) ? arr : [];
-    const kept = list.filter((msg) => {
-      if (!msg || typeof msg !== "object") return false;
-      const from = String((msg as Record<string, unknown>).from ?? "").trim();
-      if (!from) return true;
-      if (isUuid(from) && !allowedFrom.has(from)) return false;
-      return true;
-    });
-    if (kept.length) cleanedMessages[cid] = kept;
+async function fetchAllAnnuaireRows(
+  adminClient: ReturnType<typeof createClient>,
+): Promise<Record<string, unknown>[]> {
+  const out: Record<string, unknown>[] = [];
+  const pageSize = 1000;
+  let from = 0;
+  while (true) {
+    const { data, error } = await adminClient
+      .from("annuaire")
+      .select("*")
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message || "annuaire select");
+    const chunk = data ?? [];
+    out.push(...chunk);
+    if (chunk.length < pageSize) break;
+    from += pageSize;
   }
-
-  const readRaw = data.msg_read_cursor;
-  const read: Record<string, Record<string, unknown>> =
-    readRaw && typeof readRaw === "object" && !Array.isArray(readRaw)
-      ? (readRaw as Record<string, Record<string, unknown>>)
-      : {};
-
-  const cleanedRead: Record<string, Record<string, unknown>> = {};
-  for (const [cid, cursors] of Object.entries(read)) {
-    if (!cursors || typeof cursors !== "object" || Array.isArray(cursors)) continue;
-    const inner: Record<string, unknown> = {};
-    for (const [uid, v] of Object.entries(cursors)) {
-      if (isUuid(uid) && !authIdSet.has(uid)) continue;
-      inner[uid] = v;
-    }
-    if (Object.keys(inner).length) cleanedRead[cid] = inner;
-  }
-
-  const feedRaw = data.notif_feed;
-  const feed = Array.isArray(feedRaw) ? feedRaw : [];
-  const cleanedFeed = feed.filter((item) => {
-    if (!item || typeof item !== "object") return false;
-    const t = String((item as Record<string, unknown>).target_uid ?? "").trim();
-    if (!t || t === "all") return true;
-    if (isUuid(t) && !authIdSet.has(t)) return false;
-    return true;
-  });
-
-  return {
-    ...data,
-    messages: cleanedMessages,
-    msg_read_cursor: cleanedRead,
-    notif_feed: cleanedFeed,
-  };
+  return out;
 }
 
 Deno.serve(async (req) => {
@@ -243,50 +187,34 @@ Deno.serve(async (req) => {
       return json(401, { error: "Mot de passe administrateur incorrect" }, origin);
     }
 
-    const { error: rpcError } = await adminClient.rpc("admin_cleanup_orphan_refs", {
+    const { error: rpcError } = await adminClient.rpc("admin_wipe_benai_keep_annuaire", {
       p_caller: caller.id,
     });
     if (rpcError) {
       return json(400, {
         error: rpcError.message ||
-          "RPC admin_cleanup_orphan_refs : exécutez supabase/patch_admin_reset_demo_data_rpc.sql sur le projet.",
+          "RPC admin_wipe_benai_keep_annuaire : exécutez supabase/patch_admin_reset_demo_data_rpc.sql sur le projet.",
       }, origin);
     }
 
-    const authUsers = await listAllAuthUsers(adminClient);
-    const authIds = authUsers.map((u) => u.id);
-    const authIdSet = new Set(authIds);
+    const dbRows = await fetchAllAnnuaireRows(adminClient);
+    const syncBase = Date.now();
+    const annuaire = dbRows.map((r, i) => clientAnnuaireFromDbRow(r, syncBase, i));
 
-    const { data: profRows } = await adminClient.from("profiles").select("app_uid");
-    const extraFrom = new Set<string>();
-    for (const row of profRows ?? []) {
-      const u = String((row as { app_uid?: string }).app_uid ?? "").trim().toLowerCase();
-      if (u) extraFrom.add(u);
-    }
-    extraFrom.add("benjamin");
-
-    const { data: settingsRow, error: setErr } = await adminClient
-      .from("app_settings")
-      .select("value")
-      .eq("key", "shared_core_data_v1")
-      .maybeSingle();
-
-    if (setErr) {
-      return json(400, { error: setErr.message || "Lecture app_settings impossible" }, origin);
-    }
-
-    const root = (settingsRow?.value ?? {}) as Record<string, unknown>;
-    const innerData =
-      root && typeof root === "object" && "data" in root && root.data && typeof root.data === "object"
-        ? ({ ...(root.data as Record<string, unknown>) } as Record<string, unknown>)
-        : {};
-
-    const cleanedData = cleanSharedCoreData(innerData, authIdSet, extraFrom);
     const newValue = {
-      ...root,
-      version: typeof root.version === "number" ? root.version : 1,
+      version: 1,
       updated_at: new Date().toISOString(),
-      data: cleanedData,
+      data: {
+        sav: [],
+        notes: [],
+        absences: [],
+        annuaire,
+        leads: [],
+        notif_feed: [],
+        messages: {},
+        msg_deletions: {},
+        msg_read_cursor: {},
+      },
     };
 
     const { error: upErr } = await adminClient.from("app_settings").upsert(
@@ -301,26 +229,12 @@ Deno.serve(async (req) => {
       return json(400, { error: upErr.message || "Mise à jour shared_core_data_v1 impossible" }, origin);
     }
 
-    const passwords: { user_id: string; email: string; new_password: string }[] = [];
-    for (const u of authUsers) {
-      if (u.id === caller.id) continue;
-      const newPwd = randomPassword();
-      const { error: pwErr } = await adminClient.auth.admin.updateUserById(u.id, {
-        password: newPwd,
-      });
-      if (pwErr) {
-        return json(400, {
-          error: pwErr.message || `Mot de passe impossible pour ${u.email || u.id}`,
-        }, origin);
-      }
-      passwords.push({ user_id: u.id, email: u.email, new_password: newPwd });
-    }
-
     return json(200, {
       ok: true,
-      passwords,
+      annuaire,
+      annuaire_count: annuaire.length,
       message:
-        "Références orphelines nettoyées, annuaire et comptes conservés, mots de passe régénérés (sauf le vôtre). Copiez la liste renvoyée une seule fois.",
+        "Leads, SAV, notes, absences, messages et snapshots ont été effacés ; comptes et annuaire conservés.",
     }, origin);
   } catch (error) {
     return json(500, {

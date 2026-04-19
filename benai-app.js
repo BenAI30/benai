@@ -1447,7 +1447,7 @@ async function adminResetDemoDataProvisioning(password){
   }
 }
 
-/** Pilotage → Fichiers & outils : nettoyage références comptes supprimés + rotation mots de passe (admin + mot de passe cloud). */
+/** Pilotage → Fichiers & outils : remise à zéro CRM + messages, conserve comptes + annuaire (admin + mot de passe cloud). */
 async function pilotageAdminResetDemoData(){
   if(currentUser?.role!=='admin'){
     void benaiAlert('Réservé au compte administrateur (rôle admin).');
@@ -1458,8 +1458,8 @@ async function pilotageAdminResetDemoData(){
     return;
   }
   const step1=await benaiConfirm(
-    'Cette action conserve vos comptes et l’annuaire.\n\nElle enlève en base les traces (références, messages internes, notifs, snapshots orphelins) des utilisateurs déjà supprimés côté Auth, puis attribue un nouveau mot de passe à chaque utilisateur existant sauf vous.\n\nLes personnes devront se connecter avec le nouveau mot de passe que vous leur communiquerez.',
-    'Nettoyage + mots de passe'
+    'Remise à zéro des données métier : tous les leads, SAV, notes, absences, messages internes synchronisés et snapshots cloud seront supprimés.\n\nVos comptes utilisateurs (Auth) et les fiches de l’annuaire en base sont conservés. Les mots de passe ne sont pas modifiés.',
+    'Repartir de zéro (données)'
   );
   if(!step1)return;
   const word=await benaiPrompt('Pour confirmer, tapez exactement : EFFACER','','Confirmation');
@@ -1477,7 +1477,7 @@ async function pilotageAdminResetDemoData(){
     void benaiAlert('Annulé.');
     return;
   }
-  showDriveNotif('⏳ Nettoyage et régénération des mots de passe…');
+  showDriveNotif('⏳ Remise à zéro en cours…');
   const res=await adminResetDemoDataProvisioning(pwd);
   if(!res.ok){
     showDriveNotif('');
@@ -1485,26 +1485,20 @@ async function pilotageAdminResetDemoData(){
     return;
   }
   showDriveNotif('');
-  const pws=Array.isArray(res.data?.passwords)?res.data.passwords:[];
-  const lines=pws.map(p=>`${String(p.email||p.user_id||'').trim()}\t${String(p.new_password||'')}`);
-  const clip=['Nouveaux mots de passe BenAI (usage unique — à supprimer après communication) :','',...lines].join('\n');
-  let copied=false;
+  const ann=Array.isArray(res.data?.annuaire)?res.data.annuaire:[];
+  const nAnn=Number(res.data?.annuaire_count);
   try{
-    if(navigator.clipboard&&navigator.clipboard.writeText){
-      await navigator.clipboard.writeText(clip);
-      copied=true;
-    }
-  }catch(_){}
-  try{
+    saveMem(createEmptyMemState(),false);
+    saveLeads([],false);
+    saveAnnuaire(ann,false);
     clearRuntimeSession(currentUser?.id);
+    sharedCoreLastSignature='';
     await loadSharedCoreDataFromSupabase(true);
     refreshSharedSignatures(true);
   }catch(_){}
-  const n=pws.length;
+  const nLab=Number.isFinite(nAnn)?nAnn:ann.length;
   await benaiAlert(
-    `Terminé : références obsolètes nettoyées, ${n} mot(s) de passe régénéré(s) (le vôtre inchangé).${
-      copied?'\n\nLa liste e-mail + mot de passe a été copiée dans le presse-papiers.':''
-    }\n\nLa page va se recharger.`
+    `Terminé : données CRM et messages effacés ; ${nLab} fiche(s) annuaire conservée(s) depuis la base.\n\nLa page va se recharger.`
   );
   location.reload();
 }
@@ -10264,9 +10258,9 @@ function renderLeadsDashboard(){
     </div>`;
     if(role==='admin'&&dashPilotage){
       html+=`<div class="secteur-card" style="margin-top:14px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.07)">
-      <div class="secteur-title" style="color:var(--r)">🧹 Nettoyage & mots de passe</div>
-      <div style="font-size:11px;color:var(--t2);line-height:1.55;margin-bottom:10px">Conserve <strong>comptes</strong> et <strong>annuaire</strong>. Retire les références et messages liés à d’anciens comptes déjà supprimés (Auth), supprime les snapshots <code style="font-size:10px">benai_state</code> orphelins, puis attribue un <strong>nouveau mot de passe</strong> à chaque utilisateur existant <strong>sauf vous</strong>. Mot de passe admin demandé pour confirmer. Une fois sur Supabase : exécuter <code style="font-size:10px">patch_admin_reset_demo_data_rpc.sql</code> et déployer <code style="font-size:10px">admin-reset-demo-data</code>.</div>
-      <button type="button" onclick="pilotageAdminResetDemoData()" style="padding:10px 14px;background:var(--r);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">Nettoyer traces + nouveaux mots de passe</button>
+      <div class="secteur-title" style="color:var(--r)">🧹 Repartir de zéro (données)</div>
+      <div style="font-size:11px;color:var(--t2);line-height:1.55;margin-bottom:10px">Supprime <strong>tous</strong> les leads, SAV, notes, absences, messages internes synchronisés et snapshots <code style="font-size:10px">benai_state</code>. Conserve les <strong>comptes</strong> (Auth) et la table <strong>annuaire</strong>. Ne change pas les mots de passe. Mot de passe admin demandé pour confirmer. SQL : <code style="font-size:10px">patch_admin_reset_demo_data_rpc.sql</code> · fonction <code style="font-size:10px">admin-reset-demo-data</code>.</div>
+      <button type="button" onclick="pilotageAdminResetDemoData()" style="padding:10px 14px;background:var(--r);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">Effacer CRM + messages (garder annuaire)</button>
     </div>`;
     }
     if(dashPilotage){
