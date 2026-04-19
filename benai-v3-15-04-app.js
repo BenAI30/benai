@@ -2595,7 +2595,7 @@ function syncInternalMsgSpellcheckUi(){
   if(inp)inp.spellcheck=!!on;
   if(cb)cb.checked=!!on;
 }
-/** Espaces fines insécables avant : ; ! ? et points de suspension typographiques (texte libre). */
+/** Espaces fines insécables avant : ; ! ? et points de suspension typographiques (texte libre). Appliqué à l’enregistrement : messages internes, leads, SAV, absences, notes, signalements. */
 function applyFrenchTypographyToFreeText(s){
   let t=String(s||'');
   t=t.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
@@ -4319,15 +4319,16 @@ function applySavActionDrafts(drafts){
 }
 
 async function addSAV(){
-  const client=document.getElementById('sav-client').value.trim();
-  const pb=document.getElementById('sav-pb').value.trim();
+  const client=applyFrenchTypographyToFreeText(document.getElementById('sav-client').value.trim());
+  const pb=applyFrenchTypographyToFreeText(document.getElementById('sav-pb').value.trim());
   const soc=getSavSocValueForSubmit();
-  const commercial=document.getElementById('sav-commercial').value.trim();
-  const fourn=document.getElementById('sav-fourn').value.trim();
+  const commercial=applyFrenchTypographyToFreeText(document.getElementById('sav-commercial').value.trim());
+  const fourn=applyFrenchTypographyToFreeText(document.getElementById('sav-fourn').value.trim());
   const rappelDays=Math.max(1,Number(document.getElementById('sav-rappel-days')?.value||5));
   const rappelInput=document.getElementById('sav-rappel').value;
   const rappel=rappelInput||addDaysISO(rappelDays);
-  const commentaire=document.getElementById('sav-comment')?.value.trim()||'';
+  const commentaireRaw=document.getElementById('sav-comment')?.value.trim()||'';
+  const commentaire=commentaireRaw?applyFrenchTypographyToFreeText(commentaireRaw):'';
   const urgent=document.getElementById('sav-urgent').checked;
   const date_creation=getSavDateCreationDisplay();
   const missing=[];
@@ -4488,8 +4489,8 @@ function editSAV(id){
 }
 
 async function saveEditSAV(id){
-  const client=document.getElementById('sav-client').value.trim();
-  const pb=document.getElementById('sav-pb').value.trim();
+  const client=applyFrenchTypographyToFreeText(document.getElementById('sav-client').value.trim());
+  const pb=applyFrenchTypographyToFreeText(document.getElementById('sav-pb').value.trim());
   const missing=[];
   if(!client)missing.push('Client');
   if(!pb)missing.push('Problème');
@@ -4501,12 +4502,12 @@ async function saveEditSAV(id){
   mem.sav[idx]={
     ...mem.sav[idx],
     client,probleme:pb,
-    commercial:document.getElementById('sav-commercial').value.trim(),
+    commercial:applyFrenchTypographyToFreeText(document.getElementById('sav-commercial').value.trim()),
     societe:getSavSocValueForSubmit(),
-    fournisseur:document.getElementById('sav-fourn').value.trim(),
+    fournisseur:applyFrenchTypographyToFreeText(document.getElementById('sav-fourn').value.trim()),
     rappel:document.getElementById('sav-rappel').value,
     urgent:document.getElementById('sav-urgent').checked,
-    commentaire:document.getElementById('sav-comment')?.value.trim()||'',
+    commentaire:(()=>{const c=document.getElementById('sav-comment')?.value.trim()||'';return c?applyFrenchTypographyToFreeText(c):'';})(),
     date_creation:getSavDateCreationDisplay(),
     sync_ts:Date.now()
   };
@@ -4570,7 +4571,7 @@ function notifySavTeamStatusChange(sav,prevStatut,nextStatut){
 }
 
 function savAction(id){
-  const input=document.getElementById('action-'+id);const txt=input?.value.trim();if(!txt)return;
+  const input=document.getElementById('action-'+id);const txt=applyFrenchTypographyToFreeText(input?.value.trim()||'');if(!txt)return;
   const mem=getMem();const sid=String(id);const sav=mem.sav.find(s=>String(s.id)===sid);if(!sav)return;
   const prevStatut=sav.statut||'nouveau';
   if(!sav.actions)sav.actions=[];
@@ -4731,7 +4732,7 @@ function removeEmptyNoteSilent(id){
 }
 
 function finalizeNoteOnBlur(id,el){
-  const txt=String(el?.value||'').trim();
+  const txt=applyFrenchTypographyToFreeText(String(el?.value||'').trim());
   if(!txt){
     removeEmptyNoteSilent(id);
     return;
@@ -4905,7 +4906,7 @@ async function addAbsence(){
   const heureDebut=document.getElementById('abs-heure-debut')?.value||'';
   const heureFin=document.getElementById('abs-heure-fin')?.value||'';
   const type=document.getElementById('abs-type').value;
-  const note=document.getElementById('abs-note').value.trim();
+  const note=applyFrenchTypographyToFreeText(document.getElementById('abs-note').value.trim());
   if(!emp){await benaiAlert('Sélectionnez un employé');return;}
   if(!debut||!fin){await benaiAlert('Remplissez les dates');return;}
   if(new Date(fin)<new Date(debut)){await benaiAlert('⚠️ La date de fin doit être après le début');return;}
@@ -4974,7 +4975,7 @@ async function saveEditAbsence(id){
     heureDebut:document.getElementById('abs-heure-debut')?.value||'',
     heureFin:document.getElementById('abs-heure-fin')?.value||'',
     type:document.getElementById('abs-type').value,
-    note:document.getElementById('abs-note').value.trim(),
+    note:applyFrenchTypographyToFreeText(document.getElementById('abs-note').value.trim()),
     notifs,
     sync_ts:Date.now()
   };
@@ -6267,7 +6268,7 @@ function renderGuidePage(){
     ],
     assistante:[
       'Menus BenAI : BenAI (IA), Notes, Messages, SAV, Leads CRM, Évolutions, Guide — tu relies l’accueil client aux outils métier.',
-      'Leads CRM : onglet « Mes leads » — trois vues : en attente d’attribution, puis « Attribué à… » (qui a le dossier jusqu’à RDV effectué ou perdu), puis Archives CRM.',
+      'Leads CRM : onglet « Mes leads » — trois vues : en attente d’attribution, puis « Attribué à… » (qui a le dossier jusqu’à RDV effectué ou perdu), puis Archives CRM. Pas de vue kanban pipeline (réservée au terrain).',
       'Création : + Nouveau lead — nom, téléphone, adresse complète, code postal, type de projet sont demandés à l’enregistrement ; le secteur est calculé automatiquement à partir du code postal ; tu peux compléter ville et commentaire pour le terrain.',
       'Tu enregistres le contact : pas de recherche de doublon à ta charge — la direction commerciale est prévenue dans son interface si un dossier similaire existe déjà.',
       'Après ta saisie, concentre-toi sur les infos utiles au terrain : le suivi du dossier se poursuit dans le CRM ; tu peux compléter commentaire ou coordonnées sur tes fiches tant que c’est pertinent.',
@@ -9015,9 +9016,21 @@ function initLeadsPage(){
   const tabs=document.getElementById('crm-tabs');
   const filters=document.getElementById('crm-filters');
   const btnNew=document.getElementById('btn-new-lead');
+  const btnViewList=document.getElementById('btn-view-list');
+  const btnViewKanban=document.getElementById('btn-view-kanban');
   const filterComm=document.getElementById('crm-filter-commercial');
   const filterSecteur=document.getElementById('crm-filter-secteur');
   const filterSociete=document.getElementById('crm-filter-societe');
+
+  // Assistante : pas de kanban pipeline (statuts commerciaux) — segments « Mes leads » uniquement en liste.
+  if(role==='assistante'){
+    currentCRMView='list';
+    if(btnViewList)btnViewList.style.display='none';
+    if(btnViewKanban)btnViewKanban.style.display='none';
+  }else{
+    if(btnViewList)btnViewList.style.display='';
+    if(btnViewKanban)btnViewKanban.style.display='';
+  }
 
   // Bouton nouveau lead — assistante, admin, commerciaux et direction terrain (dir. co / DG)
   btnNew.style.display=(role==='assistante'||role==='admin'||isCrmSalesActorRole(role))?'flex':'none';
@@ -9160,12 +9173,13 @@ function renderNonAttribues(){
 }
 
 function setCRMView(view){
-  currentCRMView=view;
+  const v=(currentUser?.role==='assistante'&&view==='kanban')?'list':view;
+  currentCRMView=v;
   const list=document.getElementById('leads-list');
   const kanban=document.getElementById('leads-kanban');
   const btnL=document.getElementById('btn-view-list');
   const btnK=document.getElementById('btn-view-kanban');
-  if(view==='list'){
+  if(v==='list'){
     if(list)list.style.display='flex';
     if(kanban)kanban.style.display='none';
     if(btnL){btnL.style.background='var(--a3)';btnL.style.borderColor='var(--a)';}
@@ -9254,6 +9268,13 @@ function getFilteredLeads(){
 
 function renderLeads(){
   autoArchiveVenduLeadsPastCurrentMonth();
+  if(currentUser?.role==='assistante'){
+    if(currentCRMView==='kanban')currentCRMView='list';
+    const listVis=document.getElementById('leads-list');
+    const kbVis=document.getElementById('leads-kanban');
+    if(listVis)listVis.style.display='flex';
+    if(kbVis)kbVis.style.display='none';
+  }
   if(currentCRMView==='kanban'){renderKanban();return;}
   const role=currentUser?.role;
   const list=document.getElementById('leads-list');if(!list)return;
@@ -10585,23 +10606,27 @@ function autoPushLeadToGoogleAgenda(lead,force=false){
 
 // SAUVEGARDER LEAD
 async function saveLead(){
-  const nom=document.getElementById('lead-nom').value.trim();
+  const nomRaw=document.getElementById('lead-nom').value.trim();
+  const nom=applyFrenchTypographyToFreeText(nomRaw);
   const tel=document.getElementById('lead-tel').value.trim();
-  const adresse=document.getElementById('lead-adresse').value.trim();
+  const adresseRaw=document.getElementById('lead-adresse').value.trim();
   // Ville en lecture seule — permettre saisie manuelle si autocomplétion non utilisée
   const villeEl=document.getElementById('lead-ville');
   const cpEl=document.getElementById('lead-cp');
   if(villeEl)villeEl.removeAttribute('readonly');
   if(cpEl)cpEl.removeAttribute('readonly');
-  const ville=villeEl?.value.trim()||adresse.split(/\d{5}/)?.[1]?.trim()||'';
+  const villeRaw=villeEl?.value.trim()||adresseRaw.split(/\d{5}/)?.[1]?.trim()||'';
+  const ville=applyFrenchTypographyToFreeText(villeRaw);
+  const adresse=applyFrenchTypographyToFreeText(adresseRaw);
   const cp2=cpEl?.value.trim()||'';
-  const projet=document.getElementById('lead-projet').value.trim();
+  const projet=applyFrenchTypographyToFreeText(document.getElementById('lead-projet').value.trim());
   if(currentUser?.role==='assistante')detectSecteurByCP(cp2);
   const sectorState=updateLeadSectorSignals()||computeLeadSectorState(cp2);
-  const justifHorsSecteur=(document.getElementById('lead-hors-secteur-justif')?.value||'').trim();
+  const justifRaw=(document.getElementById('lead-hors-secteur-justif')?.value||'').trim();
+  const justifHorsSecteur=justifRaw?applyFrenchTypographyToFreeText(justifRaw):'';
   let historicalLead=null,historicalProposal=null,effectiveSource=currentLeadSource;
   if(currentUser?.role!=='assistante'){
-    historicalLead=findHistoricalLeadByIdentity(nom,adresse,cp2,currentLeadId);
+    historicalLead=findHistoricalLeadByIdentity(nomRaw,adresseRaw,cp2,currentLeadId);
     historicalProposal=getCommercialHistoryProposal(historicalLead);
     if(historicalLead)effectiveSource='ANCIEN_CLIENT';
   }
@@ -10649,12 +10674,12 @@ async function saveLead(){
     rappel_devis:document.getElementById('lead-rappel-devis')?.value||null,
     prix_vendu:prixVenduRaw||null,
     date_signature:document.getElementById('lead-date-signature')?.value||null,
-    produit_vendu:document.getElementById('lead-produit-vendu')?.value||null,
+    produit_vendu:(()=>{const pv=(document.getElementById('lead-produit-vendu')?.value||'').trim();return pv?applyFrenchTypographyToFreeText(pv):null;})(),
     raison_mort:document.getElementById('lead-raison-mort')?.value||null,
     commercial:assignedCommercial,
     commercial_user_id:resolveAuthUidForUserId(assignedCommercial),
-    suivi:document.getElementById('lead-suivi')?.value.trim()||'',
-    commentaire:document.getElementById('lead-commentaire')?.value.trim()||'',
+    suivi:applyFrenchTypographyToFreeText(document.getElementById('lead-suivi')?.value.trim()||''),
+    commentaire:applyFrenchTypographyToFreeText(document.getElementById('lead-commentaire')?.value.trim()||''),
     hors_secteur:!!sectorState.outOfSector,
     zone_blanche:!!sectorState.isZoneBlanche,
     justification_hors_secteur:justifHorsSecteur||null,
@@ -11757,7 +11782,7 @@ function closeBugReportOverlay(){
   if(ov)ov.style.display='none';
 }
 async function submitBugReportOverlay(){
-  const desc=(document.getElementById('rpt-desc')?.value||'').trim();
+  const desc=applyFrenchTypographyToFreeText((document.getElementById('rpt-desc')?.value||'').trim());
   if(!desc){await benaiAlert('Décris le problème avant d’envoyer.');return;}
   const pageVal=document.getElementById('rpt-page')?.value||'Autre';
   const gravVal=document.getElementById('rpt-gravite')?.value||'important';
@@ -11788,7 +11813,7 @@ function openNewBug(){
 }
 
 async function saveBug(){
-  const desc=document.getElementById('bug-desc').value.trim();
+  const desc=applyFrenchTypographyToFreeText(document.getElementById('bug-desc').value.trim());
   if(!desc){await benaiAlert('Décrivez le bug');return;}
   const bugs=getBugs();
   const now=new Date();
