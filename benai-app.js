@@ -1417,22 +1417,85 @@ async function updateSupabaseUserPasswordProvisioning(body){
   }
 }
 
-/** Pilotage → Fichiers & outils : guide « repartir de zéro » uniquement via SQL Supabase (sans Edge Function). */
-async function pilotageAfficherGuideRepartirZero(){
+/** Appelle la RPC SQL admin_wipe_benai_reset (même origine que le reste de Supabase → pas de Edge Function). */
+async function rpcAdminWipeBenaiResetCloud(){
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url)return {ok:false,error:'Supabase désactivé ou URL manquante.'};
+  await ensureSupabaseSession();
+  const token=currentSupabaseSession?.access_token||'';
+  if(!token)return {ok:false,error:'Reconnectez-vous (session Supabase).'};
+  try{
+    const res=await fetchWithTimeout(`${SUPABASE_CONFIG.url}/rest/v1/rpc/admin_wipe_benai_reset`,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        Accept:'application/json',
+        apikey:SUPABASE_CONFIG.publishableKey,
+        Authorization:'Bearer '+token
+      },
+      body:'{}'
+    },90000);
+    const text=await res.text().catch(()=>'');
+    if(!res.ok){
+      let detail=text||(`HTTP ${res.status}`);
+      try{
+        const j=JSON.parse(text);
+        detail=String(j.message||j.error||j.details||j.hint||detail);
+      }catch(_){}
+      if(/Could not find the function|function .* does not exist|PGRST202/i.test(detail)){
+        detail+='\n\n→ Exécutez une fois le fichier SQL supabase/patch_admin_reset_demo_data_rpc.sql dans l’éditeur Supabase (crée la fonction), puis réessayez.';
+      }
+      return {ok:false,error:detail};
+    }
+    let data={};
+    if(text){
+      try{data=JSON.parse(text);}catch(_){}
+    }
+    return {ok:true,data};
+  }catch(e){
+    return {ok:false,error:String(e?.message||e||'réseau')};
+  }
+}
+
+/** Pilotage → Fichiers & outils : repartir de zéro via RPC (après installation SQL une fois). */
+async function pilotageRepartirZeroDepuisApp(){
   if(currentUser?.role!=='admin'){
     void benaiAlert('Réservé au compte administrateur (rôle admin).');
     return;
   }
-  await benaiAlert(
-    'Mode simple — tout se fait dans le navigateur Supabase, une seule fois :\n\n'+
-    '1. Ouvrez votre projet sur supabase.com → section SQL → New query.\n'+
-    '2. Sur votre PC, dans ce dossier BenAI, ouvrez le fichier :\n   supabase\\patch_admin_reset_demo_data_rpc.sql\n'+
-    '3. Sélectionnez tout le texte (Ctrl+A), copiez, collez dans l’éditeur SQL Supabase.\n'+
-    '4. Cliquez sur Run (ou Ctrl+Enter).\n\n'+
-    'Ensuite : rechargez BenAI (F5) sur chaque ordinateur.\n\n'+
-    'Ce script efface leads, SAV, notes, absences, messages cloud, stats enregistrées ; il garde les comptes et l’annuaire.',
-    'Repartir de zéro — pas d’installation'
+  if(!SUPABASE_CONFIG.enabled||!SUPABASE_CONFIG.url){
+    void benaiAlert('Activez Supabase et reconnectez-vous avec le compte cloud.');
+    return;
+  }
+  const step1=await benaiConfirm(
+    'Tout effacer côté cloud : leads, SAV, notes, absences, messages, stats pilotage (snapshots user_state_*). Les comptes et l’annuaire en base sont conservés.\n\nConfirmer ?',
+    'Repartir de zéro'
   );
+  if(!step1)return;
+  const word=await benaiPrompt('Tapez exactement : EFFACER','','Confirmation');
+  if(String(word||'').trim()!=='EFFACER'){
+    void benaiAlert('Annulé.');
+    return;
+  }
+  showDriveNotif('⏳ Remise à zéro en cours…');
+  const res=await rpcAdminWipeBenaiResetCloud();
+  if(!res.ok){
+    showDriveNotif('');
+    void benaiAlert(res.error||'Échec');
+    return;
+  }
+  showDriveNotif('');
+  const nAnn=Number(res.data?.annuaire_count);
+  try{
+    saveMem(createEmptyMemState(),false);
+    saveLeads([],false);
+    clearRuntimeSession(currentUser?.id);
+    sharedCoreLastSignature='';
+    await loadSharedCoreDataFromSupabase(true);
+    refreshSharedSignatures(true);
+  }catch(_){}
+  const nLab=Number.isFinite(nAnn)?nAnn:'?';
+  await benaiAlert(`Terminé : données CRM et stats effacées (annuaire en base : ${nLab} fiche(s)). Rechargez la page si besoin.`);
+  location.reload();
 }
 
 async function updateSupabaseUserAppUidProvisioning(body){
@@ -10189,10 +10252,10 @@ function renderLeadsDashboard(){
       </div>
     </div>`;
     if(role==='admin'&&dashPilotage){
-      html+=`<div class="secteur-card" style="margin-top:14px;border:1px solid rgba(59,130,246,.35);background:rgba(59,130,246,.08)">
-      <div class="secteur-title" style="color:var(--bl)">🧹 Repartir de zéro (simple)</div>
-      <div style="font-size:11px;color:var(--t2);line-height:1.55;margin-bottom:10px">Pas de programme à installer : un fichier SQL à coller dans Supabase. Conserve comptes + annuaire ; efface CRM, messages et stats cloud. Le bouton ci-dessous affiche les étapes.</div>
-      <button type="button" onclick="pilotageAfficherGuideRepartirZero()" style="padding:10px 14px;background:var(--bl);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">Voir les étapes (SQL)</button>
+      html+=`<div class="secteur-card" style="margin-top:14px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.06)">
+      <div class="secteur-title" style="color:var(--r)">🧹 Repartir de zéro</div>
+      <div style="font-size:11px;color:var(--t2);line-height:1.55;margin-bottom:10px"><strong>1)</strong> Une seule fois : SQL Editor → exécuter le fichier <code style="font-size:10px">supabase/patch_admin_reset_demo_data_rpc.sql</code> (crée la fonction). <strong>2)</strong> Ensuite le bouton ci-dessous appelle Supabase comme le reste de BenAI (pas de fonction Edge ni CORS séparé).</div>
+      <button type="button" onclick="pilotageRepartirZeroDepuisApp()" style="padding:10px 14px;background:var(--r);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">Repartir de zéro (1 clic)</button>
     </div>`;
     }
     if(dashPilotage){
