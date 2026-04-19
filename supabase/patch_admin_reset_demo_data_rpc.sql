@@ -47,6 +47,7 @@ begin
       'version', 1,
       'updated_at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
       'data', jsonb_build_object(
+        'messages_epoch', (floor(extract(epoch from clock_timestamp()) * 1000))::bigint,
         'sav', '[]'::jsonb,
         'notes', '[]'::jsonb,
         'absences', '[]'::jsonb,

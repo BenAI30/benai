@@ -526,6 +526,7 @@ function buildSharedCoreDataPayload(mem,annuaire,leads){
     version:1,
     updated_at:new Date().toISOString(),
     data:{
+      messages_epoch:readSharedMessagesEpochSeen(),
       sav:Array.isArray(mem?.sav)?mem.sav:[],
       notes:Array.isArray(mem?.notes)?mem.notes:[],
       absences:Array.isArray(mem?.absences)?mem.absences:[],
@@ -680,6 +681,29 @@ function mergeMsgReadCursors(remoteMap,localMap){
   });
   return out;
 }
+
+const SHARED_MESSAGES_EPOCH_STORAGE_KEY='benai_shared_messages_epoch_v1';
+function getSharedMessagesEpochFromBundle(bundle){
+  const n=Math.floor(Number(bundle?.messages_epoch));
+  return Number.isFinite(n)&&n>0?n:0;
+}
+function readSharedMessagesEpochSeen(){
+  try{
+    const n=Math.floor(Number(localStorage.getItem(SHARED_MESSAGES_EPOCH_STORAGE_KEY)||0));
+    return Number.isFinite(n)&&n>0?n:0;
+  }catch{
+    return 0;
+  }
+}
+function writeSharedMessagesEpochSeenIfGreater(n){
+  const v=Math.floor(Number(n))||0;
+  if(v<=0)return;
+  try{
+    const cur=readSharedMessagesEpochSeen();
+    if(v<=cur)return;
+    localStorage.setItem(SHARED_MESSAGES_EPOCH_STORAGE_KEY,String(v));
+  }catch{}
+}
 function mergeMessagesMap(remoteMap,localMap,msgDeletionsByCid){
   const del=msgDeletionsByCid&&typeof msgDeletionsByCid==='object'?msgDeletionsByCid:{};
   const r=remoteMap&&typeof remoteMap==='object'?remoteMap:{};
@@ -763,7 +787,24 @@ function applyInboxNotifsFromSharedFeed(feed){
 function mergeSharedCoreData(remoteData,localData,mode='pull'){
   const remote=remoteData||{};
   const local=localData||{};
-  const msgDel=mergeMsgDeletions(remote.msg_deletions,local.msg_deletions);
+  const remoteMsgEpoch=getSharedMessagesEpochFromBundle(remote);
+  const seenMsgEpoch=readSharedMessagesEpochSeen();
+  const localMsgEpoch=getSharedMessagesEpochFromBundle(local);
+  const msgRemoteWins=remoteMsgEpoch>0&&remoteMsgEpoch>seenMsgEpoch;
+  let messages;
+  let msg_deletions;
+  let msg_read_cursor;
+  if(msgRemoteWins){
+    messages=remote.messages&&typeof remote.messages==='object'?{...remote.messages}:{};
+    msg_deletions=remote.msg_deletions&&typeof remote.msg_deletions==='object'?{...remote.msg_deletions}:{};
+    msg_read_cursor=remote.msg_read_cursor&&typeof remote.msg_read_cursor==='object'?{...remote.msg_read_cursor}:{};
+  }else{
+    msg_deletions=mergeMsgDeletions(remote.msg_deletions,local.msg_deletions);
+    messages=mergeMessagesMap(remote.messages,local.messages,msg_deletions);
+    msg_read_cursor=mergeMsgReadCursors(remote.msg_read_cursor,local.msg_read_cursor);
+  }
+  const nextMsgEpoch=Math.max(remoteMsgEpoch,seenMsgEpoch,localMsgEpoch);
+  writeSharedMessagesEpochSeenIfGreater(nextMsgEpoch);
   return {
     sav:mergeByKey(remote.sav,local.sav,x=>x?.id,pickLatestSav),
     notes:mergeByKey(remote.notes,local.notes,x=>x?.id,pickLatestNote),
@@ -771,9 +812,10 @@ function mergeSharedCoreData(remoteData,localData,mode='pull'){
     annuaire:mergeByKey(remote.annuaire,local.annuaire,x=>x?.id,pickLatestAnnuaire),
     leads:mergeByKey(remote.leads,local.leads,x=>x?.id,pickLatestLead),
     notif_feed:mergeNotifFeeds(remote.notif_feed,local.notif_feed),
-    messages:mergeMessagesMap(remote.messages,local.messages,msgDel),
-    msg_deletions:msgDel,
-    msg_read_cursor:mergeMsgReadCursors(remote.msg_read_cursor,local.msg_read_cursor)
+    messages,
+    msg_deletions,
+    msg_read_cursor,
+    messages_epoch:nextMsgEpoch
   };
 }
 
