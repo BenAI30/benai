@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.update-user-app-uid]
 verify_jwt = false
+
+[functions.admin-reset-demo-data]
+verify_jwt = false
