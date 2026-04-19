@@ -936,7 +936,7 @@ input[type=file]{display:none;}
   <div class="topbar">
     <div class="tb-logo">B</div>
     <div class="tb-name">BenAI</div>
-    <span id="tb-version" style="font-size:10px;color:var(--t3);margin-left:4px;">v3.0</span>
+    <span id="tb-version" style="font-size:10px;color:var(--t3);margin-left:4px;">…</span>
     <div class="tb-user">
       <div class="tb-avatar" id="tb-avatar"></div>
       <span class="tb-username" id="tb-username"></span>
@@ -1962,12 +1962,18 @@ input[type=file]{display:none;}
   fetch('version.json',{cache:'no-store',credentials:'same-origin',headers:{'Accept':'application/json'}})
     .then(function(r){ if(!r.ok)throw new Error('version'); return r.json(); })
     .then(function(j){
-      var v='';
-      try{ v=String(j&&j.version||'').trim(); }catch(e){}
-      if(!v)v=String(Date.now());
-      loadApp('benai-v3-15-04-app.js?v='+encodeURIComponent(v));
+      var verDisp='';
+      try{ verDisp=String(j&&j.version||'').trim(); }catch(e){}
+      var v=verDisp||String(Date.now());
+      var tb=document.getElementById('tb-version');
+      if(tb)tb.textContent=verDisp?('v'+verDisp):'…';
+      loadApp('benai-app.js?v='+encodeURIComponent(v));
     })
-    .catch(function(){ loadApp('benai-v3-15-04-app.js?v='+encodeURIComponent(String(Date.now()))); });
+    .catch(function(){
+      var tb=document.getElementById('tb-version');
+      if(tb)tb.textContent='…';
+      loadApp('benai-app.js?v='+encodeURIComponent(String(Date.now())));
+    });
 })();
 </script>
 </body>

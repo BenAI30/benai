@@ -8,7 +8,8 @@ Application principale : `BenAI_v3 15-04.html`.
 
 ## Fichiers utiles
 
-- `BenAI_v3 15-04.html` : application
+- `BenAI_v3 15-04.html` : application (shell + chargement de `benai-app.js`, version affichée lue depuis `version.json`)
+- `benai-app.js` : logique BenAI (constante `BENAI_VERSION` alignée sur `version.json`)
 - `supabase_security.sql` : schéma + RLS
 - `Supabase.txt` : URL + clé publishable (à jour manuellement si besoin)
 - `supabase/` : fonctions Edge et config CLI (si utilisé)

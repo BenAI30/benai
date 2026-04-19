@@ -3224,6 +3224,8 @@ function initApp(silent=false){
     const soc=formatSocieteLegaleCourt(u.societe);
     tb.innerHTML=`<span style="font-weight:500">${esc(u.name)}</span><br><span style="font-size:10px;font-weight:600;color:var(--t3);line-height:1.25">${esc(soc)}</span>`;
   }else if(tb){tb.textContent=u.name;}
+  const tbVer=document.getElementById('tb-version');
+  if(tbVer&&typeof BENAI_VERSION!=='undefined'&&BENAI_VERSION)tbVer.textContent='v'+String(BENAI_VERSION).trim();
   // Bouton changer de session — Benjamin uniquement OU retour si en mode switch
   const btnSwitch=document.getElementById('btn-switch-session');
   if(btnSwitch){

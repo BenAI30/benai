@@ -540,7 +540,7 @@ input[type=file]{display:none;}
   <div class="topbar">
     <div class="tb-logo">B</div>
     <div class="tb-name">BenAI</div>
-    <span id="tb-version" style="font-size:10px;color:var(--t3);margin-left:4px;">v3.0</span>
+    <span id="tb-version" style="font-size:10px;color:var(--t3);margin-left:4px;">…</span>
     <div class="tb-user">
       <div class="tb-avatar" id="tb-avatar"></div>
       <span class="tb-username" id="tb-username"></span>
