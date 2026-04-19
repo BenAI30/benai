@@ -10,6 +10,10 @@
 <meta name="apple-mobile-web-app-title" content="BenAI">
 <link rel="manifest" id="benai-manifest" href="">
 <meta name="description" content="BenAI — pilotage d’équipe et dossiers clients">
+<!-- Demander au navigateur de revalider la page (évite une vieille coquille HTML après déploiement). -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>BenAI</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -696,6 +700,10 @@ input[type=file]{display:none;}
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body class="light">
+<div id="benai-boot-cover" style="position:fixed;inset:0;background:var(--bg);z-index:5000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;font-family:'Outfit',sans-serif;font-size:14px;color:var(--t2);transition:opacity .2s ease">
+  <div style="font-size:12px;font-weight:700;color:var(--t3);letter-spacing:.08em;text-transform:uppercase">BenAI</div>
+  <div>Chargement de l’interface…</div>
+</div>
 
 <!-- ══ LOGIN ══ -->
 <div id="login-screen">
@@ -1782,6 +1790,38 @@ input[type=file]{display:none;}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="benai-v3-15-04-app.js"></script>
+<script>
+(function(){
+  var cover=document.getElementById('benai-boot-cover');
+  function hideBoot(){
+    if(!cover)return;
+    cover.style.opacity='0';
+    setTimeout(function(){ try{cover.remove();}catch(e){ cover.style.display='none'; } },220);
+  }
+  function loadApp(url){
+    var s=document.createElement('script');
+    s.src=url;
+    s.onload=function(){ hideBoot(); };
+    s.onerror=function(){
+      if(cover){
+        cover.style.alignItems='flex-start';
+        cover.style.padding='28px 20px';
+        cover.style.justifyContent='flex-start';
+        cover.innerHTML='<div style="max-width:360px;line-height:1.45"><div style="font-size:13px;font-weight:700;color:var(--r);margin-bottom:8px">Impossible de charger l’application</div><div style="font-size:12px;color:var(--t2)">Vérifiez la connexion ou rechargez en forçant le cache du navigateur (<strong>Ctrl+F5</strong> ou <strong>Ctrl+Maj+R</strong>).</div></div>';
+      }
+    };
+    document.body.appendChild(s);
+  }
+  fetch('version.json',{cache:'no-store',credentials:'same-origin',headers:{'Accept':'application/json'}})
+    .then(function(r){ if(!r.ok)throw new Error('version'); return r.json(); })
+    .then(function(j){
+      var v='';
+      try{ v=String(j&&j.version||'').trim(); }catch(e){}
+      if(!v)v=String(Date.now());
+      loadApp('benai-v3-15-04-app.js?v='+encodeURIComponent(v));
+    })
+    .catch(function(){ loadApp('benai-v3-15-04-app.js?v='+encodeURIComponent(String(Date.now()))); });
+})();
+</script>
 </body>
 </html>
