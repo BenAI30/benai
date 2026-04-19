@@ -292,7 +292,7 @@ const appStorage={
 window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
-const BENAI_VERSION = '3.15.5';
+const BENAI_VERSION = '3.15.6';
 const GUIDE_REQUIRED_VERSION='3.21';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 /** Même clé que appStorage : persistance navigateur (localStorage) car l’ACK guide est exclu du snapshot cloud. */
@@ -9354,6 +9354,7 @@ function renderDispatchCard(l){
       <span>${srcIcon}</span>
       <div class="lead-nom">${esc(l.nom)}</div>
       <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--s3);color:var(--a);border:1px solid var(--b1);white-space:nowrap" title="Entité CRM du dossier">🏢 ${esc(socCourt)}</span>
+      ${formatLeadCrossEntitySecteurBadgeHtml(l)}
       <span style="margin-left:auto;font-size:10px;color:var(--t3)">${getLeadAge(l)}</span>
     </div>
     <div class="lead-info">${esc(l.ville||'')}${l.cp?' ('+l.cp+')':''} · ${esc(l.type_projet||'')}</div>
@@ -9475,6 +9476,9 @@ function renderLeadCard(l,role){
   const rdvClientDone=getClientRdvDoneCount(l);
   const showHistSnippet=canViewLeadFullTimeline();
   const dernContact=showHistSnippet&&dernAction?`<div style="font-size:10px;color:var(--t2);margin-top:3px">🕐 ${dernAction.date} — ${esc(dernAction.action)}</div>`:'';
+  const pilotGrisEntity=(l.statut==='gris'&&(role==='admin'||normalizeProfileRole(role)==='directeur_general'))
+    ?`<div style="font-size:10px;font-weight:700;margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:center"><span style="background:var(--a3);color:var(--a);padding:2px 8px;border-radius:8px">🏢 ${esc(formatSocieteLegaleCourt(getLeadCRMCompany(l)))}</span>${formatLeadCrossEntitySecteurBadgeHtml(l)}</div>`
+    :'';
   return `<div class="lead-card statut-${l.statut}${alerte?' alerte24':''}${isLeadCrmArchivedView(l)?';opacity:.6':''}" onclick="openLead(${l.id})" style="position:relative">
     ${alerte?'<div class="lead-alerte" style="position:absolute;top:10px;right:10px">⏰ Alerte</div>':''}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
@@ -9484,6 +9488,7 @@ function renderLeadCard(l,role){
     </div>
     <div style="font-size:13px;font-weight:700;color:var(--a);margin-bottom:3px">${esc(l.type_projet||'—')}</div>
     <div class="lead-info">${esc(l.ville||'')}${l.cp?' ('+l.cp+')':''} ${montant}</div>
+    ${pilotGrisEntity}
     <div class="lead-meta" style="margin-top:5px">
       <span class="lead-statut ${statCls}">${statLabel}</span>
       <span class="lead-secteur">${secteurLabel}</span>
@@ -9522,12 +9527,17 @@ function renderKanban(){
         <span style="background:var(--s3);border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700">${colLeads.length}</span>
       </div>
       <div class="kanban-col-body">
-        ${colLeads.map(l=>`
+        ${colLeads.map(l=>{
+          const showKanbanEnt=(role==='admin'||normalizeProfileRole(role)==='directeur_general')&&col.id==='gris';
+          const kanbanEnt=showKanbanEnt?`<div style="font-size:9px;font-weight:700;margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start"><span style="background:var(--a3);color:var(--a);padding:2px 7px;border-radius:7px;line-height:1.2">🏢 ${esc(formatSocieteLegaleCourt(getLeadCRMCompany(l)))}</span>${formatLeadCrossEntitySecteurBadgeHtml(l)}</div>`:'';
+          return`
           <div class="kanban-card" onclick="openLead(${l.id})">
             <div class="kanban-card-nom">${esc(l.nom)}</div>
             <div class="kanban-card-info">${esc(l.ville||'')} · ${esc(l.type_projet||'')}</div>
+            ${kanbanEnt}
             ${l.montant_devis||l.prix_vendu?`<div style="font-size:11px;color:var(--g);font-weight:600;margin-top:2px">${Number(l.prix_vendu||l.montant_devis||0).toLocaleString('fr-FR')} €</div>`:''}
-          </div>`).join('')||'<div style="color:var(--t3);font-size:11px;padding:8px;text-align:center">Vide</div>'}
+          </div>`;
+        }).join('')||'<div style="color:var(--t3);font-size:11px;padding:8px;text-align:center">Vide</div>'}
       </div>
     </div>`;
   }).join('');
@@ -10791,7 +10801,7 @@ async function saveLead(){
         date_creation:old.date_creation,
         date_modification:now,
         commercial_user_id:data.commercial_user_id||old.commercial_user_id||null,
-        societe_crm:resolveLeadSocieteBySecteur(data.secteur,old.societe_crm||getSocieteFromUser(currentUser.id))
+        societe_crm:resolveLeadSocieteCrmForPersistence(data.secteur,old.societe_crm||getSocieteFromUser(currentUser.id))
       };
       leads[idx]=updatedLead;
       if(activeCRMTabId==='non-attribues'&&!isLeadInNonAttribQueue(updatedLead)){
@@ -10802,7 +10812,7 @@ async function saveLead(){
     logActivity(`${currentUser.name} a mis à jour : ${nom}`);
   } else {
     // Nouveau lead
-    const societe=resolveLeadSocieteBySecteur(data.secteur,getSocieteFromUser(currentUser.id));
+    const societe=resolveLeadSocieteCrmForPersistence(data.secteur,getSocieteFromUser(currentUser.id));
     let autoCommercial=data.commercial||null;
     if(!autoCommercial&&!hasDirecteurCommercialForSociete(societe)){
       if(roleNeedsPeerProfilesSyncFromSupabase(currentUser?.role)){
@@ -10981,6 +10991,27 @@ function resolveLeadSocieteBySecteur(secteur,fallbackSociete='nemausus'){
   if(secteur==='nimes'||secteur==='avignon')return 'nemausus';
   if(fallbackSociete==='lambert'||fallbackSociete==='nemausus')return fallbackSociete;
   return 'nemausus';
+}
+/** Entité CRM du dossier : assistante / mètreur → société de leur compte (Lambert / Nemausus), pas le « propriétaire » géographique du secteur (évite les leads Lambert classés chez Nemausus). */
+function resolveLeadSocieteCrmForPersistence(secteur,fallbackSociete){
+  const role=normalizeProfileRole(currentUser?.role);
+  if(role==='assistante'||role==='metreur'){
+    const soc=getSocieteFromUser(currentUser.id);
+    if(soc==='lambert'||soc==='nemausus')return soc;
+  }
+  return resolveLeadSocieteBySecteur(secteur,fallbackSociete);
+}
+/** Pastille si le secteur géographique (Nîmes / Bagnols…) est habituellement rattaché à l’autre entité que societe_crm. */
+function formatLeadCrossEntitySecteurBadgeHtml(l){
+  if(!l)return'';
+  const own=CRM_SECTOR_OWNERS[l.secteur];
+  if(!own||own==='zone_blanche')return'';
+  const crm=getLeadCRMCompany(l);
+  if(crm===own)return'';
+  const lab=CRM_SECTOR_LABELS[l.secteur]||l.secteur;
+  const ownerLab=own==='nemausus'?'Nemausus':'Lambert';
+  const tip=`Secteur « ${lab} » (${ownerLab}) : dossier géré sous votre entité mais localisation liée à l’autre société — ancien client ou accord possible.`;
+  return`<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px;background:rgba(251,191,36,.22);color:#b45309;border:1px solid rgba(251,191,36,.5);white-space:normal;line-height:1.25;max-width:100%" title="${escAttr(tip)}">⚠️ ${esc(lab)} · ${esc(ownerLab)}</span>`;
 }
 
 function normalizeLeadCP(raw){
