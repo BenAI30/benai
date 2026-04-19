@@ -6990,41 +6990,50 @@ async function syncExtraUsersFromSupabaseProfiles(opts){
     const hiddenSet=new Set(getHiddenUserIds().map(normalizeId));
     const old=getExtraUsers().filter(u=>!hiddenSet.has(normalizeId(u.id)));
     const oldMap=new Map(old.map(u=>[u.id,u]));
-    const merged=[...old];
-    const exists=new Set(old.map(u=>u.id));
-    const colorIdx={i:merged.length};
-    rows.forEach(p=>{
-      const email=(p?.email||'').trim().toLowerCase();
-      const fullName=String(p?.full_name||email.split('@')[0]||'Utilisateur').trim();
-      if(p?.role==='admin'&&/benjamin/i.test(String(p?.full_name||'')))return;
-      const builtinBen=getBuiltinLoginEmails().benjamin;
-      if(builtinBen&&email===String(builtinBen).trim().toLowerCase())return;
-      let uid=normalizeId(p?.app_uid||email.split('@')[0]||fullName.split(/\s+/)[0]||'');
-      if(!uid)return;
-      if(uid==='benjamin'||uid==='benai')return;
-      if(hiddenSet.has(uid))return;
-      const prev=oldMap.get(uid);
-      const newU={
-        id:uid,
-        auth_uid:p?.id||prev?.auth_uid||'',
-        name:fullName,
-        email,
-        role:normalizeProfileRole(p?.role||prev?.role||'assistante'),
-        societe:normalizeProfileCompany(p?.company)||normalizeProfileCompany(prev?.societe)||'',
-        fonction:prev?.fonction||'',
-        vehicule:prev?.vehicule||'',
-        color:prev?.color||COLORS[(colorIdx.i++)%COLORS.length],
-        initial:(fullName[0]||uid[0]||'U').toUpperCase(),
-        builtin:false
-      };
-      if(exists.has(uid)){
+    const authIdsInSupabase=new Set(rows.map(p=>String(p?.id||'').trim()).filter(Boolean));
+    let merged;
+    let colorIdx=0;
+    if(rows.length){
+      merged=[];
+      const seenIds=new Set();
+      rows.forEach(p=>{
+        const email=(p?.email||'').trim().toLowerCase();
+        const fullName=String(p?.full_name||email.split('@')[0]||'Utilisateur').trim();
+        if(p?.role==='admin'&&/benjamin/i.test(String(p?.full_name||'')))return;
+        const builtinBen=getBuiltinLoginEmails().benjamin;
+        if(builtinBen&&email===String(builtinBen).trim().toLowerCase())return;
+        let uid=normalizeId(p?.app_uid||email.split('@')[0]||fullName.split(/\s+/)[0]||'');
+        if(!uid)return;
+        if(uid==='benjamin'||uid==='benai')return;
+        if(hiddenSet.has(uid))return;
+        const prev=oldMap.get(uid);
+        const newU={
+          id:uid,
+          auth_uid:p?.id||prev?.auth_uid||'',
+          name:fullName,
+          email,
+          role:normalizeProfileRole(p?.role||prev?.role||'assistante'),
+          societe:normalizeProfileCompany(p?.company)||normalizeProfileCompany(prev?.societe)||'',
+          fonction:prev?.fonction||'',
+          vehicule:prev?.vehicule||'',
+          color:prev?.color||COLORS[(colorIdx++)%COLORS.length],
+          initial:(fullName[0]||uid[0]||'U').toUpperCase(),
+          builtin:false
+        };
         const idx=merged.findIndex(u=>u.id===uid);
         if(idx>-1)merged[idx]={...merged[idx],...newU};
-      }else{
-        merged.push(newU);
-        exists.add(uid);
-      }
-    });
+        else merged.push(newU);
+        seenIds.add(uid);
+      });
+      old.forEach(u=>{
+        const auth=String(u.auth_uid||'').trim();
+        if(auth&&!authIdsInSupabase.has(auth))return;
+        if(seenIds.has(u.id))return;
+        merged.push(u);
+      });
+    }else{
+      merged=[...old];
+    }
     saveExtraUsers(merged);
     refreshCurrentUserFromSyncedExtras();
     scheduleRenderConvList();
