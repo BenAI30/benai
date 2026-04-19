@@ -349,6 +349,57 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .tuto-btn-skip:hover{color:var(--t2);border-color:var(--b2);}
 /* UPDATE POPUP */
 #update-popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2001;align-items:center;justify-content:center;}
+/* Bandeau « nouvelle version » — reste visible tant que l’utilisateur n’a pas rechargé */
+#benai-update-banner{
+  display:none;
+  position:fixed;
+  left:12px;
+  right:12px;
+  bottom:20px;
+  z-index:1990;
+  align-items:stretch;
+  justify-content:center;
+  gap:0;
+  pointer-events:auto;
+}
+#benai-update-banner.is-on{display:flex;}
+.benai-update-banner-inner{
+  flex:1;
+  max-width:520px;
+  margin:0 auto;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:linear-gradient(135deg,#E8943A,#C4711A);
+  border:1px solid rgba(255,255,255,.35);
+  box-shadow:0 10px 36px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.08);
+}
+.benai-update-banner-btn{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:2px;
+  padding:10px 14px;
+  border:none;
+  border-radius:11px;
+  background:rgba(255,255,255,.96);
+  color:#1a1208;
+  font-family:'Outfit',sans-serif;
+  font-size:14px;
+  font-weight:800;
+  cursor:pointer;
+  text-align:left;
+  line-height:1.25;
+  box-shadow:0 2px 10px rgba(0,0,0,.12);
+  transition:transform .12s ease,filter .12s ease;
+}
+.benai-update-banner-btn:hover{filter:brightness(1.02);transform:translateY(-1px);}
+.benai-update-banner-btn:active{transform:translateY(0);}
+.benai-update-banner-btn .sub{font-size:11px;font-weight:600;color:#5c4a32;}
+.benai-update-banner-ver{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:8px;background:rgba(232,148,58,.28);color:#7c2d12;font-size:11px;font-weight:800;vertical-align:middle;}
 .update-box{width:420px;background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
 .update-badge{display:inline-block;background:var(--a3);color:var(--a);border-radius:20px;padding:3px 12px;font-size:11px;font-weight:700;margin-bottom:12px;}
 .update-version{font-size:20px;font-weight:800;margin-bottom:6px;}
@@ -737,6 +788,13 @@ body.light .bubble{color:var(--t1);}
   }
   .login-box{width:min(94vw,380px);padding:28px 22px;}
   .install-btn{display:inline-flex;align-items:center;justify-content:center;}
+  #benai-update-banner{
+    left:8px;
+    right:8px;
+    bottom:calc(88px + 10px + env(safe-area-inset-bottom, 0px));
+  }
+  .benai-update-banner-inner{flex-direction:column;align-items:stretch;padding:10px 12px;}
+  .benai-update-banner-btn{width:100%;align-items:center;text-align:center;}
 }
 input[type=file]{display:none;}
 </style>
@@ -836,9 +894,19 @@ input[type=file]{display:none;}
     <div style="font-size:12px;color:var(--t3);margin-bottom:12px">Améliorations :</div>
     <ul class="update-notes" id="update-notes"></ul>
     <div style="display:flex;gap:10px">
-      <button onclick="confirmInstallUpdate()" style="flex:1;padding:11px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚀 Installer maintenant</button>
-      <button onclick="document.getElementById('update-popup').style.display='none'" style="padding:11px 16px;background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:10px;font-family:inherit;font-size:13px;cursor:pointer">Plus tard</button>
+      <button type="button" onclick="confirmInstallUpdate()" style="flex:1;padding:11px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🚀 Installer maintenant</button>
+      <button type="button" onclick="dismissBenaiUpdatePopupKeepBanner()" style="padding:11px 16px;background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:10px;font-family:inherit;font-size:13px;cursor:pointer">Plus tard</button>
     </div>
+  </div>
+</div>
+
+<!-- Bandeau persistant : mise à jour distante détectée (vide cache + recharger) -->
+<div id="benai-update-banner" role="region" aria-label="Mise à jour BenAI disponible" aria-hidden="true">
+  <div class="benai-update-banner-inner">
+    <button type="button" class="benai-update-banner-btn" id="btn-benai-update-reload" onclick="benaiApplyUpdateHardReload()" title="Supprime les caches locaux et recharge la page pour charger la nouvelle version">
+      <span>⬆️ Nouvelle version <span class="benai-update-banner-ver" id="benai-update-banner-ver">—</span></span>
+      <span class="sub">Vider le cache et recharger la page</span>
+    </button>
   </div>
 </div>
 

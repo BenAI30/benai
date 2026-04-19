@@ -292,7 +292,7 @@ const appStorage={
 window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
-const BENAI_VERSION = '3.15';
+const BENAI_VERSION = '3.15.5';
 const GUIDE_REQUIRED_VERSION='3.21';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 /** Même clé que appStorage : persistance navigateur (localStorage) car l’ACK guide est exclu du snapshot cloud. */
@@ -13088,6 +13088,40 @@ window.addEventListener('appinstalled',()=>{
 });
 
 // MISE À JOUR
+function setBenaiUpdateBannerVisible(visible,remoteVersion){
+  const ban=document.getElementById('benai-update-banner');
+  const verEl=document.getElementById('benai-update-banner-ver');
+  if(verEl&&remoteVersion)verEl.textContent='v'+String(remoteVersion).trim();
+  if(!ban)return;
+  if(visible){
+    ban.classList.add('is-on');
+    ban.setAttribute('aria-hidden','false');
+  }else{
+    ban.classList.remove('is-on');
+    ban.setAttribute('aria-hidden','true');
+  }
+}
+function dismissBenaiUpdatePopupKeepBanner(){
+  const pop=document.getElementById('update-popup');
+  if(pop)pop.style.display='none';
+}
+/** Vide caches navigateur + désinscrit les SW, puis recharge (nouvelle version). */
+async function benaiApplyUpdateHardReload(){
+  setBenaiUpdateBannerVisible(false);
+  try{
+    if(window.caches&&typeof caches.keys==='function'){
+      const keys=await caches.keys();
+      await Promise.all(keys.map(k=>caches.delete(k).catch(()=>{})));
+    }
+  }catch(_){}
+  try{
+    if(navigator.serviceWorker&&typeof navigator.serviceWorker.getRegistrations==='function'){
+      const regs=await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r=>r.unregister().catch(()=>{})));
+    }
+  }catch(_){}
+  window.location.reload();
+}
 async function checkUpdate(){
   try{
     const res=await fetch(`https://raw.githubusercontent.com/BenAI30/benai/main/version.json?t=${Date.now()}`);
@@ -13103,18 +13137,20 @@ async function checkUpdate(){
       if(data.notes_assistante&&(role==='assistante'||role==='metreur'))notes=notes.concat(data.notes_assistante);
       // Fallback si pas de notes filtrées
       if(!notes.length)notes=Array.isArray(data.notes)?data.notes:[data.notes||'Améliorations et corrections'];
-      document.getElementById('update-version').textContent='Mise à jour BenAI prête';
+      const uv=document.getElementById('update-version');if(uv)uv.textContent='Mise à jour BenAI prête';
       const notesList=document.getElementById('update-notes');
-      notesList.innerHTML=notes.map(n=>'<li>✅ '+esc(n)+'</li>').join('');
+      if(notesList)notesList.innerHTML=notes.map(n=>'<li>✅ '+esc(n)+'</li>').join('');
       window._pendingUpdate={version:data.version,notes:data.notes};
-      document.getElementById('update-popup').style.display='flex';
+      setBenaiUpdateBannerVisible(true,data.version);
+      const upPop=document.getElementById('update-popup');if(upPop)upPop.style.display='flex';
     }
   }catch(e){}
 }
 
 function confirmInstallUpdate(){
-  document.getElementById('update-popup').style.display='none';
-  if(window._pendingUpdate)installUpdate(window._pendingUpdate.version,window._pendingUpdate.notes||'');
+  const pop=document.getElementById('update-popup');
+  if(pop)pop.style.display='none';
+  void benaiApplyUpdateHardReload();
 }
 
 function isNewerVersion(remote,current){
@@ -13353,11 +13389,6 @@ function shouldShowTuto(){
 }
 
 async function installUpdate(version,notes){
-  if(!await benaiConfirm(`Installer BenAI v${version} ?\n\nBenAI va se recharger.`))return;
-  try{
-    const res=await fetch(`https://raw.githubusercontent.com/BenAI30/benai/main/index.html?t=${Date.now()}`);
-    if(!res.ok)throw new Error('Impossible de télécharger');
-    const html=await res.text();
-    document.open();document.write(html);document.close();
-  }catch(e){await benaiAlert('❌ Erreur : '+e.message);}
+  void version;void notes;
+  await benaiApplyUpdateHardReload();
 }
