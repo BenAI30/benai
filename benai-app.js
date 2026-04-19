@@ -292,7 +292,7 @@ const appStorage={
 window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
-const BENAI_VERSION = '3.15.12';
+const BENAI_VERSION = '3.15.13';
 const GUIDE_REQUIRED_VERSION='3.21';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 /** Même clé que appStorage : persistance navigateur (localStorage) car l’ACK guide est exclu du snapshot cloud. */
@@ -8663,6 +8663,28 @@ function getDirecteursConcernedByLead(lead){
   return out;
 }
 
+/** Notif dir. commercial (sinon dir. général) : ancien client ; porteur auto ou à confier ; réattribution possible sur la fiche. */
+function notifyDirecteursPilotageAncienClient(newLead,nom,projet){
+  if(!newLead||!newLead.ancien_client)return;
+  const histNom=String(newLead.commercial_historique_nom||'').trim()||resolveCrmCommercialLabel(newLead.commercial_historique)||'—';
+  const hasPorteur=leadHasAssignedCommercial(newLead);
+  const assigneeNom=hasPorteur?(resolveCrmCommercialLabel(getLeadCommercialAssigneeId(newLead))||'—'):'';
+  const titre=hasPorteur?'Ancien client — attribution proposée':'Ancien client — à attribuer';
+  const corps=hasPorteur
+    ?`${nom} — ${projet}. Client déjà vu : historique avec ${histNom}. Attribution automatique au porteur ${assigneeNom}. Ouvrez la fiche lead pour réattribuer un autre commercial si vous le souhaitez.`
+    :`${nom} — ${projet}. Client déjà vu : historique avec ${histNom}. Aucun porteur assigné pour l’instant : ouvrez la fiche pour choisir un commercial.`;
+  const dirs=getDirecteursConcernedByLead(newLead);
+  const dcos=dirs.filter(u=>normalizeProfileRole(u.role)==='directeur_co');
+  const targets=dcos.length?dcos:dirs.filter(u=>normalizeProfileRole(u.role)==='directeur_general');
+  targets.forEach(u=>{
+    if(normalizeProfileRole(u.role)==='directeur_general'){
+      pushNotif(titre,corps,'👤',u.id);
+    }else{
+      pushLeadCrmNotif(titre,corps,'👤',u.id);
+    }
+  });
+}
+
 /** Périmètre secteurs CRM (cartes dashboard, filtre liste, fiche lead) selon l’entreprise du compte. */
 function getCrmSecteurScopeSlug(){
   const role=currentUser?.role;
@@ -10741,7 +10763,11 @@ async function saveLead(){
   const justifRaw=(document.getElementById('lead-hors-secteur-justif')?.value||'').trim();
   const justifHorsSecteur=justifRaw?applyFrenchTypographyToFreeText(justifRaw):'';
   let historicalLead=null,historicalProposal=null,effectiveSource=currentLeadSource;
-  if(currentUser?.role!=='assistante'){
+  if(!currentLeadId){
+    historicalLead=findHistoricalLeadByIdentity(nomRaw,adresseRaw,cp2,null);
+    historicalProposal=getCommercialHistoryProposal(historicalLead);
+    if(historicalLead)effectiveSource='ANCIEN_CLIENT';
+  }else if(currentUser?.role!=='assistante'){
     historicalLead=findHistoricalLeadByIdentity(nomRaw,adresseRaw,cp2,currentLeadId);
     historicalProposal=getCommercialHistoryProposal(historicalLead);
     if(historicalLead)effectiveSource='ANCIEN_CLIENT';
@@ -10900,6 +10926,9 @@ async function saveLead(){
     // Nouveau lead
     const societe=resolveLeadSocieteCrmForPersistence(data.secteur,getSocieteFromUser(currentUser.id));
     let autoCommercial=data.commercial||null;
+    if(!autoCommercial&&currentLeadSource!=='ACTIF'&&historicalProposal&&historicalProposal.isActive&&normalizeId(historicalProposal.id)){
+      autoCommercial=historicalProposal.id;
+    }
     if(!autoCommercial&&!hasDirecteurCommercialForSociete(societe)){
       if(roleNeedsPeerProfilesSyncFromSupabase(currentUser?.role)){
         await syncExtraUsersFromSupabaseProfiles({quiet:true});
@@ -10950,6 +10979,9 @@ async function saveLead(){
     if(newLead.ancien_client){
       const histTxt=newLead.commercial_historique_nom?` — commercial historique: ${newLead.commercial_historique_nom}`:'';
       addLeadTimelineEntry(newLead,`Ancien client détecté${histTxt}`,currentUser.name);
+      if(historicalLead){
+        notifyDirecteursPilotageAncienClient(newLead,nom,projet);
+      }
     }
     if(newLead.hors_secteur){
       const proposalTxt=newLead.commercial_historique_nom&&newLead.proposition_reaffectation
