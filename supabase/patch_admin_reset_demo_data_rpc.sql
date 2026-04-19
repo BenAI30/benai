@@ -1,13 +1,11 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- BenAI — REPARTIR DE ZÉRO (une seule exécution dans Supabase → SQL → New query)
+-- BenAI — REPARTIR DE ZÉRO (Supabase → SQL → New query → Run une fois)
 -- ═══════════════════════════════════════════════════════════════════════════
--- Efface : leads, SAV, notes, absences, snapshots benai_state, miroir partagé
---          + toutes les lignes app_settings dont la clé commence par user_state_
--- Conserve : comptes Auth, table profiles, table annuaire (fiches employés)
--- Ne change pas : clé shared_ai_api ni les autres clés app_settings hors liste ci-dessus
+-- Si ça échoue : copiez le message d’erreur rouge en entier (souvent : table inexistante).
 --
--- Avant : faites une sauvegarde si besoin. En PRODUCTION, vérifiez deux fois.
--- Puis : bouton RUN (ou Ctrl+Enter). Pas besoin de Edge Function ni de déploiement.
+-- Efface : leads, SAV, notes, absences, benai_state (si elle existe), user_state_*,
+--          puis remplace shared_core_data_v1 (CRM + messages vides, annuaire = table).
+-- Conserve : Auth, profiles, table annuaire.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 begin;
@@ -16,9 +14,22 @@ truncate table
   public.leads,
   public.sav,
   public.notes,
-  public.absences,
-  public.benai_state
+  public.absences
 restart identity cascade;
+
+-- benai_state n’est pas dans supabase_security.sql : elle existe seulement si vous l’avez créée ailleurs.
+do $blk$
+begin
+  if exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'benai_state'
+  ) then
+    execute 'truncate table public.benai_state restart identity cascade';
+  end if;
+end
+$blk$;
 
 delete from public.app_settings
 where key like 'user_state\_%' escape '\';
@@ -35,22 +46,24 @@ values (
       'absences', '[]'::jsonb,
       'annuaire', coalesce(
         (
-          select jsonb_agg(
-            (coalesce(a.payload, '{}'::jsonb) || jsonb_build_object(
-              'id', a.id,
-              'prenom', a.prenom,
-              'nom', a.nom,
-              'email', coalesce(a.email, ''),
-              'emailPro', coalesce(a.email_pro, ''),
-              'tel', coalesce(a.tel, ''),
-              'naissance', coalesce(a.naissance::text, ''),
-              'fonction', coalesce(a.fonction, 'Autre'),
-              'societe', a.societe,
-              'sync_ts', (floor(extract(epoch from clock_timestamp()) * 1000))::bigint
-            ))
+          select jsonb_agg(x.row_json)
+          from (
+            select
+              (coalesce(a.payload, '{}'::jsonb) || jsonb_build_object(
+                'id', a.id,
+                'prenom', coalesce(a.prenom, ''),
+                'nom', coalesce(a.nom, ''),
+                'email', coalesce(a.email, ''),
+                'emailPro', coalesce(a.email_pro, ''),
+                'tel', coalesce(a.tel, ''),
+                'naissance', coalesce(a.naissance::text, ''),
+                'fonction', coalesce(a.fonction, 'Autre'),
+                'societe', a.societe,
+                'sync_ts', (floor(extract(epoch from clock_timestamp()) * 1000))::bigint
+              )) as row_json
+            from public.annuaire a
             order by a.id
-          )
-          from public.annuaire a
+          ) x
         ),
         '[]'::jsonb
       ),
@@ -68,8 +81,3 @@ on conflict (key) do update set
   updated_at = excluded.updated_at;
 
 commit;
-
--- Vérifications (optionnel, dans une nouvelle requête) :
--- select count(*) from public.leads;
--- select count(*) from public.annuaire;
--- select key from public.app_settings where key like 'user_state%' limit 5;
