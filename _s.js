@@ -7086,11 +7086,25 @@ function getCompanyScopedLeads(list){
   if(!isCRMScopePilotageRole(currentUser.role))return leads;
   return leads.filter(canAccessLeadByCompany);
 }
-/** Dir. co qui voient ce lead dans le CRM (même règle que canAccessLeadByCompany côté dir.). */
+/** Dir. co + dir. général concernés (société `les-deux` = les deux entités). */
 function getDirecteursConcernedByLead(lead){
   if(!lead)return[];
-  const leadSoc=lead.societe_crm||'nemausus';
-  return getAllUsers().filter(u=>u.role==='directeur_co'&&(u.societe==='les-deux'||u.societe===leadSoc));
+  const leadSoc=String(lead.societe_crm||'nemausus').trim().toLowerCase()==='lambert'?'lambert':'nemausus';
+  const matchPilotSoc=u=>{
+    const s=String(u.societe||'').trim().toLowerCase();
+    if(s==='les-deux')return true;
+    return s===leadSoc;
+  };
+  const seen=new Set();
+  const out=[];
+  getAllUsers().forEach(u=>{
+    if((u.role!=='directeur_co'&&u.role!=='directeur_general')||!matchPilotSoc(u))return;
+    const id=normalizeId(String(u.id||''));
+    if(!id||seen.has(id))return;
+    seen.add(id);
+    out.push(u);
+  });
+  return out;
 }
 
 let currentLeadFilter='tous';

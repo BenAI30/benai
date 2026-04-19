@@ -2285,7 +2285,7 @@ function addDaysISO(days){
   d.setDate(d.getDate()+Number(days||0));
   return toISODate(d);
 }
-/** Au moins un dir. commercial couvre la société CRM du lead (mono-entité). Un dir. co « les-deux » ne bloque pas le RR par entité. */
+/** Au moins un dir. commercial (rôle `directeur_co` uniquement) couvre la société CRM du lead en mono-entité. Le dir. général n’est pas pris en compte ici et ne bloque jamais le RR ; un dir. co « les-deux » ne bloque pas non plus le RR par entité. */
 function hasDirecteurCommercialForSociete(leadSoc){
   const ls=leadSoc==='lambert'?'lambert':'nemausus';
   return getAllUsers().some(u=>{
@@ -8537,11 +8537,25 @@ function getCompanyScopedLeads(list){
   if(!isCRMScopePilotageRole(currentUser.role))return leads;
   return leads.filter(canAccessLeadByCompany);
 }
-/** Dir. co qui voient ce lead dans le CRM (même règle que canAccessLeadByCompany côté dir.). */
+/** Dir. co + dir. général concernés par le lead (société `les-deux` = vue des deux entités). Pour les notifs « à attribuer » quand il n’y a pas de dir. co sur l’entité, le DG multi-périmètres est inclus. */
 function getDirecteursConcernedByLead(lead){
   if(!lead)return[];
   const leadSoc=getLeadCRMCompany(lead);
-  return getAllUsers().filter(u=>u.role==='directeur_co'&&(u.societe==='les-deux'||u.societe===leadSoc));
+  const matchPilotSoc=u=>{
+    const s=String(u.societe||'').trim().toLowerCase();
+    if(s==='les-deux')return true;
+    return s===leadSoc;
+  };
+  const seen=new Set();
+  const out=[];
+  getAllUsers().forEach(u=>{
+    if((u.role!=='directeur_co'&&u.role!=='directeur_general')||!matchPilotSoc(u))return;
+    const id=normalizeId(String(u.id||''));
+    if(!id||seen.has(id))return;
+    seen.add(id);
+    out.push(u);
+  });
+  return out;
 }
 
 /** Périmètre secteurs CRM (cartes dashboard, filtre liste, fiche lead) selon l’entreprise du compte. */
