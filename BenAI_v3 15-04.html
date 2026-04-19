@@ -422,7 +422,7 @@ body.light .bubble{color:var(--t1);}
 .lead-modal.open{display:flex;}
 .lead-modal-box{background:var(--s1);border:1px solid var(--b1);border-radius:18px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.6);}
 .lead-modal-header{padding:16px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--s1);z-index:1;}
-.lead-modal-body{padding:16px 20px;}
+.lead-modal-body{padding:16px 20px;padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px));}
 .lead-modal-section{margin-bottom:16px;}
 .lead-modal-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px;}
 .lead-form-card{background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:12px 14px;margin-bottom:12px;box-shadow:0 1px 0 rgba(255,255,255,.04) inset;}
@@ -643,6 +643,19 @@ body.light .bubble{color:var(--t1);}
     -webkit-overflow-scrolling:touch;
     overscroll-behavior-y:contain;
   }
+  /* Leads : le défilement reste dans #leads-container (en-tête + onglets fixes). */
+  #page-leads{
+    flex:1 1 auto;
+    min-height:0;
+    max-height:100%;
+    overflow:hidden;
+  }
+  #page-leads .crm-body,
+  #page-leads #crm-tab-content{min-height:0;}
+  #page-leads #leads-container{
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-y:contain;
+  }
   #page-sav .sav-area{flex:none;overflow-y:visible;min-height:0;}
   #page-absences #abs-list{flex:none !important;overflow-y:visible !important;min-height:0;}
   #page-annuaire #equipe-unified-scroll{flex:1 1 auto !important;min-height:0;overflow-y:auto !important;}
@@ -675,8 +688,12 @@ body.light .bubble{color:var(--t1);}
   .form-row{grid-template-columns:1fr;}
   .conv-list{display:none;}
   .thread-input{padding:10px;}
-  .lead-modal{padding:8px;}
-  .lead-modal-box{max-height:95vh;border-radius:14px;}
+  .lead-modal{padding:8px;padding-top:max(8px, env(safe-area-inset-top, 0px));padding-bottom:max(8px, env(safe-area-inset-bottom, 0px));}
+  .lead-modal-box{max-height:min(95vh, calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));border-radius:14px;}
+  .lead-modal-header{flex-wrap:wrap;row-gap:8px;align-items:flex-start;padding-left:14px;padding-right:14px;}
+  .lead-modal-header > div:last-child{flex-wrap:wrap;justify-content:flex-end;max-width:100%;gap:6px;}
+  .lead-form-card-h{flex-direction:column;align-items:flex-start;}
+  .statut-btn,.src-btn{min-height:44px;}
   .crm-filters{padding:8px 10px;gap:5px;}
   .crm-filter{font-size:10px;padding:4px 10px;}
   #crm-search{width:100% !important;max-width:none;}
