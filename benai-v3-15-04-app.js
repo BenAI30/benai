@@ -8778,7 +8778,7 @@ function getDirecteurCoTutoSlides(){
   return[
     {icon:'🏢',title:'Ton entreprise sur BenAI',desc:`Ce tutoriel décrit ce que tu vois dans BenAI pour : ${company}. ${zones} Filtres secteur, cartes du tableau de bord et commerciaux listés restent alignés sur ce périmètre.`,highlight:sessionHint},
     {icon:'📊',title:'Menus visibles',desc:'Notes, Leads CRM, Messages, Absences, Guide. En cas de blocage : « Signaler » (la liste des tickets reste côté administration). L’assistant BenAI IA est réservé à l’administration et aux assistantes.',highlight:'Le CRM sert à attribuer, suivre et chiffrer les dossiers'},
-    {icon:'🧭',title:'Les trois onglets CRM',desc:'« À attribuer » : nouveaux dossiers sans commercial assigné. « Dossiers CRM » : d’abord tes dossiers à ton nom, puis le pipeline équipe (recherche, pastilles, liste ou kanban, archives, alertes). « Dashboard » : synthèses (KPI, secteurs, CA, équipe, exports, objectifs). Sous « Mes leads » : rubrique Nouveaux leads (sans commercial), puis Attribués (commercial choisi, nom sur la carte).',highlight:'Tu peux commencer par « À attribuer » pour enchaîner les nouveaux dossiers, si tu le souhaites'},
+    {icon:'🧭',title:'Les trois onglets CRM',desc:'« À attribuer » : nouveaux dossiers sans commercial assigné. « Dossiers CRM » : d’abord tes dossiers à ton nom, puis le pipeline équipe (recherche, pastilles, liste ou kanban, archives, alertes). « Dashboard » : synthèses (KPI, secteurs, CA, équipe, exports, objectifs).',highlight:'Tu peux commencer par « À attribuer » pour enchaîner les nouveaux dossiers, si tu le souhaites'},
     {icon:'🎛️',title:'Filtres liste & kanban',desc:'Liste : section « Mes dossiers » séparée du « Pipeline équipe ». Kanban : sans filtre commercial, seuls tes dossiers à ton nom s’affichent pour ne pas mélanger avec les autres ; avec un filtre commercial, tu vois le kanban du vendeur choisi. Tu peux combiner recherche, pastilles, filtre secteur, filtre commercial. Filtre société seulement si ton accès couvre les deux entités.',highlight:'Réinitialise les filtres si une vue semble vide'},
     {icon:'🤝',title:'Attribuer ou reprendre un lead',desc:'Sur « À attribuer » ou dans la fiche : champ « Commercial » — tu peux choisir un vendeur, un autre dirigeant, ou toi-même pour porter le dossier. Changement = notification + entrée dans l’historique.',highlight:'Tu peux t’assigner comme un commercial'},
     {icon:'📇',title:'Ouvrir une fiche lead attribué',desc:'En cliquant un dossier : identité, projet, commentaire d’origine, secteur, source. Tu peux corriger les champs de base, suivi, commentaire, montants et dates selon les droits affichés.',highlight:'Une fiche à jour limite les doublons d’appels'},
@@ -8832,7 +8832,7 @@ function buildAssistanteMesLeadsFilterBar(){
   const filters=document.getElementById('crm-filters');if(!filters)return;
   const scope=readAssistanteMesLeadsScope();
   const active=s=>scope===s?' active':'';
-  filters.innerHTML=`<button type="button" class="crm-filter crm-filter-assistante${active('en_attente')}" onclick="filterAssistanteMesLeads('en_attente',this)">⏳ Nouveaux leads</button><button type="button" class="crm-filter crm-filter-assistante${active('transmis')}" onclick="filterAssistanteMesLeads('transmis',this)" title="Dossiers avec un commercial assigné — le nom figure sur la carte">✅ Attribués</button><button type="button" class="crm-filter crm-filter-assistante${active('archives_crm')}" onclick="filterAssistanteMesLeads('archives_crm',this)" title="Dossiers archivés côté CRM (manuel, vendu ancien mois, année civile passée)">📁 Archives CRM</button>`;
+  filters.innerHTML=`<button type="button" class="crm-filter crm-filter-assistante${active('en_attente')}" onclick="filterAssistanteMesLeads('en_attente',this)">⏳ En attente d'attribution</button><button type="button" class="crm-filter crm-filter-assistante${active('transmis')}" onclick="filterAssistanteMesLeads('transmis',this)">✅ Transmis au terrain</button><button type="button" class="crm-filter crm-filter-assistante${active('archives_crm')}" onclick="filterAssistanteMesLeads('archives_crm',this)" title="Archives CRM : manuel, année passée, vendu ancien mois, RDV effectué saisi, ou dossier perdu">📁 Archives CRM</button>`;
   filters.setAttribute(CRM_FILTERS_ASSISTANTE_ATTR,'1');
 }
 function filterAssistanteMesLeads(scope,btn){
@@ -8900,6 +8900,14 @@ function getClientRdvDoneCount(targetLead,list){
 function getLeadRdvDoneCount(lead){
   if(!lead)return 0;
   return getUniqueRdvDays(lead).size;
+}
+/** Segmentation « Mes leads » assistante : archives CRM habituelles + perdu + au moins un RDV noté comme effectué (terrain / fiche). */
+function isLeadAssistanteMesLeadsArchived(l){
+  if(!l)return false;
+  if(isLeadCrmArchivedView(l))return true;
+  if(l.statut==='rouge')return true;
+  if(getLeadRdvDoneCount(l)>0)return true;
+  return false;
 }
 function getLeadRdvDoneMonthCount(lead,refDate=new Date()){
   if(!lead)return 0;
@@ -9071,8 +9079,9 @@ function showCRMTab(id){
     if(kb)kb.style.display='none';
     renderNonAttribues();
   } else {
-    // Barre #crm-filters : pilotage (statuts, secteurs…) ou segments assistante (nouveaux / attribués / archives)
-    filters.style.display='flex';
+    const role=currentUser?.role;
+    // Assistante ne voit pas les filtres
+    filters.style.display=role==='assistante'?'none':'flex';
     setCRMView(currentCRMView);
     renderLeads();
   }
@@ -9150,9 +9159,9 @@ function getFilteredLeads(){
     // Assistante voit uniquement les leads qu'elle a créés ; segments « en attente » / transmis / archives CRM
     leads=leads.filter(l=>l.cree_par===currentUser.id||l.cree_par===currentUser.name);
     const asScope=readAssistanteMesLeadsScope();
-    if(asScope==='en_attente')leads=leads.filter(l=>!leadHasAssignedCommercial(l)&&!isLeadCrmArchivedView(l));
-    else if(asScope==='transmis')leads=leads.filter(l=>leadHasAssignedCommercial(l)&&!isLeadCrmArchivedView(l));
-    else leads=leads.filter(l=>isLeadCrmArchivedView(l));
+    if(asScope==='en_attente')leads=leads.filter(l=>!leadHasAssignedCommercial(l)&&!isLeadAssistanteMesLeadsArchived(l));
+    else if(asScope==='transmis')leads=leads.filter(l=>leadHasAssignedCommercial(l)&&!isLeadAssistanteMesLeadsArchived(l));
+    else leads=leads.filter(l=>isLeadAssistanteMesLeadsArchived(l));
   } else if(isCRMScopePilotageRole(role)){
     leads=getCompanyScopedLeads(leads);
   }
@@ -9240,9 +9249,9 @@ function renderLeads(){
     const scope=readAssistanteMesLeadsScope();
     if(!leads.length){
       list.innerHTML=scope==='en_attente'
-        ?'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun nouveau lead à attribuer.<br><br>Dès qu’un commercial est choisi, le dossier apparaît sous <strong>Attribués</strong> (nom du vendeur sur la carte).<br><br>Cliquez sur <strong>+ Nouveau lead</strong> pour en saisir un.</div>'
+        ?'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead en attente d’attribution.<br><br>Les dossiers passés à un commercial apparaissent sous <strong>Transmis au terrain</strong>.<br><br>Cliquez sur <strong>+ Nouveau lead</strong> pour en saisir un.</div>'
         :scope==='transmis'
-          ?'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead attribué en cours.<br><br>Les dossiers sans commercial restent sous <strong>Nouveaux leads</strong>.</div>'
+          ?'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead transmis en cours.<br><br>Les dossiers encore sans commercial restent sous <strong>En attente d’attribution</strong>.<br><br>Dès qu’un RDV est noté comme effectué ou le dossier est <strong>perdu</strong>, le lead va sous <strong>Archives CRM</strong>.</div>'
           :'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune entrée dans les archives CRM pour vos saisies.</div>';
       return;
     }
@@ -9347,8 +9356,8 @@ function renderLeadCardAssistante(l){
     <div class="lead-info">${esc(l.ville||'')}</div>
     <div class="lead-meta" style="margin-top:6px;gap:8px">
       ${assigneeId
-        ?`<span style="background:var(--a3);color:var(--a);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">Attribué · ${esc(commLabel)}</span>`
-        :'<span style="background:var(--y2);color:var(--y);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⏳ Sans commercial</span>'}
+        ?`<span style="background:var(--a3);color:var(--a);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">👤 ${esc(commLabel)}</span>`
+        :'<span style="background:var(--y2);color:var(--y);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⏳ En attente d\'attribution</span>'}
       ${makeLeadCallLink(l.id,l.telephone)}
     </div>
     ${rdvInfo}
@@ -10654,11 +10663,6 @@ async function saveLead(){
       if(activeCRMTabId==='non-attribues'&&!isLeadInNonAttribQueue(updatedLead)){
         movedOutOfNonAttrib=true;
       }
-      if(currentUser?.role==='assistante'&&!leadHasAssignedCommercial(old)&&leadHasAssignedCommercial(updatedLead)){
-        writeAssistanteMesLeadsScope('transmis');
-        buildAssistanteMesLeadsFilterBar();
-        showDriveNotif('✅ Lead attribué — rubrique « Attribués ».');
-      }
       agendaAutoOpened=autoPushLeadToGoogleAgenda(updatedLead)||agendaAutoOpened;
     }
     logActivity(`${currentUser.name} a mis à jour : ${nom}`);
@@ -10743,10 +10747,6 @@ async function saveLead(){
     }
     agendaAutoOpened=autoPushLeadToGoogleAgenda(newLead)||agendaAutoOpened;
     leads.unshift(newLead);
-    if(currentUser?.role==='assistante'&&leadHasAssignedCommercial(newLead)){
-      writeAssistanteMesLeadsScope('transmis');
-      buildAssistanteMesLeadsFilterBar();
-    }
     updateProjetSuggestion(projet);
     logActivity(`${currentUser.name} a créé un lead : ${nom}`);
     // Rafraîchir badge notifs
@@ -11188,7 +11188,7 @@ function refreshLeadsBadge(){
   if(role==='admin'){badge.style.display='none';return;}
   if(role==='assistante'){
     const mine=getLeads().filter(l=>!l._deleted&&(l.cree_par===currentUser.id||l.cree_par===currentUser.name));
-    const n=mine.filter(l=>!leadHasAssignedCommercial(l)&&!isLeadCrmArchivedView(l)).length;
+    const n=mine.filter(l=>!leadHasAssignedCommercial(l)&&!isLeadAssistanteMesLeadsArchived(l)).length;
     if(n>0){badge.style.display='flex';badge.textContent=String(n);badge.style.background='var(--a)';}
     else badge.style.display='none';
     return;
