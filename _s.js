@@ -7925,6 +7925,43 @@ function editObjectif(secteur){
   saveLeadObjectifs(obj);renderLeadsDashboard();
 }
 
+function capitalizeLeadPersonNamePart(s){
+  const t=String(s||'').trim().replace(/\s+/g,' ');
+  if(!t)return'';
+  return t.split(' ').map(w=>{
+    if(!w)return'';
+    return w.split('-').map(p=>{
+      if(!p)return'';
+      return p.charAt(0).toLocaleUpperCase('fr-FR')+p.slice(1).toLocaleLowerCase('fr-FR');
+    }).filter(Boolean).join('-');
+  }).filter(Boolean).join(' ');
+}
+function capitalizeLeadInputField(el){
+  if(!el)return;
+  el.value=capitalizeLeadPersonNamePart(el.value);
+}
+function splitLeadNomForForm(full){
+  const t=String(full||'').trim();
+  if(!t)return{prenom:'',nomFamille:''};
+  const parts=t.split(/\s+/);
+  if(parts.length===1)return{prenom:'',nomFamille:parts[0]};
+  return{prenom:parts[0],nomFamille:parts.slice(1).join(' ')};
+}
+function normalizeLeadNameFieldsInForm(){
+  const prEl=document.getElementById('lead-prenom');
+  const nfEl=document.getElementById('lead-nom-famille');
+  if(prEl)prEl.value=capitalizeLeadPersonNamePart(prEl.value);
+  if(nfEl)nfEl.value=capitalizeLeadPersonNamePart(nfEl.value);
+}
+function getLeadNomCombinedRawFromForm(){
+  const pr=String(document.getElementById('lead-prenom')?.value||'').trim();
+  const nf=String(document.getElementById('lead-nom-famille')?.value||'').trim();
+  if(pr&&nf)return pr+' '+nf;
+  if(nf)return nf;
+  if(pr)return pr;
+  return'';
+}
+
 // OUVRIR NOUVEAU LEAD
 function openNewLead(){
   currentLeadId=null;currentLeadStatut='gris';currentLeadSource='MAG';
@@ -7970,7 +8007,11 @@ function openLead(id){
   `;
   resetLeadForm();
   // Remplir champs
-  document.getElementById('lead-nom').value=l.nom||'';
+  const _nm=splitLeadNomForForm(l.nom||'');
+  const prEl=document.getElementById('lead-prenom');
+  const nfEl=document.getElementById('lead-nom-famille');
+  if(prEl)prEl.value=_nm.prenom||'';
+  if(nfEl)nfEl.value=_nm.nomFamille||'';
   document.getElementById('lead-tel').value=l.telephone||'';
   document.getElementById('lead-adresse').value=l.adresse||'';
   document.getElementById('lead-ville').value=l.ville||'';
@@ -8056,7 +8097,7 @@ function closeLeadModal(){
 }
 
 function resetLeadForm(){
-  ['lead-nom','lead-tel','lead-adresse','lead-ville','lead-cp','lead-projet','lead-suivi','lead-commentaire','lead-action',
+  ['lead-prenom','lead-nom-famille','lead-tel','lead-adresse','lead-ville','lead-cp','lead-projet','lead-suivi','lead-commentaire','lead-action',
    'lead-rappel','lead-montant-devis','lead-date-devis','lead-rappel-devis',
    'lead-prix-vendu','lead-date-signature','lead-produit-vendu'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
@@ -8179,7 +8220,8 @@ function autoPushLeadToGoogleAgenda(lead,force=false){
 
 // SAUVEGARDER LEAD
 async function saveLead(){
-  const nom=document.getElementById('lead-nom').value.trim();
+  normalizeLeadNameFieldsInForm();
+  const nom=getLeadNomCombinedRawFromForm();
   const tel=document.getElementById('lead-tel').value.trim();
   const adresse=document.getElementById('lead-adresse').value.trim();
   // Ville en lecture seule — permettre saisie manuelle si autocomplétion non utilisée
@@ -8196,7 +8238,7 @@ async function saveLead(){
   const historicalProposal=getCommercialHistoryProposal(historicalLead);
   const effectiveSource=historicalLead?'ANCIEN_CLIENT':currentLeadSource;
   const missing=[];
-  if(!nom)missing.push('Nom');
+  if(!String(document.getElementById('lead-nom-famille')?.value||'').trim())missing.push('Nom');
   if(!tel)missing.push('Téléphone');
   if(!projet)missing.push('Projet');
   if(!cp2)missing.push('Code postal');

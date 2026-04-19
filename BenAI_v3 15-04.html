@@ -425,6 +425,11 @@ body.light .bubble{color:var(--t1);}
 .lead-modal-body{padding:16px 20px;}
 .lead-modal-section{margin-bottom:16px;}
 .lead-modal-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px;}
+.lead-form-card{background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:12px 14px;margin-bottom:12px;box-shadow:0 1px 0 rgba(255,255,255,.04) inset;}
+.lead-form-card-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.lead-form-card-t{font-size:13px;font-weight:700;color:var(--t1);letter-spacing:-.01em;}
+.lead-form-card-hint{font-size:11px;color:var(--t3);font-weight:500;max-width:100%;}
+.lead-modal-section-intro{font-size:11px;color:var(--t3);margin:-4px 0 10px;line-height:1.45;}
 /* CTA fiche lead — RDV effectué (lisible, incitatif) */
 .btn-lead-rdv-done{display:none;flex-direction:column;align-items:flex-start;gap:1px;flex-shrink:0;background:linear-gradient(145deg,#22C55E,#15803D);color:#fff !important;border:none;border-radius:11px;padding:10px 14px 9px;font-family:inherit;cursor:pointer;text-align:left;line-height:1.2;box-shadow:0 6px 20px rgba(34,197,94,.45);transition:transform .14s ease,box-shadow .14s ease,filter .14s ease;max-width:min(240px,52vw);}
 .btn-lead-rdv-done:hover{transform:translateY(-1px);box-shadow:0 9px 26px rgba(34,197,94,.58);filter:brightness(1.05);}
@@ -1409,7 +1414,8 @@ input[type=file]{display:none;}
           <div class="lead-modal-body">
             <!-- SOURCE -->
             <div class="lead-modal-section">
-              <div class="lead-modal-section-title">Source</div>
+              <div class="lead-modal-section-title">Source du contact</div>
+              <div class="lead-modal-section-intro">🎯 D’où vient ce prospect ? Un clic suffit.</div>
               <div style="display:flex;gap:6px;flex-wrap:wrap" id="source-btns">
                 <button class="src-btn selected" data-src="MAG" onclick="selectSource(this)">📍 MAG</button>
                 <button class="src-btn" data-src="TEL" onclick="selectSource(this)">📞 TEL</button>
@@ -1421,41 +1427,66 @@ input[type=file]{display:none;}
               </div>
             </div>
 
-            <!-- INFOS CLIENT -->
+            <!-- INFOS CLIENT (blocs guidés) -->
             <div class="lead-modal-section">
-              <div class="lead-modal-section-title">Informations client</div>
-              <div class="form-row">
-                <div class="form-group"><div class="form-label">Nom *</div><input type="text" class="form-input" id="lead-nom" placeholder="Nom du prospect"></div>
-                <div class="form-group"><div class="form-label">Téléphone *</div><input type="tel" class="form-input" id="lead-tel" placeholder="06 00 00 00 00" oninput="formatTel(this)"></div>
-              </div>
-              <!-- ADRESSE INTELLIGENTE -->
-              <div class="form-group" style="margin-bottom:10px;position:relative">
-                <div class="form-label">Adresse complète * <span style="font-size:9px;color:var(--t3)">(numéro + rue + CP + ville)</span></div>
-                <input type="text" class="form-input" id="lead-adresse" placeholder="Ex: 12 rue de la Paix 30000 Nîmes" oninput="searchAdresse(this.value)" autocomplete="off">
-                <div id="adresse-suggestions" style="position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:0 0 8px 8px;z-index:100;display:none;max-height:160px;overflow-y:auto"></div>
-              </div>
-              <div class="form-row">
-                <div class="form-group"><div class="form-label">Ville *</div><input type="text" class="form-input" id="lead-ville" placeholder="Ville (auto ou manuel)"></div>
-                <div class="form-group"><div class="form-label">Code postal *</div><input type="text" class="form-input" id="lead-cp" placeholder="Code postal" oninput="onLeadCpInputAssistanteSync()"></div>
-              </div>
-              <div class="form-row">
-                <div class="form-group"><div class="form-label">Type de projet *</div>
-                  <input type="text" class="form-input" id="lead-projet" placeholder="Ex: Volets roulants, pergola..." list="projets-list">
-                  <datalist id="projets-list"></datalist>
+              <div class="lead-modal-section-title">Fiche prospect</div>
+              <div class="lead-modal-section-intro">✨ Quelques blocs pour aller vite — la saisie se fait dans l’ordre naturel d’une conversation.</div>
+
+              <div class="lead-form-card">
+                <div class="lead-form-card-h">
+                  <span class="lead-form-card-t">👤 Qui nous appelle ?</span>
+                  <span class="lead-form-card-hint">Prénom + nom : la 1ʳᵉ lettre se met en majuscule toute seule.</span>
                 </div>
-                <div class="form-group"><div class="form-label">Secteur <span id="lead-secteur-assistante-hint" style="display:none;font-size:10px;font-weight:500;color:var(--t3)">— automatique selon le code postal</span></div>
-                  <select class="form-input" id="lead-secteur" onchange="updateLeadSectorSignals()">
-                    <option value="nimes">Nîmes</option>
-                    <option value="avignon">Avignon</option>
-                    <option value="bagnoles">Bagnols-sur-Cèze</option>
-                    <option value="zone_blanche">Zone blanche</option>
-                  </select>
+                <div class="form-row">
+                  <div class="form-group"><div class="form-label">Prénom</div><input type="text" class="form-input" id="lead-prenom" placeholder="Ex : Marie" autocomplete="given-name" onblur="capitalizeLeadInputField(this)"></div>
+                  <div class="form-group"><div class="form-label">Nom *</div><input type="text" class="form-input" id="lead-nom-famille" placeholder="Ex : Dupont" autocomplete="family-name" onblur="capitalizeLeadInputField(this)"></div>
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                  <div class="form-label">Téléphone *</div>
+                  <input type="tel" class="form-input" id="lead-tel" placeholder="06 00 00 00 00" oninput="formatTel(this)">
                 </div>
               </div>
-              <div id="lead-sector-alert" style="display:none;margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(248,113,113,.13);border:1px solid rgba(248,113,113,.35);color:#fecaca;font-size:12px;font-weight:600"></div>
-              <div class="form-group" id="lead-hors-secteur-wrap" style="margin-top:10px;display:none">
-                <div class="form-label">Justification hors secteur *</div>
-                <textarea class="form-input" id="lead-hors-secteur-justif" rows="2" placeholder="Expliquez pourquoi ce lead doit être traité hors secteur"></textarea>
+
+              <div class="lead-form-card">
+                <div class="lead-form-card-h">
+                  <span class="lead-form-card-t">📍 Où habite-t-il ?</span>
+                  <span class="lead-form-card-hint">Collez une adresse complète ou complétez à la main.</span>
+                </div>
+                <div class="form-group" style="margin-bottom:10px;position:relative">
+                  <div class="form-label">Adresse complète * <span style="font-size:9px;color:var(--t3)">(numéro + rue + CP + ville)</span></div>
+                  <input type="text" class="form-input" id="lead-adresse" placeholder="Ex: 12 rue de la Paix 30000 Nîmes" oninput="searchAdresse(this.value)" autocomplete="off">
+                  <div id="adresse-suggestions" style="position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:0 0 8px 8px;z-index:100;display:none;max-height:160px;overflow-y:auto"></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><div class="form-label">Ville *</div><input type="text" class="form-input" id="lead-ville" placeholder="Ville (auto ou manuel)"></div>
+                  <div class="form-group"><div class="form-label">Code postal *</div><input type="text" class="form-input" id="lead-cp" placeholder="Code postal" oninput="onLeadCpInputAssistanteSync()"></div>
+                </div>
+              </div>
+
+              <div class="lead-form-card" style="margin-bottom:0">
+                <div class="lead-form-card-h">
+                  <span class="lead-form-card-t">🏠 Quel projet ?</span>
+                  <span class="lead-form-card-hint">En quelques mots : ce qu’il veut faire chez lui.</span>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><div class="form-label">Type de projet *</div>
+                    <input type="text" class="form-input" id="lead-projet" placeholder="Ex: Volets roulants, pergola..." list="projets-list">
+                    <datalist id="projets-list"></datalist>
+                  </div>
+                  <div class="form-group"><div class="form-label">Secteur <span id="lead-secteur-assistante-hint" style="display:none;font-size:10px;font-weight:500;color:var(--t3)">— automatique selon le code postal</span></div>
+                    <select class="form-input" id="lead-secteur" onchange="updateLeadSectorSignals()">
+                      <option value="nimes">Nîmes</option>
+                      <option value="avignon">Avignon</option>
+                      <option value="bagnoles">Bagnols-sur-Cèze</option>
+                      <option value="zone_blanche">Zone blanche</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="lead-sector-alert" style="display:none;margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(248,113,113,.13);border:1px solid rgba(248,113,113,.35);color:#fecaca;font-size:12px;font-weight:600"></div>
+                <div class="form-group" id="lead-hors-secteur-wrap" style="margin-top:10px;display:none;margin-bottom:0">
+                  <div class="form-label">Justification hors secteur *</div>
+                  <textarea class="form-input" id="lead-hors-secteur-justif" rows="2" placeholder="Expliquez pourquoi ce lead doit être traité hors secteur"></textarea>
+                </div>
               </div>
             </div>
 
@@ -1470,6 +1501,7 @@ input[type=file]{display:none;}
             <!-- STATUT PROGRESSIF -->
             <div class="lead-modal-section" id="modal-statut-section" style="display:none">
               <div class="lead-modal-section-title">Résultat du contact</div>
+              <div class="lead-modal-section-intro">🚦 Où en êtes-vous avec ce prospect ? Cliquez sur l’étape qui correspond.</div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
                 <button class="statut-btn sb-gris selected" onclick="selectStatut('gris',this)">🔵 Non traité</button>
                 <button class="statut-btn sb-rdv" onclick="selectStatut('rdv',this)">📞 RDV pris</button>
@@ -1544,6 +1576,8 @@ input[type=file]{display:none;}
 
             <!-- SUIVI + COMMENTAIRE -->
             <div class="lead-modal-section">
+              <div class="lead-modal-section-title">Mémo équipe</div>
+              <div class="lead-modal-section-intro">📝 Infos utiles pour le prochain échange (budget, contraintes, ton…).</div>
               <div class="form-row">
                 <div class="form-group" style="flex:1;min-width:0"><div class="form-label">Suivi</div><input type="text" class="form-input" id="lead-suivi" placeholder="Budget 500€, Assurance expert..."></div>
                 <div class="form-group" id="lead-action-wrap" style="flex:1;min-width:0;display:none"><div class="form-label">Ajouter une action</div>
