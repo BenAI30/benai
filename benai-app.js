@@ -292,7 +292,7 @@ const appStorage={
 window.appStorage=appStorage;
 loadAppStorageCacheFromSession();
 
-const BENAI_VERSION = '3.15.10';
+const BENAI_VERSION = '3.15.11';
 const GUIDE_REQUIRED_VERSION='3.21';
 const TUTO_DONE_LOCAL_PREFIX='benai_tuto_done_local_';
 /** Même clé que appStorage : persistance navigateur (localStorage) car l’ACK guide est exclu du snapshot cloud. */
@@ -11081,12 +11081,22 @@ function resolveLeadSocieteBySecteur(secteur,fallbackSociete='nemausus'){
   if(fallbackSociete==='lambert'||fallbackSociete==='nemausus')return fallbackSociete;
   return 'nemausus';
 }
-/** Entité CRM du dossier : assistante / mètreur → société de leur compte (Lambert / Nemausus), pas le « propriétaire » géographique du secteur (évite les leads Lambert classés chez Nemausus). */
+/**
+ * Entité CRM du dossier pour l’enregistrement.
+ * Tout compte **mono-entité** (Lambert ou Nemausus) : le lead suit la **société du profil** qui enregistre (assistante, mètreur, commercial, dir. co, DG),
+ * pas le « propriétaire » géographique du secteur CP (sinon un saisi Lambert en zone Nîmes repassait en Nemausus).
+ * Admin « les-deux » (Benjamin) ou profils `les-deux` non lambert/nemausus : comportement historique = secteur + repli.
+ */
 function resolveLeadSocieteCrmForPersistence(secteur,fallbackSociete){
   const role=normalizeProfileRole(currentUser?.role);
-  if(role==='assistante'||role==='metreur'){
-    const soc=getSocieteFromUser(currentUser.id);
-    if(soc==='lambert'||soc==='nemausus')return soc;
+  const socUser=getSocieteFromUser(currentUser?.id);
+  if(socUser==='lambert'||socUser==='nemausus'){
+    if(
+      role==='assistante'||role==='metreur'||
+      role==='commercial'||role==='directeur_co'||role==='directeur_general'
+    ){
+      return socUser;
+    }
   }
   return resolveLeadSocieteBySecteur(secteur,fallbackSociete);
 }
@@ -12905,8 +12915,12 @@ async function confirmerFusion(){
 function getSocieteFromUser(uid){
   const u=getAllUsers().find(x=>x.id===uid);
   if(!u)return 'nemausus';
-  if(u.societe==='lambert')return'lambert';
   if(u.id==='benjamin')return'les-deux';
+  const norm=normalizeProfileCompany(u.societe);
+  if(norm==='lambert')return'lambert';
+  if(norm==='nemausus')return'nemausus';
+  if(norm==='les-deux')return'les-deux';
+  if(u.societe==='lambert')return'lambert';
   return u.societe||'nemausus';
 }
 
