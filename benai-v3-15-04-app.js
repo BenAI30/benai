@@ -2285,19 +2285,19 @@ function addDaysISO(days){
   d.setDate(d.getDate()+Number(days||0));
   return toISODate(d);
 }
-/** Au moins un dir. commercial couvre explicitement la société CRM du lead (sans assimiler un profil vide à Nemausus). */
+/** Au moins un dir. commercial couvre la société CRM du lead (mono-entité). Un dir. co « les-deux » ne bloque pas le RR par entité. */
 function hasDirecteurCommercialForSociete(leadSoc){
   const ls=leadSoc==='lambert'?'lambert':'nemausus';
   return getAllUsers().some(u=>{
     if(u.role!=='directeur_co')return false;
     const s=String(u.societe||'').trim().toLowerCase();
-    if(s==='les-deux')return true;
+    if(s==='les-deux')return false;
     if(s==='lambert')return ls==='lambert';
     if(s==='nemausus')return ls==='nemausus';
     return false;
   });
 }
-/** Round-robin sur les commerciaux (rôle commercial uniquement) du périmètre — attribution directe si pas de dir. co sur la société. */
+/** Round-robin sur les commerciaux : périmètre société, puis sans société CRM, puis tout le vivier commercial. */
 function getRoundRobinCommercialTerrain(societe){
   const target=String(societe||'').trim().toLowerCase();
   if(target!=='lambert'&&target!=='nemausus')return null;
@@ -2310,6 +2310,9 @@ function getRoundRobinCommercialTerrain(societe){
   let users=getAllUsers().filter(u=>u.role==='commercial'&&matchSoc(u));
   if(!users.length){
     users=getAllUsers().filter(u=>u.role==='commercial'&&!normalizeProfileCompany(u.societe));
+  }
+  if(!users.length){
+    users=getAllUsers().filter(u=>u.role==='commercial');
   }
   if(!users.length)return null;
   const key='benai_rr_terrain_'+(societe||'all');
@@ -10456,7 +10459,8 @@ async function saveLead(){
   const activeCRMTabId=(document.querySelector('.crm-tab.active')?.id||'').replace('crm-tab-','');
   const now=new Date().toISOString();
   const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  const selectedCommercial=document.getElementById('lead-commercial-assign')?.value||null;
+  const _commSel=document.getElementById('lead-commercial-assign')?.value;
+  const selectedCommercial=(_commSel&&String(_commSel).trim())||null;
   const defaultCommercial=isCrmSalesActorRole(currentUser?.role)?currentUser.id:null;
   const assignedCommercial=currentLeadSource==='ACTIF'?currentUser.id:(selectedCommercial||defaultCommercial||null);
   const data={
@@ -10569,6 +10573,9 @@ async function saveLead(){
     const societe=resolveLeadSocieteBySecteur(data.secteur,getSocieteFromUser(currentUser.id));
     let autoCommercial=data.commercial||null;
     if(!autoCommercial&&!hasDirecteurCommercialForSociete(societe)){
+      if(roleNeedsPeerProfilesSyncFromSupabase(currentUser?.role)){
+        await syncExtraUsersFromSupabaseProfiles({quiet:true});
+      }
       autoCommercial=getRoundRobinCommercialTerrain(societe);
     }
     if(data.ancien_client&&historicalProposal&&historicalProposal.isActive&&data.hors_secteur&&currentUser?.role==='directeur_co'&&!selectedCommercial){

@@ -2139,7 +2139,7 @@ function hasDirecteurCommercialForSociete(leadSoc){
   return getAllUsers().some(u=>{
     if(u.role!=='directeur_co')return false;
     const s=String(u.societe||'').trim().toLowerCase();
-    if(s==='les-deux')return true;
+    if(s==='les-deux')return false;
     if(ls==='lambert')return s==='lambert';
     return s==='nemausus';
   });
@@ -2156,6 +2156,9 @@ function getRoundRobinCommercial(societe){
   let users=getAllUsers().filter(u=>u.role==='commercial'&&matchSoc(u));
   if(!users.length){
     users=getAllUsers().filter(u=>u.role==='commercial'&&!normalizeProfileCompany(u.societe));
+  }
+  if(!users.length){
+    users=getAllUsers().filter(u=>u.role==='commercial');
   }
   if(!users.length)return null;
   const key='benai_rr_idx_'+(societe||'all');
@@ -8131,7 +8134,7 @@ function autoPushLeadToGoogleAgenda(lead,force=false){
 }
 
 // SAUVEGARDER LEAD
-function saveLead(){
+async function saveLead(){
   const nom=document.getElementById('lead-nom').value.trim();
   const tel=document.getElementById('lead-tel').value.trim();
   const adresse=document.getElementById('lead-adresse').value.trim();
@@ -8174,7 +8177,8 @@ function saveLead(){
   const activeCRMTabId=(document.querySelector('.crm-tab.active')?.id||'').replace('crm-tab-','');
   const now=new Date().toISOString();
   const dateStr=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  const selectedCommercial=document.getElementById('lead-commercial-assign')?.value||null;
+  const _commSel=document.getElementById('lead-commercial-assign')?.value;
+  const selectedCommercial=(_commSel&&String(_commSel).trim())||null;
   const defaultCommercial=currentUser?.role==='commercial'?currentUser.id:null;
   const assignedCommercial=currentLeadSource==='ACTIF'?currentUser.id:(selectedCommercial||defaultCommercial||null);
   const data={
@@ -8250,6 +8254,9 @@ function saveLead(){
     const societe=resolveLeadSocieteBySecteur(data.secteur,getSocieteFromUser(currentUser.id));
     let autoCommercial=data.commercial||null;
     if(!autoCommercial&&!hasDirecteurCommercialForSociete(societe)){
+      if(roleNeedsPeerProfilesSyncFromSupabase(currentUser?.role)){
+        await syncExtraUsersFromSupabaseProfiles({quiet:true});
+      }
       autoCommercial=getRoundRobinCommercial(societe);
     }
     if(data.ancien_client&&historicalProposal&&historicalProposal.isActive&&data.hors_secteur&&currentUser?.role==='directeur_co'&&!selectedCommercial){
