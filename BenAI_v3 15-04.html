@@ -421,6 +421,12 @@ body.light .bubble{color:var(--t1);}
 .lead-modal-body{padding:16px 20px;}
 .lead-modal-section{margin-bottom:16px;}
 .lead-modal-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px;}
+/* CTA fiche lead — RDV effectué (lisible, incitatif) */
+.btn-lead-rdv-done{display:none;flex-direction:column;align-items:flex-start;gap:1px;flex-shrink:0;background:linear-gradient(145deg,#22C55E,#15803D);color:#fff !important;border:none;border-radius:11px;padding:10px 14px 9px;font-family:inherit;cursor:pointer;text-align:left;line-height:1.2;box-shadow:0 6px 20px rgba(34,197,94,.45);transition:transform .14s ease,box-shadow .14s ease,filter .14s ease;max-width:min(240px,52vw);}
+.btn-lead-rdv-done:hover{transform:translateY(-1px);box-shadow:0 9px 26px rgba(34,197,94,.58);filter:brightness(1.05);}
+.btn-lead-rdv-done:active{transform:translateY(0);filter:brightness(.97);}
+.btn-lead-rdv-done .btn-lead-rdv-done-k{font-size:13px;font-weight:800;letter-spacing:.02em;}
+.btn-lead-rdv-done .btn-lead-rdv-done-h{font-size:10px;font-weight:600;opacity:.9;}
 /* DIALOGUE BENAI (remplace alert / confirm / prompt navigateur) */
 #benai-dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10050;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(5px);}
 #benai-dialog-overlay.open{display:flex;}
@@ -1380,7 +1386,7 @@ input[type=file]{display:none;}
             </div>
             <div style="display:flex;gap:6px;align-items:center">
               <button id="btn-agenda-lead" onclick="ouvrirAgenda()" style="display:none;background:var(--bl2);color:var(--bl);border:1px solid rgba(96,165,250,.3);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📅 Agenda</button>
-              <button id="btn-rdv-done-lead" onclick="markLeadRdvDone(currentLeadId,'manuel')" style="display:none;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">✅ RDV fait</button>
+              <button type="button" class="btn-lead-rdv-done" id="btn-rdv-done-lead" onclick="markLeadRdvDone(currentLeadId,'manuel')" title="À utiliser juste après la visite chez le client : enregistre le RDV comme effectué (date du jour) et met à jour l’historique." aria-label="Confirmer que le rendez-vous chez le client a eu lieu"><span class="btn-lead-rdv-done-k">✅ RDV effectué</span><span class="btn-lead-rdv-done-h">Cliquer après la visite</span></button>
               <button id="btn-export-lead" onclick="exportLeadParEmail(currentLeadId)" style="display:none;background:var(--g2);color:var(--g);border:1px solid rgba(34,197,94,.3);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📧 Email</button>
               <button onclick="closeLeadModal()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:20px">✕</button>
             </div>

@@ -10341,6 +10341,7 @@ function openNewLead(){
   if(actWrapNew)actWrapNew.style.display=canViewLeadFullTimeline()?'block':'none';
   applyLeadModalAssistanteUi();
   updateLeadSectorSignals();
+  ['btn-agenda-lead','btn-rdv-done-lead','btn-export-lead'].forEach(bid=>{const b=document.getElementById(bid);if(b)b.style.display='none';});
   document.getElementById('lead-modal').classList.add('open');
 }
 
@@ -10456,7 +10457,7 @@ function openLead(id){
     if(btnRdvDone)btnRdvDone.style.display='none';
   }else{
     if(btnAgenda)btnAgenda.style.display=(l.rappel||l.date_rdv)?'inline-block':'none';
-    if(btnRdvDone)btnRdvDone.style.display='inline-block';
+    if(btnRdvDone)btnRdvDone.style.display='inline-flex';
   }
   if(btnEmail)btnEmail.style.display='inline-block';
   applyLeadModalAssistanteUi();
