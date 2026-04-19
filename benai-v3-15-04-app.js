@@ -2279,6 +2279,8 @@ function buildBenaiAnthropicChatSystem(extraSuffix=''){
 // ÉTAT
 // ══════════════════════════════════════════
 let currentUser=null, chatHistory=[], currentConv=null, busy=false, currentFilter='tous';
+let benaiLastNavPage='';
+const INTERNAL_MSG_SPELLCHECK_KEY='benai_internal_msg_spellcheck';
 let savSearchDebounceTimer=null;
 let deferredInstallPrompt=null;
 
@@ -2572,6 +2574,36 @@ function countTotalInternalUnread(uid,mem,lrMap){
     return 0;
   }
 }
+/** Correcteur navigateur pour la zone de saisie des messages internes (aucune IA). */
+function getInternalMsgSpellcheckEnabled(){
+  try{
+    const v=appStorage.getItem(INTERNAL_MSG_SPELLCHECK_KEY);
+    if(v===null||v==='')return true;
+    return v==='1';
+  }catch{
+    return true;
+  }
+}
+function setInternalMsgSpellcheckEnabled(on){
+  try{appStorage.setItem(INTERNAL_MSG_SPELLCHECK_KEY,on?'1':'0');}catch{}
+  syncInternalMsgSpellcheckUi();
+}
+function syncInternalMsgSpellcheckUi(){
+  const on=getInternalMsgSpellcheckEnabled();
+  const inp=document.getElementById('msg-input');
+  const cb=document.getElementById('msg-spellcheck-toggle');
+  if(inp)inp.spellcheck=!!on;
+  if(cb)cb.checked=!!on;
+}
+/** Espaces fines insécables avant : ; ! ? et points de suspension typographiques (texte libre). */
+function applyFrenchTypographyToFreeText(s){
+  let t=String(s||'');
+  t=t.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  t=t.replace(/\u00a0/g,' ');
+  t=t.replace(/\.{3,}/g,'…');
+  t=t.replace(/\s+([:;!?])/g,'\u202f$1');
+  return t.trim();
+}
 function refreshMsgBadge(){
   if(!currentUser)return;
   const total=countTotalInternalUnread(currentUser.id,getMem(),getLastRead(currentUser.id));
@@ -2606,7 +2638,7 @@ function getLoginAttempts(){try{return JSON.parse(appStorage.getItem('benai_atte
 function saveLoginAttempts(a){appStorage.setItem('benai_attempts',JSON.stringify(a));}
 function resetLoginAttempts(){saveLoginAttempts({count:0,blockedUntil:0});}
 
-// Normalise identifiant : minuscules + supprime accents (Aurélie = aurelie = AURELIE)
+// Normalise identifiant : minuscules + supprime accents (ex. prénom accentué → même clé)
 function normalizeId(s){
   return (s||'').toLowerCase().trim()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -3275,6 +3307,14 @@ function initApp(silent=false){
 // NAVIGATION
 // ══════════════════════════════════════════
 function showPage(page){
+  if(benaiLastNavPage==='paie'&&page!=='paie'){
+    paieResults.length=0;
+    try{
+      const pl=document.getElementById('paie-list');if(pl)pl.innerHTML='';
+      const pe=document.getElementById('paie-empty');if(pe)pe.style.display='block';
+      const pp=document.getElementById('paie-progress');if(pp)pp.style.display='none';
+    }catch(_){}
+  }
   if(currentUser&&shouldForceRoleGuide()&&page!=='guide'){
     page='guide';
   }
@@ -3310,6 +3350,7 @@ function showPage(page){
   if(page==='sav'){updateSavPageSubtitle();setSavSocieteRowVisibility();renderSAV();markSAVVu();showPageContext('sav');}
   if(page==='admin')refreshAdmin();
   if(page==='messages'){
+    syncInternalMsgSpellcheckUi();
     renderConvList();
     const convs=getConvsForUser(currentUser.id);
     if(currentConv&&convs[currentConv])openConv(currentConv,convs[currentConv]);
@@ -3334,6 +3375,7 @@ function showPage(page){
   if(page==='leads')initLeadsPage();
   if(page==='bugs')initBugsPage();
   recordUsagePageVisit(page);
+  benaiLastNavPage=page;
 }
 
 // ══════════════════════════════════════════
@@ -4047,10 +4089,19 @@ function renderThread(cid){
   area.scrollTop=area.scrollHeight;
   area.dataset.count=String(raw.length);
   area.dataset.readSig=JSON.stringify(mem.msg_read_cursor?.[cid]||{});
+  if(currentUser?.id&&cid===currentConv&&document.getElementById('page-messages')?.style.display==='flex'){
+    const all=mem.messages[cid]||[];
+    const latestTs=all.reduce((mx,x)=>Math.max(mx,Number(x?.ts||0)),0);
+    const curTs=Number(mem.msg_read_cursor?.[cid]?.[currentUser.id]||0);
+    if(latestTs>curTs){
+      markRead(currentUser.id,cid);
+      refreshMsgBadge();
+    }
+  }
 }
 
 function sendMsg(){
-  const input=document.getElementById('msg-input');const txt=input.value.trim();
+  const input=document.getElementById('msg-input');const txt=applyFrenchTypographyToFreeText(input.value.trim());
   if(!txt||!currentConv)return;input.value='';input.focus();
   const mem=getMem();if(!mem.messages[currentConv])mem.messages[currentConv]=[];
   const now=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
@@ -4128,7 +4179,7 @@ function editMsg(cid,idx){
         <button type="button" id="edit-msg-close-x" style="background:transparent;border:none;color:var(--t2);font-size:20px;line-height:1;cursor:pointer;padding:4px 8px" aria-label="Fermer">×</button>
       </div>
       <div class="lead-modal-body">
-        <textarea id="edit-msg-body" class="form-input" rows="6" style="width:100%;resize:vertical;font-family:inherit;min-height:120px"></textarea>
+        <textarea id="edit-msg-body" class="form-input" rows="6" style="width:100%;resize:vertical;font-family:inherit;min-height:120px" lang="fr"></textarea>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">
           <button type="button" id="edit-msg-cancel" style="padding:10px 16px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Annuler</button>
           <button type="button" id="edit-msg-save" style="padding:10px 16px;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Enregistrer</button>
@@ -4145,7 +4196,7 @@ function editMsg(cid,idx){
   wrap.querySelector('#edit-msg-close-x')?.addEventListener('click',close);
   wrap.querySelector('#edit-msg-cancel')?.addEventListener('click',close);
   wrap.querySelector('#edit-msg-save')?.addEventListener('click',()=>{
-    const nouveau=(document.getElementById('edit-msg-body')?.value||'').trim();
+    const nouveau=applyFrenchTypographyToFreeText((document.getElementById('edit-msg-body')?.value||'').trim());
     if(!nouveau)return;
     msg.text=nouveau;msg.edited=true;
   saveMem(mem);renderThread(cid);
@@ -4153,7 +4204,11 @@ function editMsg(cid,idx){
   });
   document.body.appendChild(wrap);
   const ta=document.getElementById('edit-msg-body');
-  if(ta){ta.value=msg.text;ta.focus();try{ta.setSelectionRange(ta.value.length,ta.value.length);}catch(e){}}
+  if(ta){
+    ta.lang='fr';
+    ta.spellcheck=getInternalMsgSpellcheckEnabled();
+    ta.value=msg.text;ta.focus();try{ta.setSelectionRange(ta.value.length,ta.value.length);}catch(e){}
+  }
 }
 
 // ══════════════════════════════════════════
@@ -5689,7 +5744,7 @@ async function processFichesPaie(input){
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:200,system:'Analyse cette fiche de paie et réponds UNIQUEMENT en JSON valide sans rien d\'autre : {"prenom":"","nom":"","mois":"","annee":""}',messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}},{type:'text',text:'Extrait prénom, nom, mois et année de cette fiche de paie.'}]}]})
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:200,system:'Tu reçois une image de fiche de paie. Réponds UNIQUEMENT en JSON valide (aucun autre texte) : {"prenom":"","nom":"","mois":"","annee":""}. N’inclus aucune autre donnée (salaire, IBAN, etc.). Ne reproduis pas de libellés confidentiels hors ces quatre champs.',messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}},{type:'text',text:'Extrait uniquement prénom, nom, mois et année pour préparer un e-mail d’envoi de fiche.'}]}]})
       });
       const data=await res.json();
       if(data.usage)trackTokens(currentUser.id,data.usage.input_tokens||0,data.usage.output_tokens||0);
@@ -5723,7 +5778,7 @@ function openPaieDraft(idx){
   window.open(mailto,'_blank');
   r.sentAt=Date.now();
   renderPaieList();
-  logActivity(`Fiche de paie envoyée : ${(r.prenom||'')+' '+(r.nom||'')}`.trim());
+  logActivity('Fiche de paie : brouillon e-mail ouvert (détail non journalisé)');
 }
 function openPaieBatchDrafts(){
   const targets=paieResults.map((r,idx)=>({r,idx})).filter(x=>x.r.email&&!x.r.error);
@@ -6212,7 +6267,7 @@ function renderGuidePage(){
     ],
     assistante:[
       'Menus BenAI : BenAI (IA), Notes, Messages, SAV, Leads CRM, Évolutions, Guide — tu relies l’accueil client aux outils métier.',
-      'Leads CRM : onglet « Mes leads » pour retrouver et compléter les dossiers que tu as saisis ; la recherche texte aide à retrouver un client vite.',
+      'Leads CRM : onglet « Mes leads » — trois vues : en attente d’attribution, puis « Attribué à… » (qui a le dossier jusqu’à RDV effectué ou perdu), puis Archives CRM.',
       'Création : + Nouveau lead — nom, téléphone, adresse complète, code postal, type de projet sont demandés à l’enregistrement ; le secteur est calculé automatiquement à partir du code postal ; tu peux compléter ville et commentaire pour le terrain.',
       'Tu enregistres le contact : pas de recherche de doublon à ta charge — la direction commerciale est prévenue dans son interface si un dossier similaire existe déjà.',
       'Après ta saisie, concentre-toi sur les infos utiles au terrain : le suivi du dossier se poursuit dans le CRM ; tu peux compléter commentaire ou coordonnées sur tes fiches tant que c’est pertinent.',
@@ -8832,7 +8887,7 @@ function buildAssistanteMesLeadsFilterBar(){
   const filters=document.getElementById('crm-filters');if(!filters)return;
   const scope=readAssistanteMesLeadsScope();
   const active=s=>scope===s?' active':'';
-  filters.innerHTML=`<button type="button" class="crm-filter crm-filter-assistante${active('en_attente')}" onclick="filterAssistanteMesLeads('en_attente',this)">⏳ En attente d'attribution</button><button type="button" class="crm-filter crm-filter-assistante${active('transmis')}" onclick="filterAssistanteMesLeads('transmis',this)">✅ Transmis au terrain</button><button type="button" class="crm-filter crm-filter-assistante${active('archives_crm')}" onclick="filterAssistanteMesLeads('archives_crm',this)" title="Archives CRM : manuel, année passée, vendu ancien mois, RDV effectué saisi, ou dossier perdu">📁 Archives CRM</button>`;
+  filters.innerHTML=`<button type="button" class="crm-filter crm-filter-assistante${active('en_attente')}" onclick="filterAssistanteMesLeads('en_attente',this)" title="Dossiers saisis par vous, sans commercial assigné">⏳ En attente d'attribution</button><button type="button" class="crm-filter crm-filter-assistante${active('transmis')}" onclick="filterAssistanteMesLeads('transmis',this)" title="Qui porte le dossier — visible jusqu’à un RDV effectué enregistré sur la fiche ou un statut perdu, puis passage aux Archives CRM.">👤 Attribué à…</button><button type="button" class="crm-filter crm-filter-assistante${active('archives_crm')}" onclick="filterAssistanteMesLeads('archives_crm',this)" title="Archives CRM : manuel, année passée, vendu ancien mois, RDV effectué saisi, ou dossier perdu">📁 Archives CRM</button>`;
   filters.setAttribute(CRM_FILTERS_ASSISTANTE_ATTR,'1');
 }
 function filterAssistanteMesLeads(scope,btn){
@@ -9248,13 +9303,16 @@ function renderLeads(){
     const scope=readAssistanteMesLeadsScope();
     if(!leads.length){
       list.innerHTML=scope==='en_attente'
-        ?'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead en attente d’attribution.<br><br>Les dossiers passés à un commercial apparaissent sous <strong>Transmis au terrain</strong>.<br><br>Cliquez sur <strong>+ Nouveau lead</strong> pour en saisir un.</div>'
+        ?'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead en attente d’attribution.<br><br>Dès qu’un dir. commercial ou un vendeur prend le dossier, il apparaît sous <strong>Attribué à…</strong> avec le nom du porteur.<br><br>Cliquez sur <strong>+ Nouveau lead</strong> pour en saisir un.</div>'
         :scope==='transmis'
-          ?'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun lead transmis en cours.<br><br>Les dossiers encore sans commercial restent sous <strong>En attente d’attribution</strong>.<br><br>Dès qu’un RDV est noté comme effectué ou le dossier est <strong>perdu</strong>, le lead va sous <strong>Archives CRM</strong>.</div>'
+          ?'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucun dossier attribué en suivi.<br><br>Tant qu’aucun commercial n’est sur la fiche, le dossier reste sous <strong>En attente d’attribution</strong>.<br><br>Ici vous suivez <strong>à qui le lead a été attribué</strong> jusqu’à un <strong>RDV effectué</strong> enregistré ou un statut <strong>perdu</strong> — ensuite le dossier va sous <strong>Archives CRM</strong>.</div>'
           :'<div style="color:var(--t3);font-size:13px;padding:20px;text-align:center">Aucune entrée dans les archives CRM pour vos saisies.</div>';
       return;
     }
-    list.innerHTML=leads.map(l=>renderLeadCardAssistante(l)).join('');
+    const introTransmis=scope==='transmis'
+      ?`<div style="font-size:12px;color:var(--t2);line-height:1.45;margin:0 0 12px;padding:10px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:10px">Vue <strong>Attribué à…</strong> : chaque fiche indique le porteur du dossier. Les dossiers restent ici jusqu’à un <strong>RDV effectué</strong> saisi sur la fiche (terrain) ou un passage en <strong>perdu</strong>, puis ils sont rangés sous <strong>Archives CRM</strong>.</div>`
+      :'';
+    list.innerHTML=introTransmis+leads.map(l=>renderLeadCardAssistante(l)).join('');
     return;
   }
 
@@ -9268,10 +9326,10 @@ function renderLeads(){
 function renderDispatchCard(l){
   const srcIcon=LEAD_SOURCE_ICONS[l.source]||'📋';
   const leadSoc=getLeadCRMCompany(l);
+  const socCourt=formatSocieteLegaleCourt(leadSoc);
   const commerciaux=getAllUsers().filter(u=>{
     const ur=normalizeProfileRole(u.role);
     if(!(ur==='commercial'||ur==='directeur_co'||ur==='directeur_general'))return false;
-    if(currentUser?.role==='admin')return true;
     return crmAssigneeCoversLeadSociete(u,leadSoc);
   });
   const selectOptions=commerciaux.map(c=>{
@@ -9280,9 +9338,10 @@ function renderDispatchCard(l){
     return`<option value="${escAttr(String(c.id??''))}">${esc(`${c.name||''} (${lab})`)}</option>`;
   }).join('');
   return `<div class="lead-card" style="border-left:4px solid var(--r);background:rgba(248,113,113,.05)">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
       <span>${srcIcon}</span>
       <div class="lead-nom">${esc(l.nom)}</div>
+      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--s3);color:var(--a);border:1px solid var(--b1);white-space:nowrap" title="Entité CRM du dossier">🏢 ${esc(socCourt)}</span>
       <span style="margin-left:auto;font-size:10px;color:var(--t3)">${getLeadAge(l)}</span>
     </div>
     <div class="lead-info">${esc(l.ville||'')}${l.cp?' ('+l.cp+')':''} · ${esc(l.type_projet||'')}</div>
@@ -9347,6 +9406,9 @@ function renderLeadCardAssistante(l){
     const why=isLeadCrmArchivedView(l)?'Archives CRM':(l.statut==='rouge'?'Dossier perdu':'RDV terrain enregistré');
     archMeta=`<span style="background:var(--s2);color:var(--t2);padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;border:1px solid var(--b1)">📁 ${esc(why)}</span>`;
   }
+  const attribBand=(asScope==='transmis'&&assigneeId)
+    ?`<div style="font-size:12px;font-weight:700;color:var(--a);margin:4px 0 2px;padding:7px 10px;background:var(--a3);border:1px solid var(--a);border-radius:8px;line-height:1.35">Attribué à <span style="color:var(--t1)">${esc(commLabel)}</span></div>`
+    :'';
   // Infos RDV/rappel
   let rdvInfo='';
   if(l.rappel&&l.sous_statut==='rdv_programme'){
@@ -9363,11 +9425,12 @@ function renderLeadCardAssistante(l){
       <span style="margin-left:auto;font-size:10px;color:var(--t3)">${age}</span>
     </div>
     <div style="font-size:13px;font-weight:700;color:var(--a);margin-bottom:3px">${esc(l.type_projet||'—')}</div>
+    ${attribBand}
     <div class="lead-info">${esc(l.ville||'')}</div>
     <div class="lead-meta" style="margin-top:6px;gap:8px;flex-wrap:wrap">
-      ${assigneeId
+      ${assigneeId&&(asScope!=='transmis')
         ?`<span style="background:var(--a3);color:var(--a);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">👤 ${esc(commLabel)}</span>`
-        :'<span style="background:var(--y2);color:var(--y);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⏳ En attente d\'attribution</span>'}
+        :!assigneeId?'<span style="background:var(--y2);color:var(--y);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⏳ En attente d\'attribution</span>':''}
       ${archMeta}
       ${makeLeadCallLink(l.id,l.telephone)}
     </div>
@@ -11198,10 +11261,7 @@ function refreshLeadsBadge(){
   const role=currentUser?.role;
   if(role==='admin'){badge.style.display='none';return;}
   if(role==='assistante'){
-    const mine=getLeads().filter(l=>!l._deleted&&(l.cree_par===currentUser.id||l.cree_par===currentUser.name));
-    const n=mine.filter(l=>!leadHasAssignedCommercial(l)&&!isLeadAssistanteMesLeadsArchived(l)).length;
-    if(n>0){badge.style.display='flex';badge.textContent=String(n);badge.style.background='var(--a)';}
-    else badge.style.display='none';
+    badge.style.display='none';
     return;
   }
   let leads=getCompanyScopedLeads(getLeads()).filter(l=>!isLeadCrmArchivedView(l));

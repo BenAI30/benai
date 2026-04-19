@@ -152,7 +152,10 @@ html,body{height:100%;overflow:hidden;font-family:'Outfit',sans-serif;background
 .tmsg-bubble:hover .tmsg-actions{display:flex;}
 .tmsg-act-btn{background:none;border:none;font-size:11px;cursor:pointer;color:var(--t2);padding:2px 4px;border-radius:4px;font-family:'Outfit',sans-serif;}
 .tmsg-act-btn:hover{color:var(--a);}
-.thread-input{padding:12px 14px;border-top:1px solid var(--b1);display:flex;gap:8px;background:var(--s1);}
+.thread-input{padding:12px 14px;border-top:1px solid var(--b1);display:flex;gap:8px;align-items:center;background:var(--s1);flex-wrap:wrap;}
+.thread-input-tools{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t3);flex-shrink:0;white-space:nowrap}
+.thread-input-tools label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;user-select:none;font-weight:600}
+.thread-input-tools input{accent-color:var(--a);width:14px;height:14px;margin:0}
 .thread-input input{flex:1;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:9px 12px;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13px;outline:none;transition:.15s;}
 .thread-input input:focus{border-color:var(--a);}
 .thread-input input::placeholder{color:var(--t3);}
@@ -697,7 +700,7 @@ input[type=file]{display:none;}
       <p id="login-brand-line">Espace professionnel sécurisé</p>
     </div>
     <div class="login-label">Identifiant (pseudo BenAI ou email pro)</div>
-    <input type="text" class="login-input" id="login-user" placeholder="ex. aurelie ou prenom.nom@..." autocomplete="username" autocapitalize="none" spellcheck="false" onkeydown="if(event.key==='Enter')document.getElementById('login-pwd').focus()">
+    <input type="text" class="login-input" id="login-user" placeholder="ex. prenom.nom ou votre email professionnel" autocomplete="username" autocapitalize="none" spellcheck="false" onkeydown="if(event.key==='Enter')document.getElementById('login-pwd').focus()">
     <div class="login-label">Mot de passe</div>
     <input type="password" class="login-input" id="login-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
     <button class="login-btn" onclick="login()">Se connecter →</button>
@@ -974,7 +977,7 @@ input[type=file]{display:none;}
       <!-- PAGE MESSAGES -->
       <div id="page-messages" style="display:none;flex:1;overflow:hidden;flex-direction:column">
         <div class="page-header" style="padding-bottom:10px;flex-shrink:0">
-          <div><div class="page-title">💬 Messages internes</div><div class="page-sub">Communication privée entre l'équipe</div></div>
+          <div><div class="page-title">💬 Messages internes</div><div class="page-sub">Communication privée entre l’équipe — accusé « Lu » côté expéditeur lorsque le destinataire ouvre la conversation</div></div>
           <button id="messages-open-notes-btn" onclick="showPage('notes')" style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;color:var(--t2);font-family:inherit">📝 Notes</button>
         </div>
         <div class="msg-layout">
@@ -983,7 +986,10 @@ input[type=file]{display:none;}
             <div class="thread-header" id="thread-header"><div style="color:var(--t3);font-size:13px;margin:auto">Sélectionnez une conversation</div></div>
             <div class="thread-msgs" id="thread-msgs"></div>
             <div class="thread-input" id="thread-input" style="display:none">
-              <input type="text" id="msg-input" placeholder="Écrire un message..." onkeydown="if(event.key==='Enter')sendMsg()">
+              <input type="text" id="msg-input" lang="fr" placeholder="Écrire un message…" spellcheck="true" onkeydown="if(event.key==='Enter')sendMsg()">
+              <div class="thread-input-tools" title="Surlignage des fautes par le navigateur (aucun envoi automatique vers une IA)">
+                <label><input type="checkbox" id="msg-spellcheck-toggle" checked onchange="setInternalMsgSpellcheckEnabled(this.checked)"> Correcteur</label>
+              </div>
               <button class="thread-send" onclick="sendMsg()">↑</button>
             </div>
           </div>
@@ -1746,7 +1752,7 @@ input[type=file]{display:none;}
       <!-- PAGE FICHES DE PAIE -->
       <div id="page-paie" style="display:none;flex-direction:column;height:100%">
         <div class="page-header" style="padding-bottom:12px;flex-shrink:0">
-          <div><div class="page-title">💰 Fiches de paie</div><div class="page-sub">Déposez les PDF — BenAI prépare les emails Outlook</div></div>
+          <div><div class="page-title">💰 Fiches de paie</div><div class="page-sub">Déposez les PDF — analyse locale pour préparer les brouillons Outlook. Rien n’est enregistré dans l’annuaire ni dans BenAI tant que vous n’envoyez pas vous-même l’e-mail ; les extraits sont effacés en quittant cette page.</div></div>
           <button onclick="document.getElementById('paie-files').click()" class="btn-primary">📎 Déposer les PDF</button>
         </div>
         <input type="file" id="paie-files" accept=".pdf" multiple onchange="processFichesPaie(this)">
@@ -1757,7 +1763,7 @@ input[type=file]{display:none;}
           </div>
           <div id="paie-list"></div>
           <div id="paie-empty" style="color:var(--t3);font-size:13px;text-align:center;padding:40px 0">
-            Déposez les fiches de paie PDF ci-dessus.<br><span style="font-size:11px;margin-top:6px;display:block">BenAI détecte le nom et prépare l'email Outlook pour chaque employé.</span>
+            Déposez les fiches de paie PDF ci-dessus.<br><span style="font-size:11px;margin-top:6px;display:block">L’IA lit uniquement l’image de la première page pour proposer prénom, nom et période : usage ponctuel, sans stockage dans l’annuaire. Pensez à quitter la page après traitement si la station est partagée.</span>
           </div>
         </div>
       </div>
