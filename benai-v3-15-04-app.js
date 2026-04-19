@@ -8760,7 +8760,7 @@ function syncBenaiQuickLinks(){
     return;
   }
   wrap.style.display='block';
-  wrap.innerHTML='<div class="crm-dash-kicker k-ex" style="margin:0 0 8px">Accès rapide</div><div class="dash-quick-actions" style="margin:0;grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">'+items.join('')+'</div>';
+  wrap.innerHTML='<div class="crm-dash-kicker k-ex" style="margin:0 0 8px">Accès rapide</div><div class="dash-quick-actions benai-quick-actions">'+items.join('')+'</div>';
 }
 function syncEvolutionHabitAiPanel(){
   const wrap=document.getElementById('habit-ai-wrap');
