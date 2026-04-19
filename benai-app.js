@@ -4022,6 +4022,56 @@ function cpClick(el,val){
 // Génère un ID de conversation cohérent entre deux utilisateurs
 function makeConvId(uid1,uid2){return [uid1,uid2].sort().join('_');}
 
+/** Supprime toute trace messagerie interne liée à un compte supprimé (1‑à‑1 + fil groupe). */
+function purgeInternalMessagesForDeletedUser(deletedRaw, extrasSnapshot){
+  const delN=normalizeId(String(deletedRaw||''));
+  if(!delN||delN==='benjamin'||delN==='benai')return false;
+  const partners=new Set(['benjamin','benai',delN]);
+  (Array.isArray(extrasSnapshot)?extrasSnapshot:getExtraUsers()).forEach(e=>{
+    if(e&&e.id)partners.add(normalizeId(e.id));
+  });
+  const mem=getMem();
+  let changed=false;
+  const cids=new Set();
+  partners.forEach(p=>{
+    const pn=normalizeId(p);
+    if(!pn)return;
+    cids.add(makeConvId(delN,pn));
+  });
+  cids.forEach(cid=>{
+    if(mem.messages&&mem.messages[cid]){delete mem.messages[cid];changed=true;}
+    if(mem.msg_deletions&&mem.msg_deletions[cid]){delete mem.msg_deletions[cid];changed=true;}
+    if(mem.msg_read_cursor&&mem.msg_read_cursor[cid]){delete mem.msg_read_cursor[cid];changed=true;}
+  });
+  if(mem.messages&&Array.isArray(mem.messages.groupe)){
+    const ng=mem.messages.groupe.filter(m=>m&&normalizeId(String(m.from||''))!==delN);
+    if(ng.length!==mem.messages.groupe.length){
+      mem.messages.groupe=ng;
+      changed=true;
+    }
+    if(!ng.length){delete mem.messages.groupe;changed=true;}
+  }
+  if(mem.msg_read_cursor&&mem.msg_read_cursor.groupe&&typeof mem.msg_read_cursor.groupe==='object'){
+    const gr=mem.msg_read_cursor.groupe;
+    Object.keys(gr).forEach(k=>{
+      if(normalizeId(k)===delN){delete gr[k];changed=true;}
+    });
+    if(!Object.keys(gr).length){delete mem.msg_read_cursor.groupe;changed=true;}
+  }
+  if(mem.msg_deletions&&mem.msg_deletions.groupe&&Array.isArray(mem.msg_deletions.groupe)){
+    const pref=`${delN}:`;
+    const dg=mem.msg_deletions.groupe.filter(k=>!String(k||'').startsWith(pref));
+    if(dg.length!==mem.msg_deletions.groupe.length){mem.msg_deletions.groupe=dg;changed=true;}
+    if(!dg.length)delete mem.msg_deletions.groupe;
+  }
+  if(changed){
+    saveMem(mem,true);
+    try{scheduleRenderConvList();}catch(_){}
+    try{refreshMsgBadge();}catch(_){}
+  }
+  return changed;
+}
+
 /** Conversation « Messages internes » avec l’assistant BenAI (séparée de Benjamin). */
 function addBenAIInternalConv(uid,convs){
   if(!uid||uid==='benjamin'||uid==='benai'||!convs)return;
@@ -7395,6 +7445,7 @@ async function supprimerUtilisateur(uid, opts){
     :`Supprimer ${u.name||effectiveId} définitivement ? Cette action est irréversible.`;
   if(!opts.skipConfirm&&!await benaiConfirm(confirmMsg))return;
   if(archiveCrmProfile)archiveCommercialUserSnapshot(u);
+  purgeInternalMessagesForDeletedUser(effectiveId,getExtraUsers());
   const emailForCloud=(u.email||getEmailCandidateForUid(effectiveId,'')||'').trim().toLowerCase();
   const authUidRaw=String(u.auth_uid||u.authUid||'').trim();
   const userIdCloud=isLikelyUuid(authUidRaw)?authUidRaw:'';
