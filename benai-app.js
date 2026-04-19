@@ -1458,7 +1458,7 @@ async function pilotageAdminResetDemoData(){
     return;
   }
   const step1=await benaiConfirm(
-    'Remise à zéro des données métier : tous les leads, SAV, notes, absences, messages internes synchronisés et snapshots cloud seront supprimés.\n\nVos comptes utilisateurs (Auth) et les fiches de l’annuaire en base sont conservés. Les mots de passe ne sont pas modifiés.',
+    'Remise à zéro : leads, SAV, notes, absences, messages équipe, snapshots cloud, puis côté pilotage les données synchronisées (objectifs CA, ventes par mois, connexions, archives commercial, notifs/briefings stockés en cloud par utilisateur).\n\nVos comptes (Auth) et la table annuaire sont conservés ; les mots de passe ne changent pas.',
     'Repartir de zéro (données)'
   );
   if(!step1)return;
@@ -1497,8 +1497,10 @@ async function pilotageAdminResetDemoData(){
     refreshSharedSignatures(true);
   }catch(_){}
   const nLab=Number.isFinite(nAnn)?nAnn:ann.length;
+  const nSnap=Number(res.data?.user_states_scrubbed);
+  const snapTxt=Number.isFinite(nSnap)&&nSnap>=0?` Snapshots « stats pilotage » nettoyés : ${nSnap}.`:'';
   await benaiAlert(
-    `Terminé : données CRM et messages effacés ; ${nLab} fiche(s) annuaire conservée(s) depuis la base.\n\nLa page va se recharger.`
+    `Terminé : CRM, messages et stats cloud effacés ; ${nLab} fiche(s) annuaire conservée(s) depuis la base.${snapTxt}\n\nLa page va se recharger.`
   );
   location.reload();
 }
@@ -10259,7 +10261,7 @@ function renderLeadsDashboard(){
     if(role==='admin'&&dashPilotage){
       html+=`<div class="secteur-card" style="margin-top:14px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.07)">
       <div class="secteur-title" style="color:var(--r)">🧹 Repartir de zéro (données)</div>
-      <div style="font-size:11px;color:var(--t2);line-height:1.55;margin-bottom:10px">Supprime <strong>tous</strong> les leads, SAV, notes, absences, messages internes synchronisés et snapshots <code style="font-size:10px">benai_state</code>. Conserve les <strong>comptes</strong> (Auth) et la table <strong>annuaire</strong>. Ne change pas les mots de passe. Mot de passe admin demandé pour confirmer. SQL : <code style="font-size:10px">patch_admin_reset_demo_data_rpc.sql</code> · fonction <code style="font-size:10px">admin-reset-demo-data</code>.</div>
+      <div style="font-size:11px;color:var(--t2);line-height:1.55;margin-bottom:10px">Supprime leads, SAV, notes, absences, messages, <code style="font-size:10px">benai_state</code> et le miroir <code style="font-size:10px">shared_core</code>, plus les <strong>ventes / objectifs / stats pilotage</strong> enregistrés par compte dans <code style="font-size:10px">user_state_*</code> (cloud). Conserve <strong>Auth</strong> et la table <strong>annuaire</strong>. SQL : <code style="font-size:10px">patch_admin_reset_demo_data_rpc.sql</code> · <code style="font-size:10px">admin-reset-demo-data</code>.</div>
       <button type="button" onclick="pilotageAdminResetDemoData()" style="padding:10px 14px;background:var(--r);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">Effacer CRM + messages (garder annuaire)</button>
     </div>`;
     }

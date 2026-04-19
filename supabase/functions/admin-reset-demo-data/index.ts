@@ -81,6 +81,80 @@ function clientAnnuaireFromDbRow(row: Record<string, unknown>, syncBase: number,
   };
 }
 
+/** Retire des snapshots cloud `user_state_*` tout ce qui alimente pilotage / ventes / stats (hors annuaire métier en table). */
+async function stripCrmStatsFromAllUserStateSnapshots(
+  adminClient: ReturnType<typeof createClient>,
+): Promise<number> {
+  const exactKeys = [
+    "benai_obj_comm",
+    "benai_obj_comm_mois",
+    "benai_lead_obj",
+    "benai_lead_obj_soc_mois",
+    "benai_ventes_mois",
+    "benai_connexions",
+    "benai_commercial_archives",
+    "benai_projets_sugg",
+    "benai_pending_user_deletes",
+    "benai_pending_user_creates",
+  ];
+  const prefixStrip = [
+    "benai_notifs_",
+    "benai_weekly_",
+    "benai_briefing_",
+    "benai_rr_idx_",
+    "benai_last_motiv_",
+    "benai_tuto_done_",
+    "benai_anniv_seen_",
+  ];
+  let updatedRows = 0;
+  let from = 0;
+  const pageSize = 300;
+  while (true) {
+    const { data: rows, error } = await adminClient
+      .from("app_settings")
+      .select("key, value")
+      .like("key", "user_state_%")
+      .order("key", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message || "app_settings user_state list");
+    const chunk = rows ?? [];
+    for (const row of chunk) {
+      const rowKey = String((row as { key?: string }).key ?? "");
+      const val = (row as { value?: unknown }).value;
+      if (!rowKey.startsWith("user_state_")) continue;
+      if (!val || typeof val !== "object" || Array.isArray(val)) continue;
+      const next: Record<string, unknown> = { ...(val as Record<string, unknown>) };
+      let touched = false;
+      for (const ek of exactKeys) {
+        if (Object.prototype.hasOwnProperty.call(next, ek)) {
+          delete next[ek];
+          touched = true;
+        }
+      }
+      for (const pk of Object.keys(next)) {
+        if (prefixStrip.some((p) => pk.startsWith(p))) {
+          delete next[pk];
+          touched = true;
+        }
+      }
+      if (!touched) continue;
+      const { error: upErr } = await adminClient.from("app_settings").upsert(
+        {
+          key: rowKey,
+          value: next,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "key" },
+      );
+      if (upErr) throw new Error(upErr.message || `upsert ${rowKey}`);
+      updatedRows++;
+    }
+    if (chunk.length < pageSize) break;
+    from += pageSize;
+  }
+  return updatedRows;
+}
+
 async function fetchAllAnnuaireRows(
   adminClient: ReturnType<typeof createClient>,
 ): Promise<Record<string, unknown>[]> {
@@ -229,12 +303,22 @@ Deno.serve(async (req) => {
       return json(400, { error: upErr.message || "Mise à jour shared_core_data_v1 impossible" }, origin);
     }
 
+    let userStatesScrubbed = 0;
+    try {
+      userStatesScrubbed = await stripCrmStatsFromAllUserStateSnapshots(adminClient);
+    } catch (e) {
+      return json(400, {
+        error: e instanceof Error ? e.message : "Nettoyage user_state impossible",
+      }, origin);
+    }
+
     return json(200, {
       ok: true,
       annuaire,
       annuaire_count: annuaire.length,
+      user_states_scrubbed: userStatesScrubbed,
       message:
-        "Leads, SAV, notes, absences, messages et snapshots ont été effacés ; comptes et annuaire conservés.",
+        "Leads, SAV, notes, absences, messages, snapshots benai_state, miroir partagé et stats/ventes/objectifs dans user_state_* ont été effacés ; comptes et table annuaire conservés.",
     }, origin);
   } catch (error) {
     return json(500, {
