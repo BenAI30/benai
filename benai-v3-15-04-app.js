@@ -572,7 +572,17 @@ function mergeByKey(remoteList,localList,keyGetter,conflictResolver){
 function pickLatestLead(prev,next){
   const a=Date.parse(prev?.date_modification||prev?.date_creation||0)||0;
   const b=Date.parse(next?.date_modification||next?.date_creation||0)||0;
-  return b>=a?next:prev;
+  const chosen=b>=a?next:prev;
+  const older=b>=a?prev:next;
+  const hasComm=l=>!!l&&(!!String(l.commercial||'').trim()||!!String(l.commercial_user_id||'').trim());
+  if(hasComm(older)&&!hasComm(chosen)){
+    return{
+      ...chosen,
+      commercial:older.commercial||chosen.commercial||null,
+      commercial_user_id:older.commercial_user_id||chosen.commercial_user_id||null
+    };
+  }
+  return chosen;
 }
 
 function pickLatestNote(prev,next){
@@ -2289,12 +2299,23 @@ function addDaysISO(days){
 function hasDirecteurCommercialForSociete(leadSoc){
   const ls=leadSoc==='lambert'?'lambert':'nemausus';
   return getAllUsers().some(u=>{
-    if(u.role!=='directeur_co')return false;
+    if(normalizeProfileRole(u.role)!=='directeur_co')return false;
     const s=String(u.societe||'').trim().toLowerCase();
     if(s==='les-deux')return false;
     if(s==='lambert')return ls==='lambert';
     if(s==='nemausus')return ls==='nemausus';
     return false;
+  });
+}
+/** Commerciaux éligibles au RR (rôle normalisé, non bloqués CRM). */
+function getCrmCommercialUsersForTerrain(){
+  const access=getAccess();
+  return getAllUsers().filter(u=>{
+    if(normalizeProfileRole(u.role)!=='commercial')return false;
+    const id=String(u.id||'');
+    if(access[id]===false)return false;
+    if(access[normalizeId(id)]===false)return false;
+    return true;
   });
 }
 /** Round-robin sur les commerciaux : périmètre société, puis sans société CRM, puis tout le vivier commercial. */
@@ -2307,12 +2328,13 @@ function getRoundRobinCommercialTerrain(societe){
     if(su===target)return true;
     return false;
   };
-  let users=getAllUsers().filter(u=>u.role==='commercial'&&matchSoc(u));
+  const pool=getCrmCommercialUsersForTerrain();
+  let users=pool.filter(u=>matchSoc(u));
   if(!users.length){
-    users=getAllUsers().filter(u=>u.role==='commercial'&&!normalizeProfileCompany(u.societe));
+    users=pool.filter(u=>!normalizeProfileCompany(u.societe));
   }
   if(!users.length){
-    users=getAllUsers().filter(u=>u.role==='commercial');
+    users=pool.slice();
   }
   if(!users.length)return null;
   const key='benai_rr_terrain_'+(societe||'all');
@@ -6752,7 +6774,7 @@ async function syncExtraUsersFromSupabaseProfiles(opts){
         auth_uid:p?.id||prev?.auth_uid||'',
         name:fullName,
         email,
-        role:p?.role||prev?.role||'assistante',
+        role:normalizeProfileRole(p?.role||prev?.role||'assistante'),
         societe:normalizeProfileCompany(p?.company)||normalizeProfileCompany(prev?.societe)||'',
         fonction:prev?.fonction||'',
         vehicule:prev?.vehicule||'',
@@ -10591,6 +10613,13 @@ async function saveLead(){
         await syncExtraUsersFromSupabaseProfiles({quiet:true});
       }
       autoCommercial=getRoundRobinCommercialTerrain(societe);
+      if(!autoCommercial&&roleNeedsPeerProfilesSyncFromSupabase(currentUser?.role)){
+        await syncExtraUsersFromSupabaseProfiles({quiet:true});
+        autoCommercial=getRoundRobinCommercialTerrain(societe);
+      }
+    }
+    if(!autoCommercial&&['assistante','admin'].includes(String(currentUser?.role||''))&&!hasDirecteurCommercialForSociete(societe)){
+      showDriveNotif('⚠️ Aucun commercial actif détecté pour l’attribution auto (rôle + société dans Supabase, ou liste filtrée par RLS). Assignez à la main ou ré-appliquez supabase/patch_profiles_select_pilotage.sql.');
     }
     if(data.ancien_client&&historicalProposal&&historicalProposal.isActive&&data.hors_secteur&&currentUser?.role==='directeur_co'&&!selectedCommercial){
       showDriveNotif(`🔁 Ancien client détecté : proposition de réattribution à ${historicalProposal.name}`);

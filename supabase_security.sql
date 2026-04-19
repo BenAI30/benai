@@ -298,6 +298,10 @@ using (
         public.current_profile_company() = 'lambert'
         and public.profiles.company in ('lambert','les-deux')
       )
+      or (
+        public.current_profile_role() in ('directeur_co','directeur_general','commercial','assistante','metreur')
+        and trim(coalesce(public.profiles.company,'')) = ''
+      )
     )
   )
 );

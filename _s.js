@@ -460,7 +460,17 @@ function mergeByKey(remoteList,localList,keyGetter,conflictResolver){
 function pickLatestLead(prev,next){
   const a=Date.parse(prev?.date_modification||prev?.date_creation||0)||0;
   const b=Date.parse(next?.date_modification||next?.date_creation||0)||0;
-  return b>=a?next:prev;
+  const chosen=b>=a?next:prev;
+  const older=b>=a?prev:next;
+  const hasComm=l=>!!l&&(!!String(l.commercial||'').trim()||!!String(l.commercial_user_id||'').trim());
+  if(hasComm(older)&&!hasComm(chosen)){
+    return{
+      ...chosen,
+      commercial:older.commercial||chosen.commercial||null,
+      commercial_user_id:older.commercial_user_id||chosen.commercial_user_id||null
+    };
+  }
+  return chosen;
 }
 
 function pickLatestNote(prev,next){
@@ -1037,6 +1047,14 @@ function normalizeProfileCompany(raw){
   if(s==='les-deux'||s==='lesdeux'||compact==='lesdeux'||s.includes('les deux')||s.includes('les-deux'))return'les-deux';
   return'';
 }
+function normalizeProfileRole(raw){
+  const r=String(raw||'').trim().toLowerCase().replace(/\s+/g,'_').replace(/-/g,'_');
+  const allowed=['admin','directeur_co','directeur_general','commercial','assistante','metreur'];
+  if(allowed.includes(r))return r;
+  if(r==='dg'||r==='dir_gen'||r==='directeurgeneral')return'directeur_general';
+  if(r==='dirco'||r==='directeurcommercial')return'directeur_co';
+  return'assistante';
+}
 
 function makeUserFromSupabaseProfile(profile,emailFallback=''){
   if(!profile)return null;
@@ -1050,7 +1068,7 @@ function makeUserFromSupabaseProfile(profile,emailFallback=''){
     auth_uid:profile.id||'',
     email:(profile.email||emailFallback||'').trim().toLowerCase(),
     name:profile.full_name||firstName,
-    role:profile.role||'assistante',
+    role:normalizeProfileRole(profile.role||'assistante'),
     societe:normalizeProfileCompany(profile.company)||'',
     color:getColorForRole(profile.role),
     initial:firstName.charAt(0).toUpperCase()||'U',
@@ -2137,11 +2155,21 @@ function addDaysISO(days){
 function hasDirecteurCommercialForSociete(leadSoc){
   const ls=leadSoc==='lambert'?'lambert':'nemausus';
   return getAllUsers().some(u=>{
-    if(u.role!=='directeur_co')return false;
+    if(normalizeProfileRole(u.role)!=='directeur_co')return false;
     const s=String(u.societe||'').trim().toLowerCase();
     if(s==='les-deux')return false;
     if(ls==='lambert')return s==='lambert';
     return s==='nemausus';
+  });
+}
+function getCrmCommercialUsersForTerrain(){
+  const access=getAccess();
+  return getAllUsers().filter(u=>{
+    if(normalizeProfileRole(u.role)!=='commercial')return false;
+    const id=String(u.id||'');
+    if(access[id]===false)return false;
+    if(access[normalizeId(id)]===false)return false;
+    return true;
   });
 }
 function getRoundRobinCommercial(societe){
@@ -2153,12 +2181,13 @@ function getRoundRobinCommercial(societe){
     if(su===target)return true;
     return false;
   };
-  let users=getAllUsers().filter(u=>u.role==='commercial'&&matchSoc(u));
+  const pool=getCrmCommercialUsersForTerrain();
+  let users=pool.filter(u=>matchSoc(u));
   if(!users.length){
-    users=getAllUsers().filter(u=>u.role==='commercial'&&!normalizeProfileCompany(u.societe));
+    users=pool.filter(u=>!normalizeProfileCompany(u.societe));
   }
   if(!users.length){
-    users=getAllUsers().filter(u=>u.role==='commercial');
+    users=pool.slice();
   }
   if(!users.length)return null;
   const key='benai_rr_idx_'+(societe||'all');
@@ -5756,7 +5785,7 @@ async function syncExtraUsersFromSupabaseProfiles(opts){
         auth_uid:p?.id||prev?.auth_uid||'',
         name:fullName,
         email,
-        role:p?.role||prev?.role||'assistante',
+        role:normalizeProfileRole(p?.role||prev?.role||'assistante'),
         societe:normalizeProfileCompany(p?.company)||normalizeProfileCompany(prev?.societe)||'',
         fonction:prev?.fonction||'',
         vehicule:prev?.vehicule||'',
@@ -8272,6 +8301,13 @@ async function saveLead(){
         await syncExtraUsersFromSupabaseProfiles({quiet:true});
       }
       autoCommercial=getRoundRobinCommercial(societe);
+      if(!autoCommercial&&roleNeedsPeerProfilesSyncFromSupabase(currentUser?.role)){
+        await syncExtraUsersFromSupabaseProfiles({quiet:true});
+        autoCommercial=getRoundRobinCommercial(societe);
+      }
+    }
+    if(!autoCommercial&&['assistante','admin'].includes(String(currentUser?.role||''))&&!hasDirecteurCommercialForSociete(societe)){
+      showDriveNotif('⚠️ Aucun commercial actif détecté pour l’attribution auto. Assignez à la main ou ré-appliquez supabase/patch_profiles_select_pilotage.sql.');
     }
     if(data.ancien_client&&historicalProposal&&historicalProposal.isActive&&data.hors_secteur&&currentUser?.role==='directeur_co'&&!selectedCommercial){
       showDriveNotif(`🔁 Ancien client détecté : proposition de réattribution à ${historicalProposal.name}`);
